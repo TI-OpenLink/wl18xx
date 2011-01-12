@@ -75,7 +75,7 @@ void wl1271_scan_complete_work(struct work_struct *work)
 
 	if (wl->scan.failed) {
 		wl1271_info("Scan completed due to error.");
-		ieee80211_queue_work(wl->hw, &wl->recovery_work);
+		wl1271_queue_recovery_work(wl);
 	}
 
 	ieee80211_scan_completed(wl->hw, false);
