@@ -653,6 +653,9 @@ struct mpath_info {
  * @ap_isolate: do not forward packets between connected stations
  * @ht_opmode: HT Operation mode
  * 	(u16 = opmode, -1 = do not change)
+ * @ssid_len: length of ssid string
+ *	(>0 = ssid_len, -1 = do not change)
+ * @ssid: SSID string (for AP mode). NULL termination not required.
  */
 struct bss_parameters {
 	int use_cts_prot;
@@ -662,6 +665,8 @@ struct bss_parameters {
 	u8 basic_rates_len;
 	int ap_isolate;
 	int ht_opmode;
+	int ssid_len;
+	u8 *ssid;
 };
 
 /*
