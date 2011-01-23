@@ -1229,6 +1229,13 @@ static int ieee80211_change_bss(struct wiphy *wiphy,
 		changed |= BSS_CHANGED_HT;
 	}
 
+	if (params->ssid_len > 0) {
+		memcpy(sdata->vif.bss_conf.ssid, params->ssid,
+		       params->ssid_len);
+		sdata->vif.bss_conf.ssid_len = params->ssid_len;
+		changed |= BSS_CHANGED_SSID;
+	}
+
 	ieee80211_bss_info_change_notify(sdata, changed);
 
 	return 0;
