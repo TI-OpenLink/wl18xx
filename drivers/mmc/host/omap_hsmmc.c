@@ -2362,15 +2362,7 @@ static int omap_hsmmc_suspend(struct device *dev)
 		cancel_work_sync(&host->mmc_carddetect_work);
 		ret = mmc_suspend_host(host->mmc);
 		mmc_host_enable(host->mmc);
-		if (ret == 0) {
-			omap_hsmmc_disable_irq(host);
-			OMAP_HSMMC_WRITE(host->base, HCTL,
-				OMAP_HSMMC_READ(host->base, HCTL) & ~SDBP);
-			mmc_host_disable(host->mmc);
-			clk_disable(host->iclk);
-			if (host->got_dbclk)
-				clk_disable(host->dbclk);
-		} else {
+		if (ret) {
 			host->suspended = 0;
 			if (host->pdata->resume) {
 				ret = host->pdata->resume(&pdev->dev,
@@ -2380,9 +2372,23 @@ static int omap_hsmmc_suspend(struct device *dev)
 						"Unmask interrupt failed\n");
 			}
 			mmc_host_disable(host->mmc);
+			goto err;
 		}
 
+		if (!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)) {
+			omap_hsmmc_disable_irq(host);
+			OMAP_HSMMC_WRITE(host->base, HCTL,
+				OMAP_HSMMC_READ(host->base, HCTL) & ~SDBP);
+			mmc_host_disable(host->mmc);
+		}
+
+		dev_dbg(mmc_dev(host->mmc), "disabling clocks!");
+		clk_disable(host->iclk);
+		if (host->got_dbclk)
+			clk_disable(host->dbclk);
+
 	}
+err:
 	return ret;
 }
 
@@ -2401,15 +2407,18 @@ static int omap_hsmmc_resume(struct device *dev)
 		if (ret)
 			goto clk_en_err;
 
-		if (mmc_host_enable(host->mmc) != 0) {
-			clk_disable(host->iclk);
-			goto clk_en_err;
-		}
-
 		if (host->got_dbclk)
 			clk_enable(host->dbclk);
 
-		omap_hsmmc_conf_bus_power(host);
+		if (!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)) {
+			if (mmc_host_enable(host->mmc) != 0) {
+				clk_disable(host->iclk);
+				/* TODO: disable other clock? */
+				goto clk_en_err;
+			}
+
+			omap_hsmmc_conf_bus_power(host);
+		}
 
 		if (host->pdata->resume) {
 			ret = host->pdata->resume(&pdev->dev, host->slot_id);
