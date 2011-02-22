@@ -78,6 +78,9 @@ int wl1271_roc(struct wl1271 *wl, u8 role_id);
 int wl1271_croc(struct wl1271 *wl, u8 role_id);
 int wl1271_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid);
 int wl1271_cmd_remove_peer(struct wl1271 *wl, u8 hlid);
+int wl12xx_cmd_config_fwlog(struct wl1271 *wl);
+int wl12xx_cmd_start_fwlog(struct wl1271 *wl);
+int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
 
 enum wl1271_commands {
 	CMD_INTERROGATE     = 1,    /*use this to read information elements*/
@@ -113,6 +116,10 @@ enum wl1271_commands {
 	CMD_SET_PEER_STATE           = 52,
 	CMD_REMAIN_ON_CHANNEL        = 53,
 	CMD_CANCEL_REMAIN_ON_CHANNEL = 54,
+
+	CMD_CONFIG_FWLOGGER          = 55,
+	CMD_START_FWLOGGER           = 56,
+	CMD_STOP_FWLOGGER            = 57,
 
 	/* AP commands */
 	CMD_ADD_PEER                 = 62,
@@ -648,4 +655,61 @@ struct wl1271_cmd_remove_peer {
 	u8 send_deauth_flag;
 	u8 padding1;
 } __packed;
+
+/*
+ * Continuous mode - packets are transferred to the host periodically
+ * via the data path.
+ * On demand - Log messages are stored in a cyclic buffer in the
+ * firmware, and only transferred to the host when explicitly requested
+ */
+enum wl12xx_fwlogger_log_mode {
+	WL12XX_FWLOG_CONTINUOUS,
+	WL12XX_FWLOG_ON_DEMAND
+};
+
+/* Include/exclude timestamps from the log messages */
+enum wl12xx_fwlogger_timestamp {
+	WL12XX_FWLOG_TIMESTAMP_DISABLED,
+	WL12XX_FWLOG_TIMESTAMP_ENABLED
+};
+
+/*
+ * Logs can be routed to the debug pinouts (where available), to the host bus
+ * (SDIO/SPI), or dropped
+ */
+enum wl12xx_fwlogger_output {
+	WL12XX_FWLOG_OUTPUT_NONE,
+	WL12XX_FWLOG_OUTPUT_DBG_PINS,
+	WL12XX_FWLOG_OUTPUT_HOST,
+};
+
+struct wl12xx_cmd_config_fwlog {
+	struct wl1271_cmd_header header;
+
+	/* See enum wl12xx_fwlogger_log_mode */
+	u8 logger_mode;
+
+	/* Minimum log level threshold */
+	u8 log_severity;
+
+	/* Include/exclude timestamps from the log messages */
+	u8 timestamp;
+
+	/* See enum wl1271_fwlogger_output */
+	u8 output;
+
+	/* Regulates the frequency of log messages */
+	u8 threshold;
+
+	u8 padding[3];
+} __packed;
+
+struct wl12xx_cmd_start_fwlog {
+	struct wl1271_cmd_header header;
+} __packed;
+
+struct wl12xx_cmd_stop_fwlog {
+	struct wl1271_cmd_header header;
+} __packed;
+
 #endif /* __WL1271_CMD_H__ */
