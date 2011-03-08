@@ -130,10 +130,8 @@ extern u32 wl12xx_debug_level;
 
 
 
-#define WL1271_FW_NAME "ti-connectivity/wl1271-fw-2.bin"
-#define WL128X_FW_NAME "ti-connectivity/wl128x-fw.bin"
-#define WL127X_AP_FW_NAME "ti-connectivity/wl1271-fw-ap.bin"
-#define WL128X_AP_FW_NAME "ti-connectivity/wl128x-fw-ap.bin"
+#define WL1271_FW_NAME "ti-connectivity/wl1271-fw-multirole-roc.bin"
+#define WL128X_FW_NAME "ti-connectivity/wl128x-fw-multirole-roc.bin"
 
 /*
  * wl127x and wl128x are using the same NVS file name. However, the
@@ -403,7 +401,6 @@ struct wl1271 {
 
 	u8 *fw;
 	size_t fw_len;
-	u8 fw_bss_type;
 	void *nvs;
 	size_t nvs_len;
 
