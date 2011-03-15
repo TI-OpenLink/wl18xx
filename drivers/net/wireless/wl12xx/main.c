@@ -3020,7 +3020,8 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			wl1271_configure_filters(wl, 0);
 
 			/* Need to update the BSSID (for filtering etc) */
-			do_join = true;
+			if (bss_conf->assoc)
+				do_join = true;
 		}
 	}
 
