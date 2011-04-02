@@ -22,8 +22,10 @@
 #include <linux/i2c/twl.h>
 #include <linux/gpio_keys.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
 #include <linux/leds.h>
 #include <linux/leds_pwm.h>
+#include <linux/wl12xx.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -50,6 +52,9 @@
 #define OMAP4_SFH7741_ENABLE_GPIO		188
 #define HDMI_GPIO_HPD 60 /* Hot plug pin for HDMI */
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
+
+#define GPIO_WIFI_PMENA	54
+#define GPIO_WIFI_IRQ	53
 
 static const int sdp4430_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -351,6 +356,11 @@ static struct twl4030_usb_data omap4_usbphy_data = {
 
 static struct omap2_hsmmc_info mmc[] = {
 	{
+		.mmc		= 1,
+		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
+		.gpio_wp	= -EINVAL,
+	},
+	{
 		.mmc		= 2,
 		.caps		=  MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
 		.gpio_cd	= -EINVAL,
@@ -359,11 +369,21 @@ static struct omap2_hsmmc_info mmc[] = {
 		.ocr_mask	= MMC_VDD_29_30,
 	},
 	{
-		.mmc		= 1,
-		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
+		.mmc		= 5,
+		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD |
+				  MMC_CAP_NONREMOVABLE,
+		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
+		.ocr_mask	= MMC_VDD_165_195,
+		.nonremovable	= true,
 	},
 	{}	/* Terminator */
+};
+
+static struct wl12xx_platform_data wlan_data __initdata = {
+	.irq = OMAP_GPIO_IRQ(GPIO_WIFI_IRQ),
+	.board_ref_clock = WL12XX_REFCLOCK_38,
+	.board_tcxo_clock = WL12XX_TCXOCLOCK_26,
 };
 
 static struct regulator_consumer_supply sdp4430_vaux_supply[] = {
@@ -376,6 +396,13 @@ static struct regulator_consumer_supply sdp4430_vmmc_supply[] = {
 	{
 		.supply = "vmmc",
 		.dev_name = "omap_hsmmc.0",
+	},
+};
+
+static struct regulator_consumer_supply sdp4430_vwlan_supply[] = {
+	{
+		.supply = "vmmc",
+		.dev_name = "omap_hsmmc.4",
 	},
 };
 
@@ -395,6 +422,7 @@ static int omap4_twl6030_hsmmc_late_init(struct device *dev)
 						MMCDETECT_INTR_OFFSET;
 		pdata->slots[0].card_detect = twl6030_mmc_card_detect;
 	}
+
 	return ret;
 }
 
@@ -477,6 +505,14 @@ static struct regulator_init_data sdp4430_vmmc = {
 	},
 	.num_consumer_supplies  = 1,
 	.consumer_supplies      = sdp4430_vmmc_supply,
+};
+
+static struct regulator_init_data sdp4430_vwlan = {
+	.constraints = {
+		.valid_ops_mask	= REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies = sdp4430_vwlan_supply,
 };
 
 static struct regulator_init_data sdp4430_vpp = {
@@ -573,6 +609,24 @@ static struct twl4030_platform_data sdp4430_twldata = {
 	.vaux3		= &sdp4430_vaux3,
 	.clk32kg	= &sdp4430_clk32kg,
 	.usb		= &omap4_usbphy_data
+};
+
+static struct fixed_voltage_config vwlan_config = {
+	.supply_name		= "vwl12xx",
+	.microvolts		= 1800000, /* 1.8V */
+	.gpio			= GPIO_WIFI_PMENA,
+	.startup_delay		= 70000, /* 70msec */
+	.enable_high		= 1,
+	.enabled_at_boot	= 0,
+	.init_data		= &sdp4430_vwlan,
+};
+
+static struct platform_device vwlan_device = {
+	.name		= "reg-fixed-voltage",
+	.id		= 1,
+	.dev = {
+		.platform_data	= &vwlan_config,
+	},
 };
 
 static struct i2c_board_info __initdata sdp4430_i2c_boardinfo[] = {
@@ -704,6 +758,19 @@ void omap_4430sdp_display_init(void)
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
 	OMAP4_MUX(USBB2_ULPITLL_CLK, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+	/* WLAN IRQ - GPIO 53 */
+	OMAP4_MUX(GPMC_NCS3, OMAP_MUX_MODE3 | OMAP_PIN_INPUT),
+	/* WLAN_EN - GPIO 54 */
+	OMAP4_MUX(GPMC_NWP, OMAP_MUX_MODE3 | OMAP_PIN_OUTPUT),
+	/* WLAN SDIO: MMC5 CMD */
+	OMAP4_MUX(SDMMC5_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	/* WLAN SDIO: MMC5 CLK */
+	OMAP4_MUX(SDMMC5_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	/* WLAN SDIO: MMC5 DAT[0-3] */
+	OMAP4_MUX(SDMMC5_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP4_MUX(SDMMC5_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP4_MUX(SDMMC5_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP4_MUX(SDMMC5_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 
@@ -777,6 +844,18 @@ static inline void board_serial_init(void)
 }
  #endif
 
+static void omap4_4430sdp_wifi_init(void)
+{
+	platform_device_register(&vwlan_device);
+
+	if (gpio_request(GPIO_WIFI_IRQ, "wl12xx") ||
+	    gpio_direction_input(GPIO_WIFI_IRQ))
+		pr_err("Error initializing up WLAN_IRQ\n");
+
+	if (wl12xx_set_platform_data(&wlan_data))
+		pr_err("Error setting wl12xx data\n");
+}
+
 static void __init omap_4430sdp_init(void)
 {
 	int status;
@@ -794,6 +873,8 @@ static void __init omap_4430sdp_init(void)
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	board_serial_init();
 	omap4_twl6030_hsmmc_init(mmc);
+
+	omap4_4430sdp_wifi_init();
 
 	usb_musb_init(&musb_board_data);
 
