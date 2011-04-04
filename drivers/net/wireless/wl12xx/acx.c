@@ -1731,3 +1731,51 @@ out:
 	kfree(acx);
 	return ret;
 }
+
+int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl)
+{
+	struct wl1271_acx_set_rate_mgmt_params *acx = NULL;
+	struct conf_rate_policy_settings *conf = &wl->conf.rate;
+	int ret;
+
+	wl1271_debug(DEBUG_ACX, "acx set rate mgmt params");
+	BUILD_BUG_ON(sizeof(conf->rate_retry_policy) !=
+		     sizeof(acx->rate_retry_policy));
+	BUILD_BUG_ON(sizeof(*acx) % 4);
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx)
+		return -ENOMEM;
+
+	acx->index = ACX_RATE_MGMT_ALL_PARAMS;
+	acx->rate_retry_score = cpu_to_le16(conf->rate_retry_score);
+	acx->per_add = cpu_to_le16(conf->per_add);
+	acx->per_th1 = cpu_to_le16(conf->per_th1);
+	acx->per_th2 = cpu_to_le16(conf->per_th2);
+	acx->max_per = cpu_to_le16(conf->max_per);
+	acx->inverse_curiosity_factor = conf->inverse_curiosity_factor;
+	acx->tx_fail_low_th = conf->tx_fail_low_th;
+	acx->tx_fail_high_th = conf->tx_fail_high_th;
+	acx->per_alpha_shift = conf->per_alpha_shift;
+	acx->per_add_shift = conf->per_add_shift;
+	acx->per_beta1_shift = conf->per_beta1_shift;
+	acx->per_beta2_shift = conf->per_beta2_shift;
+	acx->rate_check_up = conf->rate_check_up;
+	acx->rate_check_down = conf->rate_check_down;
+	memcpy(acx->rate_retry_policy, conf->rate_retry_policy,
+	       sizeof(acx->rate_retry_policy));
+
+	wl1271_dump(DEBUG_CMD, "RATE_MGMT: ",
+		&acx->header + 1, sizeof(*acx) - sizeof(acx->header));
+
+	ret = wl1271_cmd_configure(wl, ACX_SET_RATE_MAMAGEMENT_PARAMS,
+				   acx, sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("acx set rate mgmt params failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
