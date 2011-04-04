@@ -839,6 +839,7 @@ int wl1271_acx_ap_rate_policy(struct wl1271 *wl, struct conf_tx_rate_class *c,
 		goto out;
 	}
 
+	wl1271_debug(DEBUG_ACX, "idx: %d, rate: 0x%x", idx, c->enabled_rates);
 	acx->rate_policy.enabled_rates = cpu_to_le32(c->enabled_rates);
 	acx->rate_policy.short_retry_limit = c->short_retry_limit;
 	acx->rate_policy.long_retry_limit = c->long_retry_limit;

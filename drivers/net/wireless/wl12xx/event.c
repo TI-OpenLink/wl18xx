@@ -272,6 +272,9 @@ static int wl1271_event_process(struct wl1271 *wl, struct event_mailbox *mbox)
 			wl1271_tx_dummy_packet(wl);
 	}
 
+	if (vector & DISCONNECT_EVENT_COMPLETE_ID)
+		wl1271_debug(DEBUG_EVENT, "disconnect event");
+
 	if (wl->vif && beacon_loss)
 		ieee80211_connection_loss(wl->vif);
 
