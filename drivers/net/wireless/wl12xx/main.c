@@ -677,7 +677,7 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	if (ret < 0)
 		goto out_free_memmap;
 
-	ret = wl1271_acx_sta_mem_cfg(wl);
+	ret = wl1271_acx_mem_cfg(wl);
 	if (ret < 0)
 		goto out_free_memmap;
 
@@ -2234,9 +2234,11 @@ static void wl1271_op_configure_filter(struct ieee80211_hw *hw,
 	wl1271_configure_filters(wl, 0);
 
 	/* apply configured filters */
+#if 0
 	ret = wl1271_acx_rx_config(wl, wl->rx_config, wl->rx_filter);
 	if (ret < 0)
 		goto out_sleep;
+#endif
 
 out_sleep:
 	wl1271_ps_elp_sleep(wl);
@@ -4054,6 +4056,8 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
+	wl->role_id = WL1271_INVALID_ROLE_ID;
+	wl->sta_hlid = WL1271_INVALID_LINK_ID;
 	setup_timer(&wl->rx_streaming_timer, wl1271_rx_streaming_timer,
 		    (unsigned long) wl);
 

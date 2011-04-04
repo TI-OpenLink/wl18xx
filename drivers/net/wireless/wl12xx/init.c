@@ -235,10 +235,6 @@ static int wl1271_init_rx_config(struct wl1271 *wl, u32 config, u32 filter)
 	if (ret < 0)
 		return ret;
 
-	ret = wl1271_acx_rx_config(wl, config, filter);
-	if (ret < 0)
-		return ret;
-
 	return 0;
 }
 
@@ -383,7 +379,7 @@ static int wl1271_sta_hw_init(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
-	ret = wl1271_acx_sta_mem_cfg(wl);
+	ret = wl1271_acx_mem_cfg(wl);
 	if (ret < 0)
 		return ret;
 
@@ -437,7 +433,7 @@ static int wl1271_ap_hw_init(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
-	ret = wl1271_acx_ap_mem_cfg(wl);
+	ret = wl1271_acx_mem_cfg(wl);
 	if (ret < 0)
 		return ret;
 

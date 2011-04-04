@@ -155,6 +155,8 @@ extern u32 wl12xx_debug_level;
 #define WL1271_DEFAULT_DTIM_PERIOD 1
 
 #define WL1271_MAX_LINKS           8
+#define WL1271_INVALID_ROLE_ID     0xff
+#define WL1271_INVALID_LINK_ID     0xff
 #define WL1271_AP_GLOBAL_HLID      0
 #define WL1271_AP_BROADCAST_HLID   1
 #define WL1271_AP_STA_HLID_START   2
@@ -404,6 +406,8 @@ struct wl1271 {
 	u8 ssid[IW_ESSID_MAX_SIZE + 1];
 	u8 ssid_len;
 	int channel;
+	u8 role_id;
+	u8 sta_hlid;
 
 	struct wl1271_acx_mem_map *target_mem_map;
 

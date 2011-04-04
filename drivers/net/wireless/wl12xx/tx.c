@@ -92,7 +92,14 @@ static int wl1271_tx_update_filters(struct wl1271 *wl,
 
 	wl1271_configure_filters(wl, FIF_OTHER_BSS);
 
+	/*
+	 * TODO: how to change filter configuration for roaming? is this even
+	 * required in this FW?
+	 */
+#if 0
 	return wl1271_acx_rx_config(wl, wl->rx_config, wl->rx_filter);
+#endif
+	return 0;
 }
 
 static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
