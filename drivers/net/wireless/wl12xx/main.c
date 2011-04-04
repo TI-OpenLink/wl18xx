@@ -1591,6 +1591,21 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	wl1271_debug(DEBUG_MAC80211, "mac80211 stop");
 }
 
+static u8 wl1271_get_role_type(struct wl1271 *wl)
+{
+	switch (wl->bss_type) {
+	case BSS_TYPE_AP_BSS:
+		return WL1271_ROLE_AP;
+
+	case BSS_TYPE_STA_BSS:
+		return WL1271_ROLE_STA;
+
+	default:
+		wl1271_info("invalid bss_type: %d", wl->bss_type);
+	}
+	return 0xff;
+}
+
 static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 				   struct ieee80211_vif *vif)
 {
@@ -1657,6 +1672,11 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		if (ret < 0)
 			goto power_off;
 
+		ret = wl1271_cmd_role_enable(wl, wl1271_get_role_type(wl),
+					     &wl->role_id);
+		if (ret < 0)
+			goto irq_disable;
+
 		ret = wl1271_hw_init(wl);
 		if (ret < 0)
 			goto irq_disable;
@@ -1721,6 +1741,7 @@ out:
 static void __wl1271_op_remove_interface(struct wl1271 *wl,
 					 bool reset_tx_queues)
 {
+	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 remove interface");
 
@@ -1744,6 +1765,20 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 		wl->scan.req = NULL;
 		ieee80211_scan_completed(wl->hw, true);
 	}
+
+	/* TODO: put all this in a separate function? */
+	/* disable active roles */
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0) {
+		/*
+		 * do nothing. we are going to power_off the chip anyway.
+		 * handle this case when we'll really support multi-role...
+		 */
+	}
+	wl1271_cmd_role_disable(wl, &wl->role_id);
+
+	/* TODO: this obviously shouldn't always be called */
+	wl1271_ps_elp_sleep(wl);
 
 	/*
 	 * this must be before the cancel_work calls below, so that the work
