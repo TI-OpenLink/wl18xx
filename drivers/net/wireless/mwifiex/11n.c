@@ -61,59 +61,42 @@ mwifiex_fill_cap_info(struct mwifiex_private *priv,
 	uint16_t ht_cap_info = le16_to_cpu(ht_cap->ht_cap.cap_info);
 	uint16_t ht_ext_cap = le16_to_cpu(ht_cap->ht_cap.extended_ht_cap_info);
 
-	if (ISSUPP_CHANWIDTH40(adapter->hw_dot_11n_dev_cap) &&
-	    ISSUPP_CHANWIDTH40(adapter->usr_dot_11n_dev_cap))
-		SETHT_SUPPCHANWIDTH(ht_cap_info);
+	/* Convert dev_cap to IEEE80211_HT_CAP */
+	if (ISSUPP_CHANWIDTH40(adapter->hw_dot_11n_dev_cap))
+		ht_cap_info |= IEEE80211_HT_CAP_SUP_WIDTH_20_40;
 	else
-		RESETHT_SUPPCHANWIDTH(ht_cap_info);
+		ht_cap_info &= ~IEEE80211_HT_CAP_SUP_WIDTH_20_40;
 
-	if (ISSUPP_GREENFIELD(adapter->hw_dot_11n_dev_cap) &&
-	    ISSUPP_GREENFIELD(adapter->usr_dot_11n_dev_cap))
-		SETHT_GREENFIELD(ht_cap_info);
+	if (ISSUPP_SHORTGI20(adapter->hw_dot_11n_dev_cap))
+		ht_cap_info |= IEEE80211_HT_CAP_SGI_20;
 	else
-		RESETHT_GREENFIELD(ht_cap_info);
+		ht_cap_info &= ~IEEE80211_HT_CAP_SGI_20;
 
-	if (ISSUPP_SHORTGI20(adapter->hw_dot_11n_dev_cap) &&
-	    ISSUPP_SHORTGI20(adapter->usr_dot_11n_dev_cap))
-		SETHT_SHORTGI20(ht_cap_info);
+	if (ISSUPP_SHORTGI40(adapter->hw_dot_11n_dev_cap))
+		ht_cap_info |= IEEE80211_HT_CAP_SGI_40;
 	else
-		RESETHT_SHORTGI20(ht_cap_info);
+		ht_cap_info &= ~IEEE80211_HT_CAP_SGI_40;
 
-	if (ISSUPP_SHORTGI40(adapter->hw_dot_11n_dev_cap) &&
-	    ISSUPP_SHORTGI40(adapter->usr_dot_11n_dev_cap))
-		SETHT_SHORTGI40(ht_cap_info);
-	else
-		RESETHT_SHORTGI40(ht_cap_info);
-
-	/* No user config for RX STBC yet */
-	if (ISSUPP_RXSTBC(adapter->hw_dot_11n_dev_cap)
-	    && ISSUPP_RXSTBC(adapter->usr_dot_11n_dev_cap))
-		SETHT_RXSTBC(ht_cap_info, 1);
-	else
-		RESETHT_RXSTBC(ht_cap_info);
-
-	/* No user config for TX STBC yet */
 	if (ISSUPP_TXSTBC(adapter->hw_dot_11n_dev_cap))
-		SETHT_TXSTBC(ht_cap_info);
+		ht_cap_info |= IEEE80211_HT_CAP_TX_STBC;
 	else
-		RESETHT_TXSTBC(ht_cap_info);
+		ht_cap_info &= ~IEEE80211_HT_CAP_TX_STBC;
 
-	/* No user config for Delayed BACK yet */
-	if (GET_DELAYEDBACK(adapter->hw_dot_11n_dev_cap))
-		SETHT_DELAYEDBACK(ht_cap_info);
+	if (ISSUPP_RXSTBC(adapter->hw_dot_11n_dev_cap))
+		ht_cap_info |= 1 << IEEE80211_HT_CAP_RX_STBC_SHIFT;
 	else
-		RESETHT_DELAYEDBACK(ht_cap_info);
+		ht_cap_info &= ~(3 << IEEE80211_HT_CAP_RX_STBC_SHIFT);
 
-	if (ISENABLED_40MHZ_INTOLARENT(adapter->usr_dot_11n_dev_cap))
-		SETHT_40MHZ_INTOLARANT(ht_cap_info);
+	if (ISSUPP_GREENFIELD(adapter->hw_dot_11n_dev_cap))
+		ht_cap_info |= IEEE80211_HT_CAP_GRN_FLD;
 	else
-		RESETHT_40MHZ_INTOLARANT(ht_cap_info);
+		ht_cap_info &= ~IEEE80211_HT_CAP_GRN_FLD;
 
-	SETAMPDU_SIZE(ht_cap->ht_cap.ampdu_params_info, AMPDU_FACTOR_64K);
-	SETAMPDU_SPACING(ht_cap->ht_cap.ampdu_params_info, 0);
+	ht_cap_info &= ~IEEE80211_HT_CAP_MAX_AMSDU;
+	ht_cap_info |= IEEE80211_HT_CAP_SM_PS;
 
-	/* Need change to support 8k AMSDU receive */
-	RESETHT_MAXAMSDU(ht_cap_info);
+	ht_cap->ht_cap.ampdu_params_info |= IEEE80211_HT_AMPDU_PARM_FACTOR;
+	ht_cap->ht_cap.ampdu_params_info &= ~IEEE80211_HT_AMPDU_PARM_DENSITY;
 
 	rx_mcs_supp = GET_RXMCSSUPP(adapter->hw_dev_mcs_support);
 
@@ -126,9 +109,8 @@ mwifiex_fill_cap_info(struct mwifiex_private *priv,
 	memset(&mcs[rx_mcs_supp], 0,
 			sizeof(struct ieee80211_mcs_info) - rx_mcs_supp);
 
-	if (priv->bss_mode == MWIFIEX_BSS_MODE_INFRA ||
-	    (ISSUPP_CHANWIDTH40(adapter->hw_dot_11n_dev_cap) &&
-	     ISSUPP_CHANWIDTH40(adapter->usr_dot_11n_dev_cap)))
+	if (priv->bss_mode == NL80211_IFTYPE_STATION ||
+			(ht_cap_info & IEEE80211_HT_CAP_SUP_WIDTH_20_40))
 		/* Set MCS32 for infra mode or ad-hoc mode with 40MHz support */
 		SETHT_MCS32(ht_cap->ht_cap.mcs.rx_mask);
 
@@ -137,102 +119,6 @@ mwifiex_fill_cap_info(struct mwifiex_private *priv,
 
 	ht_cap->ht_cap.cap_info = cpu_to_le16(ht_cap_info);
 	ht_cap->ht_cap.extended_ht_cap_info = cpu_to_le16(ht_ext_cap);
-}
-
-/*
- * Shows HT capability information fields.
- *
- * The following HT capability information fields are supported.
- *      - Maximum AMSDU length (3839 bytes or 7935 bytes)
- *      - Beam forming support
- *      - Greenfield preamble support
- *      - AMPDU support
- *      - MIMO Power Save support
- *      - Rx STBC support
- *      - Tx STBC support
- *      - Short GI for 20 MHz support
- *      - Short GI for 40 MHz support
- *      - LDPC coded packets receive support
- *      - Number of delayed BA streams
- *      - Number of immediate BA streams
- *      - 10 MHz channel width support
- *      - 20 MHz channel width support
- *      - 40 MHz channel width support
- *      - Presence of Tx antenna A/B/C/D
- *      - Presence of Rx antenna A/B/C/D
- */
-void
-mwifiex_show_dot_11n_dev_cap(struct mwifiex_adapter *adapter, u32 cap)
-{
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Max MSDU len = %s octets\n",
-	       (ISSUPP_MAXAMSDU(cap) ? "7935" : "3839"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Beam forming %s\n",
-	       (ISSUPP_BEAMFORMING(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Greenfield preamble %s\n",
-	       (ISSUPP_GREENFIELD(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: AMPDU %s\n",
-	       (ISSUPP_AMPDU(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: MIMO Power Save %s\n",
-	       (ISSUPP_MIMOPS(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Rx STBC %s\n",
-	       (ISSUPP_RXSTBC(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Tx STBC %s\n",
-	       (ISSUPP_TXSTBC(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Short GI for 40 Mhz %s\n",
-	       (ISSUPP_SHORTGI40(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: Short GI for 20 Mhz %s\n",
-	       (ISSUPP_SHORTGI20(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: LDPC coded packet receive %s\n",
-	       (ISSUPP_RXLDPC(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev,
-		"info: GET_HW_SPEC: Number of Delayed Block Ack streams = %d\n",
-	       GET_DELAYEDBACK(cap));
-	dev_dbg(adapter->dev,
-		"info: GET_HW_SPEC: Number of Immediate Block Ack streams = %d\n",
-	       GET_IMMEDIATEBACK(cap));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: 40 Mhz channel width %s\n",
-	       (ISSUPP_CHANWIDTH40(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: 20 Mhz channel width %s\n",
-	       (ISSUPP_CHANWIDTH20(cap) ? "supported" : "not supported"));
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: 10 Mhz channel width %s\n",
-	       (ISSUPP_CHANWIDTH10(cap) ? "supported" : "not supported"));
-
-	if (ISSUPP_RXANTENNAA(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Rx antennea A\n");
-
-	if (ISSUPP_RXANTENNAB(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Rx antennea B\n");
-
-	if (ISSUPP_RXANTENNAC(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Rx antennea C\n");
-
-	if (ISSUPP_RXANTENNAD(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Rx antennea D\n");
-
-	if (ISSUPP_TXANTENNAA(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Tx antennea A\n");
-
-	if (ISSUPP_TXANTENNAB(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Tx antennea B\n");
-
-	if (ISSUPP_TXANTENNAC(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Tx antennea C\n");
-
-	if (ISSUPP_TXANTENNAD(cap))
-		dev_dbg(adapter->dev, "info: GET_HW_SPEC: Prescence of Tx antennea D\n");
-
-	return;
-}
-
-/*
- * Shows HT MCS support field.
- */
-void
-mwifiex_show_dev_mcs_support(struct mwifiex_adapter *adapter, u8 support)
-{
-	dev_dbg(adapter->dev, "info: GET_HW_SPEC: MCSs for %dx%d MIMO\n",
-	       GET_RXMCSSUPP(support), GET_TXMCSSUPP(support));
-	return;
 }
 
 /*
@@ -532,7 +418,7 @@ mwifiex_cmd_append_11n_tlv(struct mwifiex_private *priv,
 	}
 
 	if (bss_desc->bcn_ht_info) {
-		if (priv->bss_mode == MWIFIEX_BSS_MODE_IBSS) {
+		if (priv->bss_mode == NL80211_IFTYPE_ADHOC) {
 			ht_info = (struct mwifiex_ie_types_htinfo *) *buffer;
 			memset(ht_info, 0,
 			       sizeof(struct mwifiex_ie_types_htinfo));
@@ -548,10 +434,10 @@ mwifiex_cmd_append_11n_tlv(struct mwifiex_private *priv,
 			       le16_to_cpu(ht_info->header.len));
 
 			if (!ISSUPP_CHANWIDTH40
-			    (priv->adapter->hw_dot_11n_dev_cap)
-			    || !ISSUPP_CHANWIDTH40(priv->adapter->
-						   usr_dot_11n_dev_cap))
-				RESET_CHANWIDTH40(ht_info->ht_info.ht_param);
+					(priv->adapter->hw_dot_11n_dev_cap))
+				ht_info->ht_info.ht_param &=
+					~(IEEE80211_HT_PARAM_CHAN_WIDTH_ANY |
+					IEEE80211_HT_PARAM_CHA_SEC_OFFSET);
 
 			*buffer += sizeof(struct mwifiex_ie_types_htinfo);
 			ret_len += sizeof(struct mwifiex_ie_types_htinfo);
@@ -570,13 +456,13 @@ mwifiex_cmd_append_11n_tlv(struct mwifiex_private *priv,
 		chan_list->chan_scan_param[0].radio_type =
 			mwifiex_band_to_radio_type((u8) bss_desc->bss_band);
 
-		if ((ISSUPP_CHANWIDTH40(priv->adapter->hw_dot_11n_dev_cap) &&
-		     ISSUPP_CHANWIDTH40(priv->adapter->usr_dot_11n_dev_cap))
-		    && ISALLOWED_CHANWIDTH40(bss_desc->bcn_ht_info->ht_param))
+		if (ISSUPP_CHANWIDTH40(priv->adapter->hw_dot_11n_dev_cap)
+			&& (bss_desc->bcn_ht_info->ht_param &
+				IEEE80211_HT_PARAM_CHAN_WIDTH_ANY))
 			SET_SECONDARYCHAN(chan_list->chan_scan_param[0].
 					  radio_type,
-					  GET_SECONDARYCHAN(bss_desc->
-					  bcn_ht_info->ht_param));
+					  (bss_desc->bcn_ht_info->ht_param &
+					  IEEE80211_HT_PARAM_CHA_SEC_OFFSET));
 
 		*buffer += sizeof(struct mwifiex_ie_types_chan_list_param_set);
 		ret_len += sizeof(struct mwifiex_ie_types_chan_list_param_set);
@@ -636,7 +522,8 @@ mwifiex_cfg_tx_buf(struct mwifiex_private *priv,
 	u16 curr_tx_buf_size = 0;
 
 	if (bss_desc->bcn_ht_cap) {
-		if (GETHT_MAXAMSDU(le16_to_cpu(bss_desc->bcn_ht_cap->cap_info)))
+		if (le16_to_cpu(bss_desc->bcn_ht_cap->cap_info) &
+				IEEE80211_HT_CAP_MAX_AMSDU)
 			max_amsdu = MWIFIEX_TX_DATA_BUF_SIZE_8K;
 		else
 			max_amsdu = MWIFIEX_TX_DATA_BUF_SIZE_4K;

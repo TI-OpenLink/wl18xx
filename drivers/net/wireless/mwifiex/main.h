@@ -50,8 +50,6 @@ enum {
 };
 
 #define DRV_MODE_STA       0x1
-#define DRV_MODE_UAP       0x2
-#define DRV_MODE_UAP_STA   0x3
 
 #define SD8787_W0   0x30
 #define SD8787_W1   0x31
@@ -74,12 +72,7 @@ struct mwifiex_drv_mode {
 #define MWIFIEX_TIMER_10S			10000
 #define MWIFIEX_TIMER_1S			1000
 
-#define NL_MAX_PAYLOAD      1024
-#define NL_MULTICAST_GROUP  1
-
 #define MAX_TX_PENDING      60
-
-#define HEADER_ALIGNMENT                8
 
 #define MWIFIEX_UPLD_SIZE               (2312)
 
@@ -611,7 +604,6 @@ struct mwifiex_adapter {
 	u16 curr_tx_buf_size;
 	u32 ioport;
 	enum MWIFIEX_HARDWARE_STATUS hw_status;
-	u16 radio_on;
 	u16 number_of_antenna;
 	u32 fw_cap_info;
 	/* spin lock for interrupt handling */
@@ -687,8 +679,6 @@ struct mwifiex_adapter {
 	u8 event_body[MAX_EVENT_SIZE];
 	u32 hw_dot_11n_dev_cap;
 	u8 hw_dev_mcs_support;
-	u32 usr_dot_11n_dev_cap;
-	u8 usr_dev_mcs_support;
 	u8 adhoc_11n_enabled;
 	u8 chan_offset;
 	struct mwifiex_dbg dbg;
@@ -879,7 +869,7 @@ mwifiex_queuing_ra_based(struct mwifiex_private *priv)
 	 * Currently we assume if we are in Infra, then DA=RA. This might not be
 	 * true in the future
 	 */
-	if ((priv->bss_mode == MWIFIEX_BSS_MODE_INFRA) &&
+	if ((priv->bss_mode == NL80211_IFTYPE_STATION) &&
 	    (GET_BSS_ROLE(priv) == MWIFIEX_BSS_ROLE_STA))
 		return false;
 
@@ -994,11 +984,6 @@ int mwifiex_get_channel_list(struct mwifiex_private *priv,
 int mwifiex_get_scan_table(struct mwifiex_private *priv,
 			   u8 wait_option,
 			   struct mwifiex_scan_resp *scanresp);
-int mwifiex_get_auth_mode(struct mwifiex_private *priv,
-			  u8 wait_option, u32 *auth_mode);
-int mwifiex_get_encrypt_mode(struct mwifiex_private *priv,
-			     u8 wait_option,
-			     u32 *encrypt_mode);
 int mwifiex_enable_wep_key(struct mwifiex_private *priv, u8 wait_option);
 int mwifiex_find_best_bss(struct mwifiex_private *priv, u8 wait_option,
 			  struct mwifiex_ssid_bssid *ssid_bssid);
@@ -1010,12 +995,7 @@ int mwifiex_set_user_scan_ioctl(struct mwifiex_private *priv,
 int mwifiex_change_adhoc_chan(struct mwifiex_private *priv, int channel);
 int mwifiex_set_radio(struct mwifiex_private *priv, u8 option);
 
-int mwifiex_drv_get_mode(struct mwifiex_private *priv, u8 wait_option);
-
 int mwifiex_drv_change_adhoc_chan(struct mwifiex_private *priv, int channel);
-
-int mwifiex_set_auth(struct mwifiex_private *priv, int encrypt_mode,
-		     int auth_mode, int wpa_enabled);
 
 int mwifiex_set_encode(struct mwifiex_private *priv, const u8 *key,
 		       int key_len, u8 key_index, int disable);
@@ -1053,9 +1033,6 @@ int mwifiex_set_tx_power(struct mwifiex_private *priv, int type, int dbm);
 
 int mwifiex_main_process(struct mwifiex_adapter *);
 
-int mwifiex_bss_ioctl_mode(struct mwifiex_private *,
-			   struct mwifiex_wait_queue *,
-			   u16 action, int *mode);
 int mwifiex_bss_ioctl_channel(struct mwifiex_private *,
 			      u16 action,
 			      struct mwifiex_chan_freq_power *cfp);

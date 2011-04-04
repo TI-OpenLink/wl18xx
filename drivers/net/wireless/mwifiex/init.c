@@ -78,14 +78,14 @@ static int mwifiex_init_priv(struct mwifiex_private *priv)
 	memset(priv->curr_addr, 0xff, ETH_ALEN);
 
 	priv->pkt_tx_ctrl = 0;
-	priv->bss_mode = MWIFIEX_BSS_MODE_INFRA;
+	priv->bss_mode = NL80211_IFTYPE_STATION;
 	priv->data_rate = 0;	/* Initially indicate the rate as auto */
 	priv->is_data_rate_auto = true;
 	priv->bcn_avg_factor = DEFAULT_BCN_AVG_FACTOR;
 	priv->data_avg_factor = DEFAULT_DATA_AVG_FACTOR;
 
 	priv->sec_info.wep_status = MWIFIEX_802_11_WEP_DISABLED;
-	priv->sec_info.authentication_mode = MWIFIEX_AUTH_MODE_OPEN;
+	priv->sec_info.authentication_mode = NL80211_AUTHTYPE_OPEN_SYSTEM;
 	priv->sec_info.encryption_mode = MWIFIEX_ENCRYPTION_MODE_NONE;
 	for (i = 0; i < ARRAY_SIZE(priv->wep_key); i++)
 		memset(&priv->wep_key[i], 0, sizeof(struct mwifiex_wep_key));
@@ -234,7 +234,6 @@ static void mwifiex_init_adapter(struct mwifiex_adapter *adapter)
 	memset(adapter->bcn_buf, 0, sizeof(adapter->bcn_buf));
 	adapter->bcn_buf_end = adapter->bcn_buf;
 
-	adapter->radio_on = RADIO_ON;
 	adapter->multiple_dtim = 1;
 
 	adapter->local_listen_interval = 0;	/* default value in firmware
@@ -267,8 +266,6 @@ static void mwifiex_init_adapter(struct mwifiex_adapter *adapter)
 	memset(adapter->event_body, 0, sizeof(adapter->event_body));
 	adapter->hw_dot_11n_dev_cap = 0;
 	adapter->hw_dev_mcs_support = 0;
-	adapter->usr_dot_11n_dev_cap = 0;
-	adapter->usr_dev_mcs_support = 0;
 	adapter->chan_offset = 0;
 	adapter->adhoc_11n_enabled = false;
 
@@ -283,7 +280,7 @@ static void mwifiex_init_adapter(struct mwifiex_adapter *adapter)
 			cpu_to_le16(adapter->sleep_cfm->len);
 		sleep_cfm_buf->ps_cfm_sleep.result = 0;
 		sleep_cfm_buf->ps_cfm_sleep.action = cpu_to_le16(SLEEP_CONFIRM);
-		sleep_cfm_buf->ps_cfm_sleep.sleep_cfm.resp_ctrl =
+		sleep_cfm_buf->ps_cfm_sleep.resp_ctrl =
 			cpu_to_le16(RESP_NEEDED);
 	}
 	memset(&adapter->sleep_params, 0, sizeof(adapter->sleep_params));

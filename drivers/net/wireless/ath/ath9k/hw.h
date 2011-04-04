@@ -190,8 +190,6 @@ enum ath9k_hw_caps {
 
 struct ath9k_hw_capabilities {
 	u32 hw_caps; /* ATH9K_HW_CAP_* from ath9k_hw_caps */
-	u16 low_5ghz_chan, high_5ghz_chan;
-	u16 low_2ghz_chan, high_2ghz_chan;
 	u16 rts_aggr_limit;
 	u8 tx_chainmask;
 	u8 rx_chainmask;
@@ -628,8 +626,6 @@ struct ath_hw_ops {
 	void (*clr11n_aggr)(struct ath_hw *ah, void *ds);
 	void (*set11n_burstduration)(struct ath_hw *ah, void *ds,
 				     u32 burstDuration);
-	void (*set11n_virtualmorefrag)(struct ath_hw *ah, void *ds,
-				       u32 vmf);
 };
 
 struct ath_nf_limits {
@@ -902,7 +898,6 @@ bool ath9k_hw_wait(struct ath_hw *ah, u32 reg, u32 mask, u32 val, u32 timeout);
 void ath9k_hw_write_array(struct ath_hw *ah, struct ar5416IniArray *array,
 			  int column, unsigned int *writecnt);
 u32 ath9k_hw_reverse_bits(u32 val, u32 n);
-bool ath9k_get_channel_edges(struct ath_hw *ah, u16 flags, u16 *low, u16 *high);
 u16 ath9k_hw_computetxtime(struct ath_hw *ah,
 			   u8 phy, int kbps,
 			   u32 frameLen, u16 rateix, bool shortPreamble);

@@ -441,20 +441,17 @@ int mwifiex_cmd_802_11_associate(struct mwifiex_private *priv,
 	dev_dbg(priv->adapter->dev, "info: ASSOC_CMD: rates size = %d\n",
 					rates_size);
 
-	/* Add the Authentication type to be used for Auth frames if needed */
-	if (priv->sec_info.authentication_mode != MWIFIEX_AUTH_MODE_AUTO) {
-		auth_tlv = (struct mwifiex_ie_types_auth_type *) pos;
-		auth_tlv->header.type = cpu_to_le16(TLV_TYPE_AUTH_TYPE);
-		auth_tlv->header.len = cpu_to_le16(sizeof(auth_tlv->auth_type));
-		if (priv->sec_info.wep_status == MWIFIEX_802_11_WEP_ENABLED)
-			auth_tlv->auth_type = cpu_to_le16((u16) priv->sec_info.
-							  authentication_mode);
-		else
-			auth_tlv->auth_type =
-				cpu_to_le16(MWIFIEX_AUTH_MODE_OPEN);
-		pos += sizeof(auth_tlv->header) +
-			le16_to_cpu(auth_tlv->header.len);
-	}
+	/* Add the Authentication type to be used for Auth frames */
+	auth_tlv = (struct mwifiex_ie_types_auth_type *) pos;
+	auth_tlv->header.type = cpu_to_le16(TLV_TYPE_AUTH_TYPE);
+	auth_tlv->header.len = cpu_to_le16(sizeof(auth_tlv->auth_type));
+	if (priv->sec_info.wep_status == MWIFIEX_802_11_WEP_ENABLED)
+		auth_tlv->auth_type = cpu_to_le16(
+				(u16) priv->sec_info.authentication_mode);
+	else
+		auth_tlv->auth_type = cpu_to_le16(NL80211_AUTHTYPE_OPEN_SYSTEM);
+
+	pos += sizeof(auth_tlv->header) + le16_to_cpu(auth_tlv->header.len);
 
 	if (IS_SUPPORT_MULTI_BANDS(priv->adapter)
 	    && !(ISSUPP_11NENABLED(priv->adapter->fw_cap_info)
@@ -520,7 +517,7 @@ int mwifiex_cmd_802_11_associate(struct mwifiex_private *priv,
 	tmp_cap = bss_desc->cap_info_bitmap;
 
 	if (priv->adapter->config_bands == BAND_B)
-		SHORT_SLOT_TIME_DISABLED(tmp_cap);
+		tmp_cap &= ~WLAN_CAPABILITY_SHORT_SLOT_TIME;
 
 	tmp_cap &= CAPINFO_MASK;
 	dev_dbg(priv->adapter->dev, "info: ASSOC_CMD: tmp_cap=%4X CAPINFO_MASK=%4lX\n",
@@ -811,7 +808,7 @@ mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 
 	/* Set the BSS mode */
 	adhoc_start->bss_mode = HostCmd_BSS_MODE_IBSS;
-	bss_desc->bss_mode = MWIFIEX_BSS_MODE_IBSS;
+	bss_desc->bss_mode = NL80211_IFTYPE_ADHOC;
 	adhoc_start->beacon_period = cpu_to_le16(priv->beacon_period);
 	bss_desc->beacon_period = priv->beacon_period;
 
@@ -973,16 +970,16 @@ mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 			       cpu_to_le16(sizeof(struct ieee80211_ht_cap));
 			ht_cap_info = le16_to_cpu(ht_cap->ht_cap.cap_info);
 
-			SETHT_SHORTGI20(ht_cap_info);
+			ht_cap_info |= IEEE80211_HT_CAP_SGI_20;
 			if (adapter->chan_offset) {
-				SETHT_SHORTGI40(ht_cap_info);
-				SETHT_DSSSCCK40(ht_cap_info);
-				SETHT_SUPPCHANWIDTH(ht_cap_info);
+				ht_cap_info |= IEEE80211_HT_CAP_SGI_40;
+				ht_cap_info |= IEEE80211_HT_CAP_DSSSCCK40;
+				ht_cap_info |= IEEE80211_HT_CAP_SUP_WIDTH_20_40;
 				SETHT_MCS32(ht_cap->ht_cap.mcs.rx_mask);
 			}
 
 			ht_cap->ht_cap.ampdu_params_info
-					= MAX_RX_AMPDU_SIZE_64K;
+					= IEEE80211_HT_MAX_AMPDU_64K;
 			ht_cap->ht_cap.mcs.rx_mask[0] = 0xff;
 			pos += sizeof(struct mwifiex_ie_types_htcap);
 			cmd_append_size +=
@@ -1002,7 +999,8 @@ mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 			if (adapter->chan_offset) {
 				ht_info->ht_info.ht_param =
 					adapter->chan_offset;
-				SET_CHANWIDTH40(ht_info->ht_info.ht_param);
+				ht_info->ht_info.ht_param |=
+					IEEE80211_HT_PARAM_CHAN_WIDTH_ANY;
 			}
 			ht_info->ht_info.operation_mode =
 				cpu_to_le16(NON_GREENFIELD_STAS);
@@ -1018,9 +1016,9 @@ mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 			     + S_DS_GEN + cmd_append_size));
 
 	if (adapter->adhoc_start_band == BAND_B)
-		SHORT_SLOT_TIME_DISABLED(tmp_cap);
+		tmp_cap &= ~WLAN_CAPABILITY_SHORT_SLOT_TIME;
 	else
-		SHORT_SLOT_TIME_ENABLED(tmp_cap);
+		tmp_cap |= WLAN_CAPABILITY_SHORT_SLOT_TIME;
 
 	adhoc_start->cap_info_bitmap = cpu_to_le16(tmp_cap);
 
@@ -1291,8 +1289,8 @@ int mwifiex_associate(struct mwifiex_private *priv,
 	u8 current_bssid[ETH_ALEN];
 
 	/* Return error if the adapter or table entry is not marked as infra */
-	if ((priv->bss_mode != MWIFIEX_BSS_MODE_INFRA) ||
-	    (bss_desc->bss_mode != MWIFIEX_BSS_MODE_INFRA))
+	if ((priv->bss_mode != NL80211_IFTYPE_STATION) ||
+	    (bss_desc->bss_mode != NL80211_IFTYPE_STATION))
 		return -1;
 
 	memcpy(&current_bssid,
@@ -1360,7 +1358,7 @@ int mwifiex_adhoc_join(struct mwifiex_private *priv,
 	    !mwifiex_ssid_cmp(&bss_desc->ssid,
 			      &priv->curr_bss_params.bss_descriptor.ssid) &&
 	    (priv->curr_bss_params.bss_descriptor.bss_mode ==
-	     MWIFIEX_BSS_MODE_IBSS)) {
+							NL80211_IFTYPE_ADHOC)) {
 		dev_dbg(priv->adapter->dev, "info: ADHOC_J_CMD: new ad-hoc SSID"
 			" is the same as current; not attempting to re-join\n");
 		return -1;
@@ -1423,9 +1421,9 @@ int mwifiex_deauthenticate(struct mwifiex_private *priv,
 	int ret = 0;
 
 	if (priv->media_connected) {
-		if (priv->bss_mode == MWIFIEX_BSS_MODE_INFRA) {
+		if (priv->bss_mode == NL80211_IFTYPE_STATION) {
 			ret = mwifiex_deauthenticate_infra(priv, wait, mac);
-		} else if (priv->bss_mode == MWIFIEX_BSS_MODE_IBSS) {
+		} else if (priv->bss_mode == NL80211_IFTYPE_ADHOC) {
 			ret = mwifiex_prepare_cmd(priv,
 					HostCmd_CMD_802_11_AD_HOC_STOP,
 					HostCmd_ACT_GEN_SET, 0, wait, NULL);

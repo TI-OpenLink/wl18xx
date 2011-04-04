@@ -66,12 +66,6 @@ struct mwifiex_scan_resp {
 	u8 *scan_table;
 };
 
-enum {
-	MWIFIEX_BSS_MODE_INFRA = 1,
-	MWIFIEX_BSS_MODE_IBSS,
-	MWIFIEX_BSS_MODE_AUTO
-};
-
 #define MWIFIEX_PROMISC_MODE            1
 #define MWIFIEX_MULTICAST_MODE		2
 #define	MWIFIEX_ALL_MULTI_MODE		4
@@ -199,7 +193,6 @@ struct mwifiex_bss_info {
 	u32 bss_chan;
 	u32 region_code;
 	u32 media_connected;
-	u32 radio_on;
 	u32 max_power_level;
 	u32 min_power_level;
 	u32 adhoc_state;
@@ -272,13 +265,6 @@ struct mwifiex_debug_info {
 	u8 cmd_sent;
 	u8 cmd_resp_received;
 	u8 event_received;
-};
-
-enum {
-	MWIFIEX_AUTH_MODE_OPEN = 0x00,
-	MWIFIEX_AUTH_MODE_SHARED = 0x01,
-	MWIFIEX_AUTH_MODE_NETWORKEAP = 0x80,
-	MWIFIEX_AUTH_MODE_AUTO = 0xFF,
 };
 
 enum {

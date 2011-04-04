@@ -57,9 +57,6 @@ struct tx_packet_hdr {
 #define GET_FW_DEFAULT_BANDS(adapter)  \
 	((adapter->fw_cap_info >> 8) & ALL_802_11_BANDS)
 
-#define SHORT_SLOT_TIME_DISABLED(CapInfo) (CapInfo &= ~BIT(10))
-#define SHORT_SLOT_TIME_ENABLED(CapInfo)  (CapInfo |= BIT(10))
-
 extern u8 supported_rates_b[B_SUPPORTED_RATES];
 extern u8 supported_rates_g[G_SUPPORTED_RATES];
 extern u8 supported_rates_bg[BG_SUPPORTED_RATES];
@@ -110,8 +107,6 @@ enum KEY_INFO_WAPI {
 
 #define FIRMWARE_READY				0xfedc
 
-#define FIRMWARE_TRANSFER_NBLOCK		2
-
 enum MWIFIEX_802_11_PRIVACY_FILTER {
 	MWIFIEX_802_11_PRIV_FILTER_ACCEPT_ALL,
 	MWIFIEX_802_11_PRIV_FILTER_8021X_WEP
@@ -128,50 +123,25 @@ enum MWIFIEX_802_11_WEP_STATUS {
 #define TLV_TYPE_KEY_MATERIAL       (PROPRIETARY_TLV_BASE_ID + 0)
 #define TLV_TYPE_CHANLIST           (PROPRIETARY_TLV_BASE_ID + 1)
 #define TLV_TYPE_NUMPROBES          (PROPRIETARY_TLV_BASE_ID + 2)
-#define TLV_TYPE_RSSI_LOW           (PROPRIETARY_TLV_BASE_ID + 4)
-#define TLV_TYPE_SNR_LOW            (PROPRIETARY_TLV_BASE_ID + 5)
-#define TLV_TYPE_FAILCOUNT          (PROPRIETARY_TLV_BASE_ID + 6)
-#define TLV_TYPE_BCNMISS            (PROPRIETARY_TLV_BASE_ID + 7)
-#define TLV_TYPE_LEDBEHAVIOR        (PROPRIETARY_TLV_BASE_ID + 9)
 #define TLV_TYPE_PASSTHROUGH        (PROPRIETARY_TLV_BASE_ID + 10)
-#define TLV_TYPE_POWER_TBL_2_4GHZ   (PROPRIETARY_TLV_BASE_ID + 12)
-#define TLV_TYPE_POWER_TBL_5GHZ     (PROPRIETARY_TLV_BASE_ID + 13)
 #define TLV_TYPE_WMMQSTATUS         (PROPRIETARY_TLV_BASE_ID + 16)
 #define TLV_TYPE_WILDCARDSSID       (PROPRIETARY_TLV_BASE_ID + 18)
 #define TLV_TYPE_TSFTIMESTAMP       (PROPRIETARY_TLV_BASE_ID + 19)
-#define TLV_TYPE_RSSI_HIGH          (PROPRIETARY_TLV_BASE_ID + 22)
-#define TLV_TYPE_SNR_HIGH           (PROPRIETARY_TLV_BASE_ID + 23)
-
-#define TLV_TYPE_STARTBGSCANLATER   (PROPRIETARY_TLV_BASE_ID + 30)
 #define TLV_TYPE_AUTH_TYPE          (PROPRIETARY_TLV_BASE_ID + 31)
-#define TLV_TYPE_LINK_QUALITY       (PROPRIETARY_TLV_BASE_ID + 36)
-#define TLV_TYPE_RSSI_LOW_DATA      (PROPRIETARY_TLV_BASE_ID + 38)
-#define TLV_TYPE_SNR_LOW_DATA       (PROPRIETARY_TLV_BASE_ID + 39)
-#define TLV_TYPE_RSSI_HIGH_DATA     (PROPRIETARY_TLV_BASE_ID + 40)
-#define TLV_TYPE_SNR_HIGH_DATA      (PROPRIETARY_TLV_BASE_ID + 41)
-
 #define TLV_TYPE_CHANNELBANDLIST    (PROPRIETARY_TLV_BASE_ID + 42)
+#define TLV_TYPE_RATE_DROP_CONTROL  (PROPRIETARY_TLV_BASE_ID + 82)
+#define TLV_TYPE_RATE_SCOPE         (PROPRIETARY_TLV_BASE_ID + 83)
+#define TLV_TYPE_POWER_GROUP        (PROPRIETARY_TLV_BASE_ID + 84)
 #define TLV_TYPE_WAPI_IE            (PROPRIETARY_TLV_BASE_ID + 94)
-#define TLV_TYPE_BSSID              (PROPRIETARY_TLV_BASE_ID + 35)
+#define TLV_TYPE_AUTO_DS_PARAM      (PROPRIETARY_TLV_BASE_ID + 113)
+#define TLV_TYPE_PS_PARAM           (PROPRIETARY_TLV_BASE_ID + 114)
 
 #define MWIFIEX_TX_DATA_BUF_SIZE_2K        2048
 
-#define TLV_TYPE_HT_CAP                  (PROPRIETARY_TLV_BASE_ID + 74)
-#define TLV_TYPE_HT_INFO                 (PROPRIETARY_TLV_BASE_ID + 75)
-#define TLV_SECONDARY_CHANNEL_OFFSET     (PROPRIETARY_TLV_BASE_ID + 76)
-#define TLV_TYPE_2040BSS_COEXISTENCE     (PROPRIETARY_TLV_BASE_ID + 77)
-#define TLV_TYPE_OVERLAP_BSS_SCAN_PARAM  (PROPRIETARY_TLV_BASE_ID + 78)
-#define TLV_TYPE_EXTCAP                  (PROPRIETARY_TLV_BASE_ID + 79)
-#define TLV_TYPE_HT_OPERATIONAL_MCS_SET  (PROPRIETARY_TLV_BASE_ID + 80)
-
-#define ADDBA_TID_MASK   (BIT(2) | BIT(3) | BIT(4) | BIT(5))
-#define DELBA_TID_MASK   (BIT(12) | BIT(13) | BIT(14) | BIT(15))
 #define SSN_MASK         0xfff0
 
 #define BA_RESULT_SUCCESS        0x0
-#define BA_RESULT_FAILURE        0x1
 #define BA_RESULT_TIMEOUT        0x2
-#define BA_RESULT_DATA_INVALID   0x3
 
 #define IS_BASTREAM_SETUP(ptr)  (ptr->ba_status)
 
@@ -185,101 +155,37 @@ enum MWIFIEX_802_11_WEP_STATUS {
 
 #define MWIFIEX_TX_DATA_BUF_SIZE_4K        4096
 #define MWIFIEX_TX_DATA_BUF_SIZE_8K        8192
-#define MAX_RX_AMPDU_SIZE_64K   0x03
 #define NON_GREENFIELD_STAS     0x04
 
-#define HWSPEC_GREENFIELD_SUPP	 BIT(29)
-#define HWSPEC_RXSTBC_SUPP	 BIT(26)
-#define HWSPEC_SHORTGI40_SUPP	 BIT(24)
-#define HWSPEC_SHORTGI20_SUPP	 BIT(23)
-#define HWSPEC_CHANBW40_SUPP	 BIT(17)
-
-#define DEFAULT_11N_CAP_MASK	(HWSPEC_SHORTGI20_SUPP | HWSPEC_RXSTBC_SUPP)
 #define ISSUPP_11NENABLED(FwCapInfo) (FwCapInfo & BIT(11))
-#define ISSUPP_MAXAMSDU(Dot11nDevCap) (Dot11nDevCap & BIT(31))
-#define ISSUPP_BEAMFORMING(Dot11nDevCap) (Dot11nDevCap & BIT(30))
-#define ISSUPP_GREENFIELD(Dot11nDevCap) (Dot11nDevCap & BIT(29))
-#define ISSUPP_AMPDU(Dot11nDevCap) (Dot11nDevCap & BIT(28))
-#define ISSUPP_MIMOPS(Dot11nDevCap) (Dot11nDevCap & BIT(27))
-#define ISSUPP_RXSTBC(Dot11nDevCap) (Dot11nDevCap & BIT(26))
-#define ISSUPP_TXSTBC(Dot11nDevCap) (Dot11nDevCap & BIT(25))
-#define ISSUPP_SHORTGI40(Dot11nDevCap) (Dot11nDevCap & BIT(24))
-#define ISSUPP_SHORTGI20(Dot11nDevCap) (Dot11nDevCap & BIT(23))
-#define ISSUPP_RXLDPC(Dot11nDevCap) (Dot11nDevCap & BIT(22))
-#define GET_DELAYEDBACK(Dot11nDevCap) (((Dot11nDevCap >> 20) & 0x03))
-#define GET_IMMEDIATEBACK(Dot11nDevCap) (((Dot11nDevCap >> 18) & 0x03))
+
+/* dev_cap bitmap
+ * BIT
+ * 0-16		reserved
+ * 17		IEEE80211_HT_CAP_SUP_WIDTH_20_40
+ * 18-22	reserved
+ * 23		IEEE80211_HT_CAP_SGI_20
+ * 24		IEEE80211_HT_CAP_SGI_40
+ * 25		IEEE80211_HT_CAP_TX_STBC
+ * 26		IEEE80211_HT_CAP_RX_STBC
+ * 27-28	reserved
+ * 29		IEEE80211_HT_CAP_GRN_FLD
+ * 30-31	reserved
+ */
 #define ISSUPP_CHANWIDTH40(Dot11nDevCap) (Dot11nDevCap & BIT(17))
-#define ISSUPP_CHANWIDTH20(Dot11nDevCap) (Dot11nDevCap & BIT(16))
-#define ISSUPP_CHANWIDTH10(Dot11nDevCap) (Dot11nDevCap & BIT(15))
-#define ISENABLED_40MHZ_INTOLARENT(Dot11nDevCap) (Dot11nDevCap & BIT(8))
-#define ISSUPP_RXANTENNAD(Dot11nDevCap) (Dot11nDevCap & BIT(7))
-#define ISSUPP_RXANTENNAC(Dot11nDevCap) (Dot11nDevCap & BIT(6))
-#define ISSUPP_RXANTENNAB(Dot11nDevCap) (Dot11nDevCap & BIT(5))
-#define ISSUPP_RXANTENNAA(Dot11nDevCap) (Dot11nDevCap & BIT(4))
-#define ISSUPP_TXANTENNAD(Dot11nDevCap) (Dot11nDevCap & BIT(3))
-#define ISSUPP_TXANTENNAC(Dot11nDevCap) (Dot11nDevCap & BIT(2))
-#define ISSUPP_TXANTENNAB(Dot11nDevCap) (Dot11nDevCap & BIT(1))
-#define ISSUPP_TXANTENNAA(Dot11nDevCap) (Dot11nDevCap & BIT(0))
-#define SETSUPP_CHANWIDTH40(Dot11nDevCap) (Dot11nDevCap |= BIT(17))
-#define RESETSUPP_CHANWIDTH40(Dot11nDevCap) (Dot11nDevCap &= ~BIT(17))
-#define GET_TXMCSSUPP(DevMCSSupported) (DevMCSSupported >> 4)
+#define ISSUPP_SHORTGI20(Dot11nDevCap) (Dot11nDevCap & BIT(23))
+#define ISSUPP_SHORTGI40(Dot11nDevCap) (Dot11nDevCap & BIT(24))
+#define ISSUPP_TXSTBC(Dot11nDevCap) (Dot11nDevCap & BIT(25))
+#define ISSUPP_RXSTBC(Dot11nDevCap) (Dot11nDevCap & BIT(26))
+#define ISSUPP_GREENFIELD(Dot11nDevCap) (Dot11nDevCap & BIT(29))
+
 #define GET_RXMCSSUPP(DevMCSSupported) (DevMCSSupported & 0x0f)
-#define GETHT_SUPPCHANWIDTH(HTCapInfo) (HTCapInfo & BIT(1))
-#define GETHT_GREENFIELD(HTCapInfo) (HTCapInfo & BIT(4))
-#define GETHT_SHORTGI20(HTCapInfo) (HTCapInfo & BIT(5))
-#define GETHT_SHORTGI40(HTCapInfo) (HTCapInfo & BIT(6))
-#define GETHT_TXSTBC(HTCapInfo) (HTCapInfo & BIT(7))
-#define GETHT_RXSTBC(HTCapInfo) ((HTCapInfo >> 8) & 0x03)
-#define GETHT_DELAYEDBACK(HTCapInfo) (HTCapInfo & BIT(10))
-#define GETHT_MAXAMSDU(HTCapInfo) (HTCapInfo & BIT(11))
-#define SETHT_SUPPCHANWIDTH(HTCapInfo) (HTCapInfo |= BIT(1))
-#define SETHT_GREENFIELD(HTCapInfo) (HTCapInfo |= BIT(4))
-#define SETHT_SHORTGI20(HTCapInfo) (HTCapInfo |= BIT(5))
-#define SETHT_SHORTGI40(HTCapInfo) (HTCapInfo |= BIT(6))
-#define SETHT_TXSTBC(HTCapInfo) (HTCapInfo |= BIT(7))
-#define SETHT_RXSTBC(HTCapInfo, value) (HTCapInfo |= (value << 8))
-#define SETHT_DELAYEDBACK(HTCapInfo) (HTCapInfo |= BIT(10))
-#define SETHT_MAXAMSDU(HTCapInfo) (HTCapInfo |= BIT(11))
-#define SETHT_DSSSCCK40(HTCapInfo) (HTCapInfo |= BIT(12))
-#define SETHT_40MHZ_INTOLARANT(HTCapInfo) (HTCapInfo |= BIT(14))
-#define RESETHT_SUPPCHANWIDTH(HTCapInfo) (HTCapInfo &= ~BIT(1))
-#define RESETHT_GREENFIELD(HTCapInfo) (HTCapInfo &= ~BIT(4))
-#define RESETHT_SHORTGI20(HTCapInfo) (HTCapInfo &= ~BIT(5))
-#define RESETHT_SHORTGI40(HTCapInfo) (HTCapInfo &= ~BIT(6))
-#define RESETHT_TXSTBC(HTCapInfo) (HTCapInfo &= ~BIT(7))
-#define RESETHT_RXSTBC(HTCapInfo) (HTCapInfo &= ~(0x03 << 8))
-#define RESETHT_DELAYEDBACK(HTCapInfo) (HTCapInfo &= ~BIT(10))
-#define RESETHT_MAXAMSDU(HTCapInfo) (HTCapInfo &= ~BIT(11))
-#define RESETHT_40MHZ_INTOLARANT(HTCapInfo) (HTCapInfo &= ~BIT(14))
 #define RESETHT_EXTCAP_RDG(HTExtCap) (HTExtCap &= ~BIT(11))
 #define SETHT_MCS32(x) (x[4] |= 1)
-#define SETHT_MCS_SET_DEFINED(x) (x[12] |= 1)
-#define SETHT_RX_HIGHEST_DT_SUPP(x, y) ((*(u16 *) (x + 10)) = y)
-#define AMPDU_FACTOR_64K	0x03
-#define SETAMPDU_SIZE(x, y) do { \
-	x = x & ~0x03; \
-	x |= y & 0x03; \
-} while (0) \
 
-#define SETAMPDU_SPACING(x, y) do { \
-	x = x & ~0x1c; \
-	x |= (y & 0x07) << 2; \
-} while (0) \
-
-#define ISSUPP_BANDA(FwCapInfo) (FwCapInfo & BIT(10))
-#define ISALLOWED_CHANWIDTH40(Field2) (Field2 & BIT(2))
-#define SET_CHANWIDTH40(Field2) (Field2 |= BIT(2))
-#define RESET_CHANWIDTH40(Field2) (Field2 &= ~(BIT(0) | BIT(1) | BIT(2)))
-#define GET_SECONDARYCHAN(Field2) (Field2 & (BIT(0) | BIT(1)))
 #define SET_SECONDARYCHAN(RadioType, SECCHAN) (RadioType |= (SECCHAN << 4))
 
 #define LLC_SNAP_LEN    8
-
-#define TLV_TYPE_RATE_DROP_PATTERN  (PROPRIETARY_TLV_BASE_ID + 81)
-#define TLV_TYPE_RATE_DROP_CONTROL  (PROPRIETARY_TLV_BASE_ID + 82)
-#define TLV_TYPE_RATE_SCOPE         (PROPRIETARY_TLV_BASE_ID + 83)
-
-#define TLV_TYPE_POWER_GROUP        (PROPRIETARY_TLV_BASE_ID + 84)
 
 #define MOD_CLASS_HR_DSSS       0x03
 #define MOD_CLASS_OFDM          0x07
@@ -343,15 +249,7 @@ enum ENH_PS_MODES {
 #define HostCmd_RET_BIT                       0x8000
 #define HostCmd_ACT_GEN_GET                   0x0000
 #define HostCmd_ACT_GEN_SET                   0x0001
-#define HostCmd_ACT_GEN_REMOVE                0x0004
-#define HostCmd_ACT_SET_BOTH                  0x0003
-#define HostCmd_ACT_GET_BOTH                  0x000c
 #define HostCmd_RESULT_OK                     0x0000
-#define HostCmd_RESULT_ERROR                  0x0001
-#define HostCmd_RESULT_NOT_SUPPORT            0x0002
-#define HostCmd_RESULT_PENDING                0x0003
-#define HostCmd_RESULT_BUSY                   0x0004
-#define HostCmd_RESULT_PARTIAL_DATA           0x0005
 
 #define HostCmd_ACT_MAC_RX_ON                 0x0001
 #define HostCmd_ACT_MAC_TX_ON                 0x0002
@@ -359,11 +257,8 @@ enum ENH_PS_MODES {
 #define HostCmd_ACT_MAC_ETHERNETII_ENABLE     0x0010
 #define HostCmd_ACT_MAC_PROMISCUOUS_ENABLE    0x0080
 #define HostCmd_ACT_MAC_ALL_MULTICAST_ENABLE  0x0100
-#define HostCmd_ACT_MAC_RTS_CTS_ENABLE        0x0200
-#define HostCmd_ACT_MAC_STRICT_PROTECTION_ENABLE  0x0400
 #define HostCmd_ACT_MAC_ADHOC_G_PROTECTION_ON     0x2000
 
-#define HostCmd_BSS_MODE_BSS                0x0001
 #define HostCmd_BSS_MODE_IBSS               0x0002
 #define HostCmd_BSS_MODE_ANY                0x0003
 
@@ -447,20 +342,6 @@ enum ENH_PS_MODES {
 
 #define EVENT_GET_BSS_TYPE(event_cause)         \
 	(((event_cause) >> 24) & 0x00ff)
-
-struct mwifiex_event_wep_icv_err {
-	u16 reason_code;
-	u8 src_mac_addr[ETH_ALEN];
-	u8 wep_key_index;
-	u8 wep_key_length;
-	u8 key[WLAN_KEY_LEN_WEP104];
-};
-
-struct mwifiex_802_11_fixed_ies {
-	u8 time_stamp[8];
-	__le16 beacon_interval;
-	__le16 capabilities;
-};
 
 struct mwifiex_ie_types_header {
 	__le16 type;
@@ -656,34 +537,12 @@ struct mwifiex_ps_param {
 	__le16 delay_to_ps;
 };
 
-struct mwifiex_auto_ds_param {
-	__le16 deep_sleep_timeout;
-};
-
-struct sleep_confirm_param {
-	__le16 resp_ctrl;
-};
-
 #define BITMAP_AUTO_DS         0x01
 #define BITMAP_STA_PS          0x10
-#define BITMAP_UAP_INACT_PS    0x100
-#define BITMAP_UAP_DTIM_PS     0x200
-struct auto_ps_param {
-	__le16 ps_bitmap;
-	/* auto deep sleep parameter,
-	 * sta power save parameter
-	 * uap inactivity parameter
-	 * uap DTIM parameter */
-};
-
-#define AUTO_PS_FIX_SIZE    4
-
-#define TLV_TYPE_AUTO_DS_PARAM        (PROPRIETARY_TLV_BASE_ID + 113)
-#define TLV_TYPE_PS_PARAM             (PROPRIETARY_TLV_BASE_ID + 114)
 
 struct mwifiex_ie_types_auto_ds_param {
 	struct mwifiex_ie_types_header header;
-	struct mwifiex_auto_ds_param param;
+	__le16 deep_sleep_timeout;
 } __packed;
 
 struct mwifiex_ie_types_ps_param {
@@ -696,10 +555,7 @@ struct host_cmd_ds_802_11_ps_mode_enh {
 
 	union {
 		struct mwifiex_ps_param opt_ps;
-		struct mwifiex_auto_ds_param auto_ds;
-		struct sleep_confirm_param sleep_cfm;
 		__le16 ps_bitmap;
-		struct auto_ps_param auto_ps;
 	} params;
 } __packed;
 
@@ -935,9 +791,6 @@ struct host_cmd_ds_802_11_snmp_mib {
 	__le16 buf_size;
 	u8 value[1];
 } __packed;
-
-#define RADIO_ON                                0x01
-#define RADIO_OFF                               0x00
 
 struct mwifiex_rate_scope {
 	__le16 type;
@@ -1366,7 +1219,7 @@ struct mwifiex_opt_sleep_confirm {
 	__le16 seq_num;
 	__le16 result;
 	__le16 action;
-	struct sleep_confirm_param sleep_cfm;
+	__le16 resp_ctrl;
 } __packed;
 
 struct mwifiex_opt_sleep_confirm_buffer {

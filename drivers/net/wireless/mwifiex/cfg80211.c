@@ -398,12 +398,8 @@ mwifiex_set_rf_channel(struct mwifiex_private *priv,
 	int ret = 0;
 	int status = 0;
 	struct mwifiex_ds_band_cfg band_cfg;
-	int mode;
-	u8 wait_option = MWIFIEX_IOCTL_WAIT;
 	u32 config_bands = 0;
 	struct wiphy *wiphy = priv->wdev->wiphy;
-
-	mode = mwifiex_drv_get_mode(priv, wait_option);
 
 	if (chan) {
 		memset(&band_cfg, 0, sizeof(band_cfg));
@@ -412,10 +408,10 @@ mwifiex_set_rf_channel(struct mwifiex_private *priv,
 			config_bands = BAND_B | BAND_G | BAND_GN;
 		else
 			config_bands = BAND_AN | BAND_A;
-		if (mode == MWIFIEX_BSS_MODE_INFRA
-		    || mode == MWIFIEX_BSS_MODE_AUTO) {
+		if (priv->bss_mode == NL80211_IFTYPE_STATION
+		    || priv->bss_mode == NL80211_IFTYPE_UNSPECIFIED) {
 			band_cfg.config_bands = config_bands;
-		} else if (mode == MWIFIEX_BSS_MODE_IBSS) {
+		} else if (priv->bss_mode == NL80211_IFTYPE_ADHOC) {
 			band_cfg.config_bands = config_bands;
 			band_cfg.adhoc_start_band = config_bands;
 		}
@@ -432,7 +428,8 @@ mwifiex_set_rf_channel(struct mwifiex_private *priv,
 	}
 
 	wiphy_dbg(wiphy, "info: setting band %d, channel offset %d and "
-		"mode %d\n", config_bands, band_cfg.sec_chan_offset, mode);
+		"mode %d\n", config_bands, band_cfg.sec_chan_offset,
+		priv->bss_mode);
 	if (!chan)
 		return ret;
 
@@ -561,14 +558,6 @@ mwifiex_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 
 /*
  * CFG802.11 operation handler to change interface type.
- *
- * This function creates an IOCTL request, populates it accordingly
- * and issues an IOCTL.
- *
- * The function also maps the CFG802.11 mode type into driver mode type.
- *      NL80211_IFTYPE_ADHOC        -> MWIFIEX_BSS_MODE_IBSS
- *      NL80211_IFTYPE_STATION      -> MWIFIEX_BSS_MODE_INFRA
- *      NL80211_IFTYPE_UNSPECIFIED  -> MWIFIEX_BSS_MODE_AUTO
  */
 static int
 mwifiex_cfg80211_change_virtual_intf(struct wiphy *wiphy,
@@ -578,41 +567,50 @@ mwifiex_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 {
 	int ret = 0;
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(dev);
-	int mode = -1;
 	struct mwifiex_wait_queue *wait = NULL;
-	int status = 0;
+
+	if (priv->bss_mode == type) {
+		wiphy_warn(wiphy, "already set to required type\n");
+		return 0;
+	}
+
+	priv->bss_mode = type;
+
+	switch (type) {
+	case NL80211_IFTYPE_ADHOC:
+		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_ADHOC;
+		wiphy_dbg(wiphy, "info: setting interface type to adhoc\n");
+		break;
+	case NL80211_IFTYPE_STATION:
+		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
+		wiphy_dbg(wiphy, "info: setting interface type to managed\n");
+		break;
+	case NL80211_IFTYPE_UNSPECIFIED:
+		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
+		wiphy_dbg(wiphy, "info: setting interface type to auto\n");
+		return 0;
+	default:
+		wiphy_err(wiphy, "unknown interface type: %d\n", type);
+		return -EINVAL;
+	}
 
 	wait = mwifiex_alloc_fill_wait_queue(priv, MWIFIEX_IOCTL_WAIT);
 	if (!wait)
 		return -ENOMEM;
 
-	switch (type) {
-	case NL80211_IFTYPE_ADHOC:
-		mode = MWIFIEX_BSS_MODE_IBSS;
-		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_ADHOC;
-		wiphy_dbg(wiphy, "info: setting interface type to adhoc\n");
-		break;
-	case NL80211_IFTYPE_STATION:
-		mode = MWIFIEX_BSS_MODE_INFRA;
-		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
-		wiphy_dbg(wiphy, "info: Setting interface type to managed\n");
-		break;
-	case NL80211_IFTYPE_UNSPECIFIED:
-		mode = MWIFIEX_BSS_MODE_AUTO;
-		dev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
-		wiphy_dbg(wiphy, "info: setting interface type to auto\n");
-		break;
-	default:
-		ret = -EINVAL;
-	}
-	if (ret)
-		goto done;
-	status = mwifiex_bss_ioctl_mode(priv, wait, HostCmd_ACT_GEN_SET, &mode);
+	mwifiex_deauthenticate(priv, wait, NULL);
 
-	if (mwifiex_request_ioctl(priv, wait, status, MWIFIEX_IOCTL_WAIT))
+	priv->sec_info.authentication_mode = NL80211_AUTHTYPE_OPEN_SYSTEM;
+
+	ret = mwifiex_prepare_cmd(priv, HostCmd_CMD_SET_BSS_MODE,
+				  HostCmd_ACT_GEN_SET, 0, wait, NULL);
+	if (!ret)
+		ret = -EINPROGRESS;
+
+	ret = mwifiex_request_ioctl(priv, wait, ret, MWIFIEX_IOCTL_WAIT);
+	if (ret)
 		ret = -EFAULT;
 
-done:
 	kfree(wait);
 	return ret;
 }
@@ -1046,7 +1044,7 @@ mwifiex_cfg80211_assoc(struct mwifiex_private *priv, size_t ssid_len, u8 *ssid,
 
 	ret = mwifiex_set_encode(priv, NULL, 0, 0, 1);	/* Disable keys */
 
-	if (mode == MWIFIEX_BSS_MODE_IBSS) {
+	if (mode == NL80211_IFTYPE_ADHOC) {
 		/* "privacy" is set only for ad-hoc mode */
 		if (privacy) {
 			/*
@@ -1055,11 +1053,10 @@ mwifiex_cfg80211_assoc(struct mwifiex_private *priv, size_t ssid_len, u8 *ssid,
 			 * scan. The cfg80211 does not give us the encryption
 			 * mode at this stage so just setting it to WEP here.
 			 */
-			wpa_enabled = 0;
-			auth_type = MWIFIEX_AUTH_MODE_OPEN;
-			ret = mwifiex_set_auth(priv,
-						MWIFIEX_ENCRYPTION_MODE_WEP104,
-						auth_type, wpa_enabled);
+			priv->sec_info.encryption_mode =
+					MWIFIEX_ENCRYPTION_MODE_WEP104;
+			priv->sec_info.authentication_mode =
+					NL80211_AUTHTYPE_OPEN_SYSTEM;
 		}
 
 		goto done;
@@ -1068,22 +1065,22 @@ mwifiex_cfg80211_assoc(struct mwifiex_private *priv, size_t ssid_len, u8 *ssid,
 	/* Now handle infra mode. "sme" is valid for infra mode only */
 	if (sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC
 			|| sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM)
-		auth_type = MWIFIEX_AUTH_MODE_OPEN;
+		auth_type = NL80211_AUTHTYPE_OPEN_SYSTEM;
 	else if (sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY)
-		auth_type = MWIFIEX_AUTH_MODE_SHARED;
+		auth_type = NL80211_AUTHTYPE_SHARED_KEY;
 
 	if (sme->crypto.n_ciphers_pairwise) {
 		pairwise_encrypt_mode = mwifiex_get_mwifiex_cipher(sme->crypto.
 					ciphers_pairwise[0], &wpa_enabled);
-		ret = mwifiex_set_auth(priv, pairwise_encrypt_mode, auth_type,
-								wpa_enabled);
+		priv->sec_info.encryption_mode = pairwise_encrypt_mode;
+		priv->sec_info.authentication_mode = auth_type;
 	}
 
 	if (sme->crypto.cipher_group) {
 		group_encrypt_mode = mwifiex_get_mwifiex_cipher(sme->crypto.
 						   cipher_group, &wpa_enabled);
-		ret = mwifiex_set_auth(priv, group_encrypt_mode, auth_type,
-								wpa_enabled);
+		priv->sec_info.encryption_mode = group_encrypt_mode;
+		priv->sec_info.authentication_mode = auth_type;
 	}
 	if (sme->ie)
 		ret = mwifiex_set_gen_ie(priv, sme->ie, sme->ie_len);
@@ -1109,7 +1106,7 @@ done:
 
 	memcpy(&ssid_bssid.ssid, &req_ssid, sizeof(struct mwifiex_802_11_ssid));
 
-	if (mode != MWIFIEX_BSS_MODE_IBSS) {
+	if (mode != NL80211_IFTYPE_ADHOC) {
 		if (mwifiex_find_best_bss(priv, MWIFIEX_IOCTL_WAIT,
 					  &ssid_bssid))
 			return -EFAULT;
@@ -1130,7 +1127,7 @@ done:
 	if (mwifiex_bss_start(priv, MWIFIEX_IOCTL_WAIT, &ssid_bssid))
 		return -EFAULT;
 
-	if (mode == MWIFIEX_BSS_MODE_IBSS) {
+	if (mode == NL80211_IFTYPE_ADHOC) {
 		/* Inform the BSS information to kernel, otherwise
 		 * kernel will give a panic after successful assoc */
 		if (mwifiex_cfg80211_inform_ibss_bss(priv))
@@ -1153,14 +1150,11 @@ mwifiex_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(dev);
 	int ret = 0;
-	int mode = 0;
 
 	if (priv->assoc_request)
 		return -EBUSY;
 
-	mode = mwifiex_drv_get_mode(priv, MWIFIEX_IOCTL_WAIT);
-
-	if (mode == MWIFIEX_BSS_MODE_IBSS) {
+	if (priv->bss_mode == NL80211_IFTYPE_ADHOC) {
 		wiphy_err(wiphy, "received infra assoc request "
 				"when station is in ibss mode\n");
 		goto done;
@@ -1172,7 +1166,7 @@ mwifiex_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	       (char *) sme->ssid, sme->bssid);
 
 	ret = mwifiex_cfg80211_assoc(priv, sme->ssid_len, sme->ssid, sme->bssid,
-				     mode, sme->channel, sme, 0);
+				     priv->bss_mode, sme->channel, sme, 0);
 
 done:
 	priv->assoc_result = ret;
@@ -1192,13 +1186,11 @@ mwifiex_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct mwifiex_private *priv = mwifiex_cfg80211_get_priv(wiphy);
 	int ret = 0;
-	int mode = 0;
 
 	if (priv->ibss_join_request)
 		return -EBUSY;
 
-	mode = mwifiex_drv_get_mode(priv, MWIFIEX_IOCTL_WAIT);
-	if (mode != MWIFIEX_BSS_MODE_IBSS) {
+	if (priv->bss_mode != NL80211_IFTYPE_ADHOC) {
 		wiphy_err(wiphy, "request to join ibss received "
 				"when station is not in ibss mode\n");
 		goto done;
@@ -1210,8 +1202,8 @@ mwifiex_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	       (char *) params->ssid, params->bssid);
 
 	ret = mwifiex_cfg80211_assoc(priv, params->ssid_len, params->ssid,
-				     params->bssid, mode, params->channel, NULL,
-				     params->privacy);
+				params->bssid, priv->bss_mode,
+				params->channel, NULL, params->privacy);
 done:
 	priv->ibss_join_result = ret;
 	queue_work(priv->workqueue, &priv->cfg_workqueue);
@@ -1302,9 +1294,8 @@ mwifiex_setup_ht_caps(struct ieee80211_sta_ht_cap *ht_info,
 	/* Clear all the other values */
 	memset(&mcs[rx_mcs_supp], 0,
 			sizeof(struct ieee80211_mcs_info) - rx_mcs_supp);
-	if (priv->bss_mode == MWIFIEX_BSS_MODE_INFRA ||
-			(ISSUPP_CHANWIDTH40(adapter->hw_dot_11n_dev_cap) &&
-			 ISSUPP_CHANWIDTH40(adapter->usr_dot_11n_dev_cap)))
+	if (priv->bss_mode == NL80211_IFTYPE_STATION ||
+			ISSUPP_CHANWIDTH40(adapter->hw_dot_11n_dev_cap))
 		/* Set MCS32 for infra mode or ad-hoc mode with 40MHz support */
 		SETHT_MCS32(mcs_set.rx_mask);
 
