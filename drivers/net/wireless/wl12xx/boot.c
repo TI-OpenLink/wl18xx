@@ -470,6 +470,8 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	 * ready to receive event from the command mailbox
 	 */
 
+	/* TODO: when removing a role, mask the appropriate events */
+
 	/* unmask required mbox events  */
 	wl->event_mask = BSS_LOSE_EVENT_ID |
 		SCAN_COMPLETE_EVENT_ID |
@@ -483,6 +485,7 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 		DUMMY_PACKET_EVENT_ID |
 		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID;
 
+	/* TODO: mode can change dynamically. make it more sane */
 	wl->event_mask |= PEER_REMOVE_COMPLETE_EVENT_ID;
 
 	ret = wl1271_event_unmask(wl);
