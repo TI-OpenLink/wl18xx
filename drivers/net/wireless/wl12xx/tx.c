@@ -792,10 +792,14 @@ void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid)
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		while ((skb = skb_dequeue(&wl->links[hlid].tx_queue[i]))) {
 			wl1271_debug(DEBUG_TX, "link freeing skb 0x%p", skb);
-			info = IEEE80211_SKB_CB(skb);
-			info->status.rates[0].idx = -1;
-			info->status.rates[0].count = 0;
-			ieee80211_tx_status(wl->hw, skb);
+
+			if (!wl12xx_is_dummy_packet(wl, skb)) {
+				info = IEEE80211_SKB_CB(skb);
+				info->status.rates[0].idx = -1;
+				info->status.rates[0].count = 0;
+				ieee80211_tx_status(wl->hw, skb);
+			}
+
 			total++;
 		}
 	}
