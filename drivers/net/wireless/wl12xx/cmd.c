@@ -456,6 +456,99 @@ void wl1271_free_link(struct wl1271 *wl, u8 *hlid)
 	*hlid = WL1271_INVALID_LINK_ID;
 }
 
+int wl1271_cmd_role_start_dev(struct wl1271 *wl)
+{
+	struct wl1271_cmd_role_start *cmd;
+	int ret;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wl1271_debug(DEBUG_CMD, "cmd role start dev %d", wl->role_id);
+
+	cmd->role_id = wl->dev_role_id;
+	if (wl->dev_hlid == WL1271_INVALID_LINK_ID) {
+		ret = wl1271_allocate_link(wl, &wl->dev_hlid);
+		if (ret)
+			goto out_free;
+	}
+	cmd->device.hlid = wl->dev_hlid;
+	cmd->device.session = wl->session_counter;
+
+	wl1271_debug(DEBUG_CMD, "role start: roleid=%d, hlid=%d, session=%d",
+		     cmd->role_id, cmd->device.hlid, cmd->device.session);
+
+	wl1271_debug(DEBUG_CMD, "wl->bssid = %pM", wl->bssid);
+
+	wl1271_dump(DEBUG_CMD, "CMD_ROLE_START: ",
+		    &cmd->header + 1, sizeof(*cmd) - sizeof(cmd->header));
+
+	ret = wl1271_cmd_send(wl, CMD_ROLE_START, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to initiate cmd role enable");
+		goto err_hlid;
+	}
+
+	goto out_free;
+
+err_hlid:
+	/* clear links on error */
+	__clear_bit(wl->dev_hlid, wl->links_map);
+	wl->dev_hlid = WL1271_INVALID_LINK_ID;
+
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+int wl1271_cmd_role_stop_dev(struct wl1271 *wl)
+{
+	struct wl1271_cmd_role_stop *cmd;
+	int ret;
+
+	if (WARN_ON(wl->dev_hlid == WL1271_INVALID_LINK_ID))
+		return -EINVAL;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wl1271_debug(DEBUG_CMD, "cmd role stop dev");
+
+	cmd->role_id = wl->dev_role_id;
+	cmd->disc_type = WL1271_DISC_IMMEDIATE;
+	cmd->reason = cpu_to_le16(1); /* STATUS_UNSPECIFIED */
+
+	ret = wl1271_cmd_send(wl, CMD_ROLE_STOP, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to initiate cmd role stop");
+		goto out_free;
+	}
+
+	ret = wl1271_cmd_wait_for_event(wl, DISCONNECT_EVENT_COMPLETE_ID);
+	if (ret < 0) {
+		wl1271_error("cmd role stop dev event completion error");
+		goto out_free;
+	}
+
+	wl1271_free_link(wl, &wl->dev_hlid);
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+
 /* since p2p_dev uses the same params, we use this function as well */
 int wl1271_cmd_role_start_sta(struct wl1271 *wl)
 {
