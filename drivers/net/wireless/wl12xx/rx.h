@@ -107,10 +107,7 @@ struct wl1271_rx_descriptor {
 	u8  snr;
 	__le32 timestamp;
 	u8  packet_class;
-	union {
-		u8  process_id; /* STA FW */
-		u8  hlid; /* AP FW */
-	} __packed;
+	u8  hlid;
 	u8  pad_len;
 	u8  reserved;
 } __packed;

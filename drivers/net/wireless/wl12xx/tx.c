@@ -118,6 +118,7 @@ static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 		wl1271_acx_set_inconnection_sta(wl, hdr->addr1);
 }
 
+#if 0
 static void wl1271_tx_regulate_link(struct wl1271 *wl, u8 hlid)
 {
 	bool fw_ps;
@@ -137,6 +138,7 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl, u8 hlid)
 	if (fw_ps && tx_blks >= WL1271_PS_STA_MAX_BLOCKS)
 		wl1271_ps_link_start(wl, hlid, true);
 }
+#endif
 
 u8 wl1271_tx_get_hlid(struct sk_buff *skb)
 {
@@ -282,9 +284,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			wl->session_counter << TX_HW_ATTR_OFST_SESSION_COUNTER;
 	}
 
-	if (wl->bss_type != BSS_TYPE_AP_BSS) {
-		desc->aid = hlid;
+	desc->hlid = hlid;
 
+	if (wl->bss_type != BSS_TYPE_AP_BSS) {
 		/* if the packets are destined for AP (have a STA entry)
 		   send them with AP rate policies, otherwise use default
 		   basic rates */
@@ -293,7 +295,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		else
 			rate_idx = ACX_TX_BASIC_RATE;
 	} else {
-		desc->hlid = hlid;
 		switch (hlid) {
 		case WL1271_AP_GLOBAL_HLID:
 			rate_idx = ACX_TX_AP_MODE_MGMT_RATE;
@@ -381,7 +382,10 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	if (wl->bss_type == BSS_TYPE_AP_BSS)
 		hlid = wl1271_tx_get_hlid(skb);
 	else
-		hlid = TX_HW_DEFAULT_AID;
+		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
+			hlid = wl->sta_hlid;
+		else
+			hlid = wl->dev_hlid;
 
 	ret = wl1271_tx_allocate(wl, skb, extra, buf_offset, hlid);
 	if (ret < 0)
@@ -389,7 +393,10 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 
 	if (wl->bss_type == BSS_TYPE_AP_BSS) {
 		wl1271_tx_ap_update_inconnection_sta(wl, skb);
+#if 0
+	/* TODO */
 		wl1271_tx_regulate_link(wl, hlid);
+#endif
 	} else {
 		wl1271_tx_update_filters(wl, skb);
 	}
