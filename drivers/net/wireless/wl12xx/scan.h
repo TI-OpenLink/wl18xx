@@ -45,7 +45,10 @@ void wl1271_scan_sched_scan_results(struct wl1271 *wl);
 #define WL1271_SCAN_CURRENT_TX_PWR     0
 #define WL1271_SCAN_OPT_ACTIVE         0
 #define WL1271_SCAN_OPT_PASSIVE	       1
+#define WL1271_SCAN_OPT_TRIGGERED_SCAN 2
 #define WL1271_SCAN_OPT_PRIORITY_HIGH  4
+/* scan even if we fail to enter psm */
+#define WL1271_SCAN_OPT_FORCE          8
 #define WL1271_SCAN_BAND_2_4_GHZ 0
 #define WL1271_SCAN_BAND_5_GHZ 1
 
@@ -61,27 +64,27 @@ enum {
 };
 
 struct basic_scan_params {
-	__le32 rx_config_options;
-	__le32 rx_filter_options;
 	/* Scan option flags (WL1271_SCAN_OPT_*) */
 	__le16 scan_options;
+	u8 role_id;
 	/* Number of scan channels in the list (maximum 30) */
 	u8 n_ch;
 	/* This field indicates the number of probe requests to send
 	   per channel for an active scan */
 	u8 n_probe_reqs;
-	/* Rate bit field for sending the probes */
-	__le32 tx_rate;
 	u8 tid_trigger;
 	u8 ssid_len;
-	/* in order to align */
-	u8 padding1[2];
+	u8 use_ssid_list;
+
+	/* Rate bit field for sending the probes */
+	__le32 tx_rate;
+
 	u8 ssid[IW_ESSID_MAX_SIZE];
 	/* Band to scan */
 	u8 band;
-	u8 use_ssid_list;
+
 	u8 scan_tag;
-	u8 padding2;
+	u8 padding2[2];
 } __packed;
 
 struct basic_scan_channel_params {
@@ -104,6 +107,10 @@ struct wl1271_cmd_scan {
 
 	struct basic_scan_params params;
 	struct basic_scan_channel_params channels[WL1271_SCAN_MAX_CHANNELS];
+
+	/* src mac address */
+	u8 addr[ETH_ALEN];
+	u8 padding[2];
 } __packed;
 
 struct wl1271_cmd_trigger_scan_to {

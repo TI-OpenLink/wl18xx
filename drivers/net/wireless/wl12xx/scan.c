@@ -156,6 +156,8 @@ static int wl1271_scan_send(struct wl1271 *wl, enum ieee80211_band band,
 	if (passive || wl->scan.req->n_ssids == 0)
 		scan_options |= WL1271_SCAN_OPT_PASSIVE;
 
+	if (wl->role_id != WL1271_INVALID_ROLE_ID)
+		cmd->params.role_id = wl->role_id;
 	cmd->params.scan_options = cpu_to_le16(scan_options);
 
 	cmd->params.n_ch = wl1271_get_scan_channels(wl, wl->scan.req,
@@ -167,10 +169,6 @@ static int wl1271_scan_send(struct wl1271 *wl, enum ieee80211_band band,
 	}
 
 	cmd->params.tx_rate = cpu_to_le32(basic_rate);
-	cmd->params.rx_config_options = cpu_to_le32(CFG_RX_ALL_GOOD);
-	cmd->params.rx_filter_options =
-		cpu_to_le32(CFG_RX_PRSP_EN | CFG_RX_MGMT_EN | CFG_RX_BCN_EN);
-
 	cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
 	cmd->params.tx_rate = cpu_to_le32(basic_rate);
 	cmd->params.tid_trigger = 0;
@@ -185,6 +183,8 @@ static int wl1271_scan_send(struct wl1271 *wl, enum ieee80211_band band,
 		cmd->params.ssid_len = wl->scan.ssid_len;
 		memcpy(cmd->params.ssid, wl->scan.ssid, wl->scan.ssid_len);
 	}
+
+	memcpy(cmd->addr, wl->mac_addr, ETH_ALEN);
 
 	ret = wl1271_cmd_build_probe_req(wl, wl->scan.ssid, wl->scan.ssid_len,
 					 wl->scan.req->ie, wl->scan.req->ie_len,
