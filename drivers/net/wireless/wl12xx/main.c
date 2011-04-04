@@ -1886,6 +1886,9 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sched_scanning = false;
+	wl->role_id = WL1271_INVALID_ROLE_ID;
+	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
+	wl->system_hlid = WL1271_INVALID_LINK_ID;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
 
