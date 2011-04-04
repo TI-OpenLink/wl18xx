@@ -159,6 +159,7 @@ extern u32 wl12xx_debug_level;
 #define WL1271_MAX_LINKS           8
 #define WL1271_INVALID_ROLE_ID     0xff
 #define WL1271_INVALID_LINK_ID     0xff
+#define WL1271_SYSTEM_HLID         0
 
 /* TODO: we can't use constant HLIDs in a real multirole */
 #define WL1271_AP_GLOBAL_HLID      0

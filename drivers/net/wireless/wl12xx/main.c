@@ -1678,16 +1678,10 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		if (ret < 0)
 			goto irq_disable;
 
+		/* TODO: disable role here if failed */
 		ret = wl1271_hw_init(wl);
 		if (ret < 0)
 			goto irq_disable;
-
-		/* TODO: we should already disable role if failed... */
-		ret = wl1271_allocate_link(wl, &wl->system_hlid);
-		if (ret < 0)
-			goto irq_disable;
-		wl1271_info("system_hlid: %d", wl->system_hlid);
-		WARN_ON(wl->system_hlid != 0);
 
 		booted = true;
 		break;
@@ -1844,9 +1838,11 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->sched_scanning = false;
 	wl->role_id = WL1271_INVALID_ROLE_ID;
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
-	wl->system_hlid = WL1271_INVALID_LINK_ID;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
+
+	/* The system link is always allocated */
+	__set_bit(WL1271_SYSTEM_HLID, wl->links_map);
 
 	/*
 	 * this is performed after the cancel_work calls and the associated
@@ -4125,12 +4121,17 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
 	wl->role_id = WL1271_INVALID_ROLE_ID;
-	wl->system_hlid = WL1271_INVALID_LINK_ID;
+	wl->system_hlid = WL1271_SYSTEM_HLID;
 	wl->sta_hlid = WL1271_INVALID_LINK_ID;
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	wl->dev_hlid = WL1271_INVALID_LINK_ID;
 	setup_timer(&wl->rx_streaming_timer, wl1271_rx_streaming_timer,
 		    (unsigned long) wl);
+
+	memset(wl->links_map, 0, sizeof(wl->links_map));
+
+	/* The system link is always allocated */
+	__set_bit(WL1271_SYSTEM_HLID, wl->links_map);
 
 	memset(wl->tx_frames_map, 0, sizeof(wl->tx_frames_map));
 	for (i = 0; i < ACX_TX_DESCRIPTORS; i++)
