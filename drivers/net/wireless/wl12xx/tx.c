@@ -379,7 +379,9 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 		}
 	}
 
-	if (wl->bss_type == BSS_TYPE_AP_BSS)
+	if (wl12xx_is_dummy_packet(wl, skb))
+		hlid = wl->system_hlid;
+	else if (wl->bss_type == BSS_TYPE_AP_BSS)
 		hlid = wl1271_tx_get_hlid(skb);
 	else
 		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))

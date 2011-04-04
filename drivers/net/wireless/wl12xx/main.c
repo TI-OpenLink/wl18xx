@@ -1710,6 +1710,13 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		if (ret < 0)
 			goto irq_disable;
 
+		/* TODO: we should already disable role if failed... */
+		ret = wl1271_allocate_link(wl, &wl->system_hlid);
+		if (ret < 0)
+			goto irq_disable;
+		wl1271_info("system_hlid: %d", wl->system_hlid);
+		WARN_ON(wl->system_hlid != 0);
+
 		booted = true;
 		break;
 
@@ -4125,6 +4132,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
 	wl->role_id = WL1271_INVALID_ROLE_ID;
+	wl->system_hlid = WL1271_INVALID_LINK_ID;
 	wl->sta_hlid = WL1271_INVALID_LINK_ID;
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	wl->dev_hlid = WL1271_INVALID_LINK_ID;
