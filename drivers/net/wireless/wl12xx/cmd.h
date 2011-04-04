@@ -73,6 +73,8 @@ int wl1271_cmd_set_ap_key(struct wl1271 *wl, u16 action, u8 id, u8 key_type,
 			  u8 key_size, const u8 *key, u8 hlid, u32 tx_seq_32,
 			  u16 tx_seq_16);
 int wl1271_cmd_set_peer_state(struct wl1271 *wl);
+int wl1271_roc(struct wl1271 *wl);
+int wl1271_croc(struct wl1271 *wl);
 int wl1271_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid);
 int wl1271_cmd_remove_peer(struct wl1271 *wl, u8 hlid);
 

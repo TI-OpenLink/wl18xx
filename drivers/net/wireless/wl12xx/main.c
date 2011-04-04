@@ -1943,28 +1943,6 @@ void wl1271_configure_filters(struct wl1271 *wl, unsigned int filters)
 	}
 }
 
-static int wl1271_dummy_join(struct wl1271 *wl)
-{
-	int ret = 0;
-	/* we need to use a dummy BSSID for now */
-	static const u8 dummy_bssid[ETH_ALEN] = { 0x0b, 0xad, 0xde,
-						  0xad, 0xbe, 0xef };
-
-	memcpy(wl->bssid, dummy_bssid, ETH_ALEN);
-
-	/* pass through frames from all BSS */
-	wl1271_configure_filters(wl, FIF_OTHER_BSS);
-
-	ret = wl1271_cmd_role_start_sta(wl);
-	if (ret < 0)
-		goto out;
-
-	set_bit(WL1271_FLAG_JOINED, &wl->flags);
-
-out:
-	return ret;
-}
-
 static int wl1271_join(struct wl1271 *wl, bool set_assoc)
 {
 	int ret;
@@ -1987,8 +1965,6 @@ static int wl1271_join(struct wl1271 *wl, bool set_assoc)
 	ret = wl1271_cmd_role_start_sta(wl);
 	if (ret < 0)
 		goto out;
-
-	set_bit(WL1271_FLAG_JOINED, &wl->flags);
 
 	if (!test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
 		goto out;
@@ -2029,11 +2005,7 @@ static int wl1271_unjoin(struct wl1271 *wl)
 	if (ret < 0)
 		goto out;
 
-	clear_bit(WL1271_FLAG_JOINED, &wl->flags);
 	memset(wl->bssid, 0, ETH_ALEN);
-
-	/* stop filtering packets based on bssid */
-	wl1271_configure_filters(wl, FIF_OTHER_BSS);
 
 out:
 	return ret;
@@ -2052,8 +2024,12 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, bool idle)
 	int ret;
 
 	if (idle) {
-		if (test_bit(WL1271_FLAG_JOINED, &wl->flags)) {
-			ret = wl1271_unjoin(wl);
+		if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+			ret = wl1271_croc(wl);
+			if (ret < 0)
+				goto out;
+
+			ret = wl1271_cmd_role_stop_dev(wl);
 			if (ret < 0)
 				goto out;
 		}
@@ -2068,18 +2044,17 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, bool idle)
 			goto out;
 		set_bit(WL1271_FLAG_IDLE, &wl->flags);
 	} else {
-		/* increment the session counter */
-		wl->session_counter++;
-		if (wl->session_counter >= SESSION_COUNTER_MAX)
-			wl->session_counter = 0;
-
 		/* The current firmware only supports sched_scan in idle */
 		if (wl->sched_scanning) {
 			wl1271_scan_sched_scan_stop(wl);
 			ieee80211_sched_scan_stopped(wl->hw);
 		}
 
-		ret = wl1271_dummy_join(wl);
+		ret = wl1271_cmd_role_start_dev(wl);
+		if (ret < 0)
+			goto out;
+
+		ret = wl1271_roc(wl);
 		if (ret < 0)
 			goto out;
 		clear_bit(WL1271_FLAG_IDLE, &wl->flags);
@@ -2156,11 +2131,28 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 				wl1271_warning("rate policy for channel "
 					       "failed %d", ret);
 
-			if (test_bit(WL1271_FLAG_JOINED, &wl->flags)) {
+			if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) {
 				ret = wl1271_join(wl, false);
 				if (ret < 0)
 					wl1271_warning("cmd join on channel "
 						       "failed %d", ret);
+			} else {
+				/*
+				 * change the ROC channel. do it only if we are
+				 * not idle. otherwise, CROC will be called
+				 * anyway.
+				 */
+				if (test_bit(WL1271_FLAG_ROC, &wl->flags) &&
+				    !(conf->flags & IEEE80211_CONF_IDLE)) {
+					ret = wl1271_croc(wl);
+					if (ret < 0)
+						goto out_sleep;
+
+					ret = wl1271_roc(wl);
+					if (ret < 0)
+						wl1271_warning("roc failed %d",
+							       ret);
+				}
 			}
 		}
 	}
@@ -2623,6 +2615,10 @@ static int wl1271_op_hw_scan(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out;
 
+	/* cancel ROC before scanning */
+	if (test_bit(WL1271_FLAG_ROC, &wl->flags))
+		wl1271_croc(wl);
+
 	ret = wl1271_scan(hw->priv, ssid, len, req);
 
 	wl1271_ps_elp_sleep(wl);
@@ -3016,9 +3012,6 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			if (ret < 0)
 				goto out;
 
-			/* filter out all packets not from this BSSID */
-			wl1271_configure_filters(wl, 0);
-
 			/* Need to update the BSSID (for filtering etc) */
 			if (bss_conf->assoc)
 				do_join = true;
@@ -3162,7 +3155,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			/* restore the bssid filter and go to dummy bssid */
 			if (was_assoc) {
 				wl1271_unjoin(wl);
-				wl1271_dummy_join(wl);
+				wl1271_roc(wl);
 			}
 		}
 	}
@@ -3200,6 +3193,12 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 	}
 
 	if (do_join) {
+		/* disable ROC before joining */
+		if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+			ret = wl1271_croc(wl);
+			if (ret < 0)
+				goto out;
+		}
 		ret = wl1271_join(wl, set_assoc);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);

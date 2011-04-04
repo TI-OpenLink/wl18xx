@@ -1510,3 +1510,44 @@ out_free:
 out:
 	return ret;
 }
+
+int wl1271_roc(struct wl1271 *wl)
+{
+	int ret = 0;
+
+	if (WARN_ON(test_bit(WL1271_FLAG_ROC, &wl->flags)))
+		return 0;
+
+	ret = wl1271_cmd_roc(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_cmd_wait_for_event(wl,
+					REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID);
+	if (ret < 0) {
+		wl1271_error("cmd roc event completion error");
+		goto out;
+	}
+
+	set_bit(WL1271_FLAG_ROC, &wl->flags);
+
+out:
+	return ret;
+}
+
+int wl1271_croc(struct wl1271 *wl)
+{
+	int ret = 0;
+
+	if (WARN_ON(!test_bit(WL1271_FLAG_ROC, &wl->flags)))
+		return 0;
+
+	ret = wl1271_cmd_croc(wl);
+	if (ret < 0)
+		goto out;
+
+	clear_bit(WL1271_FLAG_ROC, &wl->flags);
+
+out:
+	return ret;
+}
