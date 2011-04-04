@@ -2889,6 +2889,16 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 		u32 rates = bss_conf->basic_rates;
 
 		wl->basic_rate_set = wl1271_tx_enabled_rates_get(wl, rates);
+		/*
+		 * TODO: this is a temporary workaround. we should implement
+		 * some set_bitrate_mask() callback instead.
+		 */
+		if (wl->p2p)
+			wl->basic_rate_set &= ~(CONF_HW_BIT_RATE_1MBPS |
+						CONF_HW_BIT_RATE_2MBPS |
+						CONF_HW_BIT_RATE_5_5MBPS |
+						CONF_HW_BIT_RATE_11MBPS);
+
 		wl->basic_rate = wl1271_tx_min_rate_get(wl);
 
 		ret = wl1271_init_ap_rates(wl);
