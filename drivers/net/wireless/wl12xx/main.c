@@ -1671,10 +1671,14 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		wl->bss_type = BSS_TYPE_STA_BSS;
 		wl->set_bss_type = BSS_TYPE_STA_BSS;
 		break;
+
+	/* we don't support ad-hoc yet */
+#if 0
 	case NL80211_IFTYPE_ADHOC:
 		wl->bss_type = BSS_TYPE_IBSS;
 		wl->set_bss_type = BSS_TYPE_STA_BSS;
 		break;
+#endif
 	case NL80211_IFTYPE_P2P_GO:
 		wl->p2p = 1;
 		/* fall-through */
