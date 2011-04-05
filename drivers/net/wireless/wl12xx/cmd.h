@@ -611,6 +611,14 @@ struct wl1271_cmd_set_peer_state {
 	u8 padding[2];
 } __packed;
 
+struct wl1271_cmd_roc {
+	struct wl1271_cmd_header header;
+
+	u8 channel;
+	u8 band;
+	u8 padding[2];
+};
+
 enum wl1271_ssid_type {
 	WL1271_SSID_TYPE_PUBLIC = 0,
 	WL1271_SSID_TYPE_HIDDEN = 1,
