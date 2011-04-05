@@ -444,7 +444,7 @@ static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 
 	if ((dev->operstate == IF_OPER_UP) &&
 	    !test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags)) {
-		wl1271_cmd_set_sta_state(wl);
+		wl1271_cmd_set_peer_state(wl);
 		wl1271_info("Association completed.");
 	}
 
@@ -1796,6 +1796,8 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sched_scanning = false;
+	memset(wl->roles_map, 0, sizeof(wl->roles_map));
+	memset(wl->links_map, 0, sizeof(wl->links_map));
 
 	/*
 	 * this is performed after the cancel_work calls and the associated
@@ -1880,7 +1882,7 @@ static int wl1271_dummy_join(struct wl1271 *wl)
 	/* pass through frames from all BSS */
 	wl1271_configure_filters(wl, FIF_OTHER_BSS);
 
-	ret = wl1271_cmd_join(wl, wl->set_bss_type);
+	ret = wl1271_cmd_role_start_sta(wl);
 	if (ret < 0)
 		goto out;
 
@@ -1909,7 +1911,7 @@ static int wl1271_join(struct wl1271 *wl, bool set_assoc)
 	if (set_assoc)
 		set_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags);
 
-	ret = wl1271_cmd_join(wl, wl->set_bss_type);
+	ret = wl1271_cmd_role_start_sta(wl);
 	if (ret < 0)
 		goto out;
 
@@ -1950,7 +1952,7 @@ static int wl1271_unjoin(struct wl1271 *wl)
 	int ret;
 
 	/* to stop listening to a channel, we disconnect */
-	ret = wl1271_cmd_disconnect(wl);
+	ret = wl1271_cmd_role_stop_sta(wl);
 	if (ret < 0)
 		goto out;
 
@@ -2825,7 +2827,7 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	if ((changed & BSS_CHANGED_BEACON_ENABLED)) {
 		if (bss_conf->enable_beacon) {
 			if (!test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
-				ret = wl1271_cmd_start_bss(wl);
+				ret = wl1271_cmd_role_start_ap(wl);
 				if (ret < 0)
 					goto out;
 
@@ -2838,7 +2840,7 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 			}
 		} else {
 			if (test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
-				ret = wl1271_cmd_stop_bss(wl);
+				ret = wl1271_cmd_role_stop_ap(wl);
 				if (ret < 0)
 					goto out;
 
@@ -3345,7 +3347,7 @@ static int wl1271_op_sta_add(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out_free_sta;
 
-	ret = wl1271_cmd_add_sta(wl, sta, hlid);
+	ret = wl1271_cmd_add_peer(wl, sta, hlid);
 	if (ret < 0)
 		goto out_sleep;
 
@@ -3388,7 +3390,7 @@ static int wl1271_op_sta_remove(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_cmd_remove_sta(wl, wl_sta->hlid);
+	ret = wl1271_cmd_remove_peer(wl, wl_sta->hlid);
 	if (ret < 0)
 		goto out_sleep;
 

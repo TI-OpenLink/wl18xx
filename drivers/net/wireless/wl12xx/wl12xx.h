@@ -154,9 +154,13 @@ extern u32 wl12xx_debug_level;
 #define WL1271_DEFAULT_BEACON_INT  100
 #define WL1271_DEFAULT_DTIM_PERIOD 1
 
+/* TODO: check max roles */
+#define WL1271_MAX_ROLES           4
 #define WL1271_MAX_LINKS           8
 #define WL1271_INVALID_ROLE_ID     0xff
 #define WL1271_INVALID_LINK_ID     0xff
+
+/* TODO: we can't use constant HLIDs in a real multirole */
 #define WL1271_AP_GLOBAL_HLID      0
 #define WL1271_AP_BROADCAST_HLID   1
 #define WL1271_AP_STA_HLID_START   2
@@ -408,6 +412,10 @@ struct wl1271 {
 	int channel;
 	u8 role_id;
 	u8 sta_hlid;
+	u8 dev_hlid;
+
+	unsigned long links_map[BITS_TO_LONGS(WL1271_MAX_LINKS)];
+	unsigned long roles_map[BITS_TO_LONGS(WL1271_MAX_ROLES)];
 
 	struct wl1271_acx_mem_map *target_mem_map;
 
