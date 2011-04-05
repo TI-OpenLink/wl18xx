@@ -159,12 +159,15 @@ extern u32 wl12xx_debug_level;
 #define WL1271_MAX_LINKS           8
 #define WL1271_INVALID_ROLE_ID     0xff
 #define WL1271_INVALID_LINK_ID     0xff
+
+/* Defined by FW as 0. Will not be freed or allocated. */
 #define WL1271_SYSTEM_HLID         0
 
-/* TODO: we can't use constant HLIDs in a real multirole */
-#define WL1271_AP_GLOBAL_HLID      0
-#define WL1271_AP_BROADCAST_HLID   1
-#define WL1271_AP_STA_HLID_START   2
+/*
+ * TODO: this is a very ugly hack since we don't support multirole. remove
+ * this constant from the code when we do.
+ */
+#define WL1271_AP_STA_HLID_START   3
 
 /*
  * When in AP-mode, we allow (at least) this number of mem-blocks
@@ -417,6 +420,8 @@ struct wl1271 {
 	u8 system_hlid;
 	u8 sta_hlid;
 	u8 dev_hlid;
+	u8 ap_global_hlid;
+	u8 ap_bcast_hlid;
 
 	unsigned long links_map[BITS_TO_LONGS(WL1271_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WL1271_MAX_ROLES)];

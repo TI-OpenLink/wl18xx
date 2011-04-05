@@ -140,7 +140,7 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl, u8 hlid)
 }
 #endif
 
-u8 wl1271_tx_get_hlid(struct sk_buff *skb)
+u8 wl1271_tx_get_hlid(struct wl1271 *wl, struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *control = IEEE80211_SKB_CB(skb);
 
@@ -155,9 +155,9 @@ u8 wl1271_tx_get_hlid(struct sk_buff *skb)
 
 		hdr = (struct ieee80211_hdr *)skb->data;
 		if (ieee80211_is_mgmt(hdr->frame_control))
-			return WL1271_AP_GLOBAL_HLID;
+			return wl->ap_global_hlid;
 		else
-			return WL1271_AP_BROADCAST_HLID;
+			return wl->ap_bcast_hlid;
 	}
 }
 
@@ -295,17 +295,12 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		else
 			rate_idx = ACX_TX_BASIC_RATE;
 	} else {
-		switch (hlid) {
-		case WL1271_AP_GLOBAL_HLID:
+		if (hlid == wl->ap_global_hlid)
 			rate_idx = ACX_TX_AP_MODE_MGMT_RATE;
-			break;
-		case WL1271_AP_BROADCAST_HLID:
+		else if (hlid ==  wl->ap_bcast_hlid)
 			rate_idx = ACX_TX_AP_MODE_BCST_RATE;
-			break;
-		default:
+		else
 			rate_idx = ac;
-			break;
-		}
 	}
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
@@ -382,7 +377,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	if (wl12xx_is_dummy_packet(wl, skb))
 		hlid = wl->system_hlid;
 	else if (wl->bss_type == BSS_TYPE_AP_BSS)
-		hlid = wl1271_tx_get_hlid(skb);
+		hlid = wl1271_tx_get_hlid(wl, skb);
 	else
 		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
 			hlid = wl->sta_hlid;
@@ -561,7 +556,7 @@ static void wl1271_skb_queue_head(struct wl1271 *wl, struct sk_buff *skb)
 	if (wl12xx_is_dummy_packet(wl, skb)) {
 		set_bit(WL1271_FLAG_DUMMY_PACKET_PENDING, &wl->flags);
 	} else if (wl->bss_type == BSS_TYPE_AP_BSS) {
-		u8 hlid = wl1271_tx_get_hlid(skb);
+		u8 hlid = wl1271_tx_get_hlid(wl, skb);
 		skb_queue_head(&wl->links[hlid].tx_queue[q], skb);
 
 		/* make sure we dequeue the same packet next time */

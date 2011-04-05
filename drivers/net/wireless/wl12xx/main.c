@@ -1298,7 +1298,7 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 
 	if (wl->bss_type == BSS_TYPE_AP_BSS)
-		hlid = wl1271_tx_get_hlid(skb);
+		hlid = wl1271_tx_get_hlid(wl, skb);
 
 	spin_lock_irqsave(&wl->wl_lock, flags);
 
@@ -2391,7 +2391,7 @@ static int wl1271_set_key(struct wl1271 *wl, u16 action, u8 id, u8 key_type,
 			wl_sta = (struct wl1271_station *)sta->drv_priv;
 			hlid = wl_sta->hlid;
 		} else {
-			hlid = WL1271_AP_BROADCAST_HLID;
+			hlid = wl->ap_bcast_hlid;
 		}
 
 		if (!test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
@@ -4126,6 +4126,8 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	wl->dev_hlid = WL1271_INVALID_LINK_ID;
 	wl->session_counter = SESSION_COUNTER_MIN;
+	wl->ap_bcast_hlid = WL1271_INVALID_LINK_ID;
+	wl->ap_global_hlid = WL1271_INVALID_LINK_ID;
 	setup_timer(&wl->rx_streaming_timer, wl1271_rx_streaming_timer,
 		    (unsigned long) wl);
 
