@@ -1827,7 +1827,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->tx_security_last_seq = 0;
 	wl->tx_security_seq = 0;
 	wl->time_offset = 0;
-	wl->session_counter = 0;
+	wl->session_counter = SESSION_COUNTER_MIN;
 	wl->rate_set = CONF_TX_RATE_MASK_BASIC;
 	wl->vif = NULL;
 	wl->filters = 0;
@@ -4125,6 +4125,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->sta_hlid = WL1271_INVALID_LINK_ID;
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	wl->dev_hlid = WL1271_INVALID_LINK_ID;
+	wl->session_counter = SESSION_COUNTER_MIN;
 	setup_timer(&wl->rx_streaming_timer, wl1271_rx_streaming_timer,
 		    (unsigned long) wl);
 
