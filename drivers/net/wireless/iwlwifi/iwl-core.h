@@ -5,7 +5,7 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2008 - 2010 Intel Corporation. All rights reserved.
+ * Copyright(c) 2008 - 2011 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -30,7 +30,7 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2010 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2011 Intel Corporation. All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,7 +73,7 @@ struct iwl_cmd;
 
 
 #define IWLWIFI_VERSION "in-tree:"
-#define DRV_COPYRIGHT	"Copyright(c) 2003-2010 Intel Corporation"
+#define DRV_COPYRIGHT	"Copyright(c) 2003-2011 Intel Corporation"
 #define DRV_AUTHOR     "<ilw@linux.intel.com>"
 
 #define IWL_PCI_DEVICE(dev, subdev, cfg) \
@@ -120,14 +120,6 @@ struct iwl_hcmd_utils_ops {
 struct iwl_apm_ops {
 	int (*init)(struct iwl_priv *priv);
 	void (*config)(struct iwl_priv *priv);
-};
-
-struct iwl_isr_ops {
-	irqreturn_t (*isr) (int irq, void *data);
-	void (*free)(struct iwl_priv *priv);
-	int (*alloc)(struct iwl_priv *priv);
-	int (*reset)(struct iwl_priv *priv);
-	void (*disable)(struct iwl_priv *priv);
 };
 
 struct iwl_debugfs_ops {
@@ -177,14 +169,9 @@ struct iwl_lib_ops {
 	void (*setup_deferred_work)(struct iwl_priv *priv);
 	/* cancel deferred work */
 	void (*cancel_deferred_work)(struct iwl_priv *priv);
-	/* alive notification after init uCode load */
-	void (*init_alive_start)(struct iwl_priv *priv);
-	/* alive notification */
-	int (*alive_notify)(struct iwl_priv *priv);
 	/* check validity of rtc data address */
 	int (*is_valid_rtc_data_addr)(u32 addr);
-	/* 1st ucode load */
-	int (*load_ucode)(struct iwl_priv *priv);
+
 	int (*dump_nic_event_log)(struct iwl_priv *priv,
 				  bool full_log, char **buf, bool display);
 	void (*dump_nic_error_log)(struct iwl_priv *priv);
@@ -198,9 +185,6 @@ struct iwl_lib_ops {
 	/* power */
 	int (*send_tx_power) (struct iwl_priv *priv);
 	void (*update_chain_flags)(struct iwl_priv *priv);
-
-	/* isr */
-	struct iwl_isr_ops isr_ops;
 
 	/* eeprom operations (as defined in iwl-eeprom.h) */
 	struct iwl_eeprom_ops eeprom_ops;
@@ -288,7 +272,6 @@ struct iwl_base_params {
 	/* for iwl_apm_init() */
 	u32 pll_cfg_val;
 	bool set_l0s;
-	bool use_bsm;
 
 	const u16 max_ll_items;
 	const bool shadow_ram_support;
@@ -728,10 +711,13 @@ static inline bool iwl_advanced_bt_coexist(struct iwl_priv *priv)
 
 static inline bool iwl_bt_statistics(struct iwl_priv *priv)
 {
-	return priv->cfg->bt_params && priv->cfg->bt_params->bt_statistics;
+	return priv->bt_statistics;
 }
 
 extern bool bt_coex_active;
 extern bool bt_siso_mode;
+
+
+void iwlagn_fw_error(struct iwl_priv *priv, bool ondemand);
 
 #endif /* __iwl_core_h__ */

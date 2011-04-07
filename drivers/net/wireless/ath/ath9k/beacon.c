@@ -323,6 +323,7 @@ void ath_beacon_return(struct ath_softc *sc, struct ath_vif *avp)
 		if (avp->av_bslot != -1) {
 			sc->beacon.bslot[avp->av_bslot] = NULL;
 			sc->nbcnvifs--;
+			avp->av_bslot = -1;
 		}
 
 		bf = avp->av_bcbuf;
@@ -392,14 +393,6 @@ void ath_beacon_tasklet(unsigned long data)
 	tsf += TU_TO_USEC(ah->config.sw_beacon_response_time);
 	tsftu = TSF_TO_TU((tsf * ATH_BCBUF) >>32, tsf * ATH_BCBUF);
 	slot = (tsftu % (intval * ATH_BCBUF)) / intval;
-	/*
-	 * Reverse the slot order to get slot 0 on the TBTT offset that does
-	 * not require TSF adjustment and other slots adding
-	 * slot/ATH_BCBUF * beacon_int to timestamp. For example, with
-	 * ATH_BCBUF = 4, we process beacon slots as follows: 3 2 1 0 3 2 1 ..
-	 * and slot 0 is at correct offset to TBTT.
-	 */
-	slot = ATH_BCBUF - slot - 1;
 	vif = sc->beacon.bslot[slot];
 
 	ath_dbg(common, ATH_DBG_BEACON,
@@ -670,22 +663,63 @@ static void ath_beacon_config_adhoc(struct ath_softc *sc,
 	ath9k_hw_set_interrupts(ah, ah->imask);
 }
 
-void ath_beacon_config(struct ath_softc *sc, struct ieee80211_vif *vif)
+static bool ath9k_allow_beacon_config(struct ath_softc *sc,
+				      struct ieee80211_vif *vif)
 {
 	struct ath_beacon_config *cur_conf = &sc->cur_beacon_conf;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
-	enum nl80211_iftype iftype;
+	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
+	struct ath_vif *avp = (void *)vif->drv_priv;
+
+	/*
+	 * Can not have different beacon interval on multiple
+	 * AP interface case
+	 */
+	if ((sc->sc_ah->opmode == NL80211_IFTYPE_AP) &&
+	    (sc->nbcnvifs > 1) &&
+	    (vif->type == NL80211_IFTYPE_AP) &&
+	    (cur_conf->beacon_interval != bss_conf->beacon_int)) {
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Changing beacon interval of multiple \
+			AP interfaces !\n");
+		return false;
+	}
+	/*
+	 * Can not configure station vif's beacon config
+	 * while on AP opmode
+	 */
+	if ((sc->sc_ah->opmode == NL80211_IFTYPE_AP) &&
+	    (vif->type != NL80211_IFTYPE_AP)) {
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"STA vif's beacon not allowed on AP mode\n");
+		return false;
+	}
+	/*
+	 * Do not allow beacon config if HW was already configured
+	 * with another STA vif
+	 */
+	if ((sc->sc_ah->opmode == NL80211_IFTYPE_STATION) &&
+	    (vif->type == NL80211_IFTYPE_STATION) &&
+	    (sc->sc_flags & SC_OP_BEACONS) &&
+	    !avp->primary_sta_vif) {
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Beacon already configured for a station interface\n");
+		return false;
+	}
+	return true;
+}
+
+void ath_beacon_config(struct ath_softc *sc, struct ieee80211_vif *vif)
+{
+	struct ath_beacon_config *cur_conf = &sc->cur_beacon_conf;
+	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
+
+	if (!ath9k_allow_beacon_config(sc, vif))
+		return;
 
 	/* Setup the beacon configuration parameters */
-	if (vif) {
-		struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
-		iftype = vif->type;
-		cur_conf->beacon_interval = bss_conf->beacon_int;
-		cur_conf->dtim_period = bss_conf->dtim_period;
-	} else {
-		iftype = sc->sc_ah->opmode;
-	}
-
+	cur_conf->beacon_interval = bss_conf->beacon_int;
+	cur_conf->dtim_period = bss_conf->dtim_period;
 	cur_conf->listen_interval = 1;
 	cur_conf->dtim_count = 1;
 	cur_conf->bmiss_timeout =
@@ -708,7 +742,16 @@ void ath_beacon_config(struct ath_softc *sc, struct ieee80211_vif *vif)
 	if (cur_conf->dtim_period == 0)
 		cur_conf->dtim_period = 1;
 
-	switch (iftype) {
+	ath_set_beacon(sc);
+	sc->ps_flags |= PS_BEACON_SYNC | PS_WAIT_FOR_BEACON;
+}
+
+void ath_set_beacon(struct ath_softc *sc)
+{
+	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
+	struct ath_beacon_config *cur_conf = &sc->cur_beacon_conf;
+
+	switch (sc->sc_ah->opmode) {
 	case NL80211_IFTYPE_AP:
 		ath_beacon_config_ap(sc, cur_conf);
 		break;
@@ -735,22 +778,23 @@ void ath9k_set_beaconing_status(struct ath_softc *sc, bool status)
 	int slot;
 	bool found = false;
 
-	ath9k_ps_wakeup(sc);
-	if (status) {
-		for (slot = 0; slot < ATH_BCBUF; slot++) {
-			if (sc->beacon.bslot[slot]) {
-				avp = (void *)sc->beacon.bslot[slot]->drv_priv;
-				if (avp->is_bslot_active) {
-					found = true;
-					break;
-				}
+	for (slot = 0; slot < ATH_BCBUF; slot++) {
+		if (sc->beacon.bslot[slot]) {
+			avp = (void *)sc->beacon.bslot[slot]->drv_priv;
+			if (avp->is_bslot_active) {
+				found = true;
+				break;
 			}
 		}
-		if (found) {
-			/* Re-enable beaconing */
-			ah->imask |= ATH9K_INT_SWBA;
-			ath9k_hw_set_interrupts(ah, ah->imask);
-		}
+	}
+	if (!found)
+		return;
+
+	ath9k_ps_wakeup(sc);
+	if (status) {
+		/* Re-enable beaconing */
+		ah->imask |= ATH9K_INT_SWBA;
+		ath9k_hw_set_interrupts(ah, ah->imask);
 	} else {
 		/* Disable SWBA interrupt */
 		ah->imask &= ~ATH9K_INT_SWBA;

@@ -344,11 +344,9 @@ void ath_tx_aggr_resume(struct ath_softc *sc, struct ieee80211_sta *sta, u16 tid
 
 struct ath_vif {
 	int av_bslot;
-	bool is_bslot_active;
+	bool is_bslot_active, primary_sta_vif;
 	__le64 tsf_adjust; /* TSF adjustment for staggered beacons */
-	enum nl80211_iftype av_opmode;
 	struct ath_buf *av_bcbuf;
-	u8 bssid[ETH_ALEN]; /* current BSSID from config_interface */
 };
 
 /*******************/
@@ -399,6 +397,7 @@ void ath_beacon_config(struct ath_softc *sc, struct ieee80211_vif *vif);
 int ath_beacon_alloc(struct ath_softc *sc, struct ieee80211_vif *vif);
 void ath_beacon_return(struct ath_softc *sc, struct ath_vif *avp);
 int ath_beaconq_config(struct ath_softc *sc);
+void ath_set_beacon(struct ath_softc *sc);
 void ath9k_set_beaconing_status(struct ath_softc *sc, bool status);
 
 /*******/
@@ -548,6 +547,7 @@ struct ath_ant_comb {
 #define SC_OP_BT_SCAN		     BIT(13)
 #define SC_OP_ANI_RUN		     BIT(14)
 #define SC_OP_ENABLE_APM	     BIT(15)
+#define SC_OP_PRIM_STA_VIF	     BIT(16)
 
 /* Powersave flags */
 #define PS_WAIT_FOR_BEACON        BIT(0)
