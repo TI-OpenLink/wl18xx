@@ -303,6 +303,9 @@ int ath_set_channel(struct ath_softc *sc, struct ieee80211_hw *hw,
 		ieee80211_queue_delayed_work(sc->hw, &sc->tx_complete_work, 0);
 		ieee80211_queue_delayed_work(sc->hw, &sc->hw_pll_work, HZ/2);
 		ath_start_ani(common);
+	} else {
+		sc->sc_flags &= ~SC_OP_ANI_RUN;
+		del_timer_sync(&common->ani.timer);
 	}
 
  ps_restore:
@@ -1334,7 +1337,6 @@ static void ath9k_calculate_summary_state(struct ieee80211_hw *hw,
 
 	ath9k_calculate_iter_data(hw, vif, &iter_data);
 
-	ath9k_ps_wakeup(sc);
 	/* Set BSSID mask. */
 	memcpy(common->bssidmask, iter_data.mask, ETH_ALEN);
 	ath_hw_setbssidmask(common);
@@ -1369,7 +1371,6 @@ static void ath9k_calculate_summary_state(struct ieee80211_hw *hw,
 	}
 
 	ath9k_hw_set_interrupts(ah, ah->imask);
-	ath9k_ps_restore(sc);
 
 	/* Set up ANI */
 	if ((iter_data.naps + iter_data.nadhocs) > 0) {
@@ -1411,6 +1412,7 @@ static int ath9k_add_interface(struct ieee80211_hw *hw,
 	struct ath_common *common = ath9k_hw_common(ah);
 	int ret = 0;
 
+	ath9k_ps_wakeup(sc);
 	mutex_lock(&sc->mutex);
 
 	switch (vif->type) {
@@ -1454,6 +1456,7 @@ static int ath9k_add_interface(struct ieee80211_hw *hw,
 	ath9k_do_vif_add_setup(hw, vif);
 out:
 	mutex_unlock(&sc->mutex);
+	ath9k_ps_restore(sc);
 	return ret;
 }
 
@@ -1468,6 +1471,7 @@ static int ath9k_change_interface(struct ieee80211_hw *hw,
 
 	ath_dbg(common, ATH_DBG_CONFIG, "Change Interface\n");
 	mutex_lock(&sc->mutex);
+	ath9k_ps_wakeup(sc);
 
 	/* See if new interface type is valid. */
 	if ((new_type == NL80211_IFTYPE_ADHOC) &&
@@ -1497,6 +1501,7 @@ static int ath9k_change_interface(struct ieee80211_hw *hw,
 
 	ath9k_do_vif_add_setup(hw, vif);
 out:
+	ath9k_ps_restore(sc);
 	mutex_unlock(&sc->mutex);
 	return ret;
 }
@@ -1509,6 +1514,7 @@ static void ath9k_remove_interface(struct ieee80211_hw *hw,
 
 	ath_dbg(common, ATH_DBG_CONFIG, "Detach Interface\n");
 
+	ath9k_ps_wakeup(sc);
 	mutex_lock(&sc->mutex);
 
 	sc->nvifs--;
@@ -1520,6 +1526,7 @@ static void ath9k_remove_interface(struct ieee80211_hw *hw,
 	ath9k_calculate_summary_state(hw, NULL);
 
 	mutex_unlock(&sc->mutex);
+	ath9k_ps_restore(sc);
 }
 
 static void ath9k_enable_ps(struct ath_softc *sc)
@@ -1760,6 +1767,7 @@ static int ath9k_conf_tx(struct ieee80211_hw *hw, u16 queue,
 
 	txq = sc->tx.txq_map[queue];
 
+	ath9k_ps_wakeup(sc);
 	mutex_lock(&sc->mutex);
 
 	memset(&qi, 0, sizeof(struct ath9k_tx_queue_info));
@@ -1783,6 +1791,7 @@ static int ath9k_conf_tx(struct ieee80211_hw *hw, u16 queue,
 			ath_beaconq_config(sc);
 
 	mutex_unlock(&sc->mutex);
+	ath9k_ps_restore(sc);
 
 	return ret;
 }
@@ -1938,6 +1947,7 @@ static void ath9k_bss_info_changed(struct ieee80211_hw *hw,
 	int slottime;
 	int error;
 
+	ath9k_ps_wakeup(sc);
 	mutex_lock(&sc->mutex);
 
 	if (changed & BSS_CHANGED_BSSID) {
@@ -2023,6 +2033,7 @@ static void ath9k_bss_info_changed(struct ieee80211_hw *hw,
 	}
 
 	mutex_unlock(&sc->mutex);
+	ath9k_ps_restore(sc);
 }
 
 static u64 ath9k_get_tsf(struct ieee80211_hw *hw)
