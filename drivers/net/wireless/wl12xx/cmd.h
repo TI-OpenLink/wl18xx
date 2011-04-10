@@ -256,10 +256,9 @@ struct wl1271_cmd_role_start {
 		struct {
 			u8 hlid;
 			u8 session;
-			u8 padding_1[58];
+			u8 padding_1[54];
 		} __packed device;
 		/* sta & p2p_cli use the same struct */
-		/* TODO: sta/p2p_cli are currently different! */
 		struct {
 			u8 bssid[ETH_ALEN];
 			u8 hlid; /* data hlid */
@@ -279,10 +278,6 @@ struct wl1271_cmd_role_start {
 			u8 ssid[IW_ESSID_MAX_SIZE];
 
 			__le16 beacon_interval; /* in TBTTs */
-
-			/* DTIM count */
-			u8 dtim_interval;
-			u8 padding_1[3];
 		} __packed sta;
 		struct {
 			u8 bssid[ETH_ALEN];
@@ -324,14 +319,8 @@ struct wl1271_cmd_role_start {
 			u8 ssid_len;
 			u8 ssid[IW_ESSID_MAX_SIZE];
 
-			u8 padding_1[9];
+			u8 padding_1[5];
 		} __packed ap;
-		struct {
-			u8 global_hlid;
-			u8 session;
-			u8 reserved[10];
-		} __packed p2p_dev;
-
 	};
 } __packed;
 
@@ -616,9 +605,10 @@ struct wl1271_cmd_set_peer_state {
 struct wl1271_cmd_roc {
 	struct wl1271_cmd_header header;
 
+	u8 role_id;
 	u8 channel;
 	u8 band;
-	u8 padding[2];
+	u8 padding;
 };
 
 enum wl1271_ssid_type {
