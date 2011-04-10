@@ -576,7 +576,6 @@ int wl1271_cmd_role_start_sta(struct wl1271 *wl)
 	if (wl->band == IEEE80211_BAND_5GHZ)
 		cmd->band |= WL1271_BAND_5GHZ;
 	cmd->channel = wl->channel;
-	cmd->sta.dtim_interval = WL1271_DEFAULT_DTIM_PERIOD;
 	cmd->sta.basic_rate_set = cpu_to_le32(wl->basic_rate_set);
 	cmd->sta.beacon_interval = cpu_to_le16(wl->beacon_int);
 	cmd->sta.ssid_type = WL1271_SSID_TYPE_ANY;
