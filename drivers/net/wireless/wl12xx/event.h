@@ -61,14 +61,15 @@ enum {
 	MAX_TX_FAILURE_EVENT_ID			 = BIT(20),
 	DUMMY_PACKET_EVENT_ID			 = BIT(21),
 	SOFT_GEMINI_SENSE_EVENT_ID		 = BIT(22),
-	SOFT_GEMINI_PREDICTION_EVENT_ID		 = BIT(23),
-	REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID	 = BIT(24),
+	CHANGE_AUTO_MODE_TIMEOUT_EVENT_ID	 = BIT(23),
+	SOFT_GEMINI_AVALANCHE_EVENT_ID		 = BIT(24),
 	PLT_RX_CALIBRATION_COMPLETE_EVENT_ID	 = BIT(25),
 	INACTIVE_STA_EVENT_ID			 = BIT(26),
 	PEER_REMOVE_COMPLETE_EVENT_ID		 = BIT(27),
 	PERIODIC_SCAN_COMPLETE_EVENT_ID		 = BIT(28),
 	PERIODIC_SCAN_REPORT_EVENT_ID		 = BIT(29),
 	BA_SESSION_TEAR_DOWN_EVENT_ID		 = BIT(30),
+	REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID	 = BIT(31),
 	EVENT_MBOX_ALL_EVENT_ID			 = 0x7fffffff,
 };
 
@@ -108,15 +109,15 @@ struct event_mailbox {
 	/* bitmap of stations (by HLID) which exceeded max tx retries */
 	__le16 links_tx_failure_exceeded;
 
-	u8 ps_poll_delivery_failure_role_ids;
-	u8 stopped_role_ids;
-	u8 started_role_ids;
-
 	/* discovery completed results */
 	u8 discovery_tag;
 	u8 number_of_preq_results;
 	u8 number_of_prsp_results;
 	u8 reserved_5;
+
+	u8 ps_poll_delivery_failure_role_ids;
+	u8 stopped_role_ids;
+	u8 started_role_ids;
 
 	u8 reserved_6[17];
 } __packed;
