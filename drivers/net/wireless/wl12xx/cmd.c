@@ -1472,9 +1472,14 @@ out:
 static int wl1271_cmd_roc(struct wl1271 *wl)
 {
 	struct wl1271_cmd_roc *cmd;
+	/* TODO: get role_id as param */
+	u8 role_id = wl->dev_role_id;
 	int ret = 0;
 
 	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wl->channel, wl->band);
+
+	if (WARN_ON(role_id == WL1271_INVALID_ROLE_ID))
+		return -EINVAL;
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
@@ -1482,6 +1487,7 @@ static int wl1271_cmd_roc(struct wl1271 *wl)
 		goto out;
 	}
 
+	cmd->role_id = role_id;
 	cmd->channel = wl->channel;
 	switch (wl->band) {
 	case IEEE80211_BAND_2GHZ:
