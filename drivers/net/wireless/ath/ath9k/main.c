@@ -303,9 +303,6 @@ int ath_set_channel(struct ath_softc *sc, struct ieee80211_hw *hw,
 		ieee80211_queue_delayed_work(sc->hw, &sc->tx_complete_work, 0);
 		ieee80211_queue_delayed_work(sc->hw, &sc->hw_pll_work, HZ/2);
 		ath_start_ani(common);
-	} else {
-		sc->sc_flags &= ~SC_OP_ANI_RUN;
-		del_timer_sync(&common->ani.timer);
 	}
 
  ps_restore:
