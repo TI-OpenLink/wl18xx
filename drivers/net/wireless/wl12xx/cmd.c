@@ -458,9 +458,10 @@ void wl1271_free_link(struct wl1271 *wl, u8 *hlid)
 
 int wl1271_get_new_session_id(struct wl1271 *wl)
 {
+	if (wl->session_counter >= SESSION_COUNTER_MAX)
+		wl->session_counter = 0;
+
 	wl->session_counter++;
-	if (wl->session_counter > SESSION_COUNTER_MAX)
-		wl->session_counter = SESSION_COUNTER_MIN;
 
 	return wl->session_counter;
 }

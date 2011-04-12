@@ -622,7 +622,6 @@ int wl1271_recalc_rx_streaming(struct wl1271 *wl);
 #define JOIN_TIMEOUT 5000 /* 5000 milliseconds to join */
 
 #define SESSION_COUNTER_MAX 7 /* maximum value for the session counter */
-#define SESSION_COUNTER_MIN 1
 
 #define WL1271_DEFAULT_POWER_LEVEL 0
 
