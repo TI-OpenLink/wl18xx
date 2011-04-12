@@ -583,7 +583,12 @@ int wl1271_cmd_role_start_sta(struct wl1271 *wl)
 	cmd->sta.ssid_len = wl->ssid_len;
 	memcpy(cmd->sta.ssid, wl->ssid, wl->ssid_len);
 	memcpy(cmd->sta.bssid, wl->bssid, ETH_ALEN);
-	cmd->sta.local_rates = cpu_to_le32(0x1eff); /* TEMP */
+
+	/*
+	 * TODO: 11n rates should not be allowed when encryption is WEP
+	 * or TKIP. For now allow all.
+	 */
+	cmd->sta.local_rates = cpu_to_le32(wl->rate_set);
 
 	if (wl->sta_hlid == WL1271_INVALID_LINK_ID) {
 		ret = wl1271_allocate_link(wl, &wl->sta_hlid);

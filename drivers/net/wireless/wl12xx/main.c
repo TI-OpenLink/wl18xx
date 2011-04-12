@@ -281,8 +281,9 @@ static struct conf_drv_settings default_conf = {
 		},
 	},
 	.ht = {
-		.tx_ba_win_size = 64,
+		.tx_ba_win_size = 8,
 		.inactivity_timeout = 10000,
+		.tx_ba_tid_bitmap = CONF_TX_BA_ENABLED_TID_BITMAP,
 	},
 	.mem_wl127x = {
 		.num_stations                 = 1,
@@ -3000,9 +3001,12 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		}
 	}
 
-	rcu_read_lock();
-	sta = ieee80211_find_sta(vif, bss_conf->bssid);
-	if (sta)  {
+	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_HT)) {
+		rcu_read_lock();
+		sta = ieee80211_find_sta(vif, bss_conf->bssid);
+		if (!sta)
+			goto sta_not_found;
+
 		/* save the supp_rates of the ap */
 		sta_rate_set = sta->supp_rates[wl->hw->conf.channel->band];
 		if (sta->ht_cap.ht_supported)
@@ -3010,38 +3014,9 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			    (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
 		sta_ht_cap = sta->ht_cap;
 		sta_exists = true;
-	}
-	rcu_read_unlock();
 
-	if (sta_exists) {
-		/* handle new association with HT and HT information change */
-		if ((changed & BSS_CHANGED_HT) &&
-		    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
-			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
-							     true);
-			if (ret < 0) {
-				wl1271_warning("Set ht cap true failed %d",
-					       ret);
-				goto out;
-			}
-			ret = wl1271_acx_set_ht_information(wl,
-						bss_conf->ht_operation_mode);
-			if (ret < 0) {
-				wl1271_warning("Set ht information failed %d",
-					       ret);
-				goto out;
-			}
-		}
-		/* handle new association without HT and disassociation */
-		else if (changed & BSS_CHANGED_ASSOC) {
-			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
-							     false);
-			if (ret < 0) {
-				wl1271_warning("Set ht cap false failed %d",
-					       ret);
-				goto out;
-			}
-		}
+sta_not_found:
+		rcu_read_unlock();
 	}
 
 	if ((changed & BSS_CHANGED_ASSOC)) {
@@ -3190,6 +3165,41 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		ret = wl1271_join(wl, set_assoc);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);
+			goto out;
+		}
+	}
+
+	/* Handle new association with HT. Do this only after join. */
+	if (sta_exists) {
+		if ((changed & BSS_CHANGED_HT) &&
+		    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
+			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
+							     true);
+			if (ret < 0) {
+				wl1271_warning("Set ht cap true failed %d",
+					       ret);
+				goto out;
+			}
+		}
+		/* handle new association without HT and disassociation */
+		else if (changed & BSS_CHANGED_ASSOC) {
+			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
+							     false);
+			if (ret < 0) {
+				wl1271_warning("Set ht cap false failed %d",
+					       ret);
+				goto out;
+			}
+		}
+	}
+
+	/* Handle HT information change. Only after join. */
+	if (sta_exists && (changed & BSS_CHANGED_HT) &&
+	    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
+		ret = wl1271_acx_set_ht_information(wl,
+					bss_conf->ht_operation_mode);
+		if (ret < 0) {
+			wl1271_warning("Set ht information failed %d", ret);
 			goto out;
 		}
 	}
@@ -3474,6 +3484,13 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 	struct wl1271 *wl = hw->priv;
 	int ret;
 
+	wl1271_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
+		     tid);
+
+	/* sanity check - the fields in FW are only 8bits wide */
+	if (WARN_ON(tid > 0xFF))
+		return -ENOTSUPP;
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state == WL1271_STATE_OFF)) {
@@ -3487,20 +3504,44 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
-		if (wl->ba_support) {
-			ret = wl1271_acx_set_ba_receiver_session(wl, tid, *ssn,
-								 true);
-			if (!ret)
-				wl->ba_rx_bitmap |= BIT(tid);
-		} else {
+		if (!wl->ba_support) {
 			ret = -ENOTSUPP;
+			break;
+		}
+
+		if (wl->ba_rx_session_count >= RX_BA_MAX_SESSIONS) {
+			ret = -EBUSY;
+			wl1271_error("exceeded max RX BA sessions");
+			break;
+		}
+
+		if (wl->ba_rx_bitmap & BIT(tid)) {
+			ret = -EINVAL;
+			wl1271_error("cannot enable RX BA session on active "
+				     "tid: %d", tid);
+			break;
+		}
+
+		ret = wl1271_acx_set_ba_receiver_session(wl, tid, *ssn, true);
+		if (!ret) {
+			wl->ba_rx_bitmap |= BIT(tid);
+			wl->ba_rx_session_count++;
 		}
 		break;
 
 	case IEEE80211_AMPDU_RX_STOP:
+		if (!(wl->ba_rx_bitmap & BIT(tid))) {
+			ret = -EINVAL;
+			wl1271_error("no active RX BA session on tid: %d",
+				     tid);
+			break;
+		}
+
 		ret = wl1271_acx_set_ba_receiver_session(wl, tid, 0, false);
-		if (!ret)
+		if (!ret) {
 			wl->ba_rx_bitmap &= ~BIT(tid);
+			wl->ba_rx_session_count--;
+		}
 		break;
 
 	/*
@@ -3644,8 +3685,7 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 
 #ifdef CONFIG_WL12XX_HT
 #define WL12XX_HT_CAP { \
-	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
-	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
+	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20, \
 	.ht_supported = true, \
 	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K, \
 	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8, \

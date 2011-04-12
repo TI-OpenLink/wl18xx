@@ -609,6 +609,9 @@ struct wl1271 {
 
 	/* Platform limitations */
 	unsigned int platform_quirks;
+
+	/* number of currently active RX BA sessions */
+	int ba_rx_session_count;
 };
 
 struct wl1271_station {

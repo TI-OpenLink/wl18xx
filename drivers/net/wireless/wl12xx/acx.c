@@ -1335,19 +1335,15 @@ int wl1271_acx_set_ht_capabilities(struct wl1271 *wl,
 		goto out;
 	}
 
-	/* Allow HT Operation ? */
 	if (allow_ht_operation) {
-		ht_capabilites =
-			WL1271_ACX_FW_CAP_HT_OPERATION;
-		if (ht_cap->cap & IEEE80211_HT_CAP_GRN_FLD)
-			ht_capabilites |=
-				WL1271_ACX_FW_CAP_GREENFIELD_FRAME_FORMAT;
-		if (ht_cap->cap & IEEE80211_HT_CAP_SGI_20)
-			ht_capabilites |=
-				WL1271_ACX_FW_CAP_SHORT_GI_FOR_20MHZ_PACKETS;
-		if (ht_cap->cap & IEEE80211_HT_CAP_LSIG_TXOP_PROT)
-			ht_capabilites |=
-				WL1271_ACX_FW_CAP_LSIG_TXOP_PROTECTION;
+		/* no need to translate capabilities - use the spec values */
+		ht_capabilites = ht_cap->cap;
+
+		/*
+		 * this bit is not employed by the spec but only by FW to
+		 * indicate peer HT support
+		 */
+		ht_capabilites |= WL12XX_HT_CAP_HT_OPERRATION;
 
 		/* get data from A-MPDU parameters field */
 		acx->ampdu_max_length = ht_cap->ampdu_factor;
@@ -1405,15 +1401,12 @@ out:
 }
 
 /* Configure BA session initiator/receiver parameters setting in the FW. */
-int wl1271_acx_set_ba_session(struct wl1271 *wl,
-			       enum ieee80211_back_parties direction,
-			       u8 tid_index, u8 policy)
+int wl1271_acx_set_ba_initiator_policy(struct wl1271 *wl)
 {
-#if 0
-	struct wl1271_acx_ba_session_policy *acx;
+	struct wl1271_acx_ba_initiator_policy *acx;
 	int ret;
 
-	wl1271_debug(DEBUG_ACX, "acx ba session setting");
+	wl1271_debug(DEBUG_ACX, "acx ba initiator policy");
 
 	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
 	if (!acx) {
@@ -1421,49 +1414,30 @@ int wl1271_acx_set_ba_session(struct wl1271 *wl,
 		goto out;
 	}
 
-	/* ANY role */
-	acx->role_id = 0xff;
-	acx->tid = tid_index;
-	acx->enable = policy;
-	acx->ba_direction = direction;
-
-	switch (direction) {
-	case WLAN_BACK_INITIATOR:
-		acx->win_size = wl->conf.ht.tx_ba_win_size;
-		acx->inactivity_timeout = wl->conf.ht.inactivity_timeout;
-		break;
-	case WLAN_BACK_RECIPIENT:
-		acx->win_size = RX_BA_WIN_SIZE;
-		acx->inactivity_timeout = 0;
-		break;
-	default:
-		wl1271_error("Incorrect acx command id=%x\n", direction);
-		ret = -EINVAL;
-		goto out;
-	}
+	/* enable for ANY role */
+	acx->role_id = 0xFF;
+	acx->tid_bitmap = wl->conf.ht.tx_ba_tid_bitmap;
+	acx->win_size = wl->conf.ht.tx_ba_win_size;
+	acx->inactivity_timeout = wl->conf.ht.inactivity_timeout;
 
 	ret = wl1271_cmd_configure(wl,
-				   ACX_BA_SESSION_POLICY_CFG,
+				   ACX_BA_SESSION_INITIATOR_POLICY,
 				   acx,
 				   sizeof(*acx));
 	if (ret < 0) {
-		wl1271_warning("acx ba session setting failed: %d", ret);
+		wl1271_warning("acx ba initiator policy failed: %d", ret);
 		goto out;
 	}
 
 out:
 	kfree(acx);
 	return ret;
-#endif
-	wl1271_info("11n is currently not supported");
-	return 0;
 }
 
 /* setup BA session receiver setting in the FW. */
-int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index, u16 ssn,
-					bool enable)
+int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
+					 u16 ssn, bool enable)
 {
-#if 0
 	struct wl1271_acx_ba_receiver_setup *acx;
 	int ret;
 
@@ -1475,11 +1449,14 @@ int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index, u16 ssn,
 		goto out;
 	}
 
-	/* Single link for now */
-	acx->link_id = 1;
+	/*
+	 * TODO: in AP mode, specify appropriate sta hlid according to sta
+	 * passed to wl1271_op_ampdu_action
+	 */
+	acx->hlid = wl->sta_hlid;
 	acx->tid = tid_index;
 	acx->enable = enable;
-	acx->win_size = 0;
+	acx->win_size = RX_BA_WIN_SIZE;
 	acx->ssn = ssn;
 
 	ret = wl1271_cmd_configure(wl, ACX_BA_SESSION_RX_SETUP, acx,
@@ -1492,9 +1469,6 @@ int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index, u16 ssn,
 out:
 	kfree(acx);
 	return ret;
-#endif
-	wl1271_info("11n is currently not supported");
-	return 0;
 }
 
 int wl1271_acx_tsf_info(struct wl1271 *wl, u64 *mactime)
