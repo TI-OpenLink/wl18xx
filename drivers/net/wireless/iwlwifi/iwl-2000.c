@@ -60,16 +60,13 @@
 #define IWL200_UCODE_API_MIN 5
 
 #define IWL2030_FW_PRE "iwlwifi-2030-"
-#define _IWL2030_MODULE_FIRMWARE(api) IWL2030_FW_PRE #api ".ucode"
-#define IWL2030_MODULE_FIRMWARE(api) _IWL2030_MODULE_FIRMWARE(api)
+#define IWL2030_MODULE_FIRMWARE(api) IWL2030_FW_PRE #api ".ucode"
 
 #define IWL2000_FW_PRE "iwlwifi-2000-"
-#define _IWL2000_MODULE_FIRMWARE(api) IWL2000_FW_PRE #api ".ucode"
-#define IWL2000_MODULE_FIRMWARE(api) _IWL2000_MODULE_FIRMWARE(api)
+#define IWL2000_MODULE_FIRMWARE(api) IWL2000_FW_PRE #api ".ucode"
 
 #define IWL200_FW_PRE "iwlwifi-200-"
-#define _IWL200_MODULE_FIRMWARE(api) IWL200_FW_PRE #api ".ucode"
-#define IWL200_MODULE_FIRMWARE(api) _IWL200_MODULE_FIRMWARE(api)
+#define IWL200_MODULE_FIRMWARE(api) IWL200_FW_PRE #api ".ucode"
 
 static void iwl2000_set_ct_threshold(struct iwl_priv *priv)
 {
@@ -101,6 +98,8 @@ static void iwl2000_nic_config(struct iwl_priv *priv)
 		iwl_set_bit(priv, CSR_GP_DRIVER_REG,
 			    CSR_GP_DRIVER_REG_BIT_RADIO_IQ_INVER);
 
+	if (priv->cfg->disable_otp_refresh)
+		iwl_write_prph(priv, APMG_ANALOG_SVR_REG, 0x80000010);
 }
 
 static struct iwl_sensitivity_ranges iwl2000_sensitivity = {
@@ -265,10 +264,6 @@ static struct iwl_lib_ops iwl2000_lib = {
 	.setup_deferred_work = iwlagn_bt_setup_deferred_work,
 	.cancel_deferred_work = iwlagn_bt_cancel_deferred_work,
 	.is_valid_rtc_data_addr = iwlagn_hw_valid_rtc_data_addr,
-	.dump_nic_event_log = iwl_dump_nic_event_log,
-	.dump_nic_error_log = iwl_dump_nic_error_log,
-	.dump_csr = iwl_dump_csr,
-	.dump_fh = iwl_dump_fh,
 	.send_tx_power = iwlagn_send_tx_power,
 	.update_chain_flags = iwl_update_chain_flags,
 	.set_channel_switch = iwl2030_hw_channel_switch,
@@ -348,7 +343,6 @@ static struct iwl_base_params iwl2000_base_params = {
 	.num_of_queues = IWLAGN_NUM_QUEUES,
 	.num_of_ampdu_queues = IWLAGN_NUM_AMPDU_QUEUES,
 	.pll_cfg_val = 0,
-	.set_l0s = true,
 	.max_ll_items = OTP_MAX_LL_ITEMS_2x00,
 	.shadow_ram_support = true,
 	.led_compensation = 51,
@@ -360,8 +354,6 @@ static struct iwl_base_params iwl2000_base_params = {
 	.wd_timeout = IWL_DEF_WD_TIMEOUT,
 	.max_event_log_size = 512,
 	.ucode_tracing = true,
-	.sensitivity_calib_by_driver = true,
-	.chain_noise_calib_by_driver = true,
 	.shadow_reg_enable = true,
 };
 
@@ -371,7 +363,6 @@ static struct iwl_base_params iwl2030_base_params = {
 	.num_of_queues = IWLAGN_NUM_QUEUES,
 	.num_of_ampdu_queues = IWLAGN_NUM_AMPDU_QUEUES,
 	.pll_cfg_val = 0,
-	.set_l0s = true,
 	.max_ll_items = OTP_MAX_LL_ITEMS_2x00,
 	.shadow_ram_support = true,
 	.led_compensation = 57,
@@ -383,8 +374,6 @@ static struct iwl_base_params iwl2030_base_params = {
 	.wd_timeout = IWL_LONG_WD_TIMEOUT,
 	.max_event_log_size = 512,
 	.ucode_tracing = true,
-	.sensitivity_calib_by_driver = true,
-	.chain_noise_calib_by_driver = true,
 	.shadow_reg_enable = true,
 };
 
@@ -394,7 +383,6 @@ static struct iwl_ht_params iwl2000_ht_params = {
 };
 
 static struct iwl_bt_params iwl2030_bt_params = {
-	.bt_statistics = true,
 	/* Due to bluetooth, we transmit 2.4 GHz probes only on antenna A */
 	.advanced_bt_coexist = true,
 	.agg_time_limit = BT_AGG_THRESHOLD_DEF,
@@ -416,7 +404,8 @@ static struct iwl_bt_params iwl2030_bt_params = {
 	.need_dc_calib = true,					\
 	.need_temp_offset_calib = true,				\
 	.led_mode = IWL_LED_RF_STATE,				\
-	.iq_invert = true					\
+	.iq_invert = true,					\
+	.disable_otp_refresh = true				\
 
 struct iwl_cfg iwl2000_2bgn_cfg = {
 	.name = "2000 Series 2x2 BGN",

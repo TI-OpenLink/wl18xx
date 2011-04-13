@@ -224,8 +224,7 @@
 
 /* SIFS */
 #define	AR5K_INIT_SIFS_TURBO			6
-/* XXX: 8 from initvals 10 from standard */
-#define	AR5K_INIT_SIFS_DEFAULT_BG		8
+#define	AR5K_INIT_SIFS_DEFAULT_BG		10
 #define	AR5K_INIT_SIFS_DEFAULT_A		16
 #define	AR5K_INIT_SIFS_HALF_RATE		32
 #define AR5K_INIT_SIFS_QUARTER_RATE		64
@@ -453,12 +452,10 @@ struct ath5k_tx_status {
 	u16	ts_seqnum;
 	u16	ts_tstamp;
 	u8	ts_status;
-	u8	ts_rate[4];
-	u8	ts_retry[4];
 	u8	ts_final_idx;
+	u8	ts_final_retry;
 	s8	ts_rssi;
 	u8	ts_shortretry;
-	u8	ts_longretry;
 	u8	ts_virtcol;
 	u8	ts_antenna;
 };
@@ -875,6 +872,19 @@ enum ath5k_int {
 	AR5K_INT_QTRIG	=	0x40000000, /* Non common */
 	AR5K_INT_GLOBAL =	0x80000000,
 
+	AR5K_INT_TX_ALL = AR5K_INT_TXOK
+		| AR5K_INT_TXDESC
+		| AR5K_INT_TXERR
+		| AR5K_INT_TXEOL
+		| AR5K_INT_TXURN,
+
+	AR5K_INT_RX_ALL = AR5K_INT_RXOK
+		| AR5K_INT_RXDESC
+		| AR5K_INT_RXERR
+		| AR5K_INT_RXNOFRM
+		| AR5K_INT_RXEOL
+		| AR5K_INT_RXORN,
+
 	AR5K_INT_COMMON  = AR5K_INT_RXOK
 		| AR5K_INT_RXDESC
 		| AR5K_INT_RXERR
@@ -1058,6 +1068,7 @@ struct ath5k_hw {
 	u8			ah_coverage_class;
 	bool			ah_ack_bitrate_high;
 	u8			ah_bwmode;
+	bool			ah_short_slot;
 
 	/* Antenna Control */
 	u32			ah_ant_ctl[AR5K_EEPROM_N_MODES][AR5K_ANT_MAX];
@@ -1233,7 +1244,7 @@ int ath5k_eeprom_read_mac(struct ath5k_hw *ah, u8 *mac);
 /* Protocol Control Unit Functions */
 /* Helpers */
 int ath5k_hw_get_frame_duration(struct ath5k_hw *ah,
-		int len, struct ieee80211_rate *rate);
+		int len, struct ieee80211_rate *rate, bool shortpre);
 unsigned int ath5k_hw_get_default_slottime(struct ath5k_hw *ah);
 unsigned int ath5k_hw_get_default_sifs(struct ath5k_hw *ah);
 extern int ath5k_hw_set_opmode(struct ath5k_hw *ah, enum nl80211_iftype opmode);
