@@ -705,7 +705,7 @@ int wl1271_cmd_role_start_ap(struct wl1271 *wl)
 
 	cmd->role_id = wl->role_id;
 
-	cmd->ap.aging_period = cpu_to_le16(WL1271_AP_DEF_INACTIV_SEC);
+	cmd->ap.aging_period = cpu_to_le16(wl->conf.tx.ap_aging_period);
 	cmd->ap.bss_index = WL1271_AP_BSS_INDEX;
 	cmd->ap.global_hlid = wl->ap_global_hlid;
 	cmd->ap.broadcast_hlid = wl->ap_bcast_hlid;

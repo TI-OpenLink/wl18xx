@@ -488,6 +488,11 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	/* TODO: mode can change dynamically. make it more sane */
 	wl->event_mask |= PEER_REMOVE_COMPLETE_EVENT_ID;
 
+	/* TODO: there's a bug in MAX_TX_RETRY_EVENT_ID in STA mode */
+	if (wl->bss_type == BSS_TYPE_AP_BSS)
+		wl->event_mask |= MAX_TX_RETRY_EVENT_ID |
+				  INACTIVE_STA_EVENT_ID;
+
 	ret = wl1271_event_unmask(wl);
 	if (ret < 0) {
 		wl1271_error("EVENT mask setting failed");

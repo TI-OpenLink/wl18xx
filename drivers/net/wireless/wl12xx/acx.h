@@ -1061,7 +1061,7 @@ struct wl1271_acx_ps_rx_streaming {
 	u8 padding[3];
 } __packed;
 
-struct wl1271_acx_max_tx_retry {
+struct wl1271_acx_ap_max_tx_retry {
 	struct acx_header header;
 
 	u8 role_id;
@@ -1340,7 +1340,7 @@ int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
 					 u16 ssn, bool enable, u8 peer_hlid);
 int wl1271_acx_tsf_info(struct wl1271 *wl, u64 *mactime);
 int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, bool enable);
-int wl1271_acx_max_tx_retry(struct wl1271 *wl);
+int wl1271_acx_ap_max_tx_retry(struct wl1271 *wl);
 int wl1271_acx_config_ps(struct wl1271 *wl);
 int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
 int wl1271_acx_fm_coex(struct wl1271 *wl);

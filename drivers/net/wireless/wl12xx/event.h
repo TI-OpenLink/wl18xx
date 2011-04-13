@@ -58,7 +58,7 @@ enum {
 	CHANNEL_SWITCH_COMPLETE_EVENT_ID	 = BIT(17),
 	BSS_LOSE_EVENT_ID			 = BIT(18),
 	REGAINED_BSS_EVENT_ID			 = BIT(19),
-	MAX_TX_FAILURE_EVENT_ID			 = BIT(20),
+	MAX_TX_RETRY_EVENT_ID			 = BIT(20),
 	DUMMY_PACKET_EVENT_ID			 = BIT(21),
 	SOFT_GEMINI_SENSE_EVENT_ID		 = BIT(22),
 	CHANGE_AUTO_MODE_TIMEOUT_EVENT_ID	 = BIT(23),
@@ -104,10 +104,10 @@ struct event_mailbox {
 	__le16 hlid_removed_bitmap;
 
 	/* bitmap of aged stations (by HLID) */
-	__le16 stations_aging_status;
+	__le16 sta_aging_status;
 
 	/* bitmap of stations (by HLID) which exceeded max tx retries */
-	__le16 links_tx_failure_exceeded;
+	__le16 sta_tx_retry_exceeded;
 
 	/* discovery completed results */
 	u8 discovery_tag;
@@ -133,5 +133,8 @@ int wl1271_event_unmask(struct wl1271 *wl);
 void wl1271_event_mbox_config(struct wl1271 *wl);
 int wl1271_event_handle(struct wl1271 *wl, u8 mbox);
 void wl1271_pspoll_work(struct work_struct *work);
+
+/* Functions from main.c */
+bool wl1271_is_active_sta(struct wl1271 *wl, u8 hlid);
 
 #endif
