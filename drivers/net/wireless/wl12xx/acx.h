@@ -1049,6 +1049,7 @@ struct wl1271_acx_fw_tsf_information {
 struct wl1271_acx_ps_rx_streaming {
 	struct acx_header header;
 
+	u8 role_id;
 	u8 tid;
 	u8 enable;
 
@@ -1057,6 +1058,7 @@ struct wl1271_acx_ps_rx_streaming {
 
 	/* timeout before first trigger (0-200 msec) */
 	u8 timeout;
+	u8 padding[3];
 } __packed;
 
 struct wl1271_acx_max_tx_retry {

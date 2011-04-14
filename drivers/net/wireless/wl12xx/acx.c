@@ -1523,6 +1523,7 @@ int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, bool enable)
 		if (!(conf_queues & BIT(i)))
 			continue;
 
+		rx_streaming->role_id = wl->role_id;
 		rx_streaming->tid = i;
 		rx_streaming->enable = enable_queues & BIT(i);
 		rx_streaming->period = wl->conf.rx_streaming.interval;
