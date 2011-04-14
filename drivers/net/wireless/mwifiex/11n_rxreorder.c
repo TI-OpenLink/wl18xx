@@ -309,8 +309,6 @@ mwifiex_11n_create_rx_reorder_tbl(struct mwifiex_private *priv, u8 *ta,
 	spin_lock_irqsave(&priv->rx_reorder_tbl_lock, flags);
 	list_add_tail(&new_node->list, &priv->rx_reorder_tbl_ptr);
 	spin_unlock_irqrestore(&priv->rx_reorder_tbl_lock, flags);
-
-	return;
 }
 
 /*
@@ -321,8 +319,7 @@ mwifiex_11n_create_rx_reorder_tbl(struct mwifiex_private *priv, u8 *ta,
  *      - Setting add BA request buffer
  *      - Ensuring correct endian-ness
  */
-int mwifiex_cmd_11n_addba_req(struct mwifiex_private *priv,
-			      struct host_cmd_ds_command *cmd, void *data_buf)
+int mwifiex_cmd_11n_addba_req(struct host_cmd_ds_command *cmd, void *data_buf)
 {
 	struct host_cmd_ds_11n_addba_req *add_ba_req =
 		(struct host_cmd_ds_11n_addba_req *)
@@ -393,8 +390,7 @@ int mwifiex_cmd_11n_addba_rsp_gen(struct mwifiex_private *priv,
  *      - Setting del BA request buffer
  *      - Ensuring correct endian-ness
  */
-int mwifiex_cmd_11n_delba(struct mwifiex_private *priv,
-			  struct host_cmd_ds_command *cmd, void *data_buf)
+int mwifiex_cmd_11n_delba(struct host_cmd_ds_command *cmd, void *data_buf)
 {
 	struct host_cmd_ds_11n_delba *del_ba = (struct host_cmd_ds_11n_delba *)
 		&cmd->params.del_ba;
@@ -609,9 +605,7 @@ void mwifiex_11n_ba_stream_timeout(struct mwifiex_private *priv,
 	delba.del_ba_param_set |= cpu_to_le16(
 		(u16) event->origninator << DELBA_INITIATOR_POS);
 	delba.reason_code = cpu_to_le16(WLAN_REASON_QSTA_TIMEOUT);
-	mwifiex_prepare_cmd(priv, HostCmd_CMD_11N_DELBA, 0, 0, NULL, &delba);
-
-	return;
+	mwifiex_send_cmd_async(priv, HostCmd_CMD_11N_DELBA, 0, 0, &delba);
 }
 
 /*
