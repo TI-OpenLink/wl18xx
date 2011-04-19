@@ -200,6 +200,7 @@ struct ath_atx_ac {
 	int sched;
 	struct list_head list;
 	struct list_head tid_q;
+	bool clear_ps_filter;
 };
 
 struct ath_frame_info {
@@ -255,8 +256,12 @@ struct ath_node {
 #endif
 	struct ath_atx_tid tid[WME_NUM_TID];
 	struct ath_atx_ac ac[WME_NUM_AC];
+	int ps_key;
+
 	u16 maxampdu;
 	u8 mpdudensity;
+
+	bool sleeping;
 };
 
 #define AGGR_CLEANUP         BIT(1)
@@ -337,6 +342,9 @@ int ath_tx_aggr_start(struct ath_softc *sc, struct ieee80211_sta *sta,
 		      u16 tid, u16 *ssn);
 void ath_tx_aggr_stop(struct ath_softc *sc, struct ieee80211_sta *sta, u16 tid);
 void ath_tx_aggr_resume(struct ath_softc *sc, struct ieee80211_sta *sta, u16 tid);
+
+void ath_tx_aggr_wakeup(struct ath_softc *sc, struct ath_node *an);
+bool ath_tx_aggr_sleep(struct ath_softc *sc, struct ath_node *an);
 
 /********/
 /* VIFs */
