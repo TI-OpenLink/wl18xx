@@ -319,6 +319,18 @@ static struct conf_drv_settings default_conf = {
 		.min_req_rx_blocks            = 22,
 		.tx_min                       = 27,
 	},
+	.fm_coex = {
+		.enable                       = true,
+		.swallow_period               = 5,
+		.n_divider_fref_set_1         = 0xff,       /* default */
+		.n_divider_fref_set_2         = 12,
+		.m_divider_fref_set_1         = 148,
+		.m_divider_fref_set_2         = 0xffff,     /* default */
+		.coex_pll_stabilization_time  = 0xffffffff, /* default */
+		.ldo_stabilization_time       = 0xffff,     /* default */
+		.fm_disturbed_band_margin     = 0xff,       /* default */
+		.swallow_clk_diff             = 0xff,       /* default */
+	},
 	.hci_io_ds = HCI_IO_DS_6MA,
 };
 
@@ -504,6 +516,11 @@ static int wl1271_plt_init(struct wl1271 *wl)
 
 	/* Bluetooth WLAN coexistence */
 	ret = wl1271_init_pta(wl);
+	if (ret < 0)
+		goto out_free_memmap;
+
+	/* FM WLAN coexistence */
+	ret = wl1271_acx_fm_coex(wl);
 	if (ret < 0)
 		goto out_free_memmap;
 
@@ -1009,6 +1026,10 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	case CHIP_ID_1271_PG20:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
 			     wl->chip.id);
+
+		/* end-of-transaction flag should be set in wl127x AP mode */
+		if (wl->bss_type == BSS_TYPE_AP_BSS)
+			wl->quirks |= WL12XX_QUIRK_END_OF_TRANSACTION;
 
 		ret = wl1271_setup(wl);
 		if (ret < 0)
@@ -2504,6 +2525,24 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 		}
 	}
 
+	if (changed & BSS_CHANGED_IBSS) {
+		wl1271_debug(DEBUG_ADHOC, "ibss_joined: %d",
+			     bss_conf->ibss_joined);
+
+		if (bss_conf->ibss_joined) {
+			u32 rates = bss_conf->basic_rates;
+			wl->basic_rate_set = wl1271_tx_enabled_rates_get(wl,
+									 rates);
+			wl->basic_rate = wl1271_tx_min_rate_get(wl);
+
+			/* by default, use 11b rates */
+			wl->rate_set = CONF_TX_IBSS_DEFAULT_RATES;
+			ret = wl1271_acx_sta_rate_policies(wl);
+			if (ret < 0)
+				goto out;
+		}
+	}
+
 	ret = wl1271_bss_erp_info_changed(wl, bss_conf, changed);
 	if (ret < 0)
 		goto out;
@@ -2693,8 +2732,10 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			}
 		} else {
 			/* use defaults when not associated */
+			bool was_assoc =
+			    !!test_and_clear_bit(WL1271_FLAG_STA_ASSOCIATED,
+						 &wl->flags);
 			clear_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags);
-			clear_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags);
 			wl->aid = 0;
 
 			/* free probe-request template */
@@ -2720,8 +2761,10 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 				goto out;
 
 			/* restore the bssid filter and go to dummy bssid */
-			wl1271_unjoin(wl);
-			wl1271_dummy_join(wl);
+			if (was_assoc) {
+				wl1271_unjoin(wl);
+				wl1271_dummy_join(wl);
+			}
 		}
 	}
 
