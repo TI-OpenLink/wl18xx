@@ -46,6 +46,8 @@ void ath_init_leds(struct ath_softc *sc)
 			sc->sc_ah->led_pin = ATH_LED_PIN_9287;
 		else if (AR_SREV_9485(sc->sc_ah))
 			sc->sc_ah->led_pin = ATH_LED_PIN_9485;
+		else if (AR_SREV_9300(sc->sc_ah))
+			sc->sc_ah->led_pin = ATH_LED_PIN_9300;
 		else
 			sc->sc_ah->led_pin = ATH_LED_PIN_DEF;
 	}
@@ -138,10 +140,10 @@ static void ath_detect_bt_priority(struct ath_softc *sc)
 
 static void ath9k_gen_timer_start(struct ath_hw *ah,
 				  struct ath_gen_timer *timer,
-				  u32 timer_next,
+				  u32 trig_timeout,
 				  u32 timer_period)
 {
-	ath9k_hw_gen_timer_start(ah, timer, timer_next, timer_period);
+	ath9k_hw_gen_timer_start(ah, timer, trig_timeout, timer_period);
 
 	if ((ah->imask & ATH9K_INT_GENTIMER) == 0) {
 		ath9k_hw_disable_interrupts(ah);
@@ -195,7 +197,7 @@ static void ath_btcoex_period_timer(unsigned long data)
 
 		timer_period = is_btscan ? btcoex->btscan_no_stomp :
 					   btcoex->btcoex_no_stomp;
-		ath9k_gen_timer_start(ah, btcoex->no_stomp_timer, 0,
+		ath9k_gen_timer_start(ah, btcoex->no_stomp_timer, timer_period,
 				      timer_period * 10);
 		btcoex->hw_timer_enabled = true;
 	}
