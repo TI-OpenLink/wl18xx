@@ -797,7 +797,7 @@ static void wl1271_fw_status(struct wl1271 *wl,
 
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		/* prevent wrap-around in freed-packets counter */
-		wl->tx_allocated_pkts -=
+		wl->tx_allocated_pkts[i] -=
 				(status->tx_released_pkts[i] -
 				wl->tx_pkts_freed[i] + 256) % 256;
 
@@ -1880,7 +1880,6 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->psm_entry_retry = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
 	wl->tx_blocks_available = 0;
-	wl->tx_allocated_blocks = 0;
 	wl->tx_results_count = 0;
 	wl->tx_packets_count = 0;
 	wl->time_offset = 0;
@@ -1910,9 +1909,10 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 
 	wl->tx_blocks_freed = 0;
 
-	wl->tx_allocated_pkts = 0;
-	for (i = 0; i < NUM_TX_QUEUES; i++)
+	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		wl->tx_pkts_freed[i] = 0;
+		wl->tx_allocated_pkts[i] = 0;
+	}
 
 	wl1271_debugfs_reset(wl);
 
