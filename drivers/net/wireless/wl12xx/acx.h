@@ -303,7 +303,6 @@ struct acx_beacon_filter_option {
 	struct acx_header header;
 
 	u8 enable;
-
 	/*
 	 * The number of beacons without the unicast TIM
 	 * bit set that the firmware buffers before
@@ -370,13 +369,22 @@ struct acx_bt_wlan_coex {
 	u8 pad[3];
 } __packed;
 
-struct acx_bt_wlan_coex_param {
+struct acx_sta_bt_wlan_coex_param {
 	struct acx_header header;
 
-	__le32 params[CONF_SG_PARAMS_MAX];
+	__le32 params[CONF_SG_STA_PARAMS_MAX];
 	u8 param_idx;
 	u8 padding[3];
 } __packed;
+
+struct acx_ap_bt_wlan_coex_param {
+	struct acx_header header;
+
+	__le32 params[CONF_SG_AP_PARAMS_MAX];
+	u8 param_idx;
+	u8 padding[3];
+} __packed;
+
 
 struct acx_dco_itrim_params {
 	struct acx_header header;
@@ -1179,6 +1187,13 @@ struct wl1271_acx_inconnection_sta {
 	u8 padding1[2];
 } __packed;
 
+struct acx_ap_beacon_filter {
+	struct acx_header header;
+
+	u8 enable;
+	u8 pad[3];
+} __packed;
+
 /*
  * ACX_FM_COEX_CFG
  * set the FM co-existence parameters.
@@ -1256,6 +1271,7 @@ enum {
 	ACX_TID_CFG                 = 0x001A,
 	ACX_PS_RX_STREAMING         = 0x001B,
 	ACX_BEACON_FILTER_OPT       = 0x001F,
+	ACX_AP_BEACON_FILTER_OPT    = 0x0020,
 	ACX_NOISE_HIST              = 0x0021,
 	ACX_HDK_VERSION             = 0x0022, /* ??? */
 	ACX_PD_THRESHOLD            = 0x0023,
@@ -1324,13 +1340,14 @@ int wl1271_acx_slot(struct wl1271 *wl, enum acx_slot_type slot_time);
 int wl1271_acx_group_address_tbl(struct wl1271 *wl, bool enable,
 				 void *mc_list, u32 mc_list_len);
 int wl1271_acx_service_period_timeout(struct wl1271 *wl);
-int wl1271_acx_rts_threshold(struct wl1271 *wl, u16 rts_threshold);
+int wl1271_acx_rts_threshold(struct wl1271 *wl, u32 rts_threshold);
 int wl1271_acx_dco_itrim_params(struct wl1271 *wl);
 int wl1271_acx_beacon_filter_opt(struct wl1271 *wl, bool enable_filter);
 int wl1271_acx_beacon_filter_table(struct wl1271 *wl);
 int wl1271_acx_conn_monit_params(struct wl1271 *wl, bool enable);
 int wl1271_acx_sg_enable(struct wl1271 *wl, bool enable);
-int wl1271_acx_sg_cfg(struct wl1271 *wl);
+int wl1271_acx_sta_sg_cfg(struct wl1271 *wl);
+int wl1271_acx_ap_sg_cfg(struct wl1271 *wl);
 int wl1271_acx_cca_threshold(struct wl1271 *wl);
 int wl1271_acx_bcn_dtim_options(struct wl1271 *wl);
 int wl1271_acx_aid(struct wl1271 *wl, u16 aid);
@@ -1347,7 +1364,7 @@ int wl1271_acx_ac_cfg(struct wl1271 *wl, u8 ac, u8 cw_min, u16 cw_max,
 int wl1271_acx_tid_cfg(struct wl1271 *wl, u8 queue_id, u8 channel_type,
 		       u8 tsid, u8 ps_scheme, u8 ack_policy,
 		       u32 apsd_conf0, u32 apsd_conf1);
-int wl1271_acx_frag_threshold(struct wl1271 *wl, u16 frag_threshold);
+int wl1271_acx_frag_threshold(struct wl1271 *wl, u32 frag_threshold);
 int wl1271_acx_tx_config_options(struct wl1271 *wl);
 int wl1271_acx_ap_mem_cfg(struct wl1271 *wl);
 int wl1271_acx_sta_mem_cfg(struct wl1271 *wl);
@@ -1378,6 +1395,7 @@ int wl1271_acx_ap_max_tx_retry(struct wl1271 *wl);
 int wl1271_acx_sta_max_tx_retry(struct wl1271 *wl);
 int wl1271_acx_config_ps(struct wl1271 *wl);
 int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
+int wl1271_acx_set_ap_beacon_filter(struct wl1271 *wl, bool enable);
 int wl1271_acx_fm_coex(struct wl1271 *wl);
 
 #endif /* __WL1271_ACX_H__ */

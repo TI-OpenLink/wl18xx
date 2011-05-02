@@ -51,7 +51,7 @@
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
-		.params = {
+		.sta_params = {
 			[CONF_SG_BT_PER_THRESHOLD]                  = 7500,
 			[CONF_SG_HV3_MAX_OVERRIDE]                  = 0,
 			[CONF_SG_BT_NFS_SAMPLE_INTERVAL]            = 400,
@@ -101,6 +101,61 @@ static struct conf_drv_settings default_conf = {
 			[CONF_SG_DHCP_TIME]                         = 5000,
 			[CONF_SG_ACTIVE_SCAN_DURATION_FACTOR_A2DP]  = 100,
 		},
+		.ap_params = {
+			[CONF_SG_BT_PER_THRESHOLD]                  = 7500,
+			[CONF_SG_HV3_MAX_OVERRIDE]                  = 0,
+			[CONF_SG_BT_NFS_SAMPLE_INTERVAL]            = 400,
+			[CONF_SG_BT_LOAD_RATIO]                     = 50,
+			[CONF_SG_AUTO_PS_MODE]                      = 1,
+			[CONF_SG_AUTO_SCAN_PROBE_REQ]               = 170,
+			[CONF_SG_ACTIVE_SCAN_DURATION_FACTOR_HV3]   = 50,
+			[CONF_SG_ANTENNA_CONFIGURATION]             = 0,
+			[CONF_SG_BEACON_MISS_PERCENT]               = 60,
+			[CONF_SG_RATE_ADAPT_THRESH]                 = 64,
+			[CONF_SG_RATE_ADAPT_SNR]                    = 1,
+			[CONF_SG_WLAN_PS_BT_ACL_MASTER_MIN_BR]      = 10,
+			[CONF_SG_WLAN_PS_BT_ACL_MASTER_MAX_BR]      = 25,
+			[CONF_SG_WLAN_PS_MAX_BT_ACL_MASTER_BR]      = 25,
+			[CONF_SG_WLAN_PS_BT_ACL_SLAVE_MIN_BR]       = 20,
+			[CONF_SG_WLAN_PS_BT_ACL_SLAVE_MAX_BR]       = 25,
+			[CONF_SG_WLAN_PS_MAX_BT_ACL_SLAVE_BR]       = 25,
+			[CONF_SG_WLAN_PS_BT_ACL_MASTER_MIN_EDR]     = 7,
+			[CONF_SG_WLAN_PS_BT_ACL_MASTER_MAX_EDR]     = 25,
+			[CONF_SG_WLAN_PS_MAX_BT_ACL_MASTER_EDR]     = 25,
+			[CONF_SG_WLAN_PS_BT_ACL_SLAVE_MIN_EDR]      = 8,
+			[CONF_SG_WLAN_PS_BT_ACL_SLAVE_MAX_EDR]      = 25,
+			[CONF_SG_WLAN_PS_MAX_BT_ACL_SLAVE_EDR]      = 25,
+			[CONF_SG_RXT]                               = 1200,
+			[CONF_SG_TXT]                               = 1000,
+			[CONF_SG_ADAPTIVE_RXT_TXT]                  = 1,
+			[CONF_SG_PS_POLL_TIMEOUT]                   = 10,
+			[CONF_SG_UPSD_TIMEOUT]                      = 10,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR] = 7,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR] = 15,
+			[CONF_SG_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR] = 15,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR]  = 8,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR]  = 20,
+			[CONF_SG_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR]  = 15,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_MIN_BR]         = 20,
+			[CONF_SG_WLAN_ACTIVE_BT_ACL_MAX_BR]         = 50,
+			[CONF_SG_WLAN_ACTIVE_MAX_BT_ACL_BR]         = 10,
+			[CONF_SG_PASSIVE_SCAN_DURATION_FACTOR_HV3]  = 200,
+			[CONF_SG_PASSIVE_SCAN_DURATION_FACTOR_A2DP] = 800,
+			[CONF_SG_PASSIVE_SCAN_A2DP_BT_TIME]         = 75,
+			[CONF_SG_PASSIVE_SCAN_A2DP_WLAN_TIME]       = 15,
+			[CONF_SG_HV3_MAX_SERVED]                    = 6,
+			[CONF_SG_DHCP_TIME]                         = 5000,
+			[CONF_SG_ACTIVE_SCAN_DURATION_FACTOR_A2DP]  = 100,
+			[CONF_SG_TEMP_PARAM_1]                      = 0,
+			[CONF_SG_TEMP_PARAM_2]                      = 0,
+			[CONF_SG_TEMP_PARAM_3]                      = 0,
+			[CONF_SG_TEMP_PARAM_4]                      = 0,
+			[CONF_SG_TEMP_PARAM_5]                      = 0,
+			[CONF_SG_AP_BEACON_MISS_TX]                 = 3,
+			[CONF_SG_RX_WINDOW_LENGTH]                  = 6,
+			[CONF_SG_AP_CONNECTION_PROTECTION_TIME]     = 50,
+			[CONF_SG_TEMP_PARAM_6]                      = 1,
+		},
 		.state = CONF_SG_PROTECTIVE,
 	},
 	.rx = {
@@ -108,7 +163,7 @@ static struct conf_drv_settings default_conf = {
 		.packet_detection_threshold  = 0,
 		.ps_poll_timeout             = 15,
 		.upsd_timeout                = 15,
-		.rts_threshold               = 2347,
+		.rts_threshold               = IEEE80211_MAX_RTS_THRESHOLD,
 		.rx_cca_threshold            = 0,
 		.irq_blk_threshold           = 0xFFFF,
 		.irq_pkt_threshold           = 0,
@@ -153,44 +208,6 @@ static struct conf_drv_settings default_conf = {
 				.aifsn       = CONF_TX_AIFS_PIFS,
 				.tx_op_limit = 1504,
 			},
-		},
-		.ap_rc_conf                  = {
-			[0] = {
-				.enabled_rates = CONF_TX_AP_ENABLED_RATES,
-				.short_retry_limit = 10,
-				.long_retry_limit = 10,
-				.aflags      = 0,
-			},
-			[1] = {
-				.enabled_rates = CONF_TX_AP_ENABLED_RATES,
-				.short_retry_limit = 10,
-				.long_retry_limit = 10,
-				.aflags      = 0,
-			},
-			[2] = {
-				.enabled_rates = CONF_TX_AP_ENABLED_RATES,
-				.short_retry_limit = 10,
-				.long_retry_limit = 10,
-				.aflags      = 0,
-			},
-			[3] = {
-				.enabled_rates = CONF_TX_AP_ENABLED_RATES,
-				.short_retry_limit = 10,
-				.long_retry_limit = 10,
-				.aflags      = 0,
-			},
-		},
-		.ap_mgmt_conf = {
-			.enabled_rates       = CONF_TX_AP_DEFAULT_MGMT_RATES,
-			.short_retry_limit   = 10,
-			.long_retry_limit    = 10,
-			.aflags              = 0,
-		},
-		.ap_bcst_conf = {
-			.enabled_rates       = CONF_HW_BIT_RATE_1MBPS,
-			.short_retry_limit   = 10,
-			.long_retry_limit    = 10,
-			.aflags              = 0,
 		},
 		.max_tx_retries = 100,
 		.ap_aging_period = 300,
@@ -258,7 +275,7 @@ static struct conf_drv_settings default_conf = {
 		.bet_enable                  = CONF_BET_MODE_ENABLE,
 		.bet_max_consecutive         = 50,
 		.psm_entry_retries           = 5,
-		.psm_exit_retries            = 255,
+		.psm_exit_retries            = 16,
 		.psm_entry_nullfunc_retries  = 3,
 		.psm_entry_hangover_period   = 1,
 		.keep_alive_interval         = 55000,
@@ -305,7 +322,7 @@ static struct conf_drv_settings default_conf = {
 		.ssid_profiles                = 1,
 		.rx_block_num                 = 70,
 		.tx_min_block_num             = 40,
-		.dynamic_memory               = 0,
+		.dynamic_memory               = 1,
 		.min_req_tx_blocks            = 100,
 		.min_req_rx_blocks            = 22,
 		.tx_min                       = 27,
@@ -335,7 +352,8 @@ static struct conf_drv_settings default_conf = {
 	.hci_io_ds = HCI_IO_DS_6MA,
 };
 
-static void __wl1271_op_remove_interface(struct wl1271 *wl);
+static void __wl1271_op_remove_interface(struct wl1271 *wl,
+					 bool reset_tx_queues);
 static void wl1271_free_ap_keys(struct wl1271 *wl);
 
 
@@ -949,14 +967,24 @@ static void wl1271_recovery_work(struct work_struct *work)
 	if (wl->state != WL1271_STATE_ON)
 		goto out;
 
-	wl1271_info("Hardware recovery in progress.");
+	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
+		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
 
 	if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
 		ieee80211_connection_loss(wl->vif);
 
+	/* Prevent spurious TX during FW restart */
+	ieee80211_stop_queues(wl->hw);
+
 	/* reboot the chipset */
-	__wl1271_op_remove_interface(wl);
+	__wl1271_op_remove_interface(wl, false);
 	ieee80211_restart_hw(wl->hw);
+
+	/*
+	 * Its safe to enable TX now - the queues are stopped after a request
+	 * to restart the HW.
+	 */
+	ieee80211_wake_queues(wl->hw);
 
 out:
 	mutex_unlock(&wl->mutex);
@@ -1294,7 +1322,7 @@ static struct sk_buff *wl12xx_alloc_dummy_packet(struct wl1271 *wl)
 	skb->priority = WL1271_TID_MGMT;
 
 	/* Initialize all fields that might be used */
-	skb->queue_mapping = 0;
+	skb_set_queue_mapping(skb, 0);
 	memset(IEEE80211_SKB_CB(skb), 0, sizeof(struct ieee80211_tx_info));
 
 	return skb;
@@ -1461,7 +1489,8 @@ out:
 	return ret;
 }
 
-static void __wl1271_op_remove_interface(struct wl1271 *wl)
+static void __wl1271_op_remove_interface(struct wl1271 *wl,
+					 bool reset_tx_queues)
 {
 	int i;
 
@@ -1507,7 +1536,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl)
 	mutex_lock(&wl->mutex);
 
 	/* let's notify MAC80211 about the remaining pending TX frames */
-	wl1271_tx_reset(wl);
+	wl1271_tx_reset(wl, reset_tx_queues);
 	wl1271_power_off(wl);
 
 	memset(wl->bssid, 0, ETH_ALEN);
@@ -1568,7 +1597,7 @@ static void wl1271_op_remove_interface(struct ieee80211_hw *hw,
 	 */
 	if (wl->vif) {
 		WARN_ON(wl->vif != vif);
-		__wl1271_op_remove_interface(wl);
+		__wl1271_op_remove_interface(wl, true);
 	}
 
 	mutex_unlock(&wl->mutex);
@@ -2305,7 +2334,7 @@ static int wl1271_op_set_frag_threshold(struct ieee80211_hw *hw, u32 value)
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_acx_frag_threshold(wl, (u16)value);
+	ret = wl1271_acx_frag_threshold(wl, value);
 	if (ret < 0)
 		wl1271_warning("wl1271_op_set_frag_threshold failed: %d", ret);
 
@@ -2333,7 +2362,7 @@ static int wl1271_op_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_acx_rts_threshold(wl, (u16) value);
+	ret = wl1271_acx_rts_threshold(wl, value);
 	if (ret < 0)
 		wl1271_warning("wl1271_op_set_rts_threshold failed: %d", ret);
 
@@ -2476,24 +2505,19 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 
 	if ((changed & BSS_CHANGED_BASIC_RATES)) {
 		u32 rates = bss_conf->basic_rates;
-		struct conf_tx_rate_class mgmt_rc;
 
 		wl->basic_rate_set = wl1271_tx_enabled_rates_get(wl, rates);
 		wl->basic_rate = wl1271_tx_min_rate_get(wl);
-		wl1271_debug(DEBUG_AP, "basic rates: 0x%x",
-			     wl->basic_rate_set);
 
-		/* update the AP management rate policy with the new rates */
-		mgmt_rc.enabled_rates = wl->basic_rate_set;
-		mgmt_rc.long_retry_limit = 10;
-		mgmt_rc.short_retry_limit = 10;
-		mgmt_rc.aflags = 0;
-		ret = wl1271_acx_ap_rate_policy(wl, &mgmt_rc,
-						ACX_TX_AP_MODE_MGMT_RATE);
+		ret = wl1271_init_ap_rates(wl);
 		if (ret < 0) {
-			wl1271_error("AP mgmt policy change failed %d", ret);
+			wl1271_error("AP rate policy change failed %d", ret);
 			goto out;
 		}
+
+		ret = wl1271_ap_init_templates(wl);
+		if (ret < 0)
+			goto out;
 	}
 
 	ret = wl1271_bss_beacon_info_changed(wl, vif, bss_conf, changed);
@@ -3147,6 +3171,28 @@ out:
 	return ret;
 }
 
+static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
+{
+	struct wl1271 *wl = hw->priv;
+	bool ret = false;
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state == WL1271_STATE_OFF))
+		goto out;
+
+	/* packets are considered pending if in the TX queue or the FW */
+	ret = (wl->tx_queue_count > 0) || (wl->tx_frames_cnt > 0);
+
+	/* the above is appropriate for STA mode for PS purposes */
+	WARN_ON(wl->bss_type != BSS_TYPE_STA_BSS);
+
+out:
+	mutex_unlock(&wl->mutex);
+
+	return ret;
+}
+
 /* can't be const, mac80211 writes to this */
 static struct ieee80211_rate wl1271_rates[] = {
 	{ .bitrate = 10,
@@ -3398,6 +3444,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.sta_add = wl1271_op_sta_add,
 	.sta_remove = wl1271_op_sta_remove,
 	.ampdu_action = wl1271_op_ampdu_action,
+	.tx_frames_pending = wl1271_tx_frames_pending,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
