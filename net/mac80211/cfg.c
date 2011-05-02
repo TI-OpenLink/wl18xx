@@ -1526,6 +1526,8 @@ int __ieee80211_request_smps(struct ieee80211_sub_if_data *sdata,
 	enum ieee80211_smps_mode old_req;
 	int err;
 
+	lockdep_assert_held(&sdata->u.mgd.mtx);
+
 	old_req = sdata->u.mgd.req_smps;
 	sdata->u.mgd.req_smps = smps_mode;
 
@@ -1631,16 +1633,13 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
-	int i;
+	int i, ret;
 
-	/*
-	 * This _could_ be supported by providing a hook for
-	 * drivers for this function, but at this point it
-	 * doesn't seem worth bothering.
-	 */
-	if (local->hw.flags & IEEE80211_HW_HAS_RATE_CONTROL)
-		return -EOPNOTSUPP;
-
+	if (local->hw.flags & IEEE80211_HW_HAS_RATE_CONTROL) {
+		ret = drv_set_bitrate_mask(local, sdata, mask);
+		if (ret)
+			return ret;
+	}
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
 		sdata->rc_rateidx_mask[i] = mask->control[i].legacy;
