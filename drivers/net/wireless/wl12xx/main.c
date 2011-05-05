@@ -1637,7 +1637,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		break;
 #endif
 	case NL80211_IFTYPE_P2P_GO:
-		wl->p2p = 1;
+		//wl->p2p = 1;
 		/* fall-through */
 	case NL80211_IFTYPE_AP:
 		wl->bss_type = BSS_TYPE_AP_BSS;
