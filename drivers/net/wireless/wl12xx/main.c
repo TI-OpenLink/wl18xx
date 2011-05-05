@@ -421,7 +421,7 @@ static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 
 	if ((dev->operstate == IF_OPER_UP) &&
 	    !test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags)) {
-		wl1271_cmd_set_peer_state(wl);
+		wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
 		wl1271_croc(wl);
 		wl1271_info("Association completed.");
 	}
