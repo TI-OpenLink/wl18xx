@@ -170,19 +170,22 @@ struct rt2x00_async_read_data {
 	__le32 reg;
 	struct usb_ctrlrequest cr;
 	struct rt2x00_dev *rt2x00dev;
-	void (*callback)(struct rt2x00_dev *,int,u32);
+	bool (*callback)(struct rt2x00_dev *, int, u32);
 };
 
 static void rt2x00usb_register_read_async_cb(struct urb *urb)
 {
 	struct rt2x00_async_read_data *rd = urb->context;
-	rd->callback(rd->rt2x00dev, urb->status, le32_to_cpu(rd->reg));
-	kfree(urb->context);
+	if (rd->callback(rd->rt2x00dev, urb->status, le32_to_cpu(rd->reg))) {
+		if (usb_submit_urb(urb, GFP_ATOMIC) < 0)
+			kfree(rd);
+	} else
+		kfree(rd);
 }
 
 void rt2x00usb_register_read_async(struct rt2x00_dev *rt2x00dev,
 				   const unsigned int offset,
-				   void (*callback)(struct rt2x00_dev*,int,u32))
+				   bool (*callback)(struct rt2x00_dev*, int, u32))
 {
 	struct usb_device *usb_dev = to_usb_device_intf(rt2x00dev->dev);
 	struct urb *urb;
@@ -295,7 +298,7 @@ static bool rt2x00usb_kick_tx_entry(struct queue_entry *entry, void* data)
 
 	if (!test_and_clear_bit(ENTRY_DATA_PENDING, &entry->flags) ||
 	    test_bit(ENTRY_DATA_STATUS_PENDING, &entry->flags))
-		return true;
+		return false;
 
 	/*
 	 * USB devices cannot blindly pass the skb->len as the
@@ -389,7 +392,7 @@ static bool rt2x00usb_kick_rx_entry(struct queue_entry *entry, void* data)
 
 	if (test_and_set_bit(ENTRY_OWNER_DEVICE_DATA, &entry->flags) ||
 	    test_bit(ENTRY_DATA_STATUS_PENDING, &entry->flags))
-		return true;
+		return false;
 
 	rt2x00lib_dmastart(entry);
 
@@ -444,7 +447,7 @@ static bool rt2x00usb_flush_entry(struct queue_entry *entry, void* data)
 	struct queue_entry_priv_usb_bcn *bcn_priv = entry->priv_data;
 
 	if (!test_bit(ENTRY_OWNER_DEVICE_DATA, &entry->flags))
-		return true;
+		return false;
 
 	usb_kill_urb(entry_priv->urb);
 

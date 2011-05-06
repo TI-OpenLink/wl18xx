@@ -1716,6 +1716,9 @@ static void iwl_ucode_callback(const struct firmware *ucode_raw, void *context)
 			priv->cfg->base_params->max_event_log_size;
 	priv->_agn.inst_errlog_ptr = pieces.inst_errlog_ptr;
 
+	priv->new_scan_threshold_behaviour =
+		!!(ucode_capa.flags & IWL_UCODE_TLV_FLAGS_NEWSCAN);
+
 	if (ucode_capa.flags & IWL_UCODE_TLV_FLAGS_PAN) {
 		priv->valid_contexts |= BIT(IWL_RXON_CTX_PAN);
 		priv->sta_key_max_num = STA_KEY_MAX_NUM_PAN;
@@ -2493,6 +2496,42 @@ static void iwl_bg_run_time_calib_work(struct work_struct *work)
 	mutex_unlock(&priv->mutex);
 }
 
+static void iwlagn_prepare_restart(struct iwl_priv *priv)
+{
+	struct iwl_rxon_context *ctx;
+	bool bt_full_concurrent;
+	u8 bt_ci_compliance;
+	u8 bt_load;
+	u8 bt_status;
+
+	lockdep_assert_held(&priv->mutex);
+
+	for_each_context(priv, ctx)
+		ctx->vif = NULL;
+	priv->is_open = 0;
+
+	/*
+	 * __iwl_down() will clear the BT status variables,
+	 * which is correct, but when we restart we really
+	 * want to keep them so restore them afterwards.
+	 *
+	 * The restart process will later pick them up and
+	 * re-configure the hw when we reconfigure the BT
+	 * command.
+	 */
+	bt_full_concurrent = priv->bt_full_concurrent;
+	bt_ci_compliance = priv->bt_ci_compliance;
+	bt_load = priv->bt_traffic_load;
+	bt_status = priv->bt_status;
+
+	__iwl_down(priv);
+
+	priv->bt_full_concurrent = bt_full_concurrent;
+	priv->bt_ci_compliance = bt_ci_compliance;
+	priv->bt_traffic_load = bt_load;
+	priv->bt_status = bt_status;
+}
+
 static void iwl_bg_restart(struct work_struct *data)
 {
 	struct iwl_priv *priv = container_of(data, struct iwl_priv, restart);
@@ -2501,38 +2540,8 @@ static void iwl_bg_restart(struct work_struct *data)
 		return;
 
 	if (test_and_clear_bit(STATUS_FW_ERROR, &priv->status)) {
-		struct iwl_rxon_context *ctx;
-		bool bt_full_concurrent;
-		u8 bt_ci_compliance;
-		u8 bt_load;
-		u8 bt_status;
-
 		mutex_lock(&priv->mutex);
-		for_each_context(priv, ctx)
-			ctx->vif = NULL;
-		priv->is_open = 0;
-
-		/*
-		 * __iwl_down() will clear the BT status variables,
-		 * which is correct, but when we restart we really
-		 * want to keep them so restore them afterwards.
-		 *
-		 * The restart process will later pick them up and
-		 * re-configure the hw when we reconfigure the BT
-		 * command.
-		 */
-		bt_full_concurrent = priv->bt_full_concurrent;
-		bt_ci_compliance = priv->bt_ci_compliance;
-		bt_load = priv->bt_traffic_load;
-		bt_status = priv->bt_status;
-
-		__iwl_down(priv);
-
-		priv->bt_full_concurrent = bt_full_concurrent;
-		priv->bt_ci_compliance = bt_ci_compliance;
-		priv->bt_traffic_load = bt_load;
-		priv->bt_status = bt_status;
-
+		iwlagn_prepare_restart(priv);
 		mutex_unlock(&priv->mutex);
 		iwl_cancel_deferred_work(priv);
 		ieee80211_restart_hw(priv->hw);
@@ -2825,7 +2834,7 @@ static int iwlagn_mac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	IWL_DEBUG_MAC80211(priv, "enter\n");
 
-	if (priv->cfg->mod_params->sw_crypto) {
+	if (iwlagn_mod_params.sw_crypto) {
 		IWL_DEBUG_MAC80211(priv, "leave - hwcrypto disabled\n");
 		return -EOPNOTSUPP;
 	}
@@ -3513,14 +3522,14 @@ static int iwl_set_hw_params(struct iwl_priv *priv)
 {
 	priv->hw_params.max_rxq_size = RX_QUEUE_SIZE;
 	priv->hw_params.max_rxq_log = RX_QUEUE_SIZE_LOG;
-	if (priv->cfg->mod_params->amsdu_size_8K)
+	if (iwlagn_mod_params.amsdu_size_8K)
 		priv->hw_params.rx_page_order = get_order(IWL_RX_BUF_SIZE_8K);
 	else
 		priv->hw_params.rx_page_order = get_order(IWL_RX_BUF_SIZE_4K);
 
 	priv->hw_params.max_beacon_itrvl = IWL_MAX_UCODE_BEACON_INTERVAL;
 
-	if (priv->cfg->mod_params->disable_11n)
+	if (iwlagn_mod_params.disable_11n)
 		priv->cfg->sku &= ~IWL_SKU_N;
 
 	/* Device-specific setup */
@@ -4120,21 +4129,21 @@ static DEFINE_PCI_DEVICE_TABLE(iwl_hw_card_ids) = {
 	{IWL_PCI_DEVICE(0x088F, 0x4266, iwl6035_2bg_cfg)},
 	{IWL_PCI_DEVICE(0x088E, 0x4466, iwl6035_2bg_cfg)},
 
-/* 200 Series */
-	{IWL_PCI_DEVICE(0x0894, 0x0022, iwl200_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0895, 0x0222, iwl200_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0894, 0x0422, iwl200_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0894, 0x0026, iwl200_bg_cfg)},
-	{IWL_PCI_DEVICE(0x0895, 0x0226, iwl200_bg_cfg)},
-	{IWL_PCI_DEVICE(0x0894, 0x0426, iwl200_bg_cfg)},
+/* 105 Series */
+	{IWL_PCI_DEVICE(0x0894, 0x0022, iwl105_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0895, 0x0222, iwl105_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0894, 0x0422, iwl105_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0894, 0x0026, iwl105_bg_cfg)},
+	{IWL_PCI_DEVICE(0x0895, 0x0226, iwl105_bg_cfg)},
+	{IWL_PCI_DEVICE(0x0894, 0x0426, iwl105_bg_cfg)},
 
-/* 230 Series */
-	{IWL_PCI_DEVICE(0x0892, 0x0062, iwl230_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0893, 0x0262, iwl230_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0892, 0x0462, iwl230_bgn_cfg)},
-	{IWL_PCI_DEVICE(0x0892, 0x0066, iwl230_bg_cfg)},
-	{IWL_PCI_DEVICE(0x0893, 0x0266, iwl230_bg_cfg)},
-	{IWL_PCI_DEVICE(0x0892, 0x0466, iwl230_bg_cfg)},
+/* 135 Series */
+	{IWL_PCI_DEVICE(0x0892, 0x0062, iwl135_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0893, 0x0262, iwl135_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0892, 0x0462, iwl135_bgn_cfg)},
+	{IWL_PCI_DEVICE(0x0892, 0x0066, iwl135_bg_cfg)},
+	{IWL_PCI_DEVICE(0x0893, 0x0266, iwl135_bg_cfg)},
+	{IWL_PCI_DEVICE(0x0892, 0x0466, iwl135_bg_cfg)},
 
 	{0}
 };

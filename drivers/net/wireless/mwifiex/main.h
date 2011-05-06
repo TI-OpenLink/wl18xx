@@ -280,7 +280,7 @@ struct mwifiex_bssdescriptor {
 	 * BAND_A(0X04): 'a' band
 	 */
 	u16 bss_band;
-	long long network_tsf;
+	u64 network_tsf;
 	u8 time_stamp[8];
 	union ieee_types_phy_param_set phy_param_set;
 	union ieee_types_ss_param_set ss_param_set;
@@ -479,9 +479,9 @@ struct mwifiex_private {
 	u8 report_scan_result;
 	struct cfg80211_scan_request *scan_request;
 	int scan_result_status;
-	bool assoc_request;
+	int assoc_request;
 	u16 assoc_result;
-	bool ibss_join_request;
+	int ibss_join_request;
 	u16 ibss_join_result;
 	bool disconnect;
 	u8 cfg_bssid[6];

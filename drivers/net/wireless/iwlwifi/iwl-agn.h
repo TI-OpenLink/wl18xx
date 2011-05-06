@@ -102,10 +102,10 @@ extern struct iwl_cfg iwl2030_2bg_cfg;
 extern struct iwl_cfg iwl6035_2agn_cfg;
 extern struct iwl_cfg iwl6035_2abg_cfg;
 extern struct iwl_cfg iwl6035_2bg_cfg;
-extern struct iwl_cfg iwl200_bg_cfg;
-extern struct iwl_cfg iwl200_bgn_cfg;
-extern struct iwl_cfg iwl230_bg_cfg;
-extern struct iwl_cfg iwl230_bgn_cfg;
+extern struct iwl_cfg iwl105_bg_cfg;
+extern struct iwl_cfg iwl105_bgn_cfg;
+extern struct iwl_cfg iwl135_bg_cfg;
+extern struct iwl_cfg iwl135_bgn_cfg;
 
 extern struct iwl_mod_params iwlagn_mod_params;
 extern struct iwl_hcmd_ops iwlagn_hcmd;
@@ -256,8 +256,6 @@ int iwlagn_manage_ibss_station(struct iwl_priv *priv,
 			       struct ieee80211_vif *vif, bool add);
 
 /* hcmd */
-int iwlagn_send_rxon_assoc(struct iwl_priv *priv,
-			   struct iwl_rxon_context *ctx);
 int iwlagn_send_tx_ant_config(struct iwl_priv *priv, u8 valid_tx_ant);
 int iwlagn_send_beacon_cmd(struct iwl_priv *priv);
 
@@ -329,8 +327,6 @@ static inline __le32 iwl_hw_set_rate_n_flags(u8 rate, u32 flags)
 /* eeprom */
 void iwlcore_eeprom_enhanced_txpower(struct iwl_priv *priv);
 void iwl_eeprom_get_mac(const struct iwl_priv *priv, u8 *mac);
-int iwlcore_eeprom_acquire_semaphore(struct iwl_priv *priv);
-void iwlcore_eeprom_release_semaphore(struct iwl_priv *priv);
 
 /* notification wait support */
 void __acquires(wait_entry)

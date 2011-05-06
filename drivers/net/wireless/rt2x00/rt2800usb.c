@@ -114,12 +114,12 @@ static bool rt2800usb_txstatus_pending(struct rt2x00_dev *rt2x00dev)
 	return false;
 }
 
-static void rt2800usb_tx_sta_fifo_read_completed(struct rt2x00_dev *rt2x00dev,
+static bool rt2800usb_tx_sta_fifo_read_completed(struct rt2x00_dev *rt2x00dev,
 						 int urb_status, u32 tx_status)
 {
 	if (urb_status) {
 		WARNING(rt2x00dev, "rt2x00usb_register_read_async failed: %d\n", urb_status);
-		return;
+		return false;
 	}
 
 	/* try to read all TX_STA_FIFO entries before scheduling txdone_work */
@@ -129,13 +129,14 @@ static void rt2800usb_tx_sta_fifo_read_completed(struct rt2x00_dev *rt2x00dev,
 				"drop tx status report.\n");
 			queue_work(rt2x00dev->workqueue, &rt2x00dev->txdone_work);
 		} else
-			rt2x00usb_register_read_async(rt2x00dev, TX_STA_FIFO,
-						      rt2800usb_tx_sta_fifo_read_completed);
+			return true;
 	} else if (!kfifo_is_empty(&rt2x00dev->txstatus_fifo)) {
 		queue_work(rt2x00dev->workqueue, &rt2x00dev->txdone_work);
 	} else if (rt2800usb_txstatus_pending(rt2x00dev)) {
-		mod_timer(&rt2x00dev->txstatus_timer, jiffies + msecs_to_jiffies(20));
+		mod_timer(&rt2x00dev->txstatus_timer, jiffies + msecs_to_jiffies(2));
 	}
+
+	return false;
 }
 
 static void rt2800usb_tx_dma_done(struct queue_entry *entry)
@@ -493,7 +494,7 @@ static void rt2800usb_work_txdone(struct work_struct *work)
 	 * also delayed -> use a timer to retrieve it.
 	 */
 	if (rt2800usb_txstatus_pending(rt2x00dev))
-		mod_timer(&rt2x00dev->txstatus_timer, jiffies + msecs_to_jiffies(20));
+		mod_timer(&rt2x00dev->txstatus_timer, jiffies + msecs_to_jiffies(2));
 }
 
 /*
@@ -633,6 +634,7 @@ static int rt2800usb_probe_hw(struct rt2x00_dev *rt2x00dev)
 	__set_bit(CAPABILITY_LINK_TUNING, &rt2x00dev->cap_flags);
 	__set_bit(REQUIRE_HT_TX_DESC, &rt2x00dev->cap_flags);
 	__set_bit(REQUIRE_TXSTATUS_FIFO, &rt2x00dev->cap_flags);
+	__set_bit(REQUIRE_PS_AUTOWAKE, &rt2x00dev->cap_flags);
 
 	setup_timer(&rt2x00dev->txstatus_timer,
 		    rt2800usb_tx_sta_fifo_timeout,
@@ -997,6 +999,14 @@ static struct usb_device_id rt2800usb_device_table[] = {
 	{ USB_DEVICE(0x0930, 0x0a07) },
 	/* Zinwell */
 	{ USB_DEVICE(0x5a57, 0x0284) },
+#endif
+#ifdef CONFIG_RT2800USB_RT53XX
+	/* Azurewave */
+	{ USB_DEVICE(0x13d3, 0x3329) },
+	{ USB_DEVICE(0x13d3, 0x3365) },
+	/* Ralink */
+	{ USB_DEVICE(0x148f, 0x5370) },
+	{ USB_DEVICE(0x148f, 0x5372) },
 #endif
 #ifdef CONFIG_RT2800USB_UNKNOWN
 	/*

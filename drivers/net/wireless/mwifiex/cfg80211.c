@@ -77,18 +77,15 @@ mwifiex_channels_to_cfg80211_channel_type(int channel_type)
 static int
 mwifiex_is_alg_wep(u32 cipher)
 {
-	int alg = 0;
-
 	switch (cipher) {
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
-		alg = 1;
-		break;
+		return 1;
 	default:
-		alg = 0;
 		break;
 	}
-	return alg;
+
+	return 0;
 }
 
 /*
@@ -408,7 +405,7 @@ mwifiex_cfg80211_set_channel(struct wiphy *wiphy, struct net_device *dev,
 static int
 mwifiex_set_frag(struct mwifiex_private *priv, u32 frag_thr)
 {
-	int ret = 0;
+	int ret;
 
 	if (frag_thr < MWIFIEX_FRAG_MIN_VALUE
 	    || frag_thr > MWIFIEX_FRAG_MAX_VALUE)
@@ -449,7 +446,6 @@ static int
 mwifiex_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 {
 	struct mwifiex_private *priv = mwifiex_cfg80211_get_priv(wiphy);
-
 	int ret = 0;
 
 	if (changed & WIPHY_PARAM_RTS_THRESHOLD) {
@@ -473,7 +469,7 @@ mwifiex_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 				     enum nl80211_iftype type, u32 *flags,
 				     struct vif_params *params)
 {
-	int ret = 0;
+	int ret;
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(dev);
 
 	if (priv->bss_mode == type) {
@@ -717,7 +713,7 @@ static int mwifiex_cfg80211_inform_ibss_bss(struct mwifiex_private *priv)
 {
 	struct ieee80211_channel *chan;
 	struct mwifiex_bss_info bss_info;
-	int ie_len = 0;
+	int ie_len;
 	u8 ie_buf[IEEE80211_MAX_SSID_LEN + sizeof(struct ieee_types_header)];
 
 	if (mwifiex_get_bss_info(priv, &bss_info))
@@ -903,8 +899,7 @@ mwifiex_cfg80211_assoc(struct mwifiex_private *priv, size_t ssid_len, u8 *ssid,
 {
 	struct mwifiex_802_11_ssid req_ssid;
 	struct mwifiex_ssid_bssid ssid_bssid;
-	int ret = 0;
-	int auth_type = 0;
+	int ret, auth_type = 0;
 
 	memset(&req_ssid, 0, sizeof(struct mwifiex_802_11_ssid));
 	memset(&ssid_bssid, 0, sizeof(struct mwifiex_ssid_bssid));
@@ -1044,7 +1039,7 @@ mwifiex_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		goto done;
 	}
 
-	priv->assoc_request = 1;
+	priv->assoc_request = -EINPROGRESS;
 
 	wiphy_dbg(wiphy, "info: Trying to associate to %s and bssid %pM\n",
 	       (char *) sme->ssid, sme->bssid);
@@ -1052,6 +1047,7 @@ mwifiex_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	ret = mwifiex_cfg80211_assoc(priv, sme->ssid_len, sme->ssid, sme->bssid,
 				     priv->bss_mode, sme->channel, sme, 0);
 
+	priv->assoc_request = 1;
 done:
 	priv->assoc_result = ret;
 	queue_work(priv->workqueue, &priv->cfg_workqueue);
@@ -1080,7 +1076,7 @@ mwifiex_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 		goto done;
 	}
 
-	priv->ibss_join_request = 1;
+	priv->ibss_join_request = -EINPROGRESS;
 
 	wiphy_dbg(wiphy, "info: trying to join to %s and bssid %pM\n",
 	       (char *) params->ssid, params->bssid);
@@ -1088,6 +1084,8 @@ mwifiex_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	ret = mwifiex_cfg80211_assoc(priv, params->ssid_len, params->ssid,
 				params->bssid, priv->bss_mode,
 				params->channel, NULL, params->privacy);
+
+	priv->ibss_join_request = 1;
 done:
 	priv->ibss_join_result = ret;
 	queue_work(priv->workqueue, &priv->cfg_workqueue);
@@ -1244,8 +1242,8 @@ static struct cfg80211_ops mwifiex_cfg80211_ops = {
 int mwifiex_register_cfg80211(struct net_device *dev, u8 *mac,
 			      struct mwifiex_private *priv)
 {
-	int ret = 0;
-	void *wdev_priv = NULL;
+	int ret;
+	void *wdev_priv;
 	struct wireless_dev *wdev;
 
 	wdev = kzalloc(sizeof(struct wireless_dev), GFP_KERNEL);
@@ -1380,7 +1378,7 @@ done:
 		kfree(scan_req);
 	}
 
-	if (priv->assoc_request) {
+	if (priv->assoc_request == 1) {
 		if (!priv->assoc_result) {
 			cfg80211_connect_result(priv->netdev, priv->cfg_bssid,
 						NULL, 0, NULL, 0,
@@ -1399,7 +1397,7 @@ done:
 		priv->assoc_result = 0;
 	}
 
-	if (priv->ibss_join_request) {
+	if (priv->ibss_join_request == 1) {
 		if (!priv->ibss_join_result) {
 			cfg80211_ibss_joined(priv->netdev, priv->cfg_bssid,
 					     GFP_KERNEL);
