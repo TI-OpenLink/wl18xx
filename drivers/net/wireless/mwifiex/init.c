@@ -41,7 +41,7 @@ static int mwifiex_add_bss_prio_tbl(struct mwifiex_private *priv)
 	if (!bss_prio) {
 		dev_err(adapter->dev, "%s: failed to alloc bss_prio\n",
 						__func__);
-		return -1;
+		return -ENOMEM;
 	}
 
 	bss_prio->priv = priv;
@@ -161,7 +161,7 @@ static int mwifiex_allocate_adapter(struct mwifiex_adapter *adapter)
 	if (!temp_scan_table) {
 		dev_err(adapter->dev, "%s: failed to alloc temp_scan_table\n",
 		       __func__);
-		return -1;
+		return -ENOMEM;
 	}
 
 	adapter->scan_table = temp_scan_table;
@@ -175,7 +175,7 @@ static int mwifiex_allocate_adapter(struct mwifiex_adapter *adapter)
 	}
 
 	adapter->sleep_cfm =
-		dev_alloc_skb(sizeof(struct mwifiex_opt_sleep_confirm_buffer)
+		dev_alloc_skb(sizeof(struct mwifiex_opt_sleep_confirm)
 				+ INTF_HEADER_LEN);
 
 	if (!adapter->sleep_cfm) {
@@ -197,10 +197,10 @@ static int mwifiex_allocate_adapter(struct mwifiex_adapter *adapter)
  */
 static void mwifiex_init_adapter(struct mwifiex_adapter *adapter)
 {
-	struct mwifiex_opt_sleep_confirm_buffer *sleep_cfm_buf = NULL;
+	struct mwifiex_opt_sleep_confirm *sleep_cfm_buf = NULL;
 
-	skb_put(adapter->sleep_cfm, sizeof(sleep_cfm_buf->ps_cfm_sleep));
-	sleep_cfm_buf = (struct mwifiex_opt_sleep_confirm_buffer *)
+	skb_put(adapter->sleep_cfm, sizeof(struct mwifiex_opt_sleep_confirm));
+	sleep_cfm_buf = (struct mwifiex_opt_sleep_confirm *)
 						(adapter->sleep_cfm->data);
 
 	adapter->cmd_sent = false;
@@ -268,16 +268,14 @@ static void mwifiex_init_adapter(struct mwifiex_adapter *adapter)
 	mwifiex_wmm_init(adapter);
 
 	if (adapter->sleep_cfm) {
-		memset(&sleep_cfm_buf->ps_cfm_sleep, 0,
-			adapter->sleep_cfm->len);
-		sleep_cfm_buf->ps_cfm_sleep.command =
-			cpu_to_le16(HostCmd_CMD_802_11_PS_MODE_ENH);
-		sleep_cfm_buf->ps_cfm_sleep.size =
-			cpu_to_le16(adapter->sleep_cfm->len);
-		sleep_cfm_buf->ps_cfm_sleep.result = 0;
-		sleep_cfm_buf->ps_cfm_sleep.action = cpu_to_le16(SLEEP_CONFIRM);
-		sleep_cfm_buf->ps_cfm_sleep.resp_ctrl =
-			cpu_to_le16(RESP_NEEDED);
+		memset(sleep_cfm_buf, 0, adapter->sleep_cfm->len);
+		sleep_cfm_buf->command =
+				cpu_to_le16(HostCmd_CMD_802_11_PS_MODE_ENH);
+		sleep_cfm_buf->size =
+				cpu_to_le16(adapter->sleep_cfm->len);
+		sleep_cfm_buf->result = 0;
+		sleep_cfm_buf->action = cpu_to_le16(SLEEP_CONFIRM);
+		sleep_cfm_buf->resp_ctrl = cpu_to_le16(RESP_NEEDED);
 	}
 	memset(&adapter->sleep_params, 0, sizeof(adapter->sleep_params));
 	memset(&adapter->sleep_period, 0, sizeof(adapter->sleep_period));
