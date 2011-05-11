@@ -43,7 +43,7 @@
 #define dot11MeshMaxPeerLinks(s) (s->u.mesh.mshcfg.dot11MeshMaxPeerLinks)
 
 enum plink_frame_type {
-	PLINK_OPEN = 0,
+	PLINK_OPEN = 1,
 	PLINK_CONFIRM,
 	PLINK_CLOSE
 };
@@ -181,8 +181,8 @@ static int mesh_plink_frame_tx(struct ieee80211_sub_if_data *sdata,
 					  IEEE80211_STYPE_ACTION);
 	memcpy(mgmt->da, da, ETH_ALEN);
 	memcpy(mgmt->sa, sdata->vif.addr, ETH_ALEN);
-	/* BSSID is left zeroed, wildcard value */
-	mgmt->u.action.category = WLAN_CATEGORY_MESH_PLINK;
+	memcpy(mgmt->bssid, sdata->vif.addr, ETH_ALEN);
+	mgmt->u.action.category = WLAN_CATEGORY_MESH_ACTION;
 	mgmt->u.action.u.plink_action.action_code = action;
 
 	if (action == PLINK_CLOSE)
@@ -251,7 +251,7 @@ void mesh_neighbour_update(u8 *hw_addr, u32 rates,
 		rcu_read_unlock();
 		/* Userspace handles peer allocation when security is enabled
 		 * */
-		if (sdata->u.mesh.is_secure)
+		if (sdata->u.mesh.security & IEEE80211_MESH_SEC_AUTHED)
 			cfg80211_notify_new_peer_candidate(sdata->dev, hw_addr,
 					elems->ie_start, elems->total_len,
 					GFP_KERNEL);
@@ -460,7 +460,8 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 		mpl_dbg("Mesh plink: missing necessary peer link ie\n");
 		return;
 	}
-	if (elems.rsn_len && !sdata->u.mesh.is_secure) {
+	if (elems.rsn_len &&
+			sdata->u.mesh.security == IEEE80211_MESH_SEC_NONE) {
 		mpl_dbg("Mesh plink: can't establish link with secure peer\n");
 		return;
 	}

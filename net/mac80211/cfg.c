@@ -136,7 +136,10 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 	mutex_lock(&sdata->local->sta_mtx);
 
 	if (mac_addr) {
-		sta = sta_info_get_bss(sdata, mac_addr);
+		if (ieee80211_vif_is_mesh(&sdata->vif))
+			sta = sta_info_get(sdata, mac_addr);
+		else
+			sta = sta_info_get_bss(sdata, mac_addr);
 		if (!sta) {
 			ieee80211_key_free(sdata->local, key);
 			err = -ENOENT;
@@ -734,15 +737,27 @@ static void sta_apply_parameters(struct ieee80211_local *local,
 						  params->ht_capa,
 						  &sta->sta.ht_cap);
 
-	if (ieee80211_vif_is_mesh(&sdata->vif) && params->plink_action) {
-		switch (params->plink_action) {
-		case PLINK_ACTION_OPEN:
-			mesh_plink_open(sta);
-			break;
-		case PLINK_ACTION_BLOCK:
-			mesh_plink_block(sta);
-			break;
-		}
+	if (ieee80211_vif_is_mesh(&sdata->vif)) {
+		if (sdata->u.mesh.security & IEEE80211_MESH_SEC_SECURED)
+			switch (params->plink_state) {
+			case PLINK_LISTEN:
+			case PLINK_ESTAB:
+			case PLINK_BLOCKED:
+				sta->plink_state = params->plink_state;
+				break;
+			default:
+				/*  nothing  */
+				break;
+			}
+		else
+			switch (params->plink_action) {
+			case PLINK_ACTION_OPEN:
+				mesh_plink_open(sta);
+				break;
+			case PLINK_ACTION_BLOCK:
+				mesh_plink_block(sta);
+				break;
+			}
 	}
 }
 
@@ -1064,7 +1079,11 @@ static int copy_mesh_setup(struct ieee80211_if_mesh *ifmsh,
 	memcpy(ifmsh->mesh_id, setup->mesh_id, ifmsh->mesh_id_len);
 	ifmsh->mesh_pp_id = setup->path_sel_proto;
 	ifmsh->mesh_pm_id = setup->path_metric;
-	ifmsh->is_secure = setup->is_secure;
+	ifmsh->security = IEEE80211_MESH_SEC_NONE;
+	if (setup->is_authenticated)
+		ifmsh->security |= IEEE80211_MESH_SEC_AUTHED;
+	if (setup->is_secure)
+		ifmsh->security |= IEEE80211_MESH_SEC_SECURED;
 
 	return 0;
 }
@@ -1341,6 +1360,31 @@ static int ieee80211_scan(struct wiphy *wiphy,
 	}
 
 	return ieee80211_request_scan(sdata, req);
+}
+
+static int
+ieee80211_sched_scan_start(struct wiphy *wiphy,
+			   struct net_device *dev,
+			   struct cfg80211_sched_scan_request *req)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+
+	if (!sdata->local->ops->sched_scan_start)
+		return -EOPNOTSUPP;
+
+	return ieee80211_request_sched_scan_start(sdata, req);
+}
+
+static int
+ieee80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev,
+			  bool driver_initiated)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+
+	if (!sdata->local->ops->sched_scan_stop)
+		return -EOPNOTSUPP;
+
+	return ieee80211_request_sched_scan_stop(sdata, driver_initiated);
 }
 
 static int ieee80211_auth(struct wiphy *wiphy, struct net_device *dev,
@@ -2084,6 +2128,8 @@ struct cfg80211_ops mac80211_config_ops = {
 	.suspend = ieee80211_suspend,
 	.resume = ieee80211_resume,
 	.scan = ieee80211_scan,
+	.sched_scan_start = ieee80211_sched_scan_start,
+	.sched_scan_stop = ieee80211_sched_scan_stop,
 	.auth = ieee80211_auth,
 	.assoc = ieee80211_assoc,
 	.deauth = ieee80211_deauth,

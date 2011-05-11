@@ -490,7 +490,11 @@ struct ieee80211_if_mesh {
 	bool accepting_plinks;
 	const u8 *ie;
 	u8 ie_len;
-	bool is_secure;
+	enum {
+		IEEE80211_MESH_SEC_NONE = 0x0,
+		IEEE80211_MESH_SEC_AUTHED = 0x1,
+		IEEE80211_MESH_SEC_SECURED = 0x2,
+	} security;
 };
 
 #ifdef CONFIG_MAC80211_MESH
@@ -843,6 +847,9 @@ struct ieee80211_local {
 	int scan_channel_idx;
 	int scan_ies_len;
 
+	bool sched_scanning;
+	struct ieee80211_sched_scan_ies sched_scan_ies;
+
 	unsigned long leave_oper_channel_time;
 	enum mac80211_scan_state next_scan_state;
 	struct delayed_work scan_work;
@@ -1149,6 +1156,12 @@ ieee80211_rx_bss_get(struct ieee80211_local *local, u8 *bssid, int freq,
 		     u8 *ssid, u8 ssid_len);
 void ieee80211_rx_bss_put(struct ieee80211_local *local,
 			  struct ieee80211_bss *bss);
+
+/* scheduled scan handling */
+int ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
+				       struct cfg80211_sched_scan_request *req);
+int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata,
+				      bool driver_initiated);
 
 /* off-channel helpers */
 bool ieee80211_cfg_on_oper_channel(struct ieee80211_local *local);
