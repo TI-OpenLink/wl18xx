@@ -2596,6 +2596,7 @@ static int wl1271_op_hw_scan(struct ieee80211_hw *hw,
 			goto out_sleep;
 		}
 		wl1271_croc(wl, wl->dev_role_id);
+		wl1271_cmd_role_stop_dev(wl);
 	}
 
 	ret = wl1271_scan(hw->priv, ssid, len, req);
@@ -3167,11 +3168,30 @@ sta_not_found:
 	}
 
 	if (do_join) {
-		/* don't cancel ROC (on dev role) until interface is up */
+		/*
+		 * stop device role if started (we might already be in
+		 * STA role). TODO: make it better.
+		 */
+		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
+			ret = wl1271_croc(wl, wl->dev_role_id);
+			if (ret < 0)
+				goto out;
+
+			ret = wl1271_cmd_role_stop_dev(wl);
+			if (ret < 0)
+				goto out;
+		}
 		ret = wl1271_join(wl, set_assoc);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);
 			goto out;
+		}
+
+		/* ROC until interface is up (after EAPOL exchange) */
+		if (!is_ibss) {
+			ret = wl1271_roc(wl, wl->role_id);
+			if (ret < 0)
+				goto out;
 		}
 	}
 

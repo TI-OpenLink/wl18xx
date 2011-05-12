@@ -61,6 +61,7 @@ void wl1271_scan_complete_work(struct work_struct *work)
 		wl1271_cmd_build_ap_probe_req(wl, wl->probereq);
 	} else {
 		/* restore remain on channel */
+		wl1271_cmd_role_start_dev(wl);
 		wl1271_roc(wl, wl->dev_role_id);
 	}
 	wl1271_ps_elp_sleep(wl);
