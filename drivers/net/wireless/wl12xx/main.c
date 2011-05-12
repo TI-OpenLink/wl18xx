@@ -422,7 +422,7 @@ static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 	if ((dev->operstate == IF_OPER_UP) &&
 	    !test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags)) {
 		wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
-		wl1271_croc(wl);
+		wl1271_croc(wl, wl->role_id);
 		wl1271_info("Association completed.");
 	}
 
@@ -1998,7 +1998,7 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, bool idle)
 
 	if (idle) {
 		if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
-			ret = wl1271_croc(wl);
+			ret = wl1271_croc(wl, wl->dev_role_id);
 			if (ret < 0)
 				goto out;
 
@@ -2027,7 +2027,7 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, bool idle)
 		if (ret < 0)
 			goto out;
 
-		ret = wl1271_roc(wl);
+		ret = wl1271_roc(wl, wl->dev_role_id);
 		if (ret < 0)
 			goto out;
 		clear_bit(WL1271_FLAG_IDLE, &wl->flags);
@@ -2117,11 +2117,11 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 				 */
 				if (test_bit(WL1271_FLAG_ROC, &wl->flags) &&
 				    !(conf->flags & IEEE80211_CONF_IDLE)) {
-					ret = wl1271_croc(wl);
+					ret = wl1271_croc(wl, wl->dev_role_id);
 					if (ret < 0)
 						goto out_sleep;
 
-					ret = wl1271_roc(wl);
+					ret = wl1271_roc(wl, wl->dev_role_id);
 					if (ret < 0)
 						wl1271_warning("roc failed %d",
 							       ret);
@@ -2589,13 +2589,18 @@ static int wl1271_op_hw_scan(struct ieee80211_hw *hw,
 		goto out;
 
 	/* cancel ROC before scanning */
-	if (test_bit(WL1271_FLAG_ROC, &wl->flags))
-		wl1271_croc(wl);
+	if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) {
+			/* don't allow scanning right now (?) */
+			ret = -EBUSY;
+			goto out_sleep;
+		}
+		wl1271_croc(wl, wl->dev_role_id);
+	}
 
 	ret = wl1271_scan(hw->priv, ssid, len, req);
-
+out_sleep:
 	wl1271_ps_elp_sleep(wl);
-
 out:
 	mutex_unlock(&wl->mutex);
 
@@ -3118,12 +3123,13 @@ sta_not_found:
 				 * no IF_OPER_UP notification.
 				 */
 				if (!was_ifup) {
-					ret = wl1271_croc(wl);
+					ret = wl1271_croc(wl, wl->role_id);
 					if (ret < 0)
 						goto out;
 				}
 				wl1271_unjoin(wl);
-				wl1271_roc(wl);
+				wl1271_cmd_role_start_dev(wl);
+				wl1271_roc(wl, wl->dev_role_id);
 			}
 		}
 	}

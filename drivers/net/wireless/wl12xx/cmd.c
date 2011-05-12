@@ -1479,11 +1479,9 @@ out:
 	return ret;
 }
 
-static int wl1271_cmd_roc(struct wl1271 *wl)
+static int wl1271_cmd_roc(struct wl1271 *wl, u8 role_id)
 {
 	struct wl1271_cmd_roc *cmd;
-	/* TODO: get role_id as param */
-	u8 role_id = wl->dev_role_id;
 	int ret = 0;
 
 	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wl->channel, wl->band);
@@ -1526,7 +1524,7 @@ out:
 	return ret;
 }
 
-static int wl1271_cmd_croc(struct wl1271 *wl)
+static int wl1271_cmd_croc(struct wl1271 *wl, u8 role_id)
 {
 	struct wl1271_cmd_header *cmd;
 	int ret = 0;
@@ -1553,14 +1551,14 @@ out:
 	return ret;
 }
 
-int wl1271_roc(struct wl1271 *wl)
+int wl1271_roc(struct wl1271 *wl, u8 role_id)
 {
 	int ret = 0;
 
 	if (WARN_ON(test_bit(WL1271_FLAG_ROC, &wl->flags)))
 		return 0;
 
-	ret = wl1271_cmd_roc(wl);
+	ret = wl1271_cmd_roc(wl, role_id);
 	if (ret < 0)
 		goto out;
 
@@ -1577,14 +1575,14 @@ out:
 	return ret;
 }
 
-int wl1271_croc(struct wl1271 *wl)
+int wl1271_croc(struct wl1271 *wl, u8 role_id)
 {
 	int ret = 0;
 
 	if (WARN_ON(!test_bit(WL1271_FLAG_ROC, &wl->flags)))
 		return 0;
 
-	ret = wl1271_cmd_croc(wl);
+	ret = wl1271_cmd_croc(wl, role_id);
 	if (ret < 0)
 		goto out;
 
