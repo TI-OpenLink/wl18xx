@@ -2945,6 +2945,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 {
 	bool do_join = false, set_assoc = false;
 	bool is_ibss = (wl->bss_type == BSS_TYPE_IBSS);
+	bool ibss_joined = false;
 	u32 sta_rate_set = 0;
 	int ret;
 	struct ieee80211_sta *sta;
@@ -2958,14 +2959,28 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			goto out;
 	}
 
-	if ((changed & BSS_CHANGED_BEACON_INT)  && is_ibss)
+	if (changed & BSS_CHANGED_IBSS) {
+		if (bss_conf->ibss_joined) {
+			set_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags);
+			ibss_joined = true;
+		} else {
+			if (test_and_clear_bit(WL1271_FLAG_IBSS_JOINED,
+					       &wl->flags)) {
+				wl1271_unjoin(wl);
+				wl1271_cmd_role_start_dev(wl);
+				wl1271_roc(wl, wl->dev_role_id);
+			}
+		}
+	}
+
+	if ((changed & BSS_CHANGED_BEACON_INT) && ibss_joined)
 		do_join = true;
 
 	/* Need to update the SSID (for filtering etc) */
-	if ((changed & BSS_CHANGED_BEACON) && is_ibss)
+	if ((changed & BSS_CHANGED_BEACON) && ibss_joined)
 		do_join = true;
 
-	if ((changed & BSS_CHANGED_BEACON_ENABLED) && is_ibss) {
+	if ((changed & BSS_CHANGED_BEACON_ENABLED) && ibss_joined) {
 		wl1271_debug(DEBUG_ADHOC, "ad-hoc beaconing: %s",
 			     bss_conf->enable_beacon ? "enabled" : "disabled");
 
