@@ -237,6 +237,10 @@ ieee80211_tx_h_dynamic_ps(struct ieee80211_tx_data *tx)
 				     &local->dynamic_ps_disable_work);
 	}
 
+	/* Don't restart the timer if we're not disassociated */
+	if (!ifmgd->associated)
+		return TX_CONTINUE;
+
 	mod_timer(&local->dynamic_ps_timer, jiffies +
 		  msecs_to_jiffies(local->hw.conf.dynamic_ps_timeout));
 
@@ -1751,6 +1755,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
 			ret = NETDEV_TX_OK;
 			goto fail;
 		}
+		rcu_read_lock();
 		if (!is_multicast_ether_addr(skb->data))
 			mppath = mpp_path_lookup(skb->data, sdata);
 
@@ -1765,13 +1770,13 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
 		    !(mppath && compare_ether_addr(mppath->mpp, skb->data))) {
 			hdrlen = ieee80211_fill_mesh_addresses(&hdr, &fc,
 					skb->data, skb->data + ETH_ALEN);
+			rcu_read_unlock();
 			meshhdrlen = ieee80211_new_mesh_header(&mesh_hdr,
 					sdata, NULL, NULL);
 		} else {
 			int is_mesh_mcast = 1;
 			const u8 *mesh_da;
 
-			rcu_read_lock();
 			if (is_multicast_ether_addr(skb->data))
 				/* DA TA mSA AE:SA */
 				mesh_da = skb->data;

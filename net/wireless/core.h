@@ -60,8 +60,10 @@ struct cfg80211_registered_device {
 	struct rb_root bss_tree;
 	u32 bss_generation;
 	struct cfg80211_scan_request *scan_req; /* protected by RTNL */
+	struct cfg80211_sched_scan_request *sched_scan_req;
 	unsigned long suspend_at;
 	struct work_struct scan_done_wk;
+	struct work_struct sched_scan_results_wk;
 
 #ifdef CONFIG_NL80211_TESTMODE
 	struct genl_info *testmode_info;
@@ -411,6 +413,9 @@ void cfg80211_sme_rx_auth(struct net_device *dev, const u8 *buf, size_t len);
 void cfg80211_sme_disassoc(struct net_device *dev, int idx);
 void __cfg80211_scan_done(struct work_struct *wk);
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev, bool leak);
+void __cfg80211_sched_scan_results(struct work_struct *wk);
+int __cfg80211_stop_sched_scan(struct cfg80211_registered_device *rdev,
+			       bool driver_initiated);
 void cfg80211_upload_connect_keys(struct wireless_dev *wdev);
 int cfg80211_change_iface(struct cfg80211_registered_device *rdev,
 			  struct net_device *dev, enum nl80211_iftype ntype,
@@ -425,6 +430,9 @@ int cfg80211_set_freq(struct cfg80211_registered_device *rdev,
 		      enum nl80211_channel_type channel_type);
 
 u16 cfg80211_calculate_bitrate(struct rate_info *rate);
+
+int cfg80211_validate_beacon_int(struct cfg80211_registered_device *rdev,
+				 u32 beacon_int);
 
 #ifdef CONFIG_CFG80211_DEVELOPER_WARNINGS
 #define CFG80211_DEV_WARN_ON(cond)	WARN_ON(cond)

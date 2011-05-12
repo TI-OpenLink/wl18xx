@@ -652,7 +652,7 @@ static const struct ar9300_eeprom ar9300_x113 = {
 		.regDmn = { LE16(0), LE16(0x1f) },
 		.txrxMask =  0x77, /* 4 bits tx and 4 bits rx */
 		.opCapFlags = {
-			.opFlags = AR5416_OPFLAGS_11G | AR5416_OPFLAGS_11A,
+			.opFlags = AR5416_OPFLAGS_11A,
 			.eepMisc = 0,
 		},
 		.rfSilent = 0,
@@ -922,7 +922,7 @@ static const struct ar9300_eeprom ar9300_x113 = {
 		.db_stage2 = {3, 3, 3}, /* 3 chain */
 		.db_stage3 = {3, 3, 3}, /* doesn't exist for 2G */
 		.db_stage4 = {3, 3, 3},	 /* don't exist for 2G */
-		.xpaBiasLvl = 0,
+		.xpaBiasLvl = 0xf,
 		.txFrameToDataStart = 0x0e,
 		.txFrameToPaOn = 0x0e,
 		.txClip = 3, /* 4 bits tx_clip, 4 bits dac_scale_cck */
@@ -3442,17 +3442,15 @@ static void ar9003_hw_xpa_bias_level_apply(struct ath_hw *ah, bool is2ghz)
 {
 	int bias = ar9003_hw_xpa_bias_level_get(ah, is2ghz);
 
-	if (AR_SREV_9485(ah))
+	if (AR_SREV_9485(ah) || AR_SREV_9340(ah))
 		REG_RMW_FIELD(ah, AR_CH0_TOP2, AR_CH0_TOP2_XPABIASLVL, bias);
 	else {
 		REG_RMW_FIELD(ah, AR_CH0_TOP, AR_CH0_TOP_XPABIASLVL, bias);
-		if (!AR_SREV_9340(ah)) {
-			REG_RMW_FIELD(ah, AR_CH0_THERM,
-				      AR_CH0_THERM_XPABIASLVL_MSB,
-				      bias >> 2);
-			REG_RMW_FIELD(ah, AR_CH0_THERM,
-				      AR_CH0_THERM_XPASHORT2GND, 1);
-		}
+		REG_RMW_FIELD(ah, AR_CH0_THERM,
+				AR_CH0_THERM_XPABIASLVL_MSB,
+				bias >> 2);
+		REG_RMW_FIELD(ah, AR_CH0_THERM,
+				AR_CH0_THERM_XPASHORT2GND, 1);
 	}
 }
 

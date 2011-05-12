@@ -689,6 +689,17 @@ void ath9k_tasklet(unsigned long data)
 	    !ath9k_hw_check_alive(ah))
 		ieee80211_queue_work(sc->hw, &sc->hw_check_work);
 
+	if ((status & ATH9K_INT_TSFOOR) && sc->ps_enabled) {
+		/*
+		 * TSF sync does not look correct; remain awake to sync with
+		 * the next Beacon.
+		 */
+		ath_dbg(common, ATH_DBG_PS,
+			"TSFOOR - Sync with next Beacon\n");
+		sc->ps_flags |= PS_WAIT_FOR_BEACON | PS_BEACON_SYNC |
+				PS_TSFOOR_SYNC;
+	}
+
 	if (ah->caps.hw_caps & ATH9K_HW_CAP_EDMA)
 		rxmask = (ATH9K_INT_RXHP | ATH9K_INT_RXLP | ATH9K_INT_RXEOL |
 			  ATH9K_INT_RXORN);
@@ -709,16 +720,6 @@ void ath9k_tasklet(unsigned long data)
 			ath_tx_edma_tasklet(sc);
 		else
 			ath_tx_tasklet(sc);
-	}
-
-	if ((status & ATH9K_INT_TSFOOR) && sc->ps_enabled) {
-		/*
-		 * TSF sync does not look correct; remain awake to sync with
-		 * the next Beacon.
-		 */
-		ath_dbg(common, ATH_DBG_PS,
-			"TSFOOR - Sync with next Beacon\n");
-		sc->ps_flags |= PS_WAIT_FOR_BEACON | PS_BEACON_SYNC;
 	}
 
 	if (ah->btcoex_hw.scheme == ATH_BTCOEX_CFG_3WIRE)
@@ -1384,7 +1385,9 @@ static void ath9k_calculate_summary_state(struct ieee80211_hw *hw,
 		ath9k_hw_set_tsfadjust(ah, 0);
 		sc->sc_flags &= ~SC_OP_TSF_RESET;
 
-		if (iter_data.nwds + iter_data.nmeshes)
+		if (iter_data.nmeshes)
+			ah->opmode = NL80211_IFTYPE_MESH_POINT;
+		else if (iter_data.nwds)
 			ah->opmode = NL80211_IFTYPE_AP;
 		else if (iter_data.nadhocs)
 			ah->opmode = NL80211_IFTYPE_ADHOC;
@@ -1408,6 +1411,7 @@ static void ath9k_calculate_summary_state(struct ieee80211_hw *hw,
 
 	/* Set up ANI */
 	if ((iter_data.naps + iter_data.nadhocs) > 0) {
+		sc->sc_ah->stats.avgbrssi = ATH_RSSI_DUMMY_MARKER;
 		sc->sc_flags |= SC_OP_ANI_RUN;
 		ath_start_ani(common);
 	} else {
@@ -1778,6 +1782,11 @@ static int ath9k_sta_add(struct ieee80211_hw *hw,
 	struct ieee80211_key_conf ps_key = { };
 
 	ath_node_attach(sc, sta);
+
+	if (vif->type != NL80211_IFTYPE_AP &&
+	    vif->type != NL80211_IFTYPE_AP_VLAN)
+		return 0;
+
 	an->ps_key = ath_key_config(common, vif, sta, &ps_key);
 
 	return 0;
@@ -2256,12 +2265,20 @@ static void ath9k_set_coverage_class(struct ieee80211_hw *hw, u8 coverage_class)
 static void ath9k_flush(struct ieee80211_hw *hw, bool drop)
 {
 	struct ath_softc *sc = hw->priv;
+	struct ath_hw *ah = sc->sc_ah;
+	struct ath_common *common = ath9k_hw_common(ah);
 	int timeout = 200; /* ms */
 	int i, j;
 	bool drain_txq;
 
 	mutex_lock(&sc->mutex);
 	cancel_delayed_work_sync(&sc->tx_complete_work);
+
+	if (sc->sc_flags & SC_OP_INVALID) {
+		ath_dbg(common, ATH_DBG_ANY, "Device not present\n");
+		mutex_unlock(&sc->mutex);
+		return;
+	}
 
 	if (drop)
 		timeout = 1;

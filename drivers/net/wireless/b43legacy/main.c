@@ -2234,7 +2234,7 @@ static int b43legacy_chip_init(struct b43legacy_wldev *dev)
 	b43legacy_write32(dev, B43legacy_MMIO_DMA5_IRQ_MASK, 0x0000DC00);
 
 	value32 = ssb_read32(dev->dev, SSB_TMSLOW);
-	value32 |= 0x00100000;
+	value32 |= B43legacy_TMSLOW_MACPHYCLKEN;
 	ssb_write32(dev->dev, SSB_TMSLOW, value32);
 
 	b43legacy_write16(dev, B43legacy_MMIO_POWERUP_DELAY,
@@ -3696,25 +3696,7 @@ static int b43legacy_one_core_attach(struct ssb_device *dev,
 				     struct b43legacy_wl *wl)
 {
 	struct b43legacy_wldev *wldev;
-	struct pci_dev *pdev;
 	int err = -ENOMEM;
-
-	if (!list_empty(&wl->devlist)) {
-		/* We are not the first core on this chip. */
-		pdev = (dev->bus->bustype == SSB_BUSTYPE_PCI) ? dev->bus->host_pci : NULL;
-		/* Only special chips support more than one wireless
-		 * core, although some of the other chips have more than
-		 * one wireless core as well. Check for this and
-		 * bail out early.
-		 */
-		if (!pdev ||
-		    ((pdev->device != 0x4321) &&
-		     (pdev->device != 0x4313) &&
-		     (pdev->device != 0x431A))) {
-			b43legacydbg(wl, "Ignoring unconnected 802.11 core\n");
-			return -ENODEV;
-		}
-	}
 
 	wldev = kzalloc(sizeof(*wldev), GFP_KERNEL);
 	if (!wldev)

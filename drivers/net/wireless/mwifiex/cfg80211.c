@@ -761,7 +761,6 @@ static int mwifiex_cfg80211_inform_ibss_bss(struct mwifiex_private *priv)
 static int mwifiex_inform_bss_from_scan_result(struct mwifiex_private *priv,
 					       struct mwifiex_802_11_ssid *ssid)
 {
-	struct mwifiex_scan_resp scan_resp;
 	struct mwifiex_bssdescriptor *scan_table;
 	int i, j;
 	struct ieee80211_channel *chan;
@@ -771,10 +770,6 @@ static int mwifiex_inform_bss_from_scan_result(struct mwifiex_private *priv,
 	int beacon_size;
 	u8 element_id, element_len;
 
-	memset(&scan_resp, 0, sizeof(scan_resp));
-	scan_resp.scan_table = (u8 *) priv->adapter->scan_table;
-	scan_resp.num_in_scan_table = priv->adapter->num_in_scan_table;
-
 #define MAX_IE_BUF	2048
 	ie_buf = kzalloc(MAX_IE_BUF, GFP_KERNEL);
 	if (!ie_buf) {
@@ -783,8 +778,8 @@ static int mwifiex_inform_bss_from_scan_result(struct mwifiex_private *priv,
 		return -ENOMEM;
 	}
 
-	scan_table = (struct mwifiex_bssdescriptor *) scan_resp.scan_table;
-	for (i = 0; i < scan_resp.num_in_scan_table; i++) {
+	scan_table = priv->adapter->scan_table;
+	for (i = 0; i < priv->adapter->num_in_scan_table; i++) {
 		if (ssid) {
 			/* Inform specific BSS only */
 			if (memcmp(ssid->ssid, scan_table[i].ssid.ssid,
@@ -1255,8 +1250,10 @@ int mwifiex_register_cfg80211(struct net_device *dev, u8 *mac,
 	wdev->wiphy =
 		wiphy_new(&mwifiex_cfg80211_ops,
 			  sizeof(struct mwifiex_private *));
-	if (!wdev->wiphy)
+	if (!wdev->wiphy) {
+		kfree(wdev);
 		return -ENOMEM;
+	}
 	wdev->iftype = NL80211_IFTYPE_STATION;
 	wdev->wiphy->max_scan_ssids = 10;
 	wdev->wiphy->interface_modes =
@@ -1296,6 +1293,7 @@ int mwifiex_register_cfg80211(struct net_device *dev, u8 *mac,
 		dev_err(priv->adapter->dev, "%s: registering cfg80211 device\n",
 						__func__);
 		wiphy_free(wdev->wiphy);
+		kfree(wdev);
 		return ret;
 	} else {
 		dev_dbg(priv->adapter->dev,

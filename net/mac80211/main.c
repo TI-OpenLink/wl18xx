@@ -358,7 +358,8 @@ static void ieee80211_restart_work(struct work_struct *work)
 	flush_workqueue(local->workqueue);
 
 	mutex_lock(&local->mtx);
-	WARN(test_bit(SCAN_HW_SCANNING, &local->scanning),
+	WARN(test_bit(SCAN_HW_SCANNING, &local->scanning) ||
+	     local->sched_scanning,
 		"%s called with hardware scan in progress\n", __func__);
 	mutex_unlock(&local->mtx);
 
@@ -651,6 +652,9 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 	setup_timer(&local->dynamic_ps_timer,
 		    ieee80211_dynamic_ps_timer, (unsigned long) local);
 
+	INIT_WORK(&local->sched_scan_stopped_work,
+		  ieee80211_sched_scan_stopped_work);
+
 	sta_info_init(local);
 
 	for (i = 0; i < IEEE80211_MAX_QUEUES; i++) {
@@ -696,8 +700,11 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 		WLAN_CIPHER_SUITE_AES_CMAC
 	};
 
-	if ((hw->wiphy->wowlan.flags || hw->wiphy->wowlan.n_patterns) &&
-	    (!local->ops->suspend || !local->ops->resume))
+	if ((hw->wiphy->wowlan.flags || hw->wiphy->wowlan.n_patterns)
+#ifdef CONFIG_PM
+	    && (!local->ops->suspend || !local->ops->resume)
+#endif
+	    )
 		return -EINVAL;
 
 	if (hw->max_report_rates == 0)
@@ -829,6 +836,9 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 
 	if (!local->ops->remain_on_channel)
 		local->hw.wiphy->max_remain_on_channel_duration = 5000;
+
+	if (local->ops->sched_scan_start)
+		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_SCHED_SCAN;
 
 	result = wiphy_register(local->hw.wiphy);
 	if (result < 0)
