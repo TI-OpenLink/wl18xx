@@ -160,13 +160,14 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 			     u8 key_idx, bool pairwise, const u8 *mac_addr)
 {
-	struct ieee80211_sub_if_data *sdata;
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
+	struct ieee80211_key *key = NULL;
 	int ret;
 
-	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-
-	mutex_lock(&sdata->local->sta_mtx);
+	mutex_lock(&local->sta_mtx);
+	mutex_lock(&local->key_mtx);
 
 	if (mac_addr) {
 		ret = -ENOENT;
@@ -175,33 +176,24 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 		if (!sta)
 			goto out_unlock;
 
-		if (pairwise) {
-			if (sta->ptk) {
-				ieee80211_key_free(sdata->local, sta->ptk);
-				ret = 0;
-			}
-		} else {
-			if (sta->gtk[key_idx]) {
-				ieee80211_key_free(sdata->local,
-						   sta->gtk[key_idx]);
-				ret = 0;
-			}
-		}
+		if (pairwise)
+			key = sta->ptk;
+		else
+			key = sta->gtk[key_idx];
+	} else
+		key = sdata->keys[key_idx];
 
-		goto out_unlock;
-	}
-
-	if (!sdata->keys[key_idx]) {
+	if (!key) {
 		ret = -ENOENT;
 		goto out_unlock;
 	}
 
-	ieee80211_key_free(sdata->local, sdata->keys[key_idx]);
-	WARN_ON(sdata->keys[key_idx]);
+	__ieee80211_key_free(key);
 
 	ret = 0;
  out_unlock:
-	mutex_unlock(&sdata->local->sta_mtx);
+	mutex_unlock(&local->key_mtx);
+	mutex_unlock(&local->sta_mtx);
 
 	return ret;
 }
@@ -231,11 +223,11 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 			goto out;
 
 		if (pairwise)
-			key = sta->ptk;
+			key = rcu_dereference(sta->ptk);
 		else if (key_idx < NUM_DEFAULT_KEYS)
-			key = sta->gtk[key_idx];
+			key = rcu_dereference(sta->gtk[key_idx]);
 	} else
-		key = sdata->keys[key_idx];
+		key = rcu_dereference(sdata->keys[key_idx]);
 
 	if (!key)
 		goto out;
@@ -738,6 +730,7 @@ static void sta_apply_parameters(struct ieee80211_local *local,
 						  &sta->sta.ht_cap);
 
 	if (ieee80211_vif_is_mesh(&sdata->vif)) {
+#ifdef CONFIG_MAC80211_MESH
 		if (sdata->u.mesh.security & IEEE80211_MESH_SEC_SECURED)
 			switch (params->plink_state) {
 			case PLINK_LISTEN:
@@ -758,6 +751,7 @@ static void sta_apply_parameters(struct ieee80211_local *local,
 				mesh_plink_block(sta);
 				break;
 			}
+#endif
 	}
 }
 
@@ -958,8 +952,10 @@ static int ieee80211_change_mpath(struct wiphy *wiphy,
 static void mpath_set_pinfo(struct mesh_path *mpath, u8 *next_hop,
 			    struct mpath_info *pinfo)
 {
-	if (mpath->next_hop)
-		memcpy(next_hop, mpath->next_hop->sta.addr, ETH_ALEN);
+	struct sta_info *next_hop_sta = rcu_dereference(mpath->next_hop);
+
+	if (next_hop_sta)
+		memcpy(next_hop, next_hop_sta->sta.addr, ETH_ALEN);
 	else
 		memset(next_hop, 0, ETH_ALEN);
 
@@ -1376,15 +1372,14 @@ ieee80211_sched_scan_start(struct wiphy *wiphy,
 }
 
 static int
-ieee80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev,
-			  bool driver_initiated)
+ieee80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 
 	if (!sdata->local->ops->sched_scan_stop)
 		return -EOPNOTSUPP;
 
-	return ieee80211_request_sched_scan_stop(sdata, driver_initiated);
+	return ieee80211_request_sched_scan_stop(sdata);
 }
 
 static int ieee80211_auth(struct wiphy *wiphy, struct net_device *dev,
