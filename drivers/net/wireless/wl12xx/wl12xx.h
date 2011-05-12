@@ -351,7 +351,6 @@ enum wl12xx_flags {
 	WL1271_FLAG_PSM_REQUESTED,
 	WL1271_FLAG_IRQ_RUNNING,
 	WL1271_FLAG_IDLE,
-	WL1271_FLAG_IDLE_REQUESTED,
 	WL1271_FLAG_PSPOLL_FAILURE,
 	WL1271_FLAG_STA_STATE_SENT,
 	WL1271_FLAG_FW_TX_BUSY,
@@ -479,6 +478,8 @@ struct wl1271 {
 	/* Are we currently scanning */
 	struct wl1271_scan scan;
 	struct delayed_work scan_complete_work;
+
+	bool sched_scanning;
 
 	/* probe-req template for the current AP */
 	struct sk_buff *probereq;
