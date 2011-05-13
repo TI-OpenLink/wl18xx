@@ -357,6 +357,8 @@ enum wl12xx_flags {
 	WL1271_FLAG_AP_STARTED,
 	WL1271_FLAG_IF_INITIALIZED,
 	WL1271_FLAG_DUMMY_PACKET_PENDING,
+	WL1271_FLAG_SUSPENDED,
+	WL1271_FLAG_PENDING_WORK,
 };
 
 struct wl1271_link {
@@ -511,6 +513,7 @@ struct wl1271 {
 	unsigned int rx_filter;
 
 	struct completion *elp_compl;
+	struct completion *ps_compl;
 	struct delayed_work elp_work;
 	struct delayed_work pspoll_work;
 
@@ -563,6 +566,12 @@ struct wl1271 {
 	u8 ba_rx_bitmap;
 
 	int tcxo_clock;
+
+	/*
+	 * wowlan trigger was configured during suspend.
+	 * (currently, only "ANY" trigger is supported)
+	 */
+	bool wow_enabled;
 
 	/*
 	 * AP-mode - links indexed by HLID. The global and broadcast links

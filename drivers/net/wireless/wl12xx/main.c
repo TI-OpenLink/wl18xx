@@ -1350,6 +1350,150 @@ static struct notifier_block wl1271_dev_notifier = {
 	.notifier_call = wl1271_dev_notify,
 };
 
+static int wl1271_configure_suspend(struct wl1271 *wl)
+{
+	int ret;
+
+	if (wl->bss_type != BSS_TYPE_STA_BSS)
+		return 0;
+
+	mutex_lock(&wl->mutex);
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out_unlock;
+
+	/* enter psm if needed*/
+	if (!test_bit(WL1271_FLAG_PSM, &wl->flags)) {
+		DECLARE_COMPLETION_ONSTACK(compl);
+
+		wl->ps_compl = &compl;
+		ret = wl1271_ps_set_mode(wl, STATION_POWER_SAVE_MODE,
+				   wl->basic_rate, true);
+		if (ret < 0)
+			goto out_sleep;
+
+		/* we must unlock here so we will be able to get events */
+		wl1271_ps_elp_sleep(wl);
+		mutex_unlock(&wl->mutex);
+
+		ret = wait_for_completion_timeout(
+			&compl, msecs_to_jiffies(WL1271_PS_COMPLETE_TIMEOUT));
+		if (ret <= 0) {
+			wl1271_warning("couldn't enter ps mode!");
+			ret = -EBUSY;
+			goto out;
+		}
+
+		/* take mutex again, and wakeup */
+		mutex_lock(&wl->mutex);
+
+		ret = wl1271_ps_elp_wakeup(wl);
+		if (ret < 0)
+			goto out_unlock;
+	}
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out_unlock:
+	mutex_unlock(&wl->mutex);
+out:
+	return ret;
+
+}
+
+static void wl1271_configure_resume(struct wl1271 *wl)
+{
+	int ret;
+
+	if (wl->bss_type != BSS_TYPE_STA_BSS)
+		return;
+
+	mutex_lock(&wl->mutex);
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	/* exit psm if it wasn't configured */
+	if (!test_bit(WL1271_FLAG_PSM_REQUESTED, &wl->flags))
+		wl1271_ps_set_mode(wl, STATION_ACTIVE_MODE,
+				   wl->basic_rate, true);
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+}
+
+static int wl1271_op_suspend(struct ieee80211_hw *hw,
+			    struct cfg80211_wowlan *wow)
+{
+	struct wl1271 *wl = hw->priv;
+	wl1271_debug(DEBUG_MAC80211, "mac80211 suspend wow=%d", !!wow);
+	wl->wow_enabled = !!wow;
+	if (wl->wow_enabled) {
+		int ret;
+		ret = wl1271_configure_suspend(wl);
+		if (ret < 0) {
+			wl1271_warning("couldn't prepare device to suspend");
+			return ret;
+		}
+		/* flush any remaining work */
+		wl1271_debug(DEBUG_MAC80211, "flushing remaining works");
+		flush_delayed_work(&wl->scan_complete_work);
+
+		/*
+		 * disable and re-enable interrupts in order to flush
+		 * the threaded_irq
+		 */
+		wl1271_disable_interrupts(wl);
+
+		/*
+		 * set suspended flag to avoid triggering a new threaded_irq
+		 * work. no need for spinlock as interrupts are disabled.
+		 */
+		set_bit(WL1271_FLAG_SUSPENDED, &wl->flags);
+
+		wl1271_enable_interrupts(wl);
+		flush_work(&wl->tx_work);
+		flush_delayed_work(&wl->pspoll_work);
+		flush_delayed_work(&wl->elp_work);
+	}
+	return 0;
+}
+
+static int wl1271_op_resume(struct ieee80211_hw *hw)
+{
+	struct wl1271 *wl = hw->priv;
+	wl1271_debug(DEBUG_MAC80211, "mac80211 resume wow=%d",
+		     wl->wow_enabled);
+
+	/*
+	 * re-enable irq_work enqueuing, and call irq_work directly if
+	 * there is a pending work.
+	 */
+	if (wl->wow_enabled) {
+		struct wl1271 *wl = hw->priv;
+		unsigned long flags;
+		bool run_irq_work = false;
+
+		spin_lock_irqsave(&wl->wl_lock, flags);
+		clear_bit(WL1271_FLAG_SUSPENDED, &wl->flags);
+		if (test_and_clear_bit(WL1271_FLAG_PENDING_WORK, &wl->flags))
+			run_irq_work = true;
+		spin_unlock_irqrestore(&wl->wl_lock, flags);
+
+		if (run_irq_work) {
+			wl1271_debug(DEBUG_MAC80211,
+				     "run postponed irq_work directly");
+			wl1271_irq(0, wl);
+			wl1271_enable_interrupts(wl);
+		}
+
+		wl1271_configure_resume(wl);
+	}
+
+	return 0;
+}
+
 static int wl1271_op_start(struct ieee80211_hw *hw)
 {
 	wl1271_debug(DEBUG_MAC80211, "mac80211 start");
@@ -3506,6 +3650,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.stop = wl1271_op_stop,
 	.add_interface = wl1271_op_add_interface,
 	.remove_interface = wl1271_op_remove_interface,
+	.suspend = wl1271_op_suspend,
+	.resume = wl1271_op_resume,
 	.config = wl1271_op_config,
 	.prepare_multicast = wl1271_op_prepare_multicast,
 	.configure_filter = wl1271_op_configure_filter,
