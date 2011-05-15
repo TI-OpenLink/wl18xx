@@ -168,6 +168,21 @@ static void wl1271_event_rssi_trigger(struct wl1271 *wl,
 	wl->last_rssi_event = event;
 }
 
+static void wl12xx_event_soft_gemini_sense(struct wl1271 *wl,
+					       u8 enable)
+{
+	if (enable) {
+		/* disable dynamic PS when the firmware senses BT*/
+		ieee80211_disable_dyn_ps(wl->vif);
+		set_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags);
+	} else {
+		ieee80211_enable_dyn_ps(wl->vif);
+		clear_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags);
+		wl1271_recalc_rx_streaming(wl);
+	}
+
+}
+
 static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
 {
 	wl1271_debug(DEBUG_EVENT, "MBOX DUMP:");
@@ -211,14 +226,10 @@ static int wl1271_event_process(struct wl1271 *wl, struct event_mailbox *mbox)
 		}
 	}
 
-	/* disable dynamic PS when requested by the firmware */
 	if (vector & SOFT_GEMINI_SENSE_EVENT_ID &&
-	    wl->bss_type == BSS_TYPE_STA_BSS) {
-		if (mbox->soft_gemini_sense_info)
-			ieee80211_disable_dyn_ps(wl->vif);
-		else
-			ieee80211_enable_dyn_ps(wl->vif);
-	}
+	    wl->bss_type == BSS_TYPE_STA_BSS)
+		wl12xx_event_soft_gemini_sense(wl,
+					       mbox->soft_gemini_sense_info);
 
 	/*
 	 * The BSS_LOSE_EVENT_ID is only needed while psm (and hence beacon

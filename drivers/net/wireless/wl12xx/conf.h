@@ -1267,6 +1267,11 @@ struct conf_rx_streaming_settings {
 	 * Range: 0 (disabled), 10 - 100
 	 */
 	u8 interval;
+
+	/*
+	 * enable rx streaming also when there is no coex activity
+	 */
+	u8 always;
 };
 
 struct conf_drv_settings {
