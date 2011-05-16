@@ -105,6 +105,12 @@ static int cfg80211_conn_scan(struct wireless_dev *wdev)
 	if (!request)
 		return -ENOMEM;
 
+	/*
+	 * If at least one VIF on this hardware is already associated, then
+	 * only scan on the active channel.
+	 */
+	request->can_scan_one = true;
+
 	if (wdev->conn->params.channel)
 		request->channels[0] = wdev->conn->params.channel;
 	else {

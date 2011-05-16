@@ -3276,6 +3276,9 @@ static int validate_scan_freqs(struct nlattr *freqs)
 	int n_channels = 0, tmp1, tmp2;
 
 	nla_for_each_nested(attr1, freqs, tmp1) {
+		if (nla_get_u32(attr1) == 0xFFFFFFFF)
+			continue; /* skip can-scan-one flag */
+
 		n_channels++;
 		/*
 		 * Some hardware has a limited channel list for
@@ -3307,6 +3310,7 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	int err, tmp, n_ssids = 0, n_channels, i;
 	enum ieee80211_band band;
 	size_t ie_len;
+	bool do_all_chan = true;
 
 	if (!is_valid_ie_attr(info->attrs[NL80211_ATTR_IE]))
 		return -EINVAL;
@@ -3323,8 +3327,9 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		n_channels = validate_scan_freqs(
 				info->attrs[NL80211_ATTR_SCAN_FREQUENCIES]);
 		if (!n_channels)
-			return -EINVAL;
+			goto auto_channels;
 	} else {
+auto_channels:
 		n_channels = 0;
 
 		for (band = 0; band < IEEE80211_NUM_BANDS; band++)
@@ -3370,6 +3375,17 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		nla_for_each_nested(attr, info->attrs[NL80211_ATTR_SCAN_FREQUENCIES], tmp) {
 			struct ieee80211_channel *chan;
 
+			/*
+			 * Special hack:  channel -1 means 'scan only active
+			 * channel if any VIFs on this device are associated
+			 * on the channel.
+			 */
+			if (nla_get_u32(attr) == 0xFFFFFFFF) {
+				request->can_scan_one = true;
+				continue;
+			}
+
+			do_all_chan = false;
 			chan = ieee80211_get_channel(wiphy, nla_get_u32(attr));
 
 			if (!chan) {
@@ -3384,7 +3400,9 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 			request->channels[i] = chan;
 			i++;
 		}
-	} else {
+	}
+
+	if (do_all_chan) {
 		/* all channels */
 		for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
 			int j;
