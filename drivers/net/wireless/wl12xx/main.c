@@ -786,21 +786,13 @@ static void wl1271_irq_update_links_status(struct wl1271 *wl,
 #endif
 
 static void wl1271_fw_status(struct wl1271 *wl,
-			     struct wl1271_fw_full_status *full_status)
+			     struct wl1271_fw_status *status)
 {
-	struct wl1271_fw_common_status *status = &full_status->common;
 	struct timespec ts;
 	u32 old_tx_blk_count = wl->tx_blocks_available;
-	u32 freed_blocks = 0;
-	int i;
+	int avail, freed_blocks;
 
-	if (wl->bss_type == BSS_TYPE_AP_BSS) {
-		wl1271_raw_read(wl, FW_STATUS_ADDR, status,
-				sizeof(struct wl1271_fw_ap_status), false);
-	} else {
-		wl1271_raw_read(wl, FW_STATUS_ADDR, status,
-				sizeof(struct wl1271_fw_sta_status), false);
-	}
+	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
 		     "drv_rx_counter = %d, tx_results_counter = %d)",
@@ -809,39 +801,39 @@ static void wl1271_fw_status(struct wl1271 *wl,
 		     status->drv_rx_counter,
 		     status->tx_results_counter);
 
-	/* update number of available TX blocks */
-	for (i = 0; i < NUM_TX_QUEUES; i++) {
-		freed_blocks += le32_to_cpu(status->tx_released_blks[i]) -
-				wl->tx_blocks_freed[i];
-
-		wl->tx_blocks_freed[i] =
-			le32_to_cpu(status->tx_released_blks[i]);
-	}
+	freed_blocks = le32_to_cpu(status->total_released_blks) -
+		       wl->tx_blocks_freed;
+	wl->tx_blocks_freed = le32_to_cpu(status->total_released_blks);
 
 	wl->tx_allocated_blocks -= freed_blocks;
 
-	if (wl->bss_type == BSS_TYPE_AP_BSS) {
-		/* Update num of allocated TX blocks per link and ps status */
-		wl1271_irq_update_links_status(wl, &full_status->ap);
-		wl->tx_blocks_available += freed_blocks;
-	} else {
-		int avail = full_status->sta.tx_total - wl->tx_allocated_blocks;
+	avail = status->tx_total - wl->tx_allocated_blocks;
 
-		/*
-		 * The FW might change the total number of TX memblocks before
-		 * we get a notification about blocks being released. Thus, the
-		 * available blocks calculation might yield a temporary result
-		 * which is lower than the actual available blocks. Keeping in
-		 * mind that only blocks that were allocated can be moved from
-		 * TX to RX, tx_blocks_available should never decrease here.
-		 */
-		wl->tx_blocks_available = max((int)wl->tx_blocks_available,
-					      avail);
-	}
+	/*
+	 * The FW might change the total number of TX memblocks before
+	 * we get a notification about blocks being released. Thus, the
+	 * available blocks calculation might yield a temporary result
+	 * which is lower than the actual available blocks. Keeping in
+	 * mind that only blocks that were allocated can be moved from
+	 * TX to RX, tx_blocks_available should never decrease here.
+	 */
+	wl->tx_blocks_available = max((int)wl->tx_blocks_available,
+				      avail);
 
 	/* if more blocks are available now, tx work can be scheduled */
 	if (wl->tx_blocks_available > old_tx_blk_count)
 		clear_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
+
+	wl1271_debug(DEBUG_TX, "avail_blocks: %d allocated_blks: %d",
+		     wl->tx_blocks_available, wl->tx_allocated_blocks);
+
+	/* for AP update num of allocated TX blocks per link and ps status */
+	if (wl->bss_type == BSS_TYPE_AP_BSS) {
+		/* TODO: can we enable this (until the function call)? */
+#if 0
+		wl1271_irq_update_links_status(wl, status);
+#endif
+	}
 
 	/* update the host-chipset time offset */
 	getnstimeofday(&ts);
@@ -916,7 +908,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		smp_mb__after_clear_bit();
 
 		wl1271_fw_status(wl, wl->fw_status);
-		intr = le32_to_cpu(wl->fw_status->common.intr);
+		intr = le32_to_cpu(wl->fw_status->intr);
 		intr &= WL1271_INTR_MASK;
 		if (!intr) {
 			done = true;
@@ -935,7 +927,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (likely(intr & WL1271_ACX_INTR_DATA)) {
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_DATA");
 
-			wl1271_rx(wl, &wl->fw_status->common);
+			wl1271_rx(wl, wl->fw_status);
 
 			/* Check if any tx blocks were freed */
 			spin_lock_irqsave(&wl->wl_lock, flags);
@@ -952,7 +944,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 			}
 
 			/* check for tx results */
-			if (wl->fw_status->common.tx_results_counter !=
+			if (wl->fw_status->tx_results_counter !=
 			    (wl->tx_results_count & 0xff))
 				wl1271_tx_complete(wl);
 
@@ -1729,7 +1721,6 @@ out:
 static void __wl1271_op_remove_interface(struct wl1271 *wl,
 					 bool reset_tx_queues)
 {
-	int i;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 remove interface");
 
@@ -1813,8 +1804,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	 */
 	wl->flags = 0;
 
-	for (i = 0; i < NUM_TX_QUEUES; i++)
-		wl->tx_blocks_freed[i] = 0;
+	wl->tx_blocks_freed = 0;
 
 	wl1271_debugfs_reset(wl);
 
