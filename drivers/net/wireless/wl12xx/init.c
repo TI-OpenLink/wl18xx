@@ -514,9 +514,9 @@ static int wl1271_set_ba_policies(struct wl1271 *wl)
 	wl->ba_rx_bitmap = 0;
 	wl->ba_rx_session_count = 0;
 
-	/* BA not supported in AP mode */
-	/* TODO: remove when BA AP-mode support is added */
-	if (wl->bss_type == BSS_TYPE_AP_BSS) {
+	/* BA is supported in STA/AP modes */
+	if (wl->bss_type != BSS_TYPE_AP_BSS &&
+	    wl->bss_type != BSS_TYPE_STA_BSS) {
 		wl->ba_support = false;
 		return 0;
 	}
