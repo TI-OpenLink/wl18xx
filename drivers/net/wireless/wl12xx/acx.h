@@ -231,6 +231,7 @@ struct acx_beacon_filter_option {
 
 	u8 role_id;
 	u8 enable;
+
 	/*
 	 * The number of beacons without the unicast TIM
 	 * bit set that the firmware buffers before
@@ -1087,13 +1088,6 @@ struct wl1271_acx_inconnection_sta {
 	u8 padding1[2];
 } __packed;
 
-struct acx_ap_beacon_filter {
-	struct acx_header header;
-
-	u8 enable;
-	u8 pad[3];
-} __packed;
-
 /*
  * ACX_FM_COEX_CFG
  * set the FM co-existence parameters.
@@ -1194,7 +1188,6 @@ enum {
 	ACX_TID_CFG                 = 0x001A,
 	ACX_PS_RX_STREAMING         = 0x001B,
 	ACX_BEACON_FILTER_OPT       = 0x001F,
-	ACX_AP_BEACON_FILTER_OPT    = 0x0020,
 	ACX_NOISE_HIST              = 0x0021,
 	ACX_HDK_VERSION             = 0x0022, /* ??? */
 	ACX_PD_THRESHOLD            = 0x0023,
@@ -1316,7 +1309,6 @@ int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, bool enable);
 int wl1271_acx_max_tx_retry(struct wl1271 *wl);
 int wl1271_acx_config_ps(struct wl1271 *wl);
 int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
-int wl1271_acx_set_ap_beacon_filter(struct wl1271 *wl, bool enable);
 int wl1271_acx_fm_coex(struct wl1271 *wl);
 int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl);
 
