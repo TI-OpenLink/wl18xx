@@ -345,13 +345,6 @@ Who:	Alex Chiang <achiang@hp.com>
 
 ---------------------------
 
-What:	CONFIG_RFKILL_INPUT
-When:	2.6.33
-Why:	Should be implemented in userspace, policy daemon.
-Who:	Johannes Berg <johannes@sipsolutions.net>
-
-----------------------------
-
 What:	sound-slot/service-* module aliases and related clutters in
 	sound/sound_core.c
 When:	August 2010
