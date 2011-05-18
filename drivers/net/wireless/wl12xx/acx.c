@@ -1415,8 +1415,8 @@ int wl1271_acx_set_ba_initiator_policy(struct wl1271 *wl)
 		goto out;
 	}
 
-	/* enable for ANY role */
-	acx->role_id = 0xFF;
+	/* set for the current role */
+	acx->role_id = wl->role_id;
 	acx->tid_bitmap = wl->conf.ht.tx_ba_tid_bitmap;
 	acx->win_size = wl->conf.ht.tx_ba_win_size;
 	acx->inactivity_timeout = wl->conf.ht.inactivity_timeout;
