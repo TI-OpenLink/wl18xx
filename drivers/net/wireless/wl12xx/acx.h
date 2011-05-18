@@ -1302,8 +1302,8 @@ int wl1271_acx_set_ht_capabilities(struct wl1271 *wl,
 int wl1271_acx_set_ht_information(struct wl1271 *wl,
 				   u16 ht_operation_mode);
 int wl1271_acx_set_ba_initiator_policy(struct wl1271 *wl);
-int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index, u16 ssn,
-				       bool enable);
+int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
+					 u16 ssn, bool enable, u8 peer_hlid);
 int wl1271_acx_tsf_info(struct wl1271 *wl, u64 *mactime);
 int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, bool enable);
 int wl1271_acx_max_tx_retry(struct wl1271 *wl);

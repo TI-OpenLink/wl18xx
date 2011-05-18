@@ -1437,7 +1437,7 @@ out:
 
 /* setup BA session receiver setting in the FW. */
 int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
-					 u16 ssn, bool enable)
+					 u16 ssn, bool enable, u8 peer_hlid)
 {
 	struct wl1271_acx_ba_receiver_setup *acx;
 	int ret;
@@ -1450,11 +1450,7 @@ int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
 		goto out;
 	}
 
-	/*
-	 * TODO: in AP mode, specify appropriate sta hlid according to sta
-	 * passed to wl1271_op_ampdu_action
-	 */
-	acx->hlid = wl->sta_hlid;
+	acx->hlid = peer_hlid;
 	acx->tid = tid_index;
 	acx->enable = enable;
 	acx->win_size = RX_BA_WIN_SIZE;
