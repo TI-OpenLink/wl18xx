@@ -354,6 +354,48 @@ static int ieee80211_start_sw_scan(struct ieee80211_local *local)
 	 * nullfunc frames and probe requests will be dropped in
 	 * ieee80211_tx_h_check_assoc().
 	 */
+	int associated_station_vifs = 0;
+	int running_station_vifs = 0; /* not necessarily associated */
+	int running_other_vifs = 0; /* AP, etc */
+	struct ieee80211_sub_if_data *sdata;
+
+	if (local->scan_req->can_scan_one && local->scan_req->n_channels >= 1) {
+		struct sta_info *sta;
+		mutex_lock(&local->iflist_mtx);
+		list_for_each_entry(sdata, &local->interfaces, list) {
+			if (!ieee80211_sdata_running(sdata))
+				continue;
+
+			if (sdata->vif.type == NL80211_IFTYPE_STATION)
+				running_station_vifs++;
+			else
+				running_other_vifs++;
+		}
+		mutex_unlock(&local->iflist_mtx);
+
+		rcu_read_lock();
+		list_for_each_entry_rcu(sta, &local->sta_list, list) {
+			if (!ieee80211_sdata_running(sta->sdata))
+				continue;
+			if (sta->sdata->vif.type != NL80211_IFTYPE_STATION)
+				continue;
+			if (test_sta_flags(sta, WLAN_STA_ASSOC))
+				associated_station_vifs++;
+		}
+		rcu_read_unlock();
+
+		/*
+		 * If one sta is associated, we don't want another to start
+		 * scanning on all channels, as that will interfere with the
+		 * one already associated.
+		 */
+		if ((running_other_vifs > 0) ||
+		    (associated_station_vifs > 1)) {
+			local->scan_req->channels[0] = local->hw.conf.channel;
+			local->scan_req->n_channels = 1;
+		}
+	}
+
 	drv_sw_scan_start(local);
 
 	local->leave_oper_channel_time = 0;
