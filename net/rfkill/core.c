@@ -304,6 +304,153 @@ static void rfkill_set_block(struct rfkill *rfkill, bool blocked)
 	rfkill_event(rfkill);
 }
 
+#ifdef CONFIG_RFKILL_INPUT
+static atomic_t rfkill_input_disabled = ATOMIC_INIT(0);
+
+/**
+ * __rfkill_switch_all - Toggle state of all switches of given type
+ * @type: type of interfaces to be affected
+ * @state: the new state
+ *
+ * This function sets the state of all switches of given type,
+ * unless a specific switch is claimed by userspace (in which case,
+ * that switch is left alone) or suspended.
+ *
+ * Caller must have acquired rfkill_global_mutex.
+ */
+static void __rfkill_switch_all(const enum rfkill_type type, bool blocked)
+{
+	struct rfkill *rfkill;
+
+	rfkill_global_states[type].cur = blocked;
+	list_for_each_entry(rfkill, &rfkill_list, node) {
+		if (rfkill->type != type)
+			continue;
+
+		rfkill_set_block(rfkill, blocked);
+	}
+}
+
+/**
+ * rfkill_switch_all - Toggle state of all switches of given type
+ * @type: type of interfaces to be affected
+ * @state: the new state
+ *
+ * Acquires rfkill_global_mutex and calls __rfkill_switch_all(@type, @state).
+ * Please refer to __rfkill_switch_all() for details.
+ *
+ * Does nothing if the EPO lock is active.
+ */
+void rfkill_switch_all(enum rfkill_type type, bool blocked)
+{
+	if (atomic_read(&rfkill_input_disabled))
+		return;
+
+	mutex_lock(&rfkill_global_mutex);
+
+	if (!rfkill_epo_lock_active)
+		__rfkill_switch_all(type, blocked);
+
+	mutex_unlock(&rfkill_global_mutex);
+}
+
+/**
+ * rfkill_epo - emergency power off all transmitters
+ *
+ * This kicks all non-suspended rfkill devices to RFKILL_STATE_SOFT_BLOCKED,
+ * ignoring everything in its path but rfkill_global_mutex and rfkill->mutex.
+ *
+ * The global state before the EPO is saved and can be restored later
+ * using rfkill_restore_states().
+ */
+void rfkill_epo(void)
+{
+	struct rfkill *rfkill;
+	int i;
+
+	if (atomic_read(&rfkill_input_disabled))
+		return;
+
+	mutex_lock(&rfkill_global_mutex);
+
+	rfkill_epo_lock_active = true;
+	list_for_each_entry(rfkill, &rfkill_list, node)
+		rfkill_set_block(rfkill, true);
+
+	for (i = 0; i < NUM_RFKILL_TYPES; i++) {
+		rfkill_global_states[i].sav = rfkill_global_states[i].cur;
+		rfkill_global_states[i].cur = true;
+	}
+
+	mutex_unlock(&rfkill_global_mutex);
+}
+
+/**
+ * rfkill_restore_states - restore global states
+ *
+ * Restore (and sync switches to) the global state from the
+ * states in rfkill_default_states.  This can undo the effects of
+ * a call to rfkill_epo().
+ */
+void rfkill_restore_states(void)
+{
+	int i;
+
+	if (atomic_read(&rfkill_input_disabled))
+		return;
+
+	mutex_lock(&rfkill_global_mutex);
+
+	rfkill_epo_lock_active = false;
+	for (i = 0; i < NUM_RFKILL_TYPES; i++)
+		__rfkill_switch_all(i, rfkill_global_states[i].sav);
+	mutex_unlock(&rfkill_global_mutex);
+}
+
+/**
+ * rfkill_remove_epo_lock - unlock state changes
+ *
+ * Used by rfkill-input manually unlock state changes, when
+ * the EPO switch is deactivated.
+ */
+void rfkill_remove_epo_lock(void)
+{
+	if (atomic_read(&rfkill_input_disabled))
+		return;
+
+	mutex_lock(&rfkill_global_mutex);
+	rfkill_epo_lock_active = false;
+	mutex_unlock(&rfkill_global_mutex);
+}
+
+/**
+ * rfkill_is_epo_lock_active - returns true EPO is active
+ *
+ * Returns 0 (false) if there is NOT an active EPO contidion,
+ * and 1 (true) if there is an active EPO contition, which
+ * locks all radios in one of the BLOCKED states.
+ *
+ * Can be called in atomic context.
+ */
+bool rfkill_is_epo_lock_active(void)
+{
+	return rfkill_epo_lock_active;
+}
+
+/**
+ * rfkill_get_global_sw_state - returns global state for a type
+ * @type: the type to get the global state of
+ *
+ * Returns the current global state for a given wireless
+ * device type.
+ */
+bool rfkill_get_global_sw_state(const enum rfkill_type type)
+{
+	return rfkill_global_states[type].cur;
+}
+#endif
+
+
 bool rfkill_set_hw_state(struct rfkill *rfkill, bool blocked)
 {
 	bool ret, change;
@@ -803,6 +950,13 @@ int __must_check rfkill_register(struct rfkill *rfkill)
 
 	if (!rfkill->persistent || rfkill_epo_lock_active) {
 		schedule_work(&rfkill->sync_work);
+	} else {
+#ifdef CONFIG_RFKILL_INPUT
+		bool soft_blocked = !!(rfkill->state & RFKILL_BLOCK_SW);
+
+		if (!atomic_read(&rfkill_input_disabled))
+			__rfkill_switch_all(rfkill->type, soft_blocked);
+#endif
 	}
 
 	rfkill_send_events(rfkill, RFKILL_OP_ADD);
@@ -1025,10 +1179,42 @@ static int rfkill_fop_release(struct inode *inode, struct file *file)
 	list_for_each_entry_safe(ev, tmp, &data->events, list)
 		kfree(ev);
 
+#ifdef CONFIG_RFKILL_INPUT
+	if (data->input_handler)
+		if (atomic_dec_return(&rfkill_input_disabled) == 0)
+			printk(KERN_DEBUG "rfkill: input handler enabled\n");
+#endif
+
 	kfree(data);
 
 	return 0;
 }
+
+#ifdef CONFIG_RFKILL_INPUT
+static long rfkill_fop_ioctl(struct file *file, unsigned int cmd,
+			     unsigned long arg)
+{
+	struct rfkill_data *data = file->private_data;
+
+	if (_IOC_TYPE(cmd) != RFKILL_IOC_MAGIC)
+		return -ENOSYS;
+
+	if (_IOC_NR(cmd) != RFKILL_IOC_NOINPUT)
+		return -ENOSYS;
+
+	mutex_lock(&data->mtx);
+
+	if (!data->input_handler) {
+		if (atomic_inc_return(&rfkill_input_disabled) == 1)
+			printk(KERN_DEBUG "rfkill: input handler disabled\n");
+		data->input_handler = true;
+	}
+
+	mutex_unlock(&data->mtx);
+
+	return 0;
+}
+#endif
 
 static const struct file_operations rfkill_fops = {
 	.owner		= THIS_MODULE,
@@ -1037,6 +1223,10 @@ static const struct file_operations rfkill_fops = {
 	.write		= rfkill_fop_write,
 	.poll		= rfkill_fop_poll,
 	.release	= rfkill_fop_release,
+#ifdef CONFIG_RFKILL_INPUT
+	.unlocked_ioctl	= rfkill_fop_ioctl,
+	.compat_ioctl	= rfkill_fop_ioctl,
+#endif
 	.llseek		= no_llseek,
 };
 
@@ -1064,6 +1254,15 @@ static int __init rfkill_init(void)
 		goto out;
 	}
 
+#ifdef CONFIG_RFKILL_INPUT
+	error = rfkill_handler_init();
+	if (error) {
+		misc_deregister(&rfkill_miscdev);
+		class_unregister(&rfkill_class);
+		goto out;
+	}
+#endif
+
  out:
 	return error;
 }
@@ -1071,6 +1270,9 @@ subsys_initcall(rfkill_init);
 
 static void __exit rfkill_exit(void)
 {
+#ifdef CONFIG_RFKILL_INPUT
+	rfkill_handler_exit();
+#endif
 	misc_deregister(&rfkill_miscdev);
 	class_unregister(&rfkill_class);
 }

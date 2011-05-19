@@ -17,6 +17,12 @@ config RFKILL_LEDS
 	depends on LEDS_TRIGGERS = y || RFKILL = LEDS_TRIGGERS
 	default y
 
+config RFKILL_INPUT
+	bool "RF switch input support" if EXPERT
+	depends on RFKILL
+	depends on INPUT = y || RFKILL = INPUT
+	default y if !EXPERT
+
 config RFKILL_REGULATOR
 	tristate "Generic rfkill regulator driver"
 	depends on RFKILL || !RFKILL
