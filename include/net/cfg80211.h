@@ -779,8 +779,6 @@ struct cfg80211_ssid {
  * @wiphy: the wiphy this was for
  * @dev: the interface
  * @aborted: (internal) scan request was notified as aborted
- * @can_scan_one:  If true, only scan active channel if at least one
- *       vif is already associated.
  */
 struct cfg80211_scan_request {
 	struct cfg80211_ssid *ssids;
@@ -793,7 +791,6 @@ struct cfg80211_scan_request {
 	struct wiphy *wiphy;
 	struct net_device *dev;
 	bool aborted;
-	bool can_scan_one;
 
 	/* keep last */
 	struct ieee80211_channel *channels[0];
