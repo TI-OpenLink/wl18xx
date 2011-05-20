@@ -88,9 +88,17 @@ static irqreturn_t wl1271_hardirq(int irq, void *cookie)
 		wl1271_debug(DEBUG_IRQ, "should not enqueue work");
 		disable_irq_nosync(wl->irq);
 		pm_wakeup_event(wl1271_sdio_wl_to_dev(wl), 0);
+#ifdef CONFIG_HAS_WAKELOCK
+		if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+			wake_lock(&wl->wake_lock);
+#endif
 		spin_unlock_irqrestore(&wl->wl_lock, flags);
 		return IRQ_HANDLED;
 	}
+#ifdef CONFIG_HAS_WAKELOCK
+	if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+		wake_lock(&wl->wake_lock);
+#endif
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
 	return IRQ_WAKE_THREAD;
