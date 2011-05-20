@@ -685,7 +685,7 @@ EXPORT_SYMBOL(ieee80211_alloc_hw);
 int ieee80211_register_hw(struct ieee80211_hw *hw)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
-	int result;
+	int result, i;
 	enum ieee80211_band band;
 	int channels, max_bitrates;
 	bool supp_ht;
@@ -743,11 +743,33 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 		return -ENOMEM;
 
 	/* if low-level driver supports AP, we also support VLAN */
-	if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_AP))
-		local->hw.wiphy->interface_modes |= BIT(NL80211_IFTYPE_AP_VLAN);
+	if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_AP)) {
+		hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_AP_VLAN);
+		hw->wiphy->software_iftypes |= BIT(NL80211_IFTYPE_AP_VLAN);
+	}
 
 	/* mac80211 always supports monitor */
-	local->hw.wiphy->interface_modes |= BIT(NL80211_IFTYPE_MONITOR);
+	hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_MONITOR);
+	hw->wiphy->software_iftypes |= BIT(NL80211_IFTYPE_MONITOR);
+
+	/*
+	 * mac80211 doesn't support more than 1 channel, and also not more
+	 * than one IBSS interface
+	 */
+	for (i = 0; i < hw->wiphy->n_iface_combinations; i++) {
+		const struct ieee80211_iface_combination *c;
+		int j;
+
+		c = &hw->wiphy->iface_combinations[i];
+
+		if (c->num_different_channels > 1)
+			return -EINVAL;
+
+		for (j = 0; j < c->n_limits; j++)
+			if ((c->limits[j].types & BIT(NL80211_IFTYPE_ADHOC)) &&
+			    c->limits[j].max > 1)
+				return -EINVAL;
+	}
 
 #ifndef CONFIG_MAC80211_MESH
 	/* mesh depends on Kconfig, but drivers should set it if they want */
@@ -863,8 +885,10 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	 * and we need some headroom for passing the frame to monitor
 	 * interfaces, but never both at the same time.
 	 */
+#ifndef __CHECKER__
 	BUILD_BUG_ON(IEEE80211_TX_STATUS_HEADROOM !=
 			sizeof(struct ieee80211_tx_status_rtap_hdr));
+#endif
 	local->tx_headroom = max_t(unsigned int , local->hw.extra_tx_headroom,
 				   sizeof(struct ieee80211_tx_status_rtap_hdr));
 
@@ -1066,6 +1090,8 @@ static void __exit ieee80211_exit(void)
 		ieee80211s_stop();
 
 	ieee80211_iface_exit();
+
+	rcu_barrier();
 }
 
 

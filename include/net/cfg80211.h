@@ -372,33 +372,6 @@ enum plink_actions {
 };
 
 /**
- * enum plink_states - state of a mesh peer link finite state machine
- *
- * @PLINK_LISTEN: initial state, considered the implicit state of non
- * existant mesh peer links
- * @PLINK_OPN_SNT: mesh plink open frame has been sent to this mesh
- * peer @PLINK_OPN_RCVD: mesh plink open frame has been received from
- * this mesh peer
- * @PLINK_CNF_RCVD: mesh plink confirm frame has been received from
- * this mesh peer
- * @PLINK_ESTAB: mesh peer link is established
- * @PLINK_HOLDING: mesh peer link is being closed or cancelled
- * @PLINK_BLOCKED: all frames transmitted from this mesh plink are
- * discarded
- * @PLINK_INVALID: reserved
- */
-enum plink_state {
-	PLINK_LISTEN,
-	PLINK_OPN_SNT,
-	PLINK_OPN_RCVD,
-	PLINK_CNF_RCVD,
-	PLINK_ESTAB,
-	PLINK_HOLDING,
-	PLINK_BLOCKED,
-	PLINK_INVALID,
-};
-
-/**
  * struct station_parameters - station parameters
  *
  * Used to change and create a new station.
@@ -1547,6 +1520,10 @@ struct cfg80211_ops {
  *	hints read the documenation for regulatory_hint_found_beacon()
  * @WIPHY_FLAG_NETNS_OK: if not set, do not allow changing the netns of this
  *	wiphy at all
+ * @WIPHY_FLAG_ENFORCE_COMBINATIONS: Set this flag to enforce interface
+ *	combinations for this device. This flag is used for backward
+ *	compatibility only until all drivers advertise combinations and
+ *	they will always be enforced.
  * @WIPHY_FLAG_PS_ON_BY_DEFAULT: if set to true, powersave will be enabled
  *	by default -- this flag will be set depending on the kernel's default
  *	on wiphy_new(), but can be changed by the driver if it has a good
@@ -1574,6 +1551,81 @@ enum wiphy_flags {
 	WIPHY_FLAG_IBSS_RSN			= BIT(8),
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_SCHED_SCAN		= BIT(11),
+	WIPHY_FLAG_ENFORCE_COMBINATIONS		= BIT(12),
+};
+
+/**
+ * struct ieee80211_iface_limit - limit on certain interface types
+ * @max: maximum number of interfaces of these types
+ * @types: interface types (bits)
+ */
+struct ieee80211_iface_limit {
+	u16 max;
+	u16 types;
+};
+
+/**
+ * struct ieee80211_iface_combination - possible interface combination
+ * @limits: limits for the given interface types
+ * @n_limits: number of limitations
+ * @num_different_channels: can use up to this many different channels
+ * @max_interfaces: maximum number of interfaces in total allowed in this
+ *	group
+ * @beacon_int_infra_match: In this combination, the beacon intervals
+ *	between infrastructure and AP types must match. This is required
+ *	only in special cases.
+ *
+ * These examples can be expressed as follows:
+ *
+ * Allow #STA <= 1, #AP <= 1, matching BI, channels = 1, 2 total:
+ *
+ *  struct ieee80211_iface_limit limits1[] = {
+ *	{ .max = 1, .types = BIT(NL80211_IFTYPE_STATION), },
+ *	{ .max = 1, .types = BIT(NL80211_IFTYPE_AP}, },
+ *  };
+ *  struct ieee80211_iface_combination combination1 = {
+ *	.limits = limits1,
+ *	.n_limits = ARRAY_SIZE(limits1),
+ *	.max_interfaces = 2,
+ *	.beacon_int_infra_match = true,
+ *  };
+ *
+ *
+ * Allow #{AP, P2P-GO} <= 8, channels = 1, 8 total:
+ *
+ *  struct ieee80211_iface_limit limits2[] = {
+ *	{ .max = 8, .types = BIT(NL80211_IFTYPE_AP) |
+ *			     BIT(NL80211_IFTYPE_P2P_GO), },
+ *  };
+ *  struct ieee80211_iface_combination combination2 = {
+ *	.limits = limits2,
+ *	.n_limits = ARRAY_SIZE(limits2),
+ *	.max_interfaces = 8,
+ *	.num_different_channels = 1,
+ *  };
+ *
+ *
+ * Allow #STA <= 1, #{P2P-client,P2P-GO} <= 3 on two channels, 4 total.
+ * This allows for an infrastructure connection and three P2P connections.
+ *
+ *  struct ieee80211_iface_limit limits3[] = {
+ *	{ .max = 1, .types = BIT(NL80211_IFTYPE_STATION), },
+ *	{ .max = 3, .types = BIT(NL80211_IFTYPE_P2P_GO) |
+ *			     BIT(NL80211_IFTYPE_P2P_CLIENT), },
+ *  };
+ *  struct ieee80211_iface_combination combination3 = {
+ *	.limits = limits3,
+ *	.n_limits = ARRAY_SIZE(limits3),
+ *	.max_interfaces = 4,
+ *	.num_different_channels = 2,
+ *  };
+ */
+struct ieee80211_iface_combination {
+	const struct ieee80211_iface_limit *limits;
+	u32 num_different_channels;
+	u16 max_interfaces;
+	u8 n_limits;
+	bool beacon_int_infra_match;
 };
 
 struct mac_address {
@@ -1653,6 +1705,11 @@ struct wiphy_wowlan_support {
  * @priv: driver private data (sized according to wiphy_new() parameter)
  * @interface_modes: bitmask of interfaces types valid for this wiphy,
  *	must be set by driver
+ * @iface_combinations: Valid interface combinations array, should not
+ *	list single interface types.
+ * @n_iface_combinations: number of entries in @iface_combinations array.
+ * @software_iftypes: bitmask of software interface types, these are not
+ *	subject to any restrictions since they are purely managed in SW.
  * @flags: wiphy flags, see &enum wiphy_flags
  * @bss_priv_size: each BSS struct has private data allocated with it,
  *	this variable determines its size
@@ -1696,6 +1753,10 @@ struct wiphy {
 	struct mac_address *addresses;
 
 	const struct ieee80211_txrx_stypes *mgmt_stypes;
+
+	const struct ieee80211_iface_combination *iface_combinations;
+	int n_iface_combinations;
+	u16 software_iftypes;
 
 	u16 n_addresses;
 
@@ -2176,10 +2237,12 @@ int ieee80211_data_from_8023(struct sk_buff *skb, const u8 *addr,
  * @addr: The device MAC address.
  * @iftype: The device interface type.
  * @extra_headroom: The hardware extra headroom for SKBs in the @list.
+ * @has_80211_header: Set it true if SKB is with IEEE 802.11 header.
  */
 void ieee80211_amsdu_to_8023s(struct sk_buff *skb, struct sk_buff_head *list,
 			      const u8 *addr, enum nl80211_iftype iftype,
-			      const unsigned int extra_headroom);
+			      const unsigned int extra_headroom,
+			      bool has_80211_header);
 
 /**
  * cfg80211_classify8021d - determine the 802.1p/1d tag for a data frame
@@ -2815,6 +2878,7 @@ void cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
  * cfg80211_roamed - notify cfg80211 of roaming
  *
  * @dev: network device
+ * @channel: the channel of the new AP
  * @bssid: the BSSID of the new AP
  * @req_ie: association request IEs (maybe be %NULL)
  * @req_ie_len: association request IEs length
@@ -2825,7 +2889,9 @@ void cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
  * It should be called by the underlying driver whenever it roamed
  * from one AP to another while connected.
  */
-void cfg80211_roamed(struct net_device *dev, const u8 *bssid,
+void cfg80211_roamed(struct net_device *dev,
+		     struct ieee80211_channel *channel,
+		     const u8 *bssid,
 		     const u8 *req_ie, size_t req_ie_len,
 		     const u8 *resp_ie, size_t resp_ie_len, gfp_t gfp);
 
