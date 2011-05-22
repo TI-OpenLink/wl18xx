@@ -2935,6 +2935,18 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	ret = wl1271_bss_erp_info_changed(wl, bss_conf, changed);
 	if (ret < 0)
 		goto out;
+
+	/* Handle HT information change */
+	if ((changed & BSS_CHANGED_HT) &&
+	    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
+		ret = wl1271_acx_set_ht_information(wl,
+					bss_conf->ht_operation_mode);
+		if (ret < 0) {
+			wl1271_warning("Set ht information failed %d", ret);
+			goto out;
+		}
+	}
+
 out:
 	return;
 }
@@ -3216,12 +3228,14 @@ sta_not_found:
 		}
 	}
 
-	/* Handle new association with HT. Do this only after join. */
+	/* Handle new association with HT. Do this after join. */
 	if (sta_exists) {
 		if ((changed & BSS_CHANGED_HT) &&
 		    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
-			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
-							     true);
+			ret = wl1271_acx_set_ht_capabilities(wl,
+							     &sta_ht_cap,
+							     true,
+							     wl->sta_hlid);
 			if (ret < 0) {
 				wl1271_warning("Set ht cap true failed %d",
 					       ret);
@@ -3230,8 +3244,10 @@ sta_not_found:
 		}
 		/* handle new association without HT and disassociation */
 		else if (changed & BSS_CHANGED_ASSOC) {
-			ret = wl1271_acx_set_ht_capabilities(wl, &sta_ht_cap,
-							     false);
+			ret = wl1271_acx_set_ht_capabilities(wl,
+							     &sta_ht_cap,
+							     false,
+							     wl->sta_hlid);
 			if (ret < 0) {
 				wl1271_warning("Set ht cap false failed %d",
 					       ret);
@@ -3240,8 +3256,8 @@ sta_not_found:
 		}
 	}
 
-	/* Handle HT information change. Only after join. */
-	if (sta_exists && (changed & BSS_CHANGED_HT) &&
+	/* Handle HT information change. Done after join. */
+	if ((changed & BSS_CHANGED_HT) &&
 	    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
 		ret = wl1271_acx_set_ht_information(wl,
 					bss_conf->ht_operation_mode);
@@ -3461,15 +3477,19 @@ static int wl1271_op_sta_add(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_cmd_set_peer_state(wl, hlid);
-	if (ret < 0)
-		goto out_sleep;
-
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out_free_sta;
 
 	ret = wl1271_cmd_add_peer(wl, sta, hlid);
+	if (ret < 0)
+		goto out_sleep;
+
+	ret = wl1271_cmd_set_peer_state(wl, hlid);
+	if (ret < 0)
+		goto out_sleep;
+
+	ret = wl1271_acx_set_ht_capabilities(wl, &sta->ht_cap, true, hlid);
 	if (ret < 0)
 		goto out_sleep;
 
