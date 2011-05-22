@@ -760,6 +760,15 @@ void ieee80211_dynamic_ps_enable_work(struct work_struct *work)
 	if (local->hw.conf.flags & IEEE80211_CONF_PS)
 		return;
 
+	/* don't enter PS if dynamic PS is enabled and TX frames are pending */
+	if (local->hw.conf.dynamic_ps_timeout > 0 &&
+	    !local->disable_dynamic_ps && drv_tx_frames_pending(local)) {
+		mod_timer(&local->dynamic_ps_timer, jiffies +
+			  msecs_to_jiffies(
+			  local->hw.conf.dynamic_ps_timeout));
+		return;
+	}
+
 	/*
 	 * transmission can be stopped by others which leads to
 	 * dynamic_ps_timer expiry. Postpond the ps timer if it
