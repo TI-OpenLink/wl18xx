@@ -480,6 +480,10 @@ int wl1271_cmd_role_start_dev(struct wl1271 *wl)
 	wl1271_debug(DEBUG_CMD, "cmd role start dev %d", wl->role_id);
 
 	cmd->role_id = wl->dev_role_id;
+	if (wl->band == IEEE80211_BAND_5GHZ)
+		cmd->band |= WL1271_BAND_5GHZ;
+	cmd->channel = wl->channel;
+
 	if (wl->dev_hlid == WL1271_INVALID_LINK_ID) {
 		ret = wl1271_allocate_link(wl, &wl->dev_hlid);
 		if (ret)
