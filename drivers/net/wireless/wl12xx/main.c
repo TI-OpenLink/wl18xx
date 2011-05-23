@@ -384,6 +384,7 @@ static struct platform_device wl1271_device = {
 
 static DEFINE_MUTEX(wl_list_mutex);
 static LIST_HEAD(wl_list);
+static bool bug_on_recovery = false;
 
 static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 			     void *arg)
@@ -1112,6 +1113,8 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
 		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
+
+	BUG_ON(bug_on_recovery);
 
 	/*
 	 * Advance security sequence number to overcome potential progress
@@ -4552,6 +4555,9 @@ u32 wl12xx_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL_GPL(wl12xx_debug_level);
 module_param_named(debug_level, wl12xx_debug_level, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(debug_level, "wl12xx debugging level");
+
+module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
