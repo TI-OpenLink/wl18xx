@@ -1257,7 +1257,7 @@ int wl1271_cmd_set_sta_default_wep_key(struct wl1271 *wl, u8 id)
 		goto out;
 	}
 
-	cmd->hlid = WL1271_INVALID_LINK_ID;
+	cmd->hlid = wl->sta_hlid;
 	cmd->lid_key_type = WEP_DEFAULT_LID_TYPE;
 	cmd->id = id;
 	cmd->key_action = cpu_to_le16(KEY_SET_ID);
