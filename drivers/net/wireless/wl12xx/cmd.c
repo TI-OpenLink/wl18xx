@@ -1464,10 +1464,12 @@ out_free:
 out:
 	return ret;
 }
+
 int wl1271_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid)
 {
 	struct wl1271_cmd_add_peer *cmd;
 	int ret;
+	u32 sta_rates;
 
 	wl1271_debug(DEBUG_CMD, "cmd add sta %d", (int)hlid);
 
@@ -1486,8 +1488,12 @@ int wl1271_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid)
 	cmd->hlid = hlid;
 	cmd->wmm = sta->wme ? 1 : 0;
 
-	cmd->supported_rates = cpu_to_le32(wl1271_tx_enabled_rates_get(wl,
-						sta->supp_rates[wl->band]));
+	sta_rates = sta->supp_rates[wl->band];
+	if (sta->ht_cap.ht_supported)
+		sta_rates |= sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET;
+
+	cmd->supported_rates =
+		cpu_to_le32(wl1271_tx_enabled_rates_get(wl, sta_rates));
 
 	wl1271_debug(DEBUG_CMD, "new sta rates: 0x%x", cmd->supported_rates);
 
