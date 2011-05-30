@@ -985,16 +985,23 @@ out:
 	return IRQ_HANDLED;
 }
 
-static int wl1271_fetch_firmware(struct wl1271 *wl)
+static int wl1271_fetch_firmware(struct wl1271 *wl, bool plt)
 {
 	const struct firmware *fw;
 	const char *fw_name;
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
-		fw_name = WL128X_FW_NAME;
-	else
-		fw_name	= WL127X_FW_NAME;
+	if (plt) {
+		if (wl->chip.id == CHIP_ID_1283_PG20)
+			fw_name = WL128X_PLT_FW_NAME;
+		else
+			fw_name	= WL127X_PLT_FW_NAME;
+	} else {
+		if (wl->chip.id == CHIP_ID_1283_PG20)
+			fw_name = WL128X_FW_NAME;
+		else
+			fw_name	= WL127X_FW_NAME;
+	}
 
 	wl1271_debug(DEBUG_BOOT, "booting firmware %s", fw_name);
 
@@ -1232,7 +1239,7 @@ static int wl1271_setup(struct wl1271 *wl)
 	return 0;
 }
 
-static int wl1271_chip_wakeup(struct wl1271 *wl)
+static int wl1271_chip_wakeup(struct wl1271 *wl, bool plt)
 {
 	struct wl1271_partition_set partition;
 	int ret = 0;
@@ -1308,7 +1315,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	}
 
 	if (wl->fw == NULL) {
-		ret = wl1271_fetch_firmware(wl);
+		ret = wl1271_fetch_firmware(wl, plt);
 		if (ret < 0)
 			goto out;
 	}
@@ -1343,7 +1350,7 @@ int wl1271_plt_start(struct wl1271 *wl)
 
 	while (retries) {
 		retries--;
-		ret = wl1271_chip_wakeup(wl);
+		ret = wl1271_chip_wakeup(wl, true);
 		if (ret < 0)
 			goto power_off;
 
@@ -1986,7 +1993,7 @@ static bool wl12xx_init_fw(struct wl1271 *wl)
 
 	while (retries) {
 		retries--;
-		ret = wl1271_chip_wakeup(wl);
+		ret = wl1271_chip_wakeup(wl, false);
 		if (ret < 0)
 			goto power_off;
 
