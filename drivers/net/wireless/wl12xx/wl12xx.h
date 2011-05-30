@@ -131,7 +131,9 @@ extern u32 wl12xx_debug_level;
 
 
 #define WL1271_FW_NAME "ti-connectivity/wl1271-fw-multirole-roc.bin"
+#define WL1271_PLT_FW_NAME "ti-connectivity/wl1271-fw-multirole-plt.bin"
 #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-multirole-roc.bin"
+#define WL128X_PLT_FW_NAME "ti-connectivity/wl128x-fw-multirole-plt.bin"
 
 /*
  * wl127x and wl128x are using the same NVS file name. However, the
