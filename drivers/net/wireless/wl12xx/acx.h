@@ -1173,6 +1173,20 @@ struct wl1271_acx_set_rate_mgmt_params {
 	u8 padding2[2]; /* MISSING */
 } __packed;
 
+enum broadcast_recv_rule {
+	ACX_RECEIVE_BROADCASTS_IN_SUSPEND = 0,
+	ACX_FILTER_OUT_BROADCAST_IN_FW    = BIT(0),
+	ACX_FILTER_OUT_BROADCAST_IN_HW    = BIT(1),
+};
+
+struct wl1271_acx_disable_broadcasts {
+	struct acx_header header;
+
+	/* enum broadcast_recv_rule */
+	u8 broadcast_rule;
+	u8 padding1[3];
+} __packed;
+
 enum {
 	ACX_WAKE_UP_CONDITIONS      = 0x0002,
 	ACX_MEM_CFG                 = 0x0003,
@@ -1195,6 +1209,7 @@ enum {
 	ACX_CCA_THRESHOLD           = 0x0025,
 	ACX_EVENT_MBOX_MASK         = 0x0026,
 	ACX_CONN_MONIT_PARAMS       = 0x002D,
+	ACX_DISABLE_BROADCASTS      = 0x0030,
 	ACX_BCN_DTIM_OPTIONS        = 0x0031,
 	ACX_SG_ENABLE               = 0x0032,
 	ACX_SG_CFG                  = 0x0033,
