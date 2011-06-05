@@ -237,6 +237,32 @@ static bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 	return wl->dummy_packet == skb;
 }
 
+static bool is_p2p_action(u8 *buf, u32 len)
+{
+	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) buf;
+	//TODO: check length
+	if (!ieee80211_is_action(mgmt->frame_control))
+		return false;
+
+	/* public action */
+	if (mgmt->u.action.category != 0x04)
+		return false;
+
+	/* vendor specific */
+	if (mgmt->u.action.u.public.action != 0x09)
+		return false;
+
+	/* OUI */
+	if (memcmp(mgmt->u.action.u.public.oui, "\x50\x6f\x9a", 3))
+		return false;
+
+	/* type - p2p */
+	if (mgmt->u.action.u.public.variable[0] != 0x09)
+		return false;
+
+	return true;
+}
+
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			      u32 extra, struct ieee80211_tx_info *control,
 			      u8 hlid)
@@ -259,6 +285,8 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 					    ies, ies_len))
 			is_p2p = true;
 	}
+	if (is_p2p_action(skb->data + sizeof(*desc) + extra, skb->len - extra))
+		is_p2p = true;
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
 

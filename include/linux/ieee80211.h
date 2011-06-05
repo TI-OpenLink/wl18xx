@@ -750,6 +750,12 @@ struct ieee80211_mgmt {
 					u8 action;
 					u8 smps_control;
 				} __attribute__ ((packed)) ht_smps;
+				struct {
+					u8 action;
+					u8 oui[3];
+					u8 variable[0];
+				} __attribute__ ((packed)) public;
+
 			} u;
 		} __attribute__ ((packed)) action;
 	} u;
