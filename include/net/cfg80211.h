@@ -2265,6 +2265,8 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb);
  * other than having to fit into the given data.
  */
 const u8 *cfg80211_find_ie(u8 eid, const u8 *ies, int len);
+const u8 *cfg80211_find_vendor_ie(unsigned int oui, u8 oui_type,
+					 const u8 *ies, int len);
 
 /**
  * DOC: Regulatory enforcement infrastructure
