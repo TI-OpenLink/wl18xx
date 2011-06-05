@@ -336,7 +336,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		if (control->control.sta)
 			rate_idx = ACX_TX_AP_FULL_RATE;
 		else
-			if (is_p2p)
+			if (is_p2p || wl->p2p)
 				rate_idx = ACX_TX_BASIC_RATE_P2P;
 			else
 				rate_idx = ACX_TX_BASIC_RATE;
