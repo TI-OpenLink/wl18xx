@@ -86,7 +86,7 @@
  * Bits 3-5 - process_id tag (AP mode FW)
  * Bits 6-7 - reserved
  */
-#define WL1271_RX_DESC_STATUS_MASK      0x07
+#define WL1271_RX_DESC_STATUS_MASK      0x03
 
 #define WL1271_RX_DESC_SUCCESS          0x00
 #define WL1271_RX_DESC_DECRYPT_FAIL     0x01
