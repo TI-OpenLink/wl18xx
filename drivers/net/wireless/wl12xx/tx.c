@@ -246,6 +246,19 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	int aligned_len, ac, rate_idx;
 	s64 hosttime;
 	u16 tx_attr;
+	bool is_p2p = false;
+	struct ieee80211_mgmt *mgmt;
+
+	mgmt = (struct ieee80211_mgmt *)(skb->data + sizeof(*desc));
+	if (ieee80211_is_probe_resp(mgmt->frame_control)) {
+		u8 *ies = mgmt->u.probe_resp.variable;
+		int ies_len = skb->len - (ies - skb->data);
+
+		if (cfg80211_find_vendor_ie(WLAN_OUI_WFA,
+					    WLAN_OUI_TYPE_WFA_P2P,
+					    ies, ies_len))
+			is_p2p = true;
+	}
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
 
@@ -288,7 +301,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	}
 
 	desc->hlid = hlid;
-
 	if (wl->bss_type != BSS_TYPE_AP_BSS) {
 		/* if the packets are destined for AP (have a STA entry)
 		   send them with AP rate policies, otherwise use default
@@ -296,7 +308,10 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		if (control->control.sta)
 			rate_idx = ACX_TX_AP_FULL_RATE;
 		else
-			rate_idx = ACX_TX_BASIC_RATE;
+			if (is_p2p)
+				rate_idx = ACX_TX_BASIC_RATE_P2P;
+			else
+				rate_idx = ACX_TX_BASIC_RATE;
 	} else {
 		if (hlid == wl->ap_global_hlid)
 			rate_idx = ACX_TX_AP_MODE_MGMT_RATE;
