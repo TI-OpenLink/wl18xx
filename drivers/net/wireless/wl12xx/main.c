@@ -397,6 +397,24 @@ static DEFINE_MUTEX(wl_list_mutex);
 static LIST_HEAD(wl_list);
 static bool bug_on_recovery = false;
 
+static int wl1271_check_operstate(struct wl1271 *wl, unsigned char operstate)
+{
+	int ret;
+	if (operstate != IF_OPER_UP)
+		return 0;
+
+	if (test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags))
+		return 0;
+
+	ret = wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
+	if (ret < 0)
+		return ret;
+
+	wl1271_croc(wl, wl->role_id);
+
+	wl1271_info("Association completed.");
+	return 0;
+}
 static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 			     void *arg)
 {
@@ -446,12 +464,7 @@ static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 	if (ret < 0)
 		goto out;
 
-	if ((dev->operstate == IF_OPER_UP) &&
-	    !test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags)) {
-		wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
-		wl1271_croc(wl, wl->role_id);
-		wl1271_info("Association completed.");
-	}
+	wl1271_check_operstate(wl, dev->operstate);
 
 	wl1271_ps_elp_sleep(wl);
 
@@ -3514,6 +3527,8 @@ sta_not_found:
 			ret = wl1271_roc(wl, wl->role_id);
 			if (ret < 0)
 				goto out;
+
+			wl1271_check_operstate(wl, ieee80211_get_operstate(vif));
 		}
 	}
 
