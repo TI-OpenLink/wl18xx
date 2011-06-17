@@ -186,7 +186,7 @@ extern u32 wl12xx_debug_level;
 #define WL1271_AP_DEF_INACTIV_SEC  300
 #define WL1271_AP_DEF_BEACON_EXP   20
 
-#define ACX_TX_DESCRIPTORS         32
+#define ACX_TX_DESCRIPTORS         16
 
 #define WL1271_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
 
