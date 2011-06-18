@@ -439,6 +439,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	if (ret < 0)
 		return ret;
 
+	wl1271_tx_fill_hdr(wl, skb, extra, info, hlid);
+
 	if (wl->bss_type == BSS_TYPE_AP_BSS) {
 		wl1271_tx_ap_update_inconnection_sta(wl, skb);
 #if 0
@@ -448,8 +450,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	} else {
 		wl1271_tx_update_filters(wl, skb);
 	}
-
-	wl1271_tx_fill_hdr(wl, skb, extra, info, hlid);
 
 	/*
 	 * The length of each packet is stored in terms of
