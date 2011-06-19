@@ -1802,21 +1802,29 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 		ieee80211_scan_completed(wl->hw, true);
 	}
 
-	/* TODO: put all this in a separate function? */
-	/* disable active roles */
-	ret = wl1271_ps_elp_wakeup(wl);
-	if (ret < 0) {
-		/*
-		 * do nothing. we are going to power_off the chip anyway.
-		 * handle this case when we'll really support multi-role...
-		 */
-	}
-	if (wl->bss_type == BSS_TYPE_STA_BSS)
-		wl1271_cmd_role_disable(wl, &wl->dev_role_id);
-	wl1271_cmd_role_disable(wl, &wl->role_id);
+	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags)) {
+		/* TODO: put all this in a separate function? */
+		/* disable active roles */
+		ret = wl1271_ps_elp_wakeup(wl);
+		if (ret < 0) {
+			/*
+			 * do nothing. we are going to power_off the chip anyway.
+			 * handle this case when we'll really support multi-role...
+			 */
+		}
+		if (wl->bss_type == BSS_TYPE_STA_BSS)
+			wl1271_cmd_role_disable(wl, &wl->dev_role_id);
+		wl1271_cmd_role_disable(wl, &wl->role_id);
 
-	/* TODO: this obviously shouldn't always be called */
-	wl1271_ps_elp_sleep(wl);
+		/* TODO: this obviously shouldn't always be called */
+		wl1271_ps_elp_sleep(wl);
+	} else {
+		/* clear all hlids (except system_hlid) */
+		wl->sta_hlid = WL1271_INVALID_LINK_ID;
+		wl->dev_hlid = WL1271_INVALID_LINK_ID;
+		wl->ap_bcast_hlid = WL1271_INVALID_LINK_ID;
+		wl->ap_global_hlid = WL1271_INVALID_LINK_ID;
+	}
 
 	/*
 	 * this must be before the cancel_work calls below, so that the work
