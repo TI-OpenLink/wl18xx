@@ -387,6 +387,11 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 		else
 			hlid = wl->dev_hlid;
 
+	if (hlid == WL1271_INVALID_LINK_ID) {
+		wl1271_error("invalid hlid. dropping skb 0x%p", skb);
+		return -EINVAL;
+	}
+
 	ret = wl1271_tx_allocate(wl, skb, extra, buf_offset, hlid);
 	if (ret < 0)
 		return ret;
