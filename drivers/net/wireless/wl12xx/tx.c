@@ -183,15 +183,6 @@ u8 wl1271_tx_get_hlid(struct wl1271 *wl, struct sk_buff *skb)
 	}
 }
 
-static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
-						unsigned int packet_length)
-{
-	if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
-		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
-	else
-		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
-}
-
 static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 				u32 buf_offset, u8 hlid)
 {

@@ -1491,6 +1491,15 @@ out:
 	return ret;
 }
 
+unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
+					  unsigned int packet_length)
+{
+	if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
+		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
+	else
+		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
+}
+
 int wl1271_plt_start(struct wl1271 *wl)
 {
 	int retries = WL1271_BOOT_RETRIES;

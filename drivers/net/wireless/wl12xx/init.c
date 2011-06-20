@@ -570,7 +570,12 @@ int wl1271_chip_specific_init(struct wl1271 *wl)
 
 		if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT) {
 			/* Enable TX SDIO padding */
-			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
+ 			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
+ 
+			if (wl->chip.id == CHIP_ID_185x_PG10)
+				/* Enable RX SDIO padding */
+				host_cfg_bitmap |=
+					HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
 		}
 
 		/* Must be before wl1271_acx_init_mem_config() */
