@@ -93,9 +93,13 @@
 #define WL1271_RX_DESC_MIC_FAIL         0x02
 #define WL1271_RX_DESC_DRIVER_RX_Q_FAIL 0x03
 
-#define RX_MEM_BLOCK_MASK            0xFF
+#define RX_MEM_BLOCK_MASK               0xFF
 #define RX_BUF_SIZE_MASK             0xFFF00
-#define RX_BUF_SIZE_SHIFT_DIV        6
+#define RX_BUF_SIZE_SHIFT_DIV              6
+
+#define WL18XX_RX_BUF_SIZE_MASK     0xFFFF00
+#define WL18XX_RX_BUF_SIZE_SHIFT           8
+
 /* If set, the start of IP payload is not 4 bytes aligned */
 #define RX_BUF_UNALIGNED_PAYLOAD     BIT(20)
 
