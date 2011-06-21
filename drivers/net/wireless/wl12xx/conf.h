@@ -425,10 +425,7 @@ struct conf_rx_settings {
 
 /* p2p_go shouldn't use 11b rates */
 #define CONF_TX_RATE_MASK_BASIC_P2P    (CONF_HW_BIT_RATE_6MBPS | \
-	CONF_HW_BIT_RATE_9MBPS |  CONF_HW_BIT_RATE_12MBPS |      \
-	CONF_HW_BIT_RATE_18MBPS | CONF_HW_BIT_RATE_24MBPS |      \
-	CONF_HW_BIT_RATE_36MBPS | CONF_HW_BIT_RATE_48MBPS |      \
-	CONF_HW_BIT_RATE_54MBPS)
+	CONF_HW_BIT_RATE_12MBPS | CONF_HW_BIT_RATE_24MBPS)
 
 /*
  * Rates supported for data packets when operating as AP. Note the absence
