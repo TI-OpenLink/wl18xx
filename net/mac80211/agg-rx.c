@@ -247,11 +247,7 @@ void ieee80211_process_addba_request(struct ieee80211_local *local,
 				"%pM on tid %u\n",
 				mgmt->sa, tid);
 #endif /* CONFIG_MAC80211_HT_DEBUG */
-
-		/* delete existing Rx BA session on the same tid */
-		___ieee80211_stop_rx_ba_session(sta, tid, 0,
-						WLAN_STATUS_UNSPECIFIED_QOS,
-						false);
+		goto end;
 	}
 
 	/* prepare A-MPDU MLME for Rx aggregation */
