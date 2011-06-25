@@ -287,8 +287,8 @@ struct wl1271_fw_status {
 	/* Size (in Memory Blocks) of TX pool */
 	__le32 tx_total;
 
-	/* Cumulative counter of released mem-blocks per AC */
-	u8 tx_released_blks[NUM_TX_QUEUES];
+	/* Cumulative counter of released packets per AC */
+	u8 tx_released_pkts[NUM_TX_QUEUES];
 
 	/* Cumulative counter of freed MBs per HLID */
 	u8 tx_lnk_free_blks[WL1271_MAX_LINKS];
@@ -437,6 +437,10 @@ struct wl1271 {
 	u32 tx_blocks_available;
 	u32 tx_allocated_blocks;
 	u32 tx_results_count;
+
+	/* Accounting for allocated / available Tx packets in HW */
+	u32 tx_pkts_freed[NUM_TX_QUEUES];
+	u32 tx_allocated_pkts;
 
 	/* Transmitted TX packets counter for chipset interface */
 	u32 tx_packets_count;

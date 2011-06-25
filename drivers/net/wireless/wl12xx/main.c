@@ -784,6 +784,7 @@ static void wl1271_fw_status(struct wl1271 *wl,
 	struct timespec ts;
 	u32 old_tx_blk_count = wl->tx_blocks_available;
 	int avail, freed_blocks;
+	int i;
 
 	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
 
@@ -793,6 +794,15 @@ static void wl1271_fw_status(struct wl1271 *wl,
 		     status->fw_rx_counter,
 		     status->drv_rx_counter,
 		     status->tx_results_counter);
+
+	for (i = 0; i < NUM_TX_QUEUES; i++) {
+		/* prevent wrap-around in freed-packets counter */
+		wl->tx_allocated_pkts -=
+				(status->tx_released_pkts[i] -
+				wl->tx_pkts_freed[i] + 256) % 256;
+
+		wl->tx_pkts_freed[i] = status->tx_released_pkts[i];
+	}
 
 	freed_blocks = le32_to_cpu(status->total_released_blks) -
 		       wl->tx_blocks_freed;
@@ -1784,7 +1794,7 @@ out:
 static void __wl1271_op_remove_interface(struct wl1271 *wl,
 					 bool reset_tx_queues)
 {
-	int ret;
+	int ret, i;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 remove interface");
 
@@ -1899,6 +1909,10 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->flags = 0;
 
 	wl->tx_blocks_freed = 0;
+
+	wl->tx_allocated_pkts = 0;
+	for (i = 0; i < NUM_TX_QUEUES; i++)
+		wl->tx_pkts_freed[i] = 0;
 
 	wl1271_debugfs_reset(wl);
 
