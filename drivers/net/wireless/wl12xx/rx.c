@@ -265,12 +265,14 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 		}
 	}
 
+#if 0
 	/*
 	 * Write the driver's packet counter to the FW. This is only required
 	 * for older hardware revisions
 	 */
 	if (wl->quirks & WL12XX_QUIRK_END_OF_TRANSACTION)
 		wl1271_write32(wl, RX_DRIVER_COUNTER_ADDRESS, wl->rx_counter);
+#endif
 
 	if (!is_ap && wl->conf.rx_streaming.interval && had_data &&
 	    (wl->conf.rx_streaming.always ||

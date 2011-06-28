@@ -362,6 +362,11 @@ struct acx_event_mask {
 #define CFG_RX_FILTER_NULTI	BIT(14)
 #define CFG_RX_RESERVE		BIT(15)
 #define CFG_RX_TIMESTAMP_TSF	BIT(16)
+/* for WL8 */
+#define CFG_RX_FLTR_BSSID_DATA  BIT(17)   /* 1 = use RX_BSSID_FILTER for data frames. */
+#define CFG_RX_FLTR_BSSID_MGMT  BIT(18)   /* 1 = use RX_BSSID_FILTER for management frames */
+#define CFG_RX_NOT_WAIT_PPDU_END BIT(19)  /* syncing MAC DMV and the tail bytes fro PHY. should be 0. */
+#define CFG_RX_SIMU_AP_STA      BIT(30)
 
 #define CFG_RX_RSV_EN		BIT(0)
 #define CFG_RX_RCTS_ACK		BIT(1)
@@ -657,6 +662,32 @@ struct acx_rxpipe_statistics {
 	__le32 tx_xfr_host_int_trig_rx_data;
 } __packed;
 
+struct acx_rx_rates_statistics
+{
+    __le32 rx_frames_per_rates[20]; /* max number of rates */
+} __packed;
+
+struct acx_aggregation_size_statistics
+{
+    __le32 aggregation_size[8];     /* max aggregation size */
+} __packed;
+
+struct acx_new_pipeline_statistics
+{
+    __le32 hs_tx_stat_fifo_int;
+    __le32 hs_rx_stat_fifo_int;
+    __le32 tcp_tx_stat_fifo_int;
+    __le32 tcp_rx_stat_fifo_int;
+    __le32 enc_tx_stat_fifo_int;
+    __le32 enc_rx_stat_fifo_int;
+    __le32 pre_proc_swi;
+    __le32 post_proc_swi;
+    __le32 sec_frag_swi;
+    __le32 pre_to_defrag_swi;
+    __le32 defrag_to_csum_swi;
+    __le32 csum_to_rx_xfer_swi;
+} __packed;
+
 struct acx_statistics {
 	struct acx_header header;
 
@@ -671,6 +702,9 @@ struct acx_statistics {
 	struct acx_event_statistics event;
 	struct acx_ps_statistics ps;
 	struct acx_rxpipe_statistics rxpipe;
+    struct acx_rx_rates_statistics rx_rates;
+    struct acx_aggregation_size_statistics agg_size;
+    struct acx_new_pipeline_statistics new_pipeLine;
 } __packed;
 
 struct acx_rate_class {
@@ -866,11 +900,18 @@ struct wl1271_acx_keep_alive_config {
 #define HOST_IF_CFG_RX_FIFO_ENABLE     BIT(0)
 #define HOST_IF_CFG_TX_EXTRA_BLKS_SWAP BIT(1)
 #define HOST_IF_CFG_TX_PAD_TO_SDIO_BLK BIT(3)
+#define HOST_IF_CFG_RX_PAD_TO_SDIO_BLK BIT(4)
+#define HOST_IF_CFG_USE_EOT            BIT(5)   // using EOT interrupts for FW status reading, command & events mailbox
+#define HOST_IF_CFG_ADD_RX_ALIGNMENT   BIT(6)   // for QOS frames HW will add 2 extra bytes between rx info and mac header.
+#define HOST_IF_CFG_LEN_FIELD_SIZE 15
 
 struct wl1271_acx_host_config_bitmap {
 	struct acx_header header;
 
 	__le32 host_cfg_bitmap;
+    __le32 host_sdio_block_size;
+    __le32 extra_mem_blocks;      // default 2 - extra mem blocks per frame in TX.
+    __le32 length_field_size;     // number of bits of the length field in the first TX word (up to 15 - for using the entire 16 bits).
 } __packed;
 
 enum {

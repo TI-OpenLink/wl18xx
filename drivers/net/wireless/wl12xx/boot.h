@@ -39,6 +39,7 @@ struct wl1271_static_data {
 	u8 fw_version[WL1271_FW_VERSION_MAX_LEN];
 	u32 hw_version;
 	u8 tx_power_table[WL1271_NO_SUBBANDS][WL1271_NO_POWER_LEVELS];
+	u8 phy_fw_version[WL1271_FW_VERSION_MAX_LEN];
 };
 
 /* number of times we try to read the INIT interrupt */
@@ -65,7 +66,7 @@ struct wl1271_static_data {
 #define PG_MINOR_VER_MASK    0xc
 #define PG_MINOR_VER_OFFSET  0x2
 
-#define CMD_MBOX_ADDRESS     0x407B4
+#define CMD_MBOX_ADDRESS     0xB007B4
 
 #define POLARITY_LOW         BIT(1)
 #define NO_PULL              (BIT(14) | BIT(15))
@@ -126,5 +127,45 @@ enum {
 };
 
 /* end PLL configuration algorithm for wl128x */
+
+/* PLL configuration algorithm for wl18xx */
+#define PLATFORM_DETECTION				(0x0E3E0)
+#define OSC_EN							(0x02080)
+#define PRIMARY_CLK_DETECT				(0x020A6)
+#define PLLSH_WCS_PLL_N					(0x02362)
+#define PLLSH_WCS_PLL_M					(0x02360)
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_1	(0x02364)
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_2	(0x02366)
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_1	(0x02368)
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_2	(0x0236A)
+#define PLLSH_WCS_PLL_SWALLOW_EN        (0x0236C)
+#define PLLSH_WL_PLL_EN                 (0x02392)
+#define PRCM_WLAN_CLK_DETECTION_MASK    (0x08) /* Bit[3]   -  0-TCXO/FREF 1-XTAL(only on 185x) */
+
+#define CLOCK_CONFIG_16_2_M     0x1
+#define CLOCK_CONFIG_16_368_M   0x2
+#define CLOCK_CONFIG_16_8_M		0x3
+#define CLOCK_CONFIG_19_2_M		0x4
+#define CLOCK_CONFIG_26_M       0x5
+#define CLOCK_CONFIG_32_736_M	0x6
+#define CLOCK_CONFIG_33_6_M		0x7
+#define CLOCK_CONFIG_38_468_M	0x8
+#define CLOCK_CONFIG_52_M		0x9
+
+#define REG_16_SHIFT 16
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_1_MASK  0x0000ffff
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_2_MASK  0x0000007F
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_1_MASK  0x0000ffff
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK  0x0000000F
+#define PLLSH_WCS_PLL_SWALLOW_EN_VAL1  0x1
+#define PLLSH_WCS_PLL_SWALLOW_EN_VAL2  0x2
+#define PLLSH_WL_PLL_EN_VAL  0x2
+
+enum {
+	FREF = 0,
+	TCXO = 1,
+	XTAL = 2
+};
+/* end PLL configuration algorithm for wl18xx */
 
 #endif

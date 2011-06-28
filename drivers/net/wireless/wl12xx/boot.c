@@ -31,6 +31,7 @@
 #include "event.h"
 #include "rx.h"
 
+#if 0
 static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 	[PART_DOWN] = {
 		.mem = {
@@ -89,6 +90,85 @@ static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 		}
 	}
 };
+#endif
+
+static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
+	[PART_TOP_PRCM_ELP_SOC] = {
+		.mem = {
+			.start = 0x00A02000,
+			.size  = 0x00010000
+		},
+		.reg = {
+			.start = 0x00807000,
+			.size  = 0x00005000
+		},
+		.mem2 = {
+			.start = 0x00800000,
+			.size  = 0x0000B000
+		},
+		.mem3 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+	},
+
+	[PART_DOWN] = {
+		.mem = {
+			.start = 0x00000000,
+			.size  = 0x00014000
+		},
+		.reg = {
+			.start = 0x00810000,
+			.size  = 0x0000BFFF
+		},
+		.mem2 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+		.mem3 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+	},
+
+	[PART_WORK] = {
+		.mem = {
+			.start = REGISTERS_BASE,
+			.size  = 0x00015520
+		},
+		.reg = {
+			.start = 0x00B00404,
+			.size  = 0x00001000
+		},
+		.mem2 = {
+			.start = 0x00C00000,
+			.size  = 0x00000400
+		},
+		.mem3 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+	},
+
+	[PART_BOOT] = {
+		.mem = {
+			.start = 0x00700000,
+			.size  = 0x0000030c
+		},
+		.reg = {
+			.start = 0x00802000,
+			.size  = 0x00014578
+		},
+		.mem2 = {
+			.start = 0x00C00000,
+			.size  = 0x00000400
+		},
+		.mem3 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		}
+	}
+};
 
 static void wl1271_boot_set_ecpu_ctrl(struct wl1271 *wl, u32 flag)
 {
@@ -106,6 +186,7 @@ static void wl1271_parse_fw_ver(struct wl1271 *wl)
 {
 	int ret;
 
+	/* parse MAC FW version */
 	ret = sscanf(wl->chip.fw_ver_str + 4, "%u.%u.%u.%u.%u",
 		     &wl->chip.fw_ver[0], &wl->chip.fw_ver[1],
 		     &wl->chip.fw_ver[2], &wl->chip.fw_ver[3],
@@ -114,6 +195,18 @@ static void wl1271_parse_fw_ver(struct wl1271 *wl)
 	if (ret != 5) {
 		wl1271_warning("fw version incorrect value");
 		memset(wl->chip.fw_ver, 0, sizeof(wl->chip.fw_ver));
+		return;
+	}
+
+	/* parse PHY FW version */
+    ret = sscanf(wl->chip.phy_fw_ver_str + 4, "%u.%u.%u.%u.%u",
+		     &wl->chip.phy_fw_ver[0], &wl->chip.phy_fw_ver[1],
+		     &wl->chip.phy_fw_ver[2], &wl->chip.phy_fw_ver[3],
+		     &wl->chip.phy_fw_ver[4]);
+
+	if (ret != 5) {
+		wl1271_warning("PHY fw version incorrect value");
+		memset(wl->chip.phy_fw_ver, 0, sizeof(wl->chip.phy_fw_ver));
 		return;
 	}
 }
@@ -127,9 +220,12 @@ static void wl1271_boot_fw_version(struct wl1271 *wl)
 
 	strncpy(wl->chip.fw_ver_str, static_data.fw_version,
 		sizeof(wl->chip.fw_ver_str));
+	strncpy(wl->chip.phy_fw_ver_str, static_data.phy_fw_version,
+		sizeof(wl->chip.phy_fw_ver_str));
 
 	/* make sure the string is NULL-terminated */
 	wl->chip.fw_ver_str[sizeof(wl->chip.fw_ver_str) - 1] = '\0';
+	wl->chip.phy_fw_ver_str[sizeof(wl->chip.phy_fw_ver_str) - 1] = '\0';
 
 	wl1271_parse_fw_ver(wl);
 }
@@ -244,7 +340,8 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 	if (wl->nvs == NULL)
 		return -ENODEV;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
+		(wl->chip.id == CHIP_ID_185x_PG10))  {
 		struct wl128x_nvs_file *nvs = (struct wl128x_nvs_file *)wl->nvs;
 
 		if (wl->nvs_len == sizeof(struct wl128x_nvs_file)) {
@@ -370,11 +467,14 @@ static void wl1271_boot_enable_interrupts(struct wl1271 *wl)
 	wl1271_enable_interrupts(wl);
 	wl1271_write32(wl, ACX_REG_INTERRUPT_MASK,
 		       WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
+#if 0
 	wl1271_write32(wl, HI_CFG, HI_CFG_DEF_VAL);
+#endif
 }
 
 static int wl1271_boot_soft_reset(struct wl1271 *wl)
 {
+#if 0
 	unsigned long timeout;
 	u32 boot_data;
 
@@ -398,7 +498,7 @@ static int wl1271_boot_soft_reset(struct wl1271 *wl)
 
 		udelay(SOFT_RESET_STALL_TIME);
 	}
-
+#endif
 	/* disable Rx/Tx */
 	wl1271_write32(wl, ENABLE, 0x0);
 
@@ -412,6 +512,9 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 {
 	int loop, ret;
 	u32 chip_id, intr;
+
+	/* Orit - added */
+	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	wl1271_boot_set_ecpu_ctrl(wl, ECPU_CONTROL_HALT);
 
@@ -448,6 +551,8 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 			     "complete initialization");
 		return -EIO;
 	}
+
+	wl1271_info("Orit WL18xx - Init Complete!!!");
 
 	/* get hardware config command mail box */
 	wl->cmd_box_addr = wl1271_read32(wl, REG_COMMAND_MAILBOX_PTR);
@@ -507,6 +612,7 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	return 0;
 }
 
+#if 0
 static int wl1271_boot_write_irq_polarity(struct wl1271 *wl)
 {
 	u32 polarity;
@@ -519,6 +625,7 @@ static int wl1271_boot_write_irq_polarity(struct wl1271 *wl)
 
 	return 0;
 }
+#endif
 
 static void wl1271_boot_hw_version(struct wl1271 *wl)
 {
@@ -612,6 +719,160 @@ static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
 	pll_config |= (input_freq << MCS_SEL_IN_FREQ_SHIFT);
 	pll_config |= MCS_PLL_ENABLE_HP;
 	wl1271_top_reg_write(wl, MCS_PLL_CONFIG_REG, pll_config);
+
+	return 0;
+}
+
+static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
+{
+#if 0
+	u32 platform_type;
+	u32 osc_en;
+    u32 clk_type;
+	u32 clk_freq;
+	u32 pllsh_wcs_pll_N;
+	u32 pllsh_wcs_pll_M;
+	u32 pllsh_wcs_pll_Q;
+	u32 pllsh_wcs_pll_P;
+
+	wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
+
+	/* 1. Platform detection */
+
+	/* Read platform type */
+	platform_type = wl1271_read32(wl, PLATFORM_DETECTION);
+	wl1271_debug(DEBUG_BOOT, "Platform Found --->>>  0x%x!!!", platform_type);
+
+	/* Platform detection */
+    switch (platform_type) {
+	case 0:
+		wl1271_info("ORCA (6450) platform Detected!");
+		break;
+	case 1:
+		wl1271_info("TRIO (1273)  platform Detected!");
+		break;
+	case 2:
+		wl1271_info("NL5500 platform Detected!");
+		break;
+	case 3:
+		wl1271_info("NAPOLEON platform Detected!");
+		break;
+	case 4:
+		wl1271_info("QUATTRO (1283) platform Detected!");
+		break;
+	case 5:
+		wl1271_info("185X platform Detected!");
+		break;
+	case 6:
+		wl1271_info("189X platform Detected!");
+		break;
+	default:
+		wl1271_error("Unknown platform Detected!!!");
+	}
+
+	/* 2. CLK detection */
+    /* Read CLK type from detection (for PG2) - TCXO/FREF or XTAL */
+	osc_en = wl1271_read32(wl, OSC_EN);
+
+	/* Check the clock source in bit 3 from OSC_EN */
+	if (!(osc_en & PRCM_WLAN_CLK_DETECTION_MASK)) {
+		wl1271_debug(DEBUG_BOOT, "CLK detection bit 3 is clear (OSC_EN=0x%x), working with TCXO/FREF clock", osc_en);
+		clk_type = FREF;
+
+	} else {
+		if (platform_type == 5) /* platform_type = 185x */ {
+			wl1271_debug(DEBUG_BOOT, "185x Platform Detected, CLK Type Is XTAL");
+			clk_type = XTAL;
+		} else {               /* platform_type = 189x */
+			wl1271_error("189x Platform Detected, ERROR");
+			return -EINVAL;
+		}
+	}
+
+	/* Read freq from detection */
+	clk_freq = wl1271_read32(wl, PRIMARY_CLK_DETECT);
+
+	/* 3. WCS PLL Config */
+    switch (clk_freq) {
+	case CLOCK_CONFIG_16_2_M:
+		pllsh_wcs_pll_N = 7;
+		pllsh_wcs_pll_M = 104;
+		pllsh_wcs_pll_Q = 801;
+		pllsh_wcs_pll_P = 4;
+		break;
+	case CLOCK_CONFIG_16_368_M:
+		pllsh_wcs_pll_N = 9;
+		pllsh_wcs_pll_M = 132;
+		pllsh_wcs_pll_Q = 3751;
+		pllsh_wcs_pll_P = 4;
+        break;
+	case CLOCK_CONFIG_16_8_M:
+		pllsh_wcs_pll_N = 7;
+		pllsh_wcs_pll_M = 100;
+		break;
+	case CLOCK_CONFIG_19_2_M:
+		pllsh_wcs_pll_N = 8;
+		pllsh_wcs_pll_M = 100;
+        break;
+	case CLOCK_CONFIG_26_M:
+		pllsh_wcs_pll_N = 13;
+		pllsh_wcs_pll_M = 120;
+		break;
+	case CLOCK_CONFIG_32_736_M:
+		pllsh_wcs_pll_N = 9;
+		pllsh_wcs_pll_M = 132;
+		pllsh_wcs_pll_Q = 3751;
+		pllsh_wcs_pll_P = 4;
+        break;
+	case CLOCK_CONFIG_33_6_M:
+		pllsh_wcs_pll_N = 7;
+		pllsh_wcs_pll_M = 100;
+		break;
+	case CLOCK_CONFIG_38_468_M:
+		pllsh_wcs_pll_N = 8;
+		pllsh_wcs_pll_M = 100;
+		break;
+	case CLOCK_CONFIG_52_M:
+		pllsh_wcs_pll_N = 13;
+		pllsh_wcs_pll_M = 120;
+		break;
+	default:
+		wl1271_error("Unknown clock frequency 0x%x!!!", clk_freq);
+	}
+
+	/* Config N (pre divider) parameters according to the input frequency */
+    wl1271_write32(wl, PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
+
+	/* Config M (divider) parameters according to the input frequency */
+	wl1271_write32(wl, PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
+
+	/* Swallowing is only needed for the following CLK frequencies:
+		16.2MHz, 16.368MHz, 32.736MHz */
+	if ((clk_freq == CLOCK_CONFIG_16_2_M) ||
+		(clk_freq == CLOCK_CONFIG_16_368_M) ||
+		(clk_freq == CLOCK_CONFIG_32_736_M)) {
+
+		wl1271_write32(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_1,
+					   (pllsh_wcs_pll_Q & PLLSH_WCS_PLL_Q_FACTOR_CFG_1_MASK));
+		wl1271_write32(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_2,
+					   ((pllsh_wcs_pll_Q >> REG_16_SHIFT) & PLLSH_WCS_PLL_Q_FACTOR_CFG_2_MASK));
+		wl1271_write32(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_1,
+					   (pllsh_wcs_pll_P & PLLSH_WCS_PLL_P_FACTOR_CFG_1_MASK));
+		wl1271_write32(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_2,
+					   ((pllsh_wcs_pll_P >> REG_16_SHIFT) & PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK));
+
+		/* Activate swallowing mechanism if needed */
+        wl1271_write32(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
+	}
+	else {
+		/* Activate swallowing mechanism if needed */
+        wl1271_write32(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
+	}
+
+	/* En WCS PLL in the TOP */
+	wl1271_write32(wl, PLLSH_WL_PLL_EN, PLLSH_WL_PLL_EN_VAL);
+#endif
+    wl1271_info("Orit Wl18xx - HW TOP init not activated on FPGA");
 
 	return 0;
 }
@@ -723,12 +984,17 @@ static int wl127x_boot_clk(struct wl1271 *wl)
 int wl1271_load_firmware(struct wl1271 *wl)
 {
 	int ret = 0;
-	u32 tmp, clk;
+	u32 tmp;
 	int selected_clock = -1;
 
 	wl1271_boot_hw_version(wl);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		ret = wl18xx_boot_clk(wl, &selected_clock);
+		if (ret < 0)
+			goto out;
+	}
+	else if (wl->chip.id == CHIP_ID_1283_PG20) {
 		ret = wl128x_boot_clk(wl, &selected_clock);
 		if (ret < 0)
 			goto out;
@@ -741,7 +1007,7 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	/* Continue the ELP wake up sequence */
 	wl1271_write32(wl, WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
-
+#if 0
 	wl1271_set_partition(wl, &part_table[PART_DRPW]);
 
 	/* Read-modify-write DRPW_SCRATCH_START register (see next state)
@@ -765,6 +1031,8 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	wl1271_write32(wl, DRPW_SCRATCH_START, clk);
 
 	wl1271_set_partition(wl, &part_table[PART_WORK]);
+#endif
+	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	/* Disable interrupts */
 	wl1271_write32(wl, ACX_REG_INTERRUPT_MASK, WL1271_ACX_INTR_ALL);
@@ -780,9 +1048,12 @@ int wl1271_load_firmware(struct wl1271 *wl)
 
 	/* write firmware's last address (ie. it's length) to
 	 * ACX_EEPROMLESS_IND_REG */
+	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 	wl1271_debug(DEBUG_BOOT, "ACX_EEPROMLESS_IND_REG");
 
 	wl1271_write32(wl, ACX_EEPROMLESS_IND_REG, ACX_EEPROMLESS_IND_REG);
+
+	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	tmp = wl1271_read32(wl, CHIP_ID_B);
 
@@ -820,9 +1091,11 @@ int wl1271_boot(struct wl1271 *wl)
 	if (ret < 0)
 		goto out;
 
+#if 0
 	ret = wl1271_boot_write_irq_polarity(wl);
 	if (ret < 0)
 		goto out;
+#endif
 
 	wl1271_write32(wl, ACX_REG_INTERRUPT_MASK,
 		       WL1271_ACX_ALL_EVENTS_VECTOR);

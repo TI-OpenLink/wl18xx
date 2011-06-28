@@ -101,11 +101,32 @@ static inline int wl1271_translate_addr(struct wl1271 *wl, int addr)
 	 * assumption is that all addresses will fall into either of those
 	 * two.
 	 */
-	if ((addr >= wl->part.reg.start) &&
-	    (addr < wl->part.reg.start + wl->part.reg.size))
-		return addr - wl->part.reg.start + wl->part.mem.size;
-	else
+	if ((addr >= wl->part.mem.start) &&
+	    (addr < wl->part.mem.start + wl->part.mem.size))
+	{
 		return addr - wl->part.mem.start;
+	}
+	else if ((addr >= wl->part.reg.start) &&
+	    (addr < wl->part.reg.start + wl->part.reg.size))
+	{
+		return addr - wl->part.reg.start + wl->part.mem.size;
+	}
+	else if ((addr >= wl->part.mem2.start) &&
+	    (addr < wl->part.mem2.start + wl->part.mem2.size))
+	{
+		return addr - wl->part.mem2.start + wl->part.mem.size + wl->part.reg.size;
+	}
+	else
+	{
+		wl1271_error("HW address 0x%x out of regions range", addr);
+		wl1271_error("************ Current Partition *************");
+        wl1271_error("mem_start %08X mem_size %08X", wl->part.mem.start, wl->part.mem.size);
+		wl1271_error("reg_start %08X reg_size %08X", wl->part.reg.start, wl->part.reg.size);
+		wl1271_error("mem2_start %08X mem2_size %08X", wl->part.mem2.start, wl->part.mem2.size);
+		wl1271_error("mem3_start %08X mem3_size %08X", wl->part.mem3.start, wl->part.mem3.size);
+		wl1271_error("********************************************");
+		return 0;
+	}
 }
 
 static inline void wl1271_read(struct wl1271 *wl, int addr, void *buf,

@@ -137,6 +137,8 @@ extern u32 wl12xx_debug_level;
 #define WL1271_PLT_FW_NAME "ti-connectivity/wl1271-fw-multirole-plt.bin"
 #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-multirole-roc.bin"
 #define WL128X_PLT_FW_NAME "ti-connectivity/wl128x-fw-multirole-plt.bin"
+#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw-multirole-roc.bin"
+#define WL18XX_PLT_FW_NAME "ti-connectivity/wl18xx-fw-multirole-plt.bin"
 
 /*
  * wl127x and wl128x are using the same NVS file name. However, the
@@ -144,6 +146,8 @@ extern u32 wl12xx_debug_level;
  * the correct NVS size in wl1271_boot_upload_nvs().
  */
 #define WL12XX_NVS_NAME "ti-connectivity/wl1271-nvs.bin"
+/* wl18xx NVS file */
+#define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
 
 #define WL1271_TX_SECURITY_LO16(s) ((u16)((s) & 0xffff))
 #define WL1271_TX_SECURITY_HI32(s) ((u32)(((s) >> 16) & 0xffffffff))
@@ -204,10 +208,21 @@ enum wl12xx_fw_type {
 	WL12XX_FW_TYPE_PLT,
 };
 
+#if 0
 enum wl1271_partition_type {
 	PART_DOWN,
 	PART_WORK,
 	PART_DRPW,
+
+	PART_TABLE_LEN
+};
+#endif
+
+enum wl18xx_partition_type {
+	PART_TOP_PRCM_ELP_SOC,
+	PART_DOWN,
+	PART_WORK,
+	PART_BOOT,
 
 	PART_TABLE_LEN
 };
@@ -250,7 +265,9 @@ enum {
 struct wl1271_chip {
 	u32 id;
 	char fw_ver_str[ETHTOOL_BUSINFO_LEN];
+	char phy_fw_ver_str[ETHTOOL_BUSINFO_LEN];
 	unsigned int fw_ver[NUM_FW_VER];
+    unsigned int phy_fw_ver[NUM_FW_VER];
 };
 
 struct wl1271_stats {
