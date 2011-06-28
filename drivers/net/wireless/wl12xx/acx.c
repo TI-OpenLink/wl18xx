@@ -32,6 +32,7 @@
 #include "wl12xx_80211.h"
 #include "reg.h"
 #include "ps.h"
+#include "tx.h"
 
 int wl1271_acx_wake_up_conditions(struct wl1271 *wl,
 				  u8 wake_up_event, u8 listen_interval)
@@ -987,7 +988,9 @@ int wl1271_acx_mem_cfg(struct wl1271 *wl)
 		goto out;
 	}
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if (wl->chip.id == CHIP_ID_185x_PG10)
+		mem = &wl->conf.mem_wl18xx;
+	else if (wl->chip.id == CHIP_ID_1283_PG20)
 		mem = &wl->conf.mem_wl128x;
 	else
 		mem = &wl->conf.mem_wl127x;
@@ -1028,6 +1031,9 @@ int wl1271_acx_host_if_cfg_bitmap(struct wl1271 *wl, u32 host_cfg_bitmap)
 	}
 
 	bitmap_conf->host_cfg_bitmap = cpu_to_le32(host_cfg_bitmap);
+	bitmap_conf->host_sdio_block_size = cpu_to_le32(WL12XX_BUS_BLOCK_SIZE);
+	bitmap_conf->extra_mem_blocks = cpu_to_le32(TX_HW_EXTRA_MEM_BLKS_DEF);
+	bitmap_conf->length_field_size = cpu_to_le32(HOST_IF_CFG_LEN_FIELD_SIZE);
 
 	ret = wl1271_cmd_configure(wl, ACX_HOST_IF_CFG_BITMAP,
 				   bitmap_conf, sizeof(*bitmap_conf));

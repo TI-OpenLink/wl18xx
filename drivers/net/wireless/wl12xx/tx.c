@@ -199,8 +199,16 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
 	u32 len;
 	u32 total_blocks;
-	int id, ret = -EBUSY, ac;
-	u32 spare_blocks = wl->tx_spare_blocks;
+	u32 spare_blocks;
+    	int id, ret = -EBUSY, ac;
+
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		spare_blocks = TX_HW_EXTRA_MEM_BLKS_DEF;
+	}
+	else {
+		/* we use 1 spare block */
+		spare_blocks = 1;
+	}
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
 		return -EAGAIN;
@@ -212,7 +220,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 
 	/* approximate the number of blocks required for this packet
 	   in the firmware */
-	len = wl12xx_calc_packet_alignment(wl, total_len);
+	if (wl->chip.id == CHIP_ID_185x_PG10)
+		len = total_len;
+	else
+		len = wl12xx_calc_packet_alignment(wl, total_len);
 
 	/* in case of a dummy packet, use default amount of spare mem blocks */
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
@@ -225,8 +236,9 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
 			skb, total_len - skb->len);
 
-		/* HW descriptor fields change between wl127x and wl128x */
-		if (wl->chip.id == CHIP_ID_1283_PG20) {
+		/* HW descriptor fields change between wl127x and wl128x & wl18xx*/
+		if ((wl->chip.id == CHIP_ID_1283_PG20) ||
+			(wl->chip.id == CHIP_ID_185x_PG10)) {
 			desc->wl128x_mem.total_mem_blocks = total_blocks;
 		} else {
 			desc->wl127x_mem.extra_blocks = spare_blocks;
@@ -408,7 +420,17 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 
 	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		desc->wl128x_mem.extra_bytes = 0;
+		desc->length = skb->len;
+
+		wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
+					 "tx_attr: 0x%x len: %d life: %d mem: %d",
+					 desc->hlid, tx_attr,
+					 le16_to_cpu(desc->length),
+					 le16_to_cpu(desc->life_time),
+					 desc->wl128x_mem.total_mem_blocks);
+	} else if (wl->chip.id == CHIP_ID_1283_PG20) {
 		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
 		desc->length = cpu_to_le16(aligned_len >> 2);
 
@@ -768,10 +790,11 @@ out_ack:
 		 * Interrupt the firmware with the new packets. This is only
 		 * required for older hardware revisions
 		 */
+#if 0
 		if (wl->quirks & WL12XX_QUIRK_END_OF_TRANSACTION)
 			wl1271_write32(wl, WL1271_HOST_WR_ACCESS,
 				       wl->tx_packets_count);
-
+#endif
 		wl1271_handle_tx_low_watermark(wl);
 	}
 	if (!is_ap && wl->conf.rx_streaming.interval && had_data &&

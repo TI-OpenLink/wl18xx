@@ -52,9 +52,10 @@ void wl1271_elp_work(struct work_struct *work)
 	     !test_bit(WL1271_FLAG_IDLE, &wl->flags)))
 		goto out;
 
-	wl1271_debug(DEBUG_PSM, "chip to elp");
-	wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_SLEEP);
-	set_bit(WL1271_FLAG_IN_ELP, &wl->flags);
+	/* Orit WL8 - Disable ELP */
+	//wl1271_debug(DEBUG_PSM, "chip to elp");
+	//wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_SLEEP);
+	//set_bit(WL1271_FLAG_IN_ELP, &wl->flags);
 
 out:
 	mutex_unlock(&wl->mutex);

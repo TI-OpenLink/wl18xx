@@ -48,7 +48,8 @@
 #include "testmode.h"
 #include "scan.h"
 
-#define WL1271_BOOT_RETRIES 3
+#define WL1271_BOOT_RETRIES 1
+//#define WL1271_BOOT_RETRIES 3
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
@@ -301,6 +302,16 @@ static struct conf_drv_settings default_conf = {
 		.tx_min                       = 27,
 	},
 	.mem_wl128x = {
+		.num_stations                 = 1,
+		.ssid_profiles                = 1,
+		.rx_block_num                 = 40,
+		.tx_min_block_num             = 40,
+		.dynamic_memory               = 1,
+		.min_req_tx_blocks            = 45,
+		.min_req_rx_blocks            = 22,
+		.tx_min                       = 27,
+	},
+	.mem_wl18xx = {
 		.num_stations                 = 1,
 		.ssid_profiles                = 1,
 		.rx_block_num                 = 40,
@@ -691,21 +702,24 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	struct conf_tx_tid *conf_tid;
 	int ret, i;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
+		(wl->chip.id == CHIP_ID_185x_PG10))
 		ret = wl128x_cmd_general_parms(wl);
 	else
 		ret = wl1271_cmd_general_parms(wl);
 	if (ret < 0)
 		return ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
+		(wl->chip.id == CHIP_ID_185x_PG10))
 		ret = wl128x_cmd_radio_parms(wl);
 	else
 		ret = wl1271_cmd_radio_parms(wl);
 	if (ret < 0)
 		return ret;
 
-	if (wl->chip.id != CHIP_ID_1283_PG20) {
+	if ((wl->chip.id != CHIP_ID_1283_PG20) &&
+		(wl->chip.id == CHIP_ID_185x_PG10)){
 		ret = wl1271_cmd_ext_radio_parms(wl);
 		if (ret < 0)
 			return ret;
@@ -891,6 +905,17 @@ static void wl1271_fw_status(struct wl1271 *wl,
 	int avail, freed_blocks;
 	int i;
 
+	/* orit - added WA */
+	struct wl1271_partition_set partition;
+	memset(&partition, 0, sizeof(partition));
+	partition.mem.start = REGISTERS_BASE;
+	partition.mem.size = 0x50FC;
+    partition.reg.start = 0xB00404;
+	partition.reg.size =  0x1000;
+    partition.mem2.start = 0xC00000;
+	partition.mem2.size =  0x400;
+	wl1271_set_partition(wl, &partition);
+
 	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
@@ -1029,7 +1054,8 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (unlikely(intr & WL1271_ACX_INTR_WATCHDOG)) {
 			wl1271_error("watchdog interrupt received! "
 				     "starting recovery.");
-			wl1271_queue_recovery_work(wl);
+			/* Orit - Temp Disable recovery */
+			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
 
 			/* restarting the chip. ignore any other interrupt. */
 			goto out;
@@ -1116,7 +1142,9 @@ static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 		if (wl->fw_type == WL12XX_FW_TYPE_PLT)
 			return 0;
 
-		if (wl->chip.id == CHIP_ID_1283_PG20)
+		if (wl->chip.id == CHIP_ID_185x_PG10)
+			fw_name = WL18XX_PLT_FW_NAME;
+		else if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_PLT_FW_NAME;
 		else
 			fw_name	= WL1271_PLT_FW_NAME;
@@ -1124,7 +1152,9 @@ static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 		if (wl->fw_type == WL12XX_FW_TYPE_NORMAL)
 			return 0;
 
-		if (wl->chip.id == CHIP_ID_1283_PG20)
+		if (wl->chip.id == CHIP_ID_185x_PG10)
+			fw_name = WL18XX_FW_NAME;
+		else if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_FW_NAME;
 		else
 			fw_name	= WL1271_FW_NAME;
@@ -1175,7 +1205,12 @@ static int wl1271_fetch_nvs(struct wl1271 *wl)
 	const struct firmware *fw;
 	int ret;
 
-	ret = request_firmware(&fw, WL12XX_NVS_NAME, wl1271_wl_to_dev(wl));
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		ret = request_firmware(&fw, WL18XX_NVS_NAME, wl1271_wl_to_dev(wl));
+	}
+	else {
+		ret = request_firmware(&fw, WL12XX_NVS_NAME, wl1271_wl_to_dev(wl));
+	}
 
 	if (ret < 0) {
 		wl1271_error("could not get nvs file: %d", ret);
@@ -1295,9 +1330,9 @@ static void wl1271_recovery_work(struct work_struct *work)
 	set_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 
 	wl12xx_read_fwlog_panic(wl);
-
-	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
-		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
+#if 0
+	wl1271_info("Hardware recovery in progress. MAC FW ver: %s PHY FW ver: %s pc: 0x%x",
+		    wl->chip.fw_ver_str, wl->chip.phy_fw_ver_str, wl1271_read32(wl, SCR_PAD4));
 
 	BUG_ON(bug_on_recovery);
 
@@ -1330,7 +1365,7 @@ static void wl1271_recovery_work(struct work_struct *work)
 	 * to restart the HW.
 	 */
 	ieee80211_wake_queues(wl->hw);
-
+#endif
 out:
 	mutex_unlock(&wl->mutex);
 }
@@ -1374,8 +1409,8 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 	/* We don't need a real memory partition here, because we only want
 	 * to use the registers at this point. */
 	memset(&partition, 0, sizeof(partition));
-	partition.reg.start = REGISTERS_BASE;
-	partition.reg.size = REGISTERS_DOWN_SIZE;
+	partition.reg.start = 0x00802000;
+	partition.reg.size =  0x00014578;
 	wl1271_set_partition(wl, &partition);
 
 	/* ELP module wake up */
@@ -1421,6 +1456,16 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		if (ret < 0)
 			goto out;
 
+		if (wl1271_set_block_size(wl))
+			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
+		break;
+	case CHIP_ID_185x_PG10:
+		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1283 PG10)",
+			     wl->chip.id);
+
+		ret = wl1271_setup(wl);
+		if (ret < 0)
+			goto out;
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
 		break;
@@ -1480,8 +1525,10 @@ int wl1271_plt_start(struct wl1271 *wl)
 			goto irq_disable;
 
 		wl->state = WL1271_STATE_PLT;
-		wl1271_notice("firmware booted in PLT mode (%s)",
-			      wl->chip.fw_ver_str);
+		wl1271_notice("MAC firmware booted in PLT mode (%s)",
+ 			      wl->chip.fw_ver_str);
+		wl1271_notice("PHY firmware booted in PLT mode (%s)",
+			      wl->chip.phy_fw_ver_str);
 
 		/* update hw/fw version info in wiphy struct */
 		wiphy->hw_version = wl->chip.id;
@@ -2134,7 +2181,8 @@ power_off:
 	wl->vif = vif;
 	wl->state = WL1271_STATE_ON;
 	set_bit(WL1271_FLAG_IF_INITIALIZED, &wl->flags);
-	wl1271_info("firmware booted (%s)", wl->chip.fw_ver_str);
+	wl1271_info("MAC firmware booted (%s)", wl->chip.fw_ver_str);
+	wl1271_info("PHY firmware booted (%s)", wl->chip.phy_fw_ver_str);
 
 	/* update hw/fw version info in wiphy struct */
 	wiphy->hw_version = wl->chip.id;
@@ -2158,6 +2206,9 @@ out:
 	if (!ret)
 		list_add(&wl->list, &wl_list);
 	mutex_unlock(&wl_list_mutex);
+
+	wl1271_info("Orit WL18xx - mac80211 add interface type %d mac %pM done !!!",
+			ieee80211_vif_type_p2p(vif), vif->addr);
 
 	return ret;
 }

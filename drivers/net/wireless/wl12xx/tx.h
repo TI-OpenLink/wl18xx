@@ -26,7 +26,8 @@
 #define __TX_H__
 
 #define TX_HW_BLOCK_SPARE_DEFAULT        1
-#define TX_HW_BLOCK_SIZE                 252
+#define TX_HW_BLOCK_SIZE                 268
+#define TX_HW_EXTRA_MEM_BLKS_DEF         2
 
 #define TX_HW_MGMT_PKT_LIFETIME_TU       2000
 #define TX_HW_AP_MODE_PKT_LIFETIME_TU    8000
@@ -47,8 +48,8 @@
 #define TX_HW_ATTR_OFST_LAST_WORD_PAD    10
 #define TX_HW_ATTR_OFST_TX_CMPLT_REQ     12
 
-#define TX_HW_RESULT_QUEUE_LEN           16
-#define TX_HW_RESULT_QUEUE_LEN_MASK      0xf
+#define TX_HW_RESULT_QUEUE_LEN           32
+#define TX_HW_RESULT_QUEUE_LEN_MASK      0x1f
 
 #define WL1271_TX_ALIGN_TO 4
 #define WL1271_TKIP_IV_SPACE 4
