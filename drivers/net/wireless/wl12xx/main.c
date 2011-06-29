@@ -2564,11 +2564,17 @@ static int wl1271_set_key(struct wl1271 *wl, u16 action, u8 id, u8 key_type,
 			return -EOPNOTSUPP;
 		}
 
-		/* The wl1271 does not allow to remove unicast keys - they
-		   will be cleared automatically on next CMD_JOIN. Ignore the
-		   request silently, as we dont want the mac80211 to emit
-		   an error message. */
-		if (action == KEY_REMOVE && !is_broadcast_ether_addr(addr))
+		/*
+		 * The wl1271 does not allow to remove unicast keys - they
+		 * will be cleared automatically on next CMD_JOIN. Ignore the
+		 * request silently, as we dont want the mac80211 to emit
+		 * an error message.
+		 *
+		 * The current fw fails to remove unicast keys as well, so
+		 * just drop any KEY_REMOVE request (revert it when fw
+		 * will be fixed)
+		 */
+		if (action == KEY_REMOVE)
 			return 0;
 
 		/* don't remove key if hlid was already deleted */
