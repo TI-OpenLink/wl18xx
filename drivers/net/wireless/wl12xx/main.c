@@ -2359,6 +2359,12 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 					       "failed %d", ret);
 
 			if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) {
+				if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+					/* roaming */
+					ret = wl1271_croc(wl, wl->dev_role_id);
+					if (ret < 0)
+						goto out_sleep;
+				}
 				ret = wl1271_join(wl, false);
 				if (ret < 0)
 					wl1271_warning("cmd join on channel "
@@ -3454,18 +3460,25 @@ sta_not_found:
 
 			/* restore the bssid filter and go to dummy bssid */
 			if (was_assoc) {
+				u32 conf_flags = wl->hw->conf.flags;
 				/*
 				 * we might have to disable roc, if there was
 				 * no IF_OPER_UP notification.
+				 * (we also need to disable roc in case of
+				 * roaming on the same channel. until we will
+				 * have a better flow...)
 				 */
-				if (!was_ifup) {
+				if (!was_ifup ||
+				    test_bit(WL1271_FLAG_ROC, &wl->flags)) {
 					ret = wl1271_croc(wl, wl->role_id);
 					if (ret < 0)
 						goto out;
 				}
 				wl1271_unjoin(wl);
-				wl1271_cmd_role_start_dev(wl);
-				wl1271_roc(wl, wl->dev_role_id);
+				if (!(conf_flags & IEEE80211_CONF_IDLE)) {
+					wl1271_cmd_role_start_dev(wl);
+					wl1271_roc(wl, wl->dev_role_id);
+				}
 			}
 		}
 	}
