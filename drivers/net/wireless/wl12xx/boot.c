@@ -492,6 +492,8 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	if (wl->bss_type == BSS_TYPE_AP_BSS)
 		wl->event_mask |= MAX_TX_RETRY_EVENT_ID |
 				  INACTIVE_STA_EVENT_ID;
+	else
+		wl->event_mask |= BA_SESSION_RX_CONSTRAINT_EVENT_ID;
 
 	ret = wl1271_event_unmask(wl);
 	if (ret < 0) {

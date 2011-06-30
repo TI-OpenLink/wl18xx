@@ -520,6 +520,7 @@ static int wl1271_set_ba_policies(struct wl1271 *wl)
 {
 	/* Reset the BA RX indicators */
 	wl->ba_rx_bitmap = 0;
+	wl->ba_allowed = true;
 	wl->ba_rx_session_count = 0;
 
 	/* BA is supported in STA/AP modes */

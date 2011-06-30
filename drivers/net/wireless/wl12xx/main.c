@@ -3771,7 +3771,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
-		if (!wl->ba_support) {
+		if (!(wl->ba_support) || !(wl->ba_allowed)) {
 			ret = -ENOTSUPP;
 			break;
 		}
