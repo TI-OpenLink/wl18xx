@@ -335,13 +335,6 @@ static int wl1271_sta_hw_init(struct wl1271 *wl)
 {
 	int ret;
 
-	if ((wl->chip.id != CHIP_ID_1283_PG20) &&
-		(wl->chip.id != CHIP_ID_185x_PG10)) {
-		ret = wl1271_cmd_ext_radio_parms(wl);
-		if (ret < 0)
-			return ret;
-	}
-
 	/* PS config */
 	ret = wl1271_acx_config_ps(wl);
 	if (ret < 0)
@@ -587,6 +580,32 @@ out:
 	return ret;
 }
 
+int wl1271_radio_params_init(struct wl1271 *wl)
+{
+	int ret;
+
+	if (wl->chip.id == CHIP_ID_1283_PG20)
+ 		ret = wl128x_cmd_general_parms(wl);
+ 	else
+ 		ret = wl1271_cmd_general_parms(wl);
+ 	if (ret < 0)
+ 		return ret;
+
+	if (wl->chip.id == CHIP_ID_1283_PG20)
+ 		ret = wl128x_cmd_radio_parms(wl);
+ 	else
+ 		ret = wl1271_cmd_radio_parms(wl);
+ 	if (ret < 0)
+ 		return ret;
+
+	if (wl->chip.id != CHIP_ID_1283_PG20) {
+		ret = wl1271_cmd_ext_radio_parms(wl);
+		if (ret < 0)
+			return ret;
+	}
+	return ret;
+}
+
 
 int wl1271_hw_init(struct wl1271 *wl)
 {
@@ -595,21 +614,11 @@ int wl1271_hw_init(struct wl1271 *wl)
 	int ret, i;
 	bool is_ap = (wl->bss_type == BSS_TYPE_AP_BSS);
 
-	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10))
-		ret = wl128x_cmd_general_parms(wl);
-	else
-		ret = wl1271_cmd_general_parms(wl);
-	if (ret < 0)
-		return ret;
-
-	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10))
-		ret = wl128x_cmd_radio_parms(wl);
-	else
-		ret = wl1271_cmd_radio_parms(wl);
-	if (ret < 0)
-		return ret;
+	if (wl->chip.id != CHIP_ID_185x_PG10) {
+		ret = wl1271_radio_params_init(wl);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Chip-specific init */
 	ret = wl1271_chip_specific_init(wl);
