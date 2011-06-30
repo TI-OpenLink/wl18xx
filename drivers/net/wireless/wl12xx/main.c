@@ -1216,9 +1216,13 @@ static int wl1271_chip_wakeup(struct wl1271 *wl, bool plt)
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
 			     wl->chip.id);
 
-		/* end-of-transaction flag should be set in wl127x AP mode */
+		/*
+		 * 'end-of-transaction flag' and 'LPD mode flag'
+		 * should be set in wl127x AP mode only
+		 */
 		if (wl->bss_type == BSS_TYPE_AP_BSS)
-			wl->quirks |= WL12XX_QUIRK_END_OF_TRANSACTION;
+			wl->quirks |= (WL12XX_QUIRK_END_OF_TRANSACTION |
+				       WL12XX_QUIRK_LPD_MODE);
 
 		ret = wl1271_setup(wl);
 		if (ret < 0)
@@ -1231,6 +1235,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl, bool plt)
 		ret = wl1271_setup(wl);
 		if (ret < 0)
 			goto out;
+
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
 		break;
@@ -2564,11 +2569,17 @@ static int wl1271_set_key(struct wl1271 *wl, u16 action, u8 id, u8 key_type,
 			return -EOPNOTSUPP;
 		}
 
-		/* The wl1271 does not allow to remove unicast keys - they
-		   will be cleared automatically on next CMD_JOIN. Ignore the
-		   request silently, as we dont want the mac80211 to emit
-		   an error message. */
-		if (action == KEY_REMOVE && !is_broadcast_ether_addr(addr))
+		/*
+		 * The wl1271 does not allow to remove unicast keys - they
+		 * will be cleared automatically on next CMD_JOIN. Ignore the
+		 * request silently, as we dont want the mac80211 to emit
+		 * an error message.
+		 *
+		 * The current fw fails to remove unicast keys as well, so
+		 * just drop any KEY_REMOVE request (revert it when fw
+		 * will be fixed)
+		 */
+		if (action == KEY_REMOVE)
 			return 0;
 
 		/* don't remove key if hlid was already deleted */
