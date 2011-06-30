@@ -702,30 +702,11 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	struct conf_tx_tid *conf_tid;
 	int ret, i;
 
-	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10))
-		ret = wl128x_cmd_general_parms(wl);
-	else
-		ret = wl1271_cmd_general_parms(wl);
-	if (ret < 0)
-		return ret;
-
-	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10))
-		ret = wl128x_cmd_radio_parms(wl);
-	else
-		ret = wl1271_cmd_radio_parms(wl);
-	if (ret < 0)
-		return ret;
-
-	if ((wl->chip.id != CHIP_ID_1283_PG20) &&
-		(wl->chip.id == CHIP_ID_185x_PG10)){
-		ret = wl1271_cmd_ext_radio_parms(wl);
+	if (wl->chip.id != CHIP_ID_185x_PG10) {
+		ret = wl1271_radio_params_init(wl);
 		if (ret < 0)
 			return ret;
 	}
-	if (ret < 0)
-		return ret;
 
 	/* Chip-specific initializations */
 	ret = wl1271_chip_specific_init(wl);

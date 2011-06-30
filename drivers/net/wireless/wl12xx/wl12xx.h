@@ -38,7 +38,7 @@
 #include "conf.h"
 #include "ini.h"
 
-#define DRIVER_NAME "wl1271"
+#define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
 
 /*
