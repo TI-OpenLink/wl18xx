@@ -440,7 +440,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	else if (wl->bss_type == BSS_TYPE_AP_BSS)
 		hlid = wl1271_tx_get_hlid(wl, skb);
 	else
-		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
+		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags) ||
+		    test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags))
 			hlid = wl->sta_hlid;
 		else
 			hlid = wl->dev_hlid;
