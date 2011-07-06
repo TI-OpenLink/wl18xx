@@ -3080,8 +3080,7 @@ static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl,
 	const u8 *ptr;
 
 	/* no need to change probe response if the SSID is set correctly */
-	if (wl->ssid_len > 0 && wl->ssid_len == bss_conf->ssid_len &&
-	    !memcmp(wl->ssid, bss_conf->ssid, wl->ssid_len))
+	if (wl->ssid_len > 0)
 		return wl1271_cmd_template_set(wl,
 					       CMD_TEMPL_AP_PROBE_RESPONSE,
 					       probe_rsp_data,
