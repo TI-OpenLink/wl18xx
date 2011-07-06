@@ -30,19 +30,6 @@
 #include "io.h"
 #include "tx.h"
 
-#define OCP_CMD_LOOP  32
-
-#define OCP_CMD_WRITE 0x1
-#define OCP_CMD_READ  0x2
-
-#define OCP_READY_MASK  BIT(18)
-#define OCP_STATUS_MASK (BIT(16) | BIT(17))
-
-#define OCP_STATUS_NO_RESP    0x00000
-#define OCP_STATUS_OK         0x10000
-#define OCP_STATUS_REQ_FAILED 0x20000
-#define OCP_STATUS_RESP_ERROR 0x30000
-
 bool wl1271_set_block_size(struct wl1271 *wl)
 {
 	if (wl->if_ops->set_block_size) {
@@ -139,45 +126,49 @@ void wl1271_io_init(struct wl1271 *wl)
 
 void wl1271_top_reg_write(struct wl1271 *wl, int addr, u16 val)
 {
-	/* write address >> 1 + 0x30000 to OCP_POR_CTR */
-	addr = (addr >> 1) + 0x30000;
-	wl1271_write32(wl, OCP_POR_CTR, addr);
+	u32 tmp_val;
 
-	/* write value to OCP_POR_WDATA */
-	wl1271_write32(wl, OCP_DATA_WRITE, val);
+    wl1271_info("Orit Wl18xx - wl1271_top_reg_write addr 0x%x val 0x%x", addr, val);
 
-	/* write 1 to OCP_CMD */
-	wl1271_write32(wl, OCP_CMD, OCP_CMD_WRITE);
+	if (!(addr % 4))
+	{
+	    wl1271_info("Orit Wl18xx - address aligned");
+		tmp_val = wl1271_read32(wl, addr);
+	    wl1271_info("Orit Wl18xx - read from 0x%x val 0x%x", addr, tmp_val);
+		val = (tmp_val & 0xffff0000) | val;
+	    wl1271_info("Orit Wl18xx - write to addr 0x%x val 0x%x", addr, val);
+		wl1271_write32(wl, addr, val);
+
+	} else {
+	    wl1271_info("Orit Wl18xx - address not aligned read from addr 0x%x", addr - 2);
+		tmp_val = wl1271_read32(wl, (addr - 2));
+	    wl1271_info("Orit Wl18xx - read from 0x%x val 0x%x", addr-2, tmp_val);
+		val = (tmp_val & 0xffff) | (val << 16);
+	    wl1271_info("Orit Wl18xx - write to addr 0x%x val 0x%x", (addr-2), val);
+		wl1271_write32(wl, (addr-2), val);
+	}
 }
 
 u16 wl1271_top_reg_read(struct wl1271 *wl, int addr)
 {
 	u32 val;
-	int timeout = OCP_CMD_LOOP;
 
-	/* write address >> 1 + 0x30000 to OCP_POR_CTR */
-	addr = (addr >> 1) + 0x30000;
-	wl1271_write32(wl, OCP_POR_CTR, addr);
+    wl1271_info("Orit Wl18xx - wl1271_top_reg_read addr 0x%x", addr);
 
-	/* write 2 to OCP_CMD */
-	wl1271_write32(wl, OCP_CMD, OCP_CMD_READ);
-
-	/* poll for data ready */
-	do {
-		val = wl1271_read32(wl, OCP_DATA_READ);
-	} while (!(val & OCP_READY_MASK) && --timeout);
-
-	if (!timeout) {
-		wl1271_warning("Top register access timed out.");
-		return 0xffff;
-	}
-
-	/* check data status and return if OK */
-	if ((val & OCP_STATUS_MASK) == OCP_STATUS_OK)
+	if (!(addr % 4))
+	{
+	    wl1271_info("Orit Wl18xx - address aligned");
+		val = wl1271_read32(wl, addr);
+	    wl1271_info("Orit Wl18xx - read val 0x%x", val);
+	    wl1271_info("Orit Wl18xx - return val 0x%x", val & 0xffff);
 		return val & 0xffff;
-	else {
-		wl1271_warning("Top register access returned error.");
-		return 0xffff;
+
+	} else {
+	    wl1271_info("Orit Wl18xx - address not aligned read from addr 0x%x", addr - 2);
+		val = wl1271_read32(wl, (addr - 2));
+	    wl1271_info("Orit Wl18xx - read val 0x%x", val);
+	    wl1271_info("Orit Wl18xx - return val 0x%x", (val & 0xffff0000) >> 16);
+		return (val & 0xffff0000) >> 16;
 	}
 }
 
