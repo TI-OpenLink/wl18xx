@@ -129,17 +129,17 @@ enum {
 /* end PLL configuration algorithm for wl128x */
 
 /* PLL configuration algorithm for wl18xx */
-#define PLATFORM_DETECTION				(0x0E3E0)
-#define OSC_EN							(0x02080)
-#define PRIMARY_CLK_DETECT				(0x020A6)
-#define PLLSH_WCS_PLL_N					(0x02362)
-#define PLLSH_WCS_PLL_M					(0x02360)
-#define PLLSH_WCS_PLL_Q_FACTOR_CFG_1	(0x02364)
-#define PLLSH_WCS_PLL_Q_FACTOR_CFG_2	(0x02366)
-#define PLLSH_WCS_PLL_P_FACTOR_CFG_1	(0x02368)
-#define PLLSH_WCS_PLL_P_FACTOR_CFG_2	(0x0236A)
-#define PLLSH_WCS_PLL_SWALLOW_EN        (0x0236C)
-#define PLLSH_WL_PLL_EN                 (0x02392)
+#define PLATFORM_DETECTION				(0xA0E3E0)
+#define OSC_EN							(0xA02080)
+#define PRIMARY_CLK_DETECT				(0xA020A6)
+#define PLLSH_WCS_PLL_N					(0xA02362)
+#define PLLSH_WCS_PLL_M					(0xA02360)
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_1	(0xA02364)
+#define PLLSH_WCS_PLL_Q_FACTOR_CFG_2	(0xA02366)
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_1	(0xA02368)
+#define PLLSH_WCS_PLL_P_FACTOR_CFG_2	(0xA0236A)
+#define PLLSH_WCS_PLL_SWALLOW_EN        (0xA0236C)
+#define PLLSH_WL_PLL_EN                 (0xA02392)
 #define PRCM_WLAN_CLK_DETECTION_MASK    (0x08) /* Bit[3]   -  0-TCXO/FREF 1-XTAL(only on 185x) */
 
 #define CLOCK_CONFIG_16_2_M     0x1
@@ -158,7 +158,7 @@ enum {
 #define PLLSH_WCS_PLL_P_FACTOR_CFG_1_MASK  0x0000ffff
 #define PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK  0x0000000F
 #define PLLSH_WCS_PLL_SWALLOW_EN_VAL1  0x1
-#define PLLSH_WCS_PLL_SWALLOW_EN_VAL2  0x2
+#define PLLSH_WCS_PLL_SWALLOW_EN_VAL2  0x12
 #define PLLSH_WL_PLL_EN_VAL  0x2
 
 enum {
