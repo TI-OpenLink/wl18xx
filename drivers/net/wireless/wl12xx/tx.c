@@ -77,6 +77,7 @@ static int wl1271_tx_update_filters(struct wl1271 *wl,
 						 struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr;
+	int ret;
 
 	hdr = (struct ieee80211_hdr *)(skb->data +
 				       sizeof(struct wl1271_tx_hw_descr));
@@ -99,6 +100,18 @@ static int wl1271_tx_update_filters(struct wl1271 *wl,
 #if 0
 	return wl1271_acx_rx_config(wl, wl->rx_config, wl->rx_filter);
 #endif
+	if (wl->dev_hlid != WL1271_INVALID_LINK_ID)
+		goto out;
+
+	wl1271_debug(DEBUG_CMD, "starting device role for roaming");
+	ret = wl1271_cmd_role_start_dev(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_roc(wl, wl->dev_role_id);
+	if (ret < 0)
+		goto out;
+out:
 	return 0;
 }
 
@@ -427,7 +440,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	else if (wl->bss_type == BSS_TYPE_AP_BSS)
 		hlid = wl1271_tx_get_hlid(wl, skb);
 	else
-		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags))
+		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags) ||
+		    test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags))
 			hlid = wl->sta_hlid;
 		else
 			hlid = wl->dev_hlid;

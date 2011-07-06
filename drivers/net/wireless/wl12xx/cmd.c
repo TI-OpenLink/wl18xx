@@ -659,13 +659,14 @@ int wl1271_cmd_role_stop_sta(struct wl1271 *wl)
 		wl1271_error("failed to initiate cmd role stop");
 		goto out_free;
 	}
-
+	wl1271_debug(DEBUG_CMD, "skipping disconnect_event");
+#if 0
 	ret = wl1271_cmd_wait_for_event(wl, DISCONNECT_EVENT_COMPLETE_ID);
 	if (ret < 0) {
 		wl1271_error("cmd role stop sta event completion error");
 		goto out_free;
 	}
-
+#endif
 	wl1271_free_link(wl, &wl->sta_hlid);
 
 out_free:
@@ -684,12 +685,9 @@ int wl1271_cmd_role_start_ap(struct wl1271 *wl)
 
 	wl1271_debug(DEBUG_CMD, "cmd start ap role");
 
-	/*
-	 * FIXME: We currently do not support hidden SSID. The real SSID
-	 * should be fetched from mac80211 first.
-	 */
-	if (wl->ssid_len == 0) {
-		wl1271_warning("Hidden SSID currently not supported for AP");
+	/* trying to use hidden SSID with an old hostapd version */
+	if (wl->ssid_len == 0 && bss_conf->ssid_len == 0) {
+		wl1271_error("got a null SSID from beacon/bss");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -719,9 +717,18 @@ int wl1271_cmd_role_start_ap(struct wl1271 *wl)
 	cmd->ap.dtim_interval = bss_conf->dtim_period;
 	cmd->ap.beacon_expiry = WL1271_AP_DEF_BEACON_EXP;
 	cmd->channel = wl->channel;
-	cmd->ap.ssid_len = wl->ssid_len;
-	cmd->ap.ssid_type = WL1271_SSID_TYPE_PUBLIC;
-	memcpy(cmd->ap.ssid, wl->ssid, wl->ssid_len);
+
+	/* We use a visible SSID if the beacon SSID is non-zero */
+	if (wl->ssid_len > 0) {
+		cmd->ap.ssid_type = WL1271_SSID_TYPE_PUBLIC;
+		cmd->ap.ssid_len = wl->ssid_len;
+		memcpy(cmd->ap.ssid, wl->ssid, wl->ssid_len);
+	} else {
+		cmd->ap.ssid_type = WL1271_SSID_TYPE_HIDDEN;
+		cmd->ap.ssid_len = bss_conf->ssid_len;
+		memcpy(cmd->ap.ssid, bss_conf->ssid, bss_conf->ssid_len);
+	}
+
 	cmd->ap.local_rates = cpu_to_le32(0xffffffff); /* TEMP */
 
 	switch (wl->band) {

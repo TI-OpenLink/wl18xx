@@ -397,6 +397,24 @@ static DEFINE_MUTEX(wl_list_mutex);
 static LIST_HEAD(wl_list);
 static bool bug_on_recovery = false;
 
+static int wl1271_check_operstate(struct wl1271 *wl, unsigned char operstate)
+{
+	int ret;
+	if (operstate != IF_OPER_UP)
+		return 0;
+
+	if (test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags))
+		return 0;
+
+	ret = wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
+	if (ret < 0)
+		return ret;
+
+	wl1271_croc(wl, wl->role_id);
+
+	wl1271_info("Association completed.");
+	return 0;
+}
 static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 			     void *arg)
 {
@@ -446,12 +464,7 @@ static int wl1271_dev_notify(struct notifier_block *me, unsigned long what,
 	if (ret < 0)
 		goto out;
 
-	if ((dev->operstate == IF_OPER_UP) &&
-	    !test_and_set_bit(WL1271_FLAG_STA_STATE_SENT, &wl->flags)) {
-		wl1271_cmd_set_peer_state(wl, wl->sta_hlid);
-		wl1271_croc(wl, wl->role_id);
-		wl1271_info("Association completed.");
-	}
+	wl1271_check_operstate(wl, dev->operstate);
 
 	wl1271_ps_elp_sleep(wl);
 
@@ -777,7 +790,13 @@ static void wl1271_irq_ps_regulate_link(struct wl1271 *wl, u8 hlid, u8 tx_pkts)
 
 bool wl1271_is_active_sta(struct wl1271 *wl, u8 hlid)
 {
-	int id = hlid - WL1271_AP_STA_HLID_START;
+	int id;
+
+	/* global/broadcast "stations" are always active */
+	if (hlid < WL1271_AP_STA_HLID_START)
+		return true;
+
+	id = hlid - WL1271_AP_STA_HLID_START;
 	return test_bit(id, wl->ap_hlid_map);
 }
 
@@ -1499,6 +1518,13 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 
 	/* queue the packet */
 	if (wl->bss_type == BSS_TYPE_AP_BSS) {
+		if (!wl1271_is_active_sta(wl, hlid)) {
+			wl1271_debug(DEBUG_TX, "DROP skb hlid %d q %d",
+				     hlid, q);
+			dev_kfree_skb(skb);
+			goto out;
+		}
+
 		wl1271_debug(DEBUG_TX, "queue skb hlid %d q %d", hlid, q);
 		skb_queue_tail(&wl->links[hlid].tx_queue[q], skb);
 	} else {
@@ -1514,6 +1540,7 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	    !test_bit(WL1271_FLAG_TX_PENDING, &wl->flags))
 		ieee80211_queue_work(wl->hw, &wl->tx_work);
 
+out:
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 }
 
@@ -2346,6 +2373,12 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 					       "failed %d", ret);
 
 			if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) {
+				if (test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+					/* roaming */
+					ret = wl1271_croc(wl, wl->dev_role_id);
+					if (ret < 0)
+						goto out_sleep;
+				}
 				ret = wl1271_join(wl, false);
 				if (ret < 0)
 					wl1271_warning("cmd join on channel "
@@ -3036,6 +3069,62 @@ static int wl1271_ssid_set(struct wl1271 *wl, struct sk_buff *skb,
 	return 0;
 }
 
+static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl,
+					 u8 *probe_rsp_data,
+					 size_t probe_rsp_len,
+					 u32 rates)
+{
+	struct ieee80211_bss_conf *bss_conf = &wl->vif->bss_conf;
+	u8 probe_rsp_templ[WL1271_CMD_TEMPL_MAX_SIZE];
+	int ssid_ie_offset, ie_offset, templ_len;
+	const u8 *ptr;
+
+	/* no need to change probe response if the SSID is set correctly */
+	if (wl->ssid_len > 0)
+		return wl1271_cmd_template_set(wl,
+					       CMD_TEMPL_AP_PROBE_RESPONSE,
+					       probe_rsp_data,
+					       probe_rsp_len, 0,
+					       rates);
+
+	if (probe_rsp_len + bss_conf->ssid_len > WL1271_CMD_TEMPL_MAX_SIZE) {
+		wl1271_error("probe_rsp template too big");
+		return -EINVAL;
+	}
+
+	/* start searching from IE offset */
+	ie_offset = offsetof(struct ieee80211_mgmt, u.probe_resp.variable);
+
+	ptr = cfg80211_find_ie(WLAN_EID_SSID, probe_rsp_data + ie_offset,
+			       probe_rsp_len - ie_offset);
+	if (!ptr) {
+		wl1271_error("No SSID in beacon!");
+		return -EINVAL;
+	}
+
+	ssid_ie_offset = ptr - probe_rsp_data;
+	ptr += (ptr[1] + 2);
+
+	memcpy(probe_rsp_templ, probe_rsp_data, ssid_ie_offset);
+
+	/* insert SSID from bss_conf */
+	probe_rsp_templ[ssid_ie_offset] = WLAN_EID_SSID;
+	probe_rsp_templ[ssid_ie_offset + 1] = bss_conf->ssid_len;
+	memcpy(probe_rsp_templ + ssid_ie_offset + 2,
+	       bss_conf->ssid, bss_conf->ssid_len);
+	templ_len = ssid_ie_offset + 2 + bss_conf->ssid_len;
+
+	memcpy(probe_rsp_templ + ssid_ie_offset + 2 + bss_conf->ssid_len,
+	       ptr, probe_rsp_len - (ptr - probe_rsp_data));
+	templ_len += probe_rsp_len - (ptr - probe_rsp_data);
+
+	return wl1271_cmd_template_set(wl,
+				       CMD_TEMPL_AP_PROBE_RESPONSE,
+				       probe_rsp_templ,
+				       templ_len, 0,
+				       rates);
+}
+
 static int wl1271_bss_erp_info_changed(struct wl1271 *wl,
 				       struct ieee80211_bss_conf *bss_conf,
 				       u32 changed)
@@ -3121,14 +3210,17 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 		hdr = (struct ieee80211_hdr *) beacon->data;
 		hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
 						 IEEE80211_STYPE_PROBE_RESP);
-
-		tmpl_id = is_ap ? CMD_TEMPL_AP_PROBE_RESPONSE :
-				  CMD_TEMPL_PROBE_RESPONSE;
-		ret = wl1271_cmd_template_set(wl,
-					      tmpl_id,
-					      beacon->data,
-					      beacon->len, 0,
-					      wl1271_tx_min_rate_get(wl));
+		if (is_ap)
+			ret = wl1271_ap_set_probe_resp_tmpl(wl,
+						beacon->data,
+						beacon->len,
+						wl1271_tx_min_rate_get(wl));
+		else
+			ret = wl1271_cmd_template_set(wl,
+						CMD_TEMPL_PROBE_RESPONSE,
+						beacon->data,
+						beacon->len, 0,
+						wl1271_tx_min_rate_get(wl));
 		dev_kfree_skb(beacon);
 		if (ret < 0)
 			goto out;
@@ -3184,12 +3276,12 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 				if (ret < 0)
 					goto out;
 
-				set_bit(WL1271_FLAG_AP_STARTED, &wl->flags);
-				wl1271_debug(DEBUG_AP, "started AP");
-
 				ret = wl1271_ap_init_hwenc(wl);
 				if (ret < 0)
 					goto out;
+
+				set_bit(WL1271_FLAG_AP_STARTED, &wl->flags);
+				wl1271_debug(DEBUG_AP, "started AP");
 			}
 		} else {
 			if (test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
@@ -3441,18 +3533,25 @@ sta_not_found:
 
 			/* restore the bssid filter and go to dummy bssid */
 			if (was_assoc) {
+				u32 conf_flags = wl->hw->conf.flags;
 				/*
 				 * we might have to disable roc, if there was
 				 * no IF_OPER_UP notification.
+				 * (we also need to disable roc in case of
+				 * roaming on the same channel. until we will
+				 * have a better flow...)
 				 */
-				if (!was_ifup) {
+				if (!was_ifup ||
+				    test_bit(WL1271_FLAG_ROC, &wl->flags)) {
 					ret = wl1271_croc(wl, wl->role_id);
 					if (ret < 0)
 						goto out;
 				}
 				wl1271_unjoin(wl);
-				wl1271_cmd_role_start_dev(wl);
-				wl1271_roc(wl, wl->dev_role_id);
+				if (!(conf_flags & IEEE80211_CONF_IDLE)) {
+					wl1271_cmd_role_start_dev(wl);
+					wl1271_roc(wl, wl->dev_role_id);
+				}
 			}
 		}
 	}
@@ -3514,6 +3613,8 @@ sta_not_found:
 			ret = wl1271_roc(wl, wl->role_id);
 			if (ret < 0)
 				goto out;
+
+			wl1271_check_operstate(wl, ieee80211_get_operstate(vif));
 		}
 	}
 
@@ -3723,7 +3824,7 @@ static int wl1271_allocate_sta(struct wl1271 *wl,
 	}
 
 	wl_sta = (struct wl1271_station *)sta->drv_priv;
-	__set_bit(id, wl->ap_hlid_map);
+	set_bit(id, wl->ap_hlid_map);
 	wl_sta->hlid = WL1271_AP_STA_HLID_START + id;
 	*hlid = wl_sta->hlid;
 	memcpy(wl->links[wl_sta->hlid].addr, sta->addr, ETH_ALEN);
@@ -3737,7 +3838,7 @@ static void wl1271_free_sta(struct wl1271 *wl, u8 hlid)
 	if (WARN_ON(!test_bit(id, wl->ap_hlid_map)))
 		return;
 
-	__clear_bit(id, wl->ap_hlid_map);
+	clear_bit(id, wl->ap_hlid_map);
 	memset(wl->links[hlid].addr, 0, ETH_ALEN);
 	wl1271_tx_reset_link_queues(wl, hlid);
 	__clear_bit(hlid, &wl->ap_ps_map);
@@ -4060,7 +4161,8 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 
 #ifdef CONFIG_WL12XX_HT
 #define WL12XX_HT_CAP { \
-	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20, \
+	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
+	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
 	.ht_supported = true, \
 	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K, \
 	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8, \
