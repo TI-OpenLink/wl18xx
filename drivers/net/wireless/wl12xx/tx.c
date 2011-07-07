@@ -30,6 +30,7 @@
 #include "reg.h"
 #include "ps.h"
 #include "tx.h"
+#include "event.h"
 
 static int wl1271_set_default_wep_key(struct wl1271 *wl, u8 id)
 {
@@ -133,21 +134,29 @@ static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 
 static void wl1271_tx_regulate_link(struct wl1271 *wl, u8 hlid)
 {
-	bool fw_ps;
+	bool fw_ps, single_sta;
 	u8 tx_pkts;
 
 	/* only regulate station links */
 	if (hlid < WL1271_AP_STA_HLID_START)
 		return;
 
+	if (!wl1271_is_active_sta(wl, hlid)) {
+		WARN_ON(1);
+		return;
+	}
+
 	fw_ps = test_bit(hlid, (unsigned long *)&wl->ap_fw_ps_map);
 	tx_pkts = wl->links[hlid].allocated_pkts;
+	single_sta = (wl->active_sta_count == 1);
 
 	/*
 	 * if in FW PS and there is enough data in FW we can put the link
 	 * into high-level PS and clean out its TX queues.
+	 * Make an exception if this is the only connected station. In this
+	 * case FW-memory congestion is not a problem.
 	 */
-	if (fw_ps && tx_pkts >= WL1271_PS_STA_MAX_PACKETS)
+	if (!single_sta && fw_ps && tx_pkts >= WL1271_PS_STA_MAX_PACKETS)
 		wl1271_ps_link_start(wl, hlid, true);
 }
 
@@ -247,7 +256,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 	return ret;
 }
 
-static bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
+bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
 	return wl->dummy_packet == skb;
 }
