@@ -213,5 +213,6 @@ u32 wl1271_tx_min_rate_get(struct wl1271 *wl);
 u8 wl1271_tx_get_hlid(struct wl1271 *wl, struct sk_buff *skb);
 void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid);
 void wl1271_handle_tx_low_watermark(struct wl1271 *wl);
+bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb);
 
 #endif
