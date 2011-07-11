@@ -2886,6 +2886,9 @@ void ieee80211_iterate_sta(
 void ieee80211_sta_block_awake(struct ieee80211_hw *hw,
 			       struct ieee80211_sta *pubsta, bool block);
 
+/* Added to support the checksum offload feature */
+void ieee80211_set_hw_checksum(struct ieee80211_vif *vif, int flags);
+
 /**
  * ieee80211_ap_probereq_get - retrieve a Probe Request template
  * @hw: pointer obtained from ieee80211_alloc_hw().

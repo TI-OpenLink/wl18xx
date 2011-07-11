@@ -25,6 +25,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include <net/mac80211.h>
+
 #include "init.h"
 #include "wl12xx_80211.h"
 #include "acx.h"
@@ -379,6 +381,12 @@ static int wl1271_sta_hw_init(struct wl1271 *wl)
 		return ret;
 
 	ret = wl1271_acx_sta_rate_policies(wl);
+	if (ret < 0)
+		return ret;
+
+	/* configure checksum state in fw */
+	ret = wl1271_acx_set_checksum_state(wl);
+
 	if (ret < 0)
 		return ret;
 

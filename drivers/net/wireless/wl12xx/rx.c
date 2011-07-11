@@ -110,8 +110,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	struct sk_buff *skb;
 	struct ieee80211_hdr *hdr;
 	u8 *buf;
-	u8 beacon = 0;
-	u8 is_data = 0;
+	u8 beacon;
+	u8 is_data;
 	u8 reserved = unaligned ? NET_IP_ALIGN : 0;
 
 	/*
@@ -154,6 +154,9 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 		return -ENOMEM;
 	}
 
+	/* add support for checksum offload: the two top bits holds the checksum status  */
+	skb->ip_summed = desc->status >> 6; /* bit6-7: -> 0=CHECKSUM_NONE, 1=CHECKSUM_COMPLETE*/
+
 	/* reserve the unaligned payload(if any) */
 	skb_reserve(skb, reserved);
 
@@ -168,10 +171,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	memcpy(buf, data + sizeof(*desc), length - sizeof(*desc));
 
 	hdr = (struct ieee80211_hdr *)skb->data;
-	if (ieee80211_is_beacon(hdr->frame_control))
-		beacon = 1;
-	if (ieee80211_is_data_present(hdr->frame_control))
-		is_data = 1;
+	beacon = ieee80211_is_beacon(hdr->frame_control);
+	is_data = ieee80211_is_data_present(hdr->frame_control);
 
 	wl1271_rx_status(wl, desc, IEEE80211_SKB_RXCB(skb), beacon);
 

@@ -33,6 +33,8 @@
 #include <linux/wl12xx.h>
 #include <linux/sched.h>
 
+#include <net/mac80211.h>
+
 #include "wl12xx.h"
 #include "wl12xx_80211.h"
 #include "reg.h"
@@ -381,6 +383,9 @@ static struct conf_drv_settings default_conf = {
 		.timestamp                    = WL12XX_FWLOG_TIMESTAMP_DISABLED,
 		.output                       = WL12XX_FWLOG_OUTPUT_HOST,
 		.threshold                    = 0,
+	},
+	.hw_checksum = {
+		.state         = CHECKSUM_OFFLOAD_ENABLED,
 	},
 };
 
@@ -2051,6 +2056,29 @@ static u8 wl1271_get_role_type(struct wl1271 *wl)
 	return 0xff;
 }
 
+
+static int wl1271_sta_hw_checksum(struct wl1271 *wl)
+{
+	int flags=0;
+
+	switch (wl->conf.hw_checksum.state)
+	{
+	case CHECKSUM_OFFLOAD_ENABLED:
+		flags = NETIF_F_IP_CSUM;
+		break;
+	case CHECKSUM_OFFLOAD_FAKE_RX:
+		flags = NETIF_F_NO_CSUM;
+		break;
+	case CHECKSUM_OFFLOAD_DISABLED:
+	default:
+		return 0;
+	}
+
+	/* signal the network stack about hw checksum capability */
+	ieee80211_set_hw_checksum(wl->vif, flags);
+	return 0;
+}
+
 static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 				   struct ieee80211_vif *vif)
 {
@@ -2178,6 +2206,10 @@ power_off:
 	wiphy->hw_version = wl->chip.id;
 	strncpy(wiphy->fw_version, wl->chip.fw_ver_str,
 		sizeof(wiphy->fw_version));
+
+	ret = wl1271_sta_hw_checksum(wl);
+		if (ret < 0)
+			return ret;
 
 	/*
 	 * Now we know if 11a is supported (info from the NVS), so disable

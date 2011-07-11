@@ -1849,3 +1849,32 @@ out:
 	kfree(acx);
 	return ret;
 }
+
+
+/* Add support for checksum offload */
+int wl1271_acx_set_checksum_state(struct wl1271 *wl)
+{
+	struct wl1271_acx_checksum_state *acx;
+	struct conf_drv_settings *conf = &wl->conf;
+	int ret=0;
+
+	wl1271_debug(DEBUG_ACX, "acx checksum state");
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->checksum_state = conf->hw_checksum.state;
+
+	ret = wl1271_cmd_configure(wl, ACX_CHECKSUM_CONFIG, acx, sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("failed to set checksum state: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
