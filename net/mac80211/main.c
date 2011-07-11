@@ -1049,6 +1049,15 @@ void ieee80211_free_hw(struct ieee80211_hw *hw)
 }
 EXPORT_SYMBOL(ieee80211_free_hw);
 
+ /* inform the network stack about the
+ *  checksum offload HW capability */
+void ieee80211_set_hw_checksum(struct ieee80211_vif *vif, int flags)
+{
+	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+	sdata->dev->features |= flags;
+}
+EXPORT_SYMBOL(ieee80211_set_hw_checksum);
+
 static int __init ieee80211_init(void)
 {
 	struct sk_buff *skb;

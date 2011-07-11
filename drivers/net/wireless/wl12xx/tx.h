@@ -117,7 +117,10 @@ struct wl1271_tx_hw_descr {
 	u8 tid;
 	/* host link ID (HLID) */
 	u8 hlid;
-	u8 reserved;
+
+	/* tcp/udp checksum bit field: bit0: 0=tcp, 1=udp,
+	 * bits 1:7 -> ip header offset  */
+	u8 checksum_data;
 } __packed;
 
 enum wl1271_tx_hw_res_status {

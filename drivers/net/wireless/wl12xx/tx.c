@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/etherdevice.h>
+#include <net/sock.h>
 
 #include "wl12xx.h"
 #include "io.h"
@@ -31,6 +32,8 @@
 #include "ps.h"
 #include "tx.h"
 #include "event.h"
+
+#define IP_PROTOCOL_OFFSET 9
 
 static int wl1271_set_default_wep_key(struct wl1271 *wl, u8 id)
 {
@@ -323,7 +326,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	u16 tx_attr;
 	bool is_p2p = false;
 	struct ieee80211_mgmt *mgmt;
-
+	char *ip_protocol=0;
+	u8 iphdr_offset_from_mac=0;
+    
 	mgmt = (struct ieee80211_mgmt *)(skb->data + sizeof(*desc));
 	if (ieee80211_is_probe_resp(mgmt->frame_control)) {
 		u8 *ies = mgmt->u.probe_resp.variable;
@@ -407,7 +412,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	}
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
-	desc->reserved = 0;
 
 	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
 
@@ -450,6 +454,27 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	}
 
 	desc->tx_attr = cpu_to_le16(tx_attr);
+
+	/* if ip_summed is set to PARTIAL by NS,
+	 * it means the NS agrees & expects the HW to do
+	 * the checksum for tcp/udp packets only.
+	*/
+	if (skb->ip_summed == CHECKSUM_PARTIAL)
+	{
+		/* The protocol type field starts 9 bytes
+		 * from the beginning of the IP header */
+		ip_protocol = skb_network_header(skb) + IP_PROTOCOL_OFFSET;
+
+		/* FW is interested only in the LSB of the protocol TCP=0/ UDP=1*/
+		desc->checksum_data = ((*ip_protocol) & 0x01);
+
+		iphdr_offset_from_mac = skb_network_header(skb) - skb_mac_header(skb);
+		desc->checksum_data |= iphdr_offset_from_mac << 1;
+	}
+	else
+	{
+		desc->checksum_data = 0;
+	}
 }
 
 /* caller must hold wl->mutex */

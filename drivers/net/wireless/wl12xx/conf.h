@@ -1260,6 +1260,11 @@ struct conf_fwlog {
 	u8 threshold;
 };
 
+struct conf_hw_checksum {
+	/* tcp/udp checksum state */
+	u8 state;
+};
+
 struct conf_drv_settings {
 	struct conf_sg_settings sg;
 	struct conf_rx_settings rx;
@@ -1281,6 +1286,7 @@ struct conf_drv_settings {
 	u8 hci_io_ds;
 	struct conf_rate_policy_settings rate;
 	struct conf_hangover_settings hangover;
+	struct conf_hw_checksum hw_checksum;
 };
 
 #endif
