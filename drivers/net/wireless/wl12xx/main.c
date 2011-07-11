@@ -1680,9 +1680,9 @@ static int wl1271_configure_suspend_ap(struct wl1271 *wl)
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out_unlock;
-#if 0
+
 	ret = wl1271_acx_set_ap_beacon_filter(wl, true);
-#endif
+
 	wl1271_ps_elp_sleep(wl);
 out_unlock:
 	mutex_unlock(&wl->mutex);
@@ -1719,9 +1719,7 @@ static void wl1271_configure_resume(struct wl1271 *wl)
 			wl1271_ps_set_mode(wl, STATION_ACTIVE_MODE,
 					   wl->basic_rate, true);
 	} else if (is_ap) {
-#if 0
 		wl1271_acx_set_ap_beacon_filter(wl, false);
-#endif
 	}
 
 	wl1271_ps_elp_sleep(wl);
