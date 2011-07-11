@@ -457,175 +457,131 @@ struct acx_ctsprotect {
 } __packed;
 
 struct acx_tx_statistics {
-	__le32 internal_desc_overflow;
+    __le32 frag_called;
+    __le32 frag_mpdu_alloc_failed;
+    __le32 frag_init_called;
+    __le32 frag_in_process_called;
+    __le32 frag_tkip_called;
+    __le32 frag_key_not_found;
+    __le32 frag_need_fragmentation;
+    __le32 frag_bad_mem_blk_num;
+    __le32 frag_failed;
+    __le32 frag_cache_hit;
+    __le32 frag_cache_miss;
+    __le32 frag_1;
+    __le32 frag_2;
+    __le32 frag_3;
+    __le32 frag_4;
+    __le32 frag_5;
+    __le32 frag_6;
+    __le32 frag_7;
+    __le32 frag_8;
 
-	/* ToDo - Add support for tcp_checksum 18xx */
-	__le32 checksum_requested;
-	__le32 checksum_executed;
+    __le32 template_prepared;
+    __le32 data_prepared;
+    __le32 template_programmed;
+    __le32 data_programmed;
+    __le32 burst_programmed;
+    __le32 starts;
+    __le32 imm_resp;
+    __le32 start_tempaltes;
+    __le32 start_int_template;
+    __le32 start_fw_gen;
+    __le32 start_data;
+    __le32 start_null_frame;
+    __le32 exch;
+    __le32 retry_template;
+    __le32 retry_data;
+    __le32 exch_pending;
+    __le32 exch_expiry;
+    __le32 exch_mismatch;
+    __le32 done_template;
+    __le32 done_data;
+    __le32 done_intTemplate;
+    __le32 pre_xfr;
+    __le32 xfr;
+    __le32 xfr_out_of_mem;
+    __le32 dma_programmed;
+    __le32 dma_done;
+    __le32 checksum_req;
+    __le32 checksum_calc;
 }  __packed;
 
-struct acx_rx_statistics {
-	__le32 out_of_mem;
-	__le32 hdr_overflow;
-	__le32 hw_stuck;
-	__le32 dropped;
-	__le32 fcs_err;
-	__le32 xfr_hint_trig;
-	__le32 path_reset;
-	__le32 reset_counter;
 
-	/* ToDo - Add support for tcp_checksum 18xx */
-	__le32 checksum_requested;
-	__le32 checksum_executed;
+struct acx_rx_statistics {
+	__le32 rx_out_of_mem;
+	__le32 rx_hdr_overflow;
+	__le32 rx_hw_stuck;
+	__le32 rx_dropped_frame;
+	__le32 rx_complete_dropped_frame;
+	__le32 rx_Alloc_frame;
+	__le32 rx_done_queue;
+	__le32 rx_done;
+	__le32 defrag_called;
+	__le32 defrag_init_Called;
+	__le32 defrag_in_Process_Called;
+	__le32 defrag_tkip_called;
+	__le32 defrag_need_defrag;
+	__le32 defrag_decrypt_failed;
+	__le32 decrypt_Key_not_found;
+	__le32 defrag_need_decr;
+	__le32 defrag1;
+	__le32 defrag2;
+	__le32 defrag3;
+	__le32 defrag4;
+	__le32 defrag5;
+	__le32 defrag6;
+	__le32 defrag7;
+	__le32 defrag8;
+	__le32 defrag;
+	__le32 defrag_end;
+	__le32 xfr;
+	__le32 xfr_end;
+	__le32 cmplt;
+	__le32 pre_cmplt;
+	__le32 cmplt_task;
+	__le32 phy_hdr;
+	__le32 timeout;
+    __le32 checksum_req;
+    __le32 checksum_calc;
 
 } __packed;
 
 struct acx_dma_statistics {
-	__le32 rx_requested;
 	__le32 rx_errors;
-	__le32 tx_requested;
 	__le32 tx_errors;
 }  __packed;
 
 struct acx_isr_statistics {
-	/* host command complete */
-	__le32 cmd_cmplt;
-
-	/* fiqisr() */
-	__le32 fiqs;
-
-	/* (INT_STS_ND & INT_TRIG_RX_HEADER) */
-	__le32 rx_headers;
-
-	/* (INT_STS_ND & INT_TRIG_RX_CMPLT) */
-	__le32 rx_completes;
-
-	/* (INT_STS_ND & INT_TRIG_NO_RX_BUF) */
-	__le32 rx_mem_overflow;
-
-	/* (INT_STS_ND & INT_TRIG_S_RX_RDY) */
-	__le32 rx_rdys;
-
-	/* irqisr() */
-	__le32 irqs;
-
-	/* (INT_STS_ND & INT_TRIG_TX_PROC) */
-	__le32 tx_procs;
-
-	/* (INT_STS_ND & INT_TRIG_DECRYPT_DONE) */
-	__le32 decrypt_done;
-
-	/* (INT_STS_ND & INT_TRIG_DMA0) */
-	__le32 dma0_done;
-
-	/* (INT_STS_ND & INT_TRIG_DMA1) */
-	__le32 dma1_done;
-
-	/* (INT_STS_ND & INT_TRIG_TX_EXC_CMPLT) */
-	__le32 tx_exch_complete;
-
-	/* (INT_STS_ND & INT_TRIG_COMMAND) */
-	__le32 commands;
-
-	/* (INT_STS_ND & INT_TRIG_RX_PROC) */
-	__le32 rx_procs;
-
-	/* (INT_STS_ND & INT_TRIG_PM_802) */
-	__le32 hw_pm_mode_changes;
-
-	/* (INT_STS_ND & INT_TRIG_ACKNOWLEDGE) */
-	__le32 host_acknowledges;
-
-	/* (INT_STS_ND & INT_TRIG_PM_PCI) */
-	__le32 pci_pm;
-
-	/* (INT_STS_ND & INT_TRIG_ACM_WAKEUP) */
-	__le32 wakeups;
-
-	/* (INT_STS_ND & INT_TRIG_LOW_RSSI) */
-	__le32 low_rssi;
-} __packed;
-
-struct acx_wep_statistics {
-	/* WEP address keys configured */
-	__le32 addr_key_count;
-
-	/* default keys configured */
-	__le32 default_key_count;
-
-	__le32 reserved;
-
-	/* number of times that WEP key not found on lookup */
-	__le32 key_not_found;
-
-	/* number of times that WEP key decryption failed */
-	__le32 decrypt_fail;
-
-	/* WEP packets decrypted */
-	__le32 packets;
-
-	/* WEP decrypt interrupts */
-	__le32 interrupt;
+	__le32 irqs;              /* irqisr() */
 } __packed;
 
 #define ACX_MISSED_BEACONS_SPREAD 10
 
 struct acx_pwr_statistics {
-	/* the amount of enters into power save mode (both PD & ELP) */
-	__le32 ps_enter;
+	 __le32 missing_bcns;      /* Count the amount of missing beacon interrupts to the host.*/
+	 __le32 rcvd_beacons;      /* Count the number of received beacons.*/
 
-	/* the amount of enters into ELP mode */
-	__le32 elp_enter;
+	 /* Count the number of times TSF Out Of Sync occures,
+	  * meaning we lost more consecutive beacons
+	  * that defined by the host's threshold.*/
+	 __le32 conn_out_of_sync;
 
-	/* the amount of missing beacon interrupts to the host */
-	__le32 missing_bcns;
+	 /* Gives statistics about the spread
+	  * continuous missed beacons.*/
+	 __le32 cont_missbcns_spread_1; /* single beacon */
+	 __le32 cont_missbcns_spread_2;
+	 __le32 cont_missbcns_spread_3;
+	 __le32 cont_missbcns_spread_4;
+	 __le32 cont_missbcns_spread_5;
+	 __le32 cont_missbcns_spread_6;
+	 __le32 cont_missbcns_spread_7;
+	 __le32 cont_missbcns_spread_8;
+	 __le32 cont_missbcns_spread_9;
+	 __le32 cont_missbcns_spread_10_plus; /* 10+ beacons */
 
-	/* the amount of wake on host-access times */
-	__le32 wake_on_host;
-
-	/* the amount of wake on timer-expire */
-	__le32 wake_on_timer_exp;
-
-	/* the number of packets that were transmitted with PS bit set */
-	__le32 tx_with_ps;
-
-	/* the number of packets that were transmitted with PS bit clear */
-	__le32 tx_without_ps;
-
-	/* the number of received beacons */
-	__le32 rcvd_beacons;
-
-	/* the number of entering into PowerOn (power save off) */
-	__le32 power_save_off;
-
-	/* the number of entries into power save mode */
-	__le16 enable_ps;
-
-	/*
-	 * the number of exits from power save, not including failed PS
-	 * transitions
-	 */
-	__le16 disable_ps;
-
-	/*
-	 * the number of times the TSF counter was adjusted because
-	 * of drift
-	 */
-	__le32 fix_tsf_ps;
-
-	/* Gives statistics about the spread continuous missed beacons.
-	 * The 16 LSB are dedicated for the PS mode.
-	 * The 16 MSB are dedicated for the PS mode.
-	 * cont_miss_bcns_spread[0] - single missed beacon.
-	 * cont_miss_bcns_spread[1] - two continuous missed beacons.
-	 * cont_miss_bcns_spread[2] - three continuous missed beacons.
-	 * ...
-	 * cont_miss_bcns_spread[9] - ten and more continuous missed beacons.
-	*/
-	__le32 cont_miss_bcns_spread[ACX_MISSED_BEACONS_SPREAD];
-
-	/* the number of beacons in awake mode */
-	__le32 rcvd_awake_beacons;
+	 /* Count the number of beacons in awake mode.*/
+	 __le32 rcvd_awake_beacons_cnt;
 } __packed;
 
 struct acx_mic_statistics {
@@ -633,24 +589,10 @@ struct acx_mic_statistics {
 	__le32 calc_failure;
 } __packed;
 
-struct acx_aes_statistics {
-	__le32 encrypt_fail;
-	__le32 decrypt_fail;
-	__le32 encrypt_packets;
-	__le32 decrypt_packets;
-	__le32 encrypt_interrupt;
-	__le32 decrypt_interrupt;
-} __packed;
-
 struct acx_event_statistics {
-	__le32 heart_beat;
 	__le32 calibration;
 	__le32 rx_mismatch;
 	__le32 rx_mem_empty;
-	__le32 rx_pool;
-	__le32 oom_late;
-	__le32 phy_transmit_error;
-	__le32 tx_stuck;
 } __packed;
 
 struct acx_ps_statistics {
@@ -673,48 +615,141 @@ struct acx_rxpipe_statistics {
 
 struct acx_rx_rates_statistics
 {
-    __le32 rx_frames_per_rates[20]; /* max number of rates */
+    __le32 rx_frames_per_rates[50]; /* max number of rates */
 } __packed;
 
 struct acx_aggregation_size_statistics
 {
-    __le32 aggregation_size[8];     /* max aggregation size */
+	__le32 size_1;
+	__le32 size_2;
+	__le32 size_3;
+	__le32 size_4;
+	__le32 size_5;
+	__le32 size_6;
+	__le32 size_7;
+	__le32 size_8;
 } __packed;
 
 struct acx_new_pipeline_statistics
 {
-    __le32 hs_tx_stat_fifo_int;
-    __le32 hs_rx_stat_fifo_int;
-    __le32 tcp_tx_stat_fifo_int;
-    __le32 tcp_rx_stat_fifo_int;
-    __le32 enc_tx_stat_fifo_int;
-    __le32 enc_rx_stat_fifo_int;
-    __le32 pre_proc_swi;
-    __le32 post_proc_swi;
-    __le32 sec_frag_swi;
-    __le32 pre_to_defrag_swi;
-    __le32 defrag_to_csum_swi;
-    __le32 csum_to_rx_xfer_swi;
+   __le32 hs_tx_stat_fifo_int;
+   __le32 hs_rx_stat_fifo_int;
+   __le32 tcp_tx_stat_fifo_int;
+   __le32 tcp_rx_stat_fifo_int;
+   __le32 enc_tx_stat_fifo_int;
+   __le32 enc_rx_stat_fifo_int;
+   __le32 rx_complete_stat_fifo_Int;
+   __le32 pre_proc_swi;
+   __le32 post_proc_swi;
+   __le32 sec_frag_swi;
+   __le32 pre_to_defrag_swi;
+   __le32 defrag_to_csum_swi;
+   __le32 csum_to_rx_xfer_swi;
+   __le32 dec_Packet_in;
+   __le32 dec_packet_in_fifo_Full;
+   __le32 dec_packet_out;
+   __le32 cs_rx_packet_in;
+   __le32 cs_rx_packet_out;
+
 } __packed;
+
+/* added by lior */
+
+struct acx_ring_statistics
+{
+	__le32  tx_procs;
+	__le32  prepared_descs;
+	__le32  tx_xfr;
+	__le32  tx_dma;
+	__le32  tx_cmplt;
+	__le32  rx_procs;
+	__le32  rx_data;
+}__packed;
+
+
+struct acx_dbg_statistics
+{
+    __le32  debug1;
+    __le32  debug2;
+    __le32  debug3;
+    __le32  debug4;
+    __le32  debug5;
+    __le32  debug6;
+} __packed;
+
+
+struct acx_ps_poll_upsd_statistics
+{
+	__le32  ps_poll_timeouts;
+	__le32  upsd_timeouts;
+	__le32  upsd_max_ap_turn;
+	__le32  ps_poll_max_ap_turn;
+	__le32  ps_poll_utilization;
+	__le32  upsd_utilization;
+} __packed;
+
+
+struct acx_rx_filter_statistics
+{
+	__le32 beacon_filter;
+	__le32 arp_filter;
+	__le32 mc_filter;
+	__le32 dup_filter;
+	__le32 data_filter;
+	__le32 ibss_filter;
+} __packed;
+
+
+struct acx_calibration_fail_statistics
+{
+    __le32 init_cal_total;
+    __le32 init_radio_bands_fail;
+    __le32 init_set_params;
+    __le32 init_tx_clpc_fail;
+    __le32 init_rx_iq_mm_fail;
+    __le32 tune_cal_total;
+    __le32 tune_drpw_rtrim_fail;
+    __le32 tune_drpw_pd_buf_fail;
+    __le32 tune_drpw_tx_mix_freq_fail;
+    __le32 tune_drpw_ta_cal;
+    __le32 tune_drpw_rxIf2Gain;
+    __le32 tune_drpw_rx_dac;
+    __le32 tune_drpw_chan_tune;
+    __le32 tune_drpw_rx_tx_lpf;
+    __le32 tune_drpw_lna_tank;
+    __le32 tune_tx_lo_leak_fail;
+    __le32 tune_tx_iq_mm_fail;
+    __le32 tune_tx_pdet_fail;
+    __le32 tune_tx_ppa_fail;
+    __le32 tune_tx_clpc_fail;
+    __le32 tune_rx_ana_dc_fail;
+#ifdef TNETW1283
+    __le32 tune_rx_dig_dc_fail;
+#endif
+    __le32 tune_rx_iq_mm_fail;
+    __le32 cal_state_fail;
+} __packed;
+
 
 struct acx_statistics {
 	struct acx_header header;
 
+	struct acx_ring_statistics ring;
+	struct acx_dbg_statistics dbg;
 	struct acx_tx_statistics tx;
 	struct acx_rx_statistics rx;
 	struct acx_dma_statistics dma;
 	struct acx_isr_statistics isr;
-	struct acx_wep_statistics wep;
 	struct acx_pwr_statistics pwr;
-	struct acx_aes_statistics aes;
-	struct acx_mic_statistics mic;
 	struct acx_event_statistics event;
-	struct acx_ps_statistics ps;
-	struct acx_rxpipe_statistics rxpipe;
-    struct acx_rx_rates_statistics rx_rates;
-    struct acx_aggregation_size_statistics agg_size;
-    struct acx_new_pipeline_statistics new_pipeLine;
+	struct acx_ps_poll_upsd_statistics ps_poll_upsd;
+	struct acx_rx_filter_statistics rx_filter;
+	struct acx_calibration_fail_statistics calibration_fail;
+	struct acx_rx_rates_statistics rx_rates;
+	struct acx_aggregation_size_statistics agg;
+    struct acx_new_pipeline_statistics new_pipe_line;
 } __packed;
+
 
 struct acx_rate_class {
 	__le32 enabled_rates;
