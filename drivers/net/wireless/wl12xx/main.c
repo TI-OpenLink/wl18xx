@@ -3597,19 +3597,6 @@ sta_not_found:
 	}
 
 	if (do_join) {
-		/*
-		 * stop device role if started (we might already be in
-		 * STA role). TODO: make it better.
-		 */
-		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
-			ret = wl1271_croc(wl, wl->dev_role_id);
-			if (ret < 0)
-				goto out;
-
-			ret = wl1271_cmd_role_stop_dev(wl);
-			if (ret < 0)
-				goto out;
-		}
 		ret = wl1271_join(wl, set_assoc);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);
@@ -3623,6 +3610,19 @@ sta_not_found:
 				goto out;
 
 			wl1271_check_operstate(wl, ieee80211_get_operstate(vif));
+		}
+		/*
+		 * stop device role if started (we might already be in
+		 * STA role). TODO: make it better.
+		 */
+		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
+			ret = wl1271_croc(wl, wl->dev_role_id);
+			if (ret < 0)
+				goto out;
+
+			ret = wl1271_cmd_role_stop_dev(wl);
+			if (ret < 0)
+				goto out;
 		}
 	}
 
