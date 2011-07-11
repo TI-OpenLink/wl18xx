@@ -458,6 +458,10 @@ struct acx_ctsprotect {
 
 struct acx_tx_statistics {
 	__le32 internal_desc_overflow;
+
+	/* ToDo - Add support for tcp_checksum 18xx */
+	__le32 checksum_requested;
+	__le32 checksum_executed;
 }  __packed;
 
 struct acx_rx_statistics {
@@ -469,6 +473,11 @@ struct acx_rx_statistics {
 	__le32 xfr_hint_trig;
 	__le32 path_reset;
 	__le32 reset_counter;
+
+	/* ToDo - Add support for tcp_checksum 18xx */
+	__le32 checksum_requested;
+	__le32 checksum_executed;
+
 } __packed;
 
 struct acx_dma_statistics {
@@ -1248,6 +1257,22 @@ struct wl1271_acx_config_hangover {
 	u8 padding[2];
 }__packed;
 
+
+enum acx_checksum_state {
+	CHECKSUM_OFFLOAD_DISABLED = 0,
+	CHECKSUM_OFFLOAD_ENABLED  = 1,
+	CHECKSUM_OFFLOAD_FAKE_RX  = 2,
+	CHECKSUM_OFFLOAD_INVALID  = 0xFF
+};
+
+struct wl1271_acx_checksum_state {
+	struct acx_header header;
+
+	 /* enum acx_checksum_state */
+	u8 checksum_state;
+	u8 pad[3];
+} __packed;
+
 enum {
 	ACX_WAKE_UP_CONDITIONS      = 0x0002,
 	ACX_MEM_CFG                 = 0x0003,
@@ -1319,6 +1344,9 @@ enum {
 	ACX_PM_CONFIG               = 0x1016,
 	ACX_CONFIG_PS               = 0x1017,
 	ACX_CONFIG_HANGOVER         = 0x1018,
+
+	ACX_CHECKSUM_CONFIG         = 0x1020,
+
 };
 
 
@@ -1388,5 +1416,7 @@ int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
 int wl1271_acx_fm_coex(struct wl1271 *wl);
 int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl);
 int wl1271_acx_config_hangover(struct wl1271 *wl);
+int wl1271_acx_set_checksum_state(struct wl1271 *wl);
+
 
 #endif /* __WL1271_ACX_H__ */
