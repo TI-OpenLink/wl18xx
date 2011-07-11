@@ -2099,6 +2099,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
+	memset(wl->roc_map, 0, sizeof(wl->roc_map));
 	wl->active_sta_count = 0;
 
 	/* The system link is always allocated */
