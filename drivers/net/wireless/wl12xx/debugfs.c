@@ -981,6 +981,58 @@ static const struct file_operations fwlog_enable_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t tx_frag_thld_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.tx.frag_threshold);
+}
+
+static ssize_t tx_frag_thld_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for frag_threshold");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.tx.frag_threshold = value;
+
+	mutex_unlock(&wl->mutex);
+
+	/* Send fragmentation threshold to FW */
+	ret = wl1271_acx_frag_threshold(wl, wl->conf.tx.frag_threshold);
+	if (ret < 0)
+		wl1271_error("Failed to Send fragmentation threshold %d to FW", wl->conf.tx.frag_threshold);
+
+        return count;
+}
+
+static const struct file_operations tx_frag_thld_ops = {
+        .read = tx_frag_thld_read,
+        .write = tx_frag_thld_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
 static int wl1271_debugfs_add_files(struct wl1271 *wl,
 				     struct dentry *rootdir)
 {
@@ -1216,6 +1268,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(beacon_interval, rootdir);
 	DEBUGFS_ADD(fwlog_enable, rootdir);
 	DEBUGFS_ADD(beacon_filtering, rootdir);
+	DEBUGFS_ADD(tx_frag_thld, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
