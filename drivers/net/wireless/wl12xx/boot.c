@@ -483,7 +483,8 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 		PERIODIC_SCAN_REPORT_EVENT_ID |
 		PERIODIC_SCAN_COMPLETE_EVENT_ID |
 		DUMMY_PACKET_EVENT_ID |
-		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID;
+		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
+		BA_SESSION_RX_CONSTRAINT_EVENT_ID;
 
 	/* TODO: mode can change dynamically. make it more sane */
 	wl->event_mask |= PEER_REMOVE_COMPLETE_EVENT_ID;
@@ -492,8 +493,6 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	if (wl->bss_type == BSS_TYPE_AP_BSS)
 		wl->event_mask |= MAX_TX_RETRY_EVENT_ID |
 				  INACTIVE_STA_EVENT_ID;
-	else
-		wl->event_mask |= BA_SESSION_RX_CONSTRAINT_EVENT_ID;
 
 	ret = wl1271_event_unmask(wl);
 	if (ret < 0) {

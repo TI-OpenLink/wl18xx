@@ -119,7 +119,7 @@ struct event_mailbox {
 
 	/* role id for which this constraint is set. 0xFF means any role. */
 	u8 role_id;
-	bool rx_ba_allowed;
+	u8 rx_ba_allowed;
 	u8 reserved_6[2];
 
 	u8 ps_poll_delivery_failure_role_ids;
