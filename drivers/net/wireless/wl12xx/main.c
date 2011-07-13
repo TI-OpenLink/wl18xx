@@ -1680,9 +1680,9 @@ static int wl1271_configure_suspend_ap(struct wl1271 *wl)
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out_unlock;
-#if 0
-	ret = wl1271_acx_set_ap_beacon_filter(wl, true);
-#endif
+
+	ret = wl1271_acx_beacon_filter_opt(wl, true);
+
 	wl1271_ps_elp_sleep(wl);
 out_unlock:
 	mutex_unlock(&wl->mutex);
@@ -1719,9 +1719,7 @@ static void wl1271_configure_resume(struct wl1271 *wl)
 			wl1271_ps_set_mode(wl, STATION_ACTIVE_MODE,
 					   wl->basic_rate, true);
 	} else if (is_ap) {
-#if 0
-		wl1271_acx_set_ap_beacon_filter(wl, false);
-#endif
+		wl1271_acx_beacon_filter_opt(wl, false);
 	}
 
 	wl1271_ps_elp_sleep(wl);
@@ -2099,6 +2097,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->dev_role_id = WL1271_INVALID_ROLE_ID;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
+	memset(wl->roc_map, 0, sizeof(wl->roc_map));
 	wl->active_sta_count = 0;
 
 	/* The system link is always allocated */
@@ -3596,19 +3595,6 @@ sta_not_found:
 	}
 
 	if (do_join) {
-		/*
-		 * stop device role if started (we might already be in
-		 * STA role). TODO: make it better.
-		 */
-		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
-			ret = wl1271_croc(wl, wl->dev_role_id);
-			if (ret < 0)
-				goto out;
-
-			ret = wl1271_cmd_role_stop_dev(wl);
-			if (ret < 0)
-				goto out;
-		}
 		ret = wl1271_join(wl, set_assoc);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);
@@ -3622,6 +3608,19 @@ sta_not_found:
 				goto out;
 
 			wl1271_check_operstate(wl, ieee80211_get_operstate(vif));
+		}
+		/*
+		 * stop device role if started (we might already be in
+		 * STA role). TODO: make it better.
+		 */
+		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
+			ret = wl1271_croc(wl, wl->dev_role_id);
+			if (ret < 0)
+				goto out;
+
+			ret = wl1271_cmd_role_stop_dev(wl);
+			if (ret < 0)
+				goto out;
 		}
 	}
 

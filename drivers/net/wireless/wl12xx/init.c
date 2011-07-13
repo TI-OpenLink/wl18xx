@@ -470,6 +470,14 @@ int wl1271_ap_init_templates(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * when operating as AP we want to receive external beacons for
+	 * configuring ERP protection.
+	 */
+	ret = wl1271_acx_beacon_filter_opt(wl, false);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 

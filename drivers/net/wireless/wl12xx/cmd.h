@@ -620,6 +620,13 @@ struct wl1271_cmd_roc {
 	u8 padding;
 };
 
+struct wl1271_cmd_croc {
+	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 padding[3];
+};
+
 enum wl1271_ssid_type {
 	WL1271_SSID_TYPE_PUBLIC = 0,
 	WL1271_SSID_TYPE_HIDDEN = 1,

@@ -439,6 +439,7 @@ struct wl1271 {
 
 	unsigned long links_map[BITS_TO_LONGS(WL1271_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WL1271_MAX_ROLES)];
+	unsigned long roc_map[BITS_TO_LONGS(WL1271_MAX_ROLES)];
 
 	struct wl1271_acx_mem_map *target_mem_map;
 

@@ -231,7 +231,6 @@ struct acx_beacon_filter_option {
 
 	u8 role_id;
 	u8 enable;
-
 	/*
 	 * The number of beacons without the unicast TIM
 	 * bit set that the firmware buffers before

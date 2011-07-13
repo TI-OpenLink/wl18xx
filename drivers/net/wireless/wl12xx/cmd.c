@@ -1572,7 +1572,7 @@ static int wl1271_cmd_roc(struct wl1271 *wl, u8 role_id)
 	struct wl1271_cmd_roc *cmd;
 	int ret = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wl->channel, wl->band);
+	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wl->channel, role_id);
 
 	if (WARN_ON(role_id == WL1271_INVALID_ROLE_ID))
 		return -EINVAL;
@@ -1614,16 +1614,17 @@ out:
 
 static int wl1271_cmd_croc(struct wl1271 *wl, u8 role_id)
 {
-	struct wl1271_cmd_header *cmd;
+	struct wl1271_cmd_croc*cmd;
 	int ret = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd croc");
+	wl1271_debug(DEBUG_CMD, "cmd croc (%d)", role_id);
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
 		ret = -ENOMEM;
 		goto out;
 	}
+	cmd->role_id = role_id;
 
 	ret = wl1271_cmd_send(wl, CMD_CANCEL_REMAIN_ON_CHANNEL, cmd,
 			      sizeof(*cmd), 0);
@@ -1643,7 +1644,7 @@ int wl1271_roc(struct wl1271 *wl, u8 role_id)
 {
 	int ret = 0;
 
-	if (WARN_ON(test_bit(WL1271_FLAG_ROC, &wl->flags)))
+	if (WARN_ON(test_bit(role_id, wl->roc_map)))
 		return 0;
 
 	ret = wl1271_cmd_roc(wl, role_id);
@@ -1657,6 +1658,7 @@ int wl1271_roc(struct wl1271 *wl, u8 role_id)
 		goto out;
 	}
 
+	__set_bit(role_id, wl->roc_map);
 	set_bit(WL1271_FLAG_ROC, &wl->flags);
 
 out:
@@ -1666,15 +1668,22 @@ out:
 int wl1271_croc(struct wl1271 *wl, u8 role_id)
 {
 	int ret = 0;
+	u8 roc_role;
 
 	if (WARN_ON(!test_bit(WL1271_FLAG_ROC, &wl->flags)))
+		return 0;
+
+	if (WARN_ON(!test_bit(role_id, wl->roc_map)))
 		return 0;
 
 	ret = wl1271_cmd_croc(wl, role_id);
 	if (ret < 0)
 		goto out;
 
-	clear_bit(WL1271_FLAG_ROC, &wl->flags);
+	__clear_bit(role_id, wl->roc_map);
+	roc_role = find_first_bit(wl->roc_map, WL1271_MAX_ROLES);
+	if (roc_role >= WL1271_MAX_ROLES)
+		clear_bit(WL1271_FLAG_ROC, &wl->flags);
 
 out:
 	return ret;
