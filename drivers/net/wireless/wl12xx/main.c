@@ -2229,7 +2229,7 @@ out:
 		list_add(&wl->list, &wl_list);
 	mutex_unlock(&wl_list_mutex);
 
-	wl1271_info("Orit WL18xx - mac80211 add interface type %d mac %pM done !!!",
+	wl1271_info("Orit WL18xx - ***lior 40M support***  mac80211 add interface type %d mac %pM done !!!",
 			ieee80211_vif_type_p2p(vif), vif->addr);
 
 	return ret;
@@ -2592,6 +2592,7 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 		if ((changed & IEEE80211_CONF_CHANGE_CHANNEL)) {
 			wl->band = conf->channel->band;
 			wl->channel = channel;
+			wl->channel_type = conf->channel_type;
 		}
 
 		if ((changed & IEEE80211_CONF_CHANGE_POWER))
@@ -2609,11 +2610,12 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 	/* if the channel changes while joined, join again */
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL &&
 	    ((wl->band != conf->channel->band) ||
-	     (wl->channel != channel))) {
+	     (wl->channel != channel) || (wl->channel_type != conf->channel_type))) {
 		/* send all pending packets */
 		wl1271_tx_work_locked(wl);
 		wl->band = conf->channel->band;
 		wl->channel = channel;
+		wl->channel_type = conf->channel_type;
 
 		if (!is_ap) {
 			/*
@@ -4697,6 +4699,7 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 
 #define WL12XX_HT_CAP { \
 	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
+	       IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40, \
 	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
 	.ht_supported = true, \
 	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K, \

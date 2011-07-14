@@ -587,7 +587,12 @@ int wl1271_cmd_role_start_sta(struct wl1271 *wl)
 	cmd->role_id = wl->role_id;
 	if (wl->band == IEEE80211_BAND_5GHZ)
 		cmd->band |= WL1271_BAND_5GHZ;
+
 	cmd->channel = wl->channel;
+
+	/* LiorC: added below for 40MHz support */
+	cmd->channel_type = (u8)wl->channel_type;
+
 	cmd->sta.basic_rate_set = cpu_to_le32(wl->basic_rate_set);
 	cmd->sta.beacon_interval = cpu_to_le16(wl->beacon_int);
 	cmd->sta.ssid_type = WL1271_SSID_TYPE_ANY;

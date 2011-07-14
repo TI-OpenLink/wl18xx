@@ -481,6 +481,10 @@ struct wl1271 {
 	u8 ssid[IW_ESSID_MAX_SIZE + 1];
 	u8 ssid_len;
 	int channel;
+
+	/* LiorC: TODO: change to enum */
+	enum nl80211_channel_type channel_type;
+
 	u8 role_id;
 	u8 dev_role_id;
 	u8 system_hlid;

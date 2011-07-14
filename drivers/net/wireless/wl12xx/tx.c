@@ -395,13 +395,20 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		/* if the packets are destined for AP (have a STA entry)
 		   send them with AP rate policies, otherwise use default
 		   basic rates */
-		if (control->control.sta)
-			rate_idx = ACX_TX_AP_FULL_RATE;
+#ifdef CONFIG_WL12XX_HT
+		if (wl->channel_type == NL80211_CHAN_HT40MINUS || wl->channel_type == NL80211_CHAN_HT40PLUS)
+			rate_idx = ACX_TX_40_MHZ_RATE;
 		else
-			if (is_p2p || wl->p2p)
-				rate_idx = ACX_TX_BASIC_RATE_P2P;
+#endif
+		{
+			if (control->control.sta)
+				rate_idx = ACX_TX_AP_FULL_RATE;
 			else
-				rate_idx = ACX_TX_BASIC_RATE;
+				if (is_p2p || wl->p2p)
+					rate_idx = ACX_TX_BASIC_RATE_P2P;
+				else
+					rate_idx = ACX_TX_BASIC_RATE;
+		}
 	} else {
 		if (hlid == wl->ap_global_hlid)
 			rate_idx = ACX_TX_AP_MODE_MGMT_RATE;
