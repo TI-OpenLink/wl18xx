@@ -2930,6 +2930,9 @@ void ieee80211_enable_dyn_ps(struct ieee80211_vif *vif);
  * monitoring is configured with an rssi threshold, the driver will inform
  * whenever the rssi level reaches the threshold.
  */
+
+void ieee80211_set_dyn_ps_timeout(struct ieee80211_vif *vif, int timeout);
+
 void ieee80211_cqm_rssi_notify(struct ieee80211_vif *vif,
 			       enum nl80211_cqm_rssi_threshold_event rssi_event,
 			       gfp_t gfp);
