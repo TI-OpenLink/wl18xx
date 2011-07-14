@@ -245,6 +245,14 @@ static int wl1271_event_process(struct wl1271 *wl, struct event_mailbox *mbox)
 		wl12xx_event_soft_gemini_sense(wl,
 					       mbox->soft_gemini_sense_info);
 
+	if (vector & CHANGE_AUTO_MODE_TIMEOUT_EVENT_ID &&
+	    wl->bss_type == BSS_TYPE_STA_BSS) {
+		int timeout = 0;
+		if (mbox->change_auto_mode_timeout)
+			timeout = 500;
+		ieee80211_set_dyn_ps_timeout(wl->vif, timeout);
+	}
+	
 	/*
 	 * The BSS_LOSE_EVENT_ID is only needed while psm (and hence beacon
 	 * filtering) is enabled. Without PSM, the stack will receive all
