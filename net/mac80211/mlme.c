@@ -560,6 +560,26 @@ void ieee80211_disable_dyn_ps(struct ieee80211_vif *vif)
 }
 EXPORT_SYMBOL(ieee80211_disable_dyn_ps);
 
+void ieee80211_set_dyn_ps_timeout(struct ieee80211_vif *vif, int timeout)
+{
+	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+	struct ieee80211_local *local = sdata->local;
+
+	WARN_ON(sdata->vif.type != NL80211_IFTYPE_STATION ||
+		!(local->hw.flags & IEEE80211_HW_SUPPORTS_PS) ||
+		(local->hw.flags & IEEE80211_HW_SUPPORTS_DYNAMIC_PS));
+
+	if (WARN_ON(timeout < 0))
+		return;
+
+	if (!timeout)
+		timeout = 100;
+
+	local->dynamic_ps_user_timeout = timeout;
+	local->hw.conf.dynamic_ps_timeout = timeout;
+}
+EXPORT_SYMBOL(ieee80211_set_dyn_ps_timeout);
+
 /* powersave */
 static void ieee80211_enable_ps(struct ieee80211_local *local,
 				struct ieee80211_sub_if_data *sdata)
@@ -912,6 +932,7 @@ static void ieee80211_sta_wmm_params(struct ieee80211_local *local,
 			    params.aifs, params.cw_min, params.cw_max,
 			    params.txop, params.uapsd);
 #endif
+		local->tx_conf[queue] = params;
 		if (drv_conf_tx(local, queue, &params))
 			wiphy_debug(local->hw.wiphy,
 				    "failed to set TX queue parameters for queue %d\n",

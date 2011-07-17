@@ -3492,19 +3492,6 @@ sta_not_found:
 			ret = wl1271_acx_conn_monit_params(wl, true);
 			if (ret < 0)
 				goto out;
-
-			/* If we want to go in PSM but we're not there yet */
-			if (test_bit(WL1271_FLAG_PSM_REQUESTED, &wl->flags) &&
-			    !test_bit(WL1271_FLAG_PSM, &wl->flags)) {
-				enum wl1271_cmd_ps_mode mode;
-
-				mode = STATION_POWER_SAVE_MODE;
-				ret = wl1271_ps_set_mode(wl, mode,
-							 wl->basic_rate,
-							 true);
-				if (ret < 0)
-					goto out;
-			}
 		} else {
 			/* use defaults when not associated */
 			bool was_assoc =
@@ -3543,16 +3530,23 @@ sta_not_found:
 				/*
 				 * we might have to disable roc, if there was
 				 * no IF_OPER_UP notification.
-				 * (we also need to disable roc in case of
-				 * roaming on the same channel. until we will
-				 * have a better flow...)
 				 */
-				if (!was_ifup ||
-				    test_bit(WL1271_FLAG_ROC, &wl->flags)) {
+				if (!was_ifup) {
 					ret = wl1271_croc(wl, wl->role_id);
 					if (ret < 0)
 						goto out;
 				}
+				/*
+				 * (we also need to disable roc in case of
+				 * roaming on the same channel. until we will
+				 * have a better flow...)
+				 */
+				if (test_bit(wl->dev_role_id, wl->roc_map)) {
+					ret = wl1271_croc(wl, wl->dev_role_id);
+					if (ret < 0)
+						goto out;
+				}
+
 				wl1271_unjoin(wl);
 				if (!(conf_flags & IEEE80211_CONF_IDLE)) {
 					wl1271_cmd_role_start_dev(wl);
@@ -3619,6 +3613,19 @@ sta_not_found:
 				goto out;
 
 			ret = wl1271_cmd_role_stop_dev(wl);
+			if (ret < 0)
+				goto out;
+		}
+
+		/* If we want to go in PSM but we're not there yet */
+		if (test_bit(WL1271_FLAG_PSM_REQUESTED, &wl->flags) &&
+		    !test_bit(WL1271_FLAG_PSM, &wl->flags)) {
+			enum wl1271_cmd_ps_mode mode;
+
+			mode = STATION_POWER_SAVE_MODE;
+			ret = wl1271_ps_set_mode(wl, mode,
+						 wl->basic_rate,
+						 true);
 			if (ret < 0)
 				goto out;
 		}
