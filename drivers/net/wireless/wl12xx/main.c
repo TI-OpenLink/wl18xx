@@ -3089,6 +3089,23 @@ static void wl1271_remove_ie(struct sk_buff *skb, u8 eid, int ieoffset)
 	skb_trim(skb, skb->len - len);
 }
 
+static void wl1271_remove_vendor_ie(struct sk_buff *skb,
+					    unsigned int oui, u8 oui_type,
+					    int ieoffset)
+{
+	int len;
+	const u8 *next, *end = skb->data + skb->len;
+	u8 *ie = (u8 *)cfg80211_find_vendor_ie(oui, oui_type,
+					       skb->data + ieoffset,
+					       skb->len - ieoffset);
+	if (!ie)
+		return;
+	len = ie[1] + 2;
+	next = ie + len;
+	memmove(ie, next, end - next);
+	skb_trim(skb, skb->len - len);
+}
+
 static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl,
 					 u8 *probe_rsp_data,
 					 size_t probe_rsp_len,
@@ -3229,6 +3246,16 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 
 		/* remove TIM ie from probe response */
 		wl1271_remove_ie(beacon, WLAN_EID_TIM, ieoffset);
+
+		/*
+		 * remove p2p ie from probe response.
+		 * the fw reponds to probe requests that don't include the p2p ie.
+		 * probe requests with p2p ie will be passed, and get responded
+		 * by the supplicant (the spec forbids including the p2p ie when
+		 * responding to probe requests that didn't include it).
+		 */
+		wl1271_remove_vendor_ie(beacon, WLAN_OUI_WFA,
+					WLAN_OUI_TYPE_WFA_P2P, ieoffset);
 
 		hdr = (struct ieee80211_hdr *) beacon->data;
 		hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
