@@ -390,9 +390,10 @@ int wl1271_cmd_role_enable(struct wl1271 *wl, u8 role_type, u8 *role_id)
 
 	memcpy(cmd->mac_address, wl->mac_addr, ETH_ALEN);
 	cmd->role_type = role_type;
-
+#if 0
 	wl1271_dump(DEBUG_CMD, "CMD_ROLE_ENABLE: ",
 		&cmd->header + 1, sizeof(*cmd) - sizeof(cmd->header));
+#endif
 
 	ret = wl1271_cmd_send(wl, CMD_ROLE_ENABLE, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
