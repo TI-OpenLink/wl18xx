@@ -192,7 +192,20 @@ static void wl1271_stop_ba_event(struct wl1271 *wl)
 	if (!wl->ba_rx_bitmap)
 		return;
 
-	ieee80211_stop_rx_ba_session(wl->vif, wl->ba_rx_bitmap, wl->bssid);
+	if (wl->bss_type != BSS_TYPE_AP_BSS) {
+		ieee80211_stop_rx_ba_session(wl->vif, wl->ba_rx_bitmap,
+					     wl->bssid);
+	} else {
+		int i;
+		struct wl1271_link *lnk;
+		for (i = WL1271_AP_STA_HLID_START; i < WL1271_MAX_LINKS; i++) {
+			lnk = &wl->links[i];
+			if (wl1271_is_active_sta(wl, i) && lnk->ba_bitmap)
+				ieee80211_stop_rx_ba_session(wl->vif,
+							     lnk->ba_bitmap,
+							     lnk->addr);
+		}
+	}
 }
 
 static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
