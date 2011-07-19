@@ -2236,8 +2236,7 @@ out:
 		list_add(&wl->list, &wl_list);
 	mutex_unlock(&wl_list_mutex);
 
-	wl1271_info("Orit WL18xx - ***lior 40M support***  mac80211 add interface type %d mac %pM done !!!",
-			ieee80211_vif_type_p2p(vif), vif->addr);
+	wl1271_info("mac address is %pM .", vif->addr);
 
 	return ret;
 }

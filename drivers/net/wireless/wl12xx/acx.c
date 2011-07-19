@@ -1725,8 +1725,11 @@ int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl)
 	memcpy(acx->rate_retry_policy, conf->rate_retry_policy,
 	       sizeof(acx->rate_retry_policy));
 
+
+#if 0
 	wl1271_dump(DEBUG_CMD, "RATE_MGMT: ",
 		&acx->header + 1, sizeof(*acx) - sizeof(acx->header));
+#endif
 
 	ret = wl1271_cmd_configure(wl, ACX_SET_RATE_MAMAGEMENT_PARAMS,
 				   acx, sizeof(*acx));

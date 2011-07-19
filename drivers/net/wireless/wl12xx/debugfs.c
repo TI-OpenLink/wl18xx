@@ -1032,6 +1032,440 @@ static const struct file_operations tx_frag_thld_ops = {
         .llseek = default_llseek,
 };
 
+/*
+ * Added by Lior
+ *
+ */
+/* *************************************************************
+ * *************************************************************
+ */
+
+static ssize_t tx_compl_timeout_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.tx.tx_compl_timeout);
+}
+
+static ssize_t tx_compl_timeout_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for tx_compl_timeout");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.tx.tx_compl_timeout = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations tx_compl_timeout_ops = {
+        .read = tx_compl_timeout_read,
+        .write = tx_compl_timeout_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+static ssize_t tx_compl_threshold_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.tx.tx_compl_threshold);
+}
+
+static ssize_t tx_compl_threshold_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for tx_compl_threshold");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.tx.tx_compl_threshold = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations tx_compl_threshold_ops = {
+        .read = tx_compl_threshold_read,
+        .write = tx_compl_threshold_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+
+static ssize_t irq_blk_threshold_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.rx.irq_blk_threshold);
+}
+
+static ssize_t irq_blk_threshold_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for irq_blk_threshold");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.rx.irq_blk_threshold = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations irq_blk_threshold_ops = {
+        .read = irq_blk_threshold_read,
+        .write = irq_blk_threshold_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+static ssize_t irq_pkt_threshold_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.rx.irq_pkt_threshold);
+}
+
+static ssize_t irq_pkt_threshold_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for irq_pkt_threshold");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.rx.irq_pkt_threshold = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations irq_pkt_threshold_ops = {
+        .read = irq_pkt_threshold_read,
+        .write = irq_pkt_threshold_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+
+static ssize_t irq_timeout_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.rx.irq_timeout);
+}
+
+static ssize_t irq_timeout_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for irq_timeout");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.rx.irq_timeout = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations irq_timeout_ops = {
+        .read = irq_timeout_read,
+        .write = irq_timeout_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+static ssize_t dynamic_memory_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.mem_wl18xx.dynamic_memory);
+}
+
+static ssize_t dynamic_memory_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for dynamic_memory");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.mem_wl18xx.dynamic_memory = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations dynamic_memory_ops = {
+        .read = dynamic_memory_read,
+        .write = dynamic_memory_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+static ssize_t min_req_rx_blocks_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.mem_wl18xx.min_req_rx_blocks);
+}
+
+static ssize_t min_req_rx_blocks_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for min_req_rx_blocks");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.mem_wl18xx.min_req_rx_blocks = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations min_req_rx_blocks_ops = {
+        .read = min_req_rx_blocks_read,
+        .write = min_req_rx_blocks_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+static ssize_t hw_checksum_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.hw_checksum.state);
+}
+
+static ssize_t hw_checksum_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for hw_checksum");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.hw_checksum.state = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations hw_checksum_ops = {
+        .read = hw_checksum_read,
+        .write = hw_checksum_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+static ssize_t tx_ba_tid_bitmap_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.ht.tx_ba_tid_bitmap);
+}
+
+static ssize_t tx_ba_tid_bitmap_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for tx_ba_tid_bitmap");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.ht.tx_ba_tid_bitmap = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations tx_ba_tid_bitmap_ops = {
+        .read = tx_ba_tid_bitmap_read,
+        .write = tx_ba_tid_bitmap_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
+/**********************************************************
+***********************************************************/
 
 static int wl1271_debugfs_add_files(struct wl1271 *wl,
 				     struct dentry *rootdir)
@@ -1269,6 +1703,15 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(fwlog_enable, rootdir);
 	DEBUGFS_ADD(beacon_filtering, rootdir);
 	DEBUGFS_ADD(tx_frag_thld, rootdir);
+	DEBUGFS_ADD(tx_ba_tid_bitmap, rootdir);
+	DEBUGFS_ADD(hw_checksum, rootdir);
+	DEBUGFS_ADD(min_req_rx_blocks, rootdir);
+	DEBUGFS_ADD(dynamic_memory, rootdir);
+	DEBUGFS_ADD(irq_timeout, rootdir);
+	DEBUGFS_ADD(irq_pkt_threshold, rootdir);
+	DEBUGFS_ADD(irq_blk_threshold, rootdir);
+	DEBUGFS_ADD(tx_compl_threshold, rootdir);
+	DEBUGFS_ADD(tx_compl_timeout, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
