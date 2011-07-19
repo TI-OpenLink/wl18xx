@@ -385,6 +385,9 @@ struct wl1271_link {
 	u8 prev_freed_pkts;
 
 	u8 addr[ETH_ALEN];
+
+	/* bitmap of TIDs where RX BA sessions are active for this link */
+	u8 ba_bitmap;
 };
 
 struct wl1271 {

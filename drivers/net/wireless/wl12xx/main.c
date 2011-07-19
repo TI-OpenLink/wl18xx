@@ -3301,24 +3301,6 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 		}
 	}
 
-	if (changed & BSS_CHANGED_IBSS) {
-		wl1271_debug(DEBUG_ADHOC, "ibss_joined: %d",
-			     bss_conf->ibss_joined);
-
-		if (bss_conf->ibss_joined) {
-			u32 rates = bss_conf->basic_rates;
-			wl->basic_rate_set = wl1271_tx_enabled_rates_get(wl,
-									 rates);
-			wl->basic_rate = wl1271_tx_min_rate_get(wl);
-
-			/* by default, use 11b rates */
-			wl->rate_set = CONF_TX_IBSS_DEFAULT_RATES;
-			ret = wl1271_acx_sta_rate_policies(wl);
-			if (ret < 0)
-				goto out;
-		}
-	}
-
 	ret = wl1271_bss_erp_info_changed(wl, bss_conf, changed);
 	if (ret < 0)
 		goto out;
@@ -3553,6 +3535,24 @@ sta_not_found:
 					wl1271_roc(wl, wl->dev_role_id);
 				}
 			}
+		}
+	}
+
+	if (changed & BSS_CHANGED_IBSS) {
+		wl1271_debug(DEBUG_ADHOC, "ibss_joined: %d",
+			     bss_conf->ibss_joined);
+
+		if (bss_conf->ibss_joined) {
+			u32 rates = bss_conf->basic_rates;
+			wl->basic_rate_set = wl1271_tx_enabled_rates_get(wl,
+									 rates);
+			wl->basic_rate = wl1271_tx_min_rate_get(wl);
+
+			/* by default, use 11b rates */
+			wl->rate_set = CONF_TX_IBSS_DEFAULT_RATES;
+			ret = wl1271_acx_sta_rate_policies(wl);
+			if (ret < 0)
+				goto out;
 		}
 	}
 
@@ -3854,6 +3854,7 @@ static void wl1271_free_sta(struct wl1271 *wl, u8 hlid)
 
 	clear_bit(id, wl->ap_hlid_map);
 	memset(wl->links[hlid].addr, 0, ETH_ALEN);
+	wl->links[hlid].ba_bitmap = 0;
 	wl1271_tx_reset_link_queues(wl, hlid);
 	__clear_bit(hlid, &wl->ap_ps_map);
 	__clear_bit(hlid, (unsigned long *)&wl->ap_fw_ps_map);
@@ -4016,6 +4017,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		if (!ret) {
 			wl->ba_rx_bitmap |= BIT(tid);
 			wl->ba_rx_session_count++;
+
+			if (wl->bss_type == BSS_TYPE_AP_BSS)
+				wl->links[hlid].ba_bitmap |= BIT(tid);
 		}
 		break;
 
@@ -4032,6 +4036,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		if (!ret) {
 			wl->ba_rx_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;
+
+			if (wl->bss_type == BSS_TYPE_AP_BSS)
+				wl->links[hlid].ba_bitmap &= ~BIT(tid);
 		}
 		break;
 

@@ -120,6 +120,7 @@ void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
 	rcu_read_unlock();
 
 	ieee80211_queue_work(&sta->local->hw, &sta->ampdu_mlme.work);
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL(ieee80211_stop_rx_ba_session);
 
