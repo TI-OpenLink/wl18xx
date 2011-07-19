@@ -53,6 +53,9 @@
 #define WL1271_BOOT_RETRIES 1
 //#define WL1271_BOOT_RETRIES 3
 
+#define DRIVER_VERSION "WL18XX_A1.02_disable_5g_scan"
+
+
 static struct conf_drv_settings default_conf = {
 	.sg = {
 		.params = {
@@ -2090,6 +2093,10 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 add interface type %d mac %pM",
 		     ieee80211_vif_type_p2p(vif), vif->addr);
+
+
+	printk("\n ***** Driver Version --> %s *****\n", DRIVER_VERSION);
+
 
 	mutex_lock(&wl->mutex);
 	if (wl->vif) {
