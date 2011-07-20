@@ -3898,6 +3898,7 @@ static void wl1271_free_sta(struct wl1271 *wl, u8 hlid)
 
 	clear_bit(id, wl->ap_hlid_map);
 	memset(wl->links[hlid].addr, 0, ETH_ALEN);
+	wl->links[hlid].ba_bitmap = 0;
 	wl1271_tx_reset_link_queues(wl, hlid);
 	__clear_bit(hlid, &wl->ap_ps_map);
 	__clear_bit(hlid, (unsigned long *)&wl->ap_fw_ps_map);
@@ -4060,6 +4061,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		if (!ret) {
 			wl->ba_rx_bitmap |= BIT(tid);
 			wl->ba_rx_session_count++;
+
+			if (wl->bss_type == BSS_TYPE_AP_BSS)
+				wl->links[hlid].ba_bitmap |= BIT(tid);
 		}
 		break;
 
@@ -4076,6 +4080,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		if (!ret) {
 			wl->ba_rx_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;
+
+			if (wl->bss_type == BSS_TYPE_AP_BSS)
+				wl->links[hlid].ba_bitmap &= ~BIT(tid);
 		}
 		break;
 
