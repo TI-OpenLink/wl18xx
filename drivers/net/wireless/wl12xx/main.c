@@ -1062,18 +1062,24 @@ out:
 }
 EXPORT_SYMBOL_GPL(wl1271_irq);
 
-static int wl1271_fetch_firmware(struct wl1271 *wl, bool plt)
+static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 {
 	const struct firmware *fw;
 	const char *fw_name;
 	int ret;
 
 	if (plt) {
+		if (wl->fw_type == WL12XX_FW_TYPE_PLT)
+			return 0;
+
 		if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_PLT_FW_NAME;
 		else
 			fw_name	= WL1271_PLT_FW_NAME;
 	} else {
+		if (wl->fw_type == WL12XX_FW_TYPE_NORMAL)
+			return 0;
+
 		if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_FW_NAME;
 		else
@@ -1097,6 +1103,7 @@ static int wl1271_fetch_firmware(struct wl1271 *wl, bool plt)
 	}
 
 	vfree(wl->fw);
+	wl->fw_type = WL12XX_FW_TYPE_NONE;
 	wl->fw_len = fw->size;
 	wl->fw = vmalloc(wl->fw_len);
 
@@ -1108,6 +1115,10 @@ static int wl1271_fetch_firmware(struct wl1271 *wl, bool plt)
 
 	memcpy(wl->fw, fw->data, wl->fw_len);
 	ret = 0;
+	if (plt)
+		wl->fw_type = WL12XX_FW_TYPE_PLT;
+	else
+		wl->fw_type = WL12XX_FW_TYPE_NORMAL;
 
 out:
 	release_firmware(fw);
@@ -1303,7 +1314,7 @@ static int wl1271_setup(struct wl1271 *wl)
 	return 0;
 }
 
-static int wl1271_chip_wakeup(struct wl1271 *wl, bool plt)
+static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 {
 	struct wl1271_partition_set partition;
 	int ret = 0;
@@ -1376,11 +1387,9 @@ static int wl1271_chip_wakeup(struct wl1271 *wl, bool plt)
 		goto out;
 	}
 
-	if (wl->fw == NULL) {
-		ret = wl1271_fetch_firmware(wl, plt);
-		if (ret < 0)
-			goto out;
-	}
+	ret = wl12xx_fetch_firmware(wl, plt);
+	if (ret < 0)
+		goto out;
 
 	/* No NVS from netlink, try to get it from the filesystem */
 	if (wl->nvs == NULL) {
@@ -1413,7 +1422,7 @@ int wl1271_plt_start(struct wl1271 *wl)
 
 	while (retries) {
 		retries--;
-		ret = wl1271_chip_wakeup(wl, true);
+		ret = wl12xx_chip_wakeup(wl, true);
 		if (ret < 0)
 			goto power_off;
 
@@ -1908,7 +1917,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 
 	while (retries) {
 		retries--;
-		ret = wl1271_chip_wakeup(wl, false);
+		ret = wl12xx_chip_wakeup(wl, false);
 		if (ret < 0)
 			goto power_off;
 
@@ -4806,6 +4815,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 #endif
 
 	wl->state = WL1271_STATE_OFF;
+	wl->fw_type = WL12XX_FW_TYPE_NONE;
 	mutex_init(&wl->mutex);
 
 	/* Apply default driver configuration. */
