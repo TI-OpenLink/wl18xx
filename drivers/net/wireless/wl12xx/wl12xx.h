@@ -95,6 +95,12 @@ enum wl1271_state {
 	WL1271_STATE_PLT,
 };
 
+enum wl12xx_fw_type {
+	WL12XX_FW_TYPE_NONE,
+	WL12XX_FW_TYPE_NORMAL,
+	WL12XX_FW_TYPE_PLT,
+};
+
 enum wl1271_partition_type {
 	PART_DOWN,
 	PART_WORK,
@@ -297,6 +303,7 @@ struct wl1271 {
 	spinlock_t wl_lock;
 
 	enum wl1271_state state;
+	enum wl12xx_fw_type fw_type;
 	struct mutex mutex;
 
 	unsigned long flags;
