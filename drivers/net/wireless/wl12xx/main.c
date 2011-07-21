@@ -2257,10 +2257,14 @@ out:
 
 static void wl1271_set_band_rate(struct wl1271 *wl)
 {
-	if (wl->band == IEEE80211_BAND_2GHZ)
+	if (wl->band == IEEE80211_BAND_2GHZ) {
 		wl->basic_rate_set = wl->conf.tx.basic_rate;
-	else
+		wl->rate_set = wl->conf.tx.basic_rate;
+	} else {
 		wl->basic_rate_set = wl->conf.tx.basic_rate_5;
+		wl->rate_set = wl->conf.tx.basic_rate_5;
+	}
+
 }
 
 static int wl1271_sta_handle_idle(struct wl1271 *wl, bool idle)
