@@ -287,6 +287,25 @@ static bool is_p2p_action(u8 *buf, u32 len)
 	return true;
 }
 
+static bool is_gas_action(u8 *buf, u32 len)
+{
+	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) buf;
+	//TODO: check length
+	if (!ieee80211_is_action(mgmt->frame_control))
+		return false;
+
+	/* public action */
+	if (mgmt->u.action.category != 0x04)
+		return false;
+
+	/* GAS Initial request / response */
+	if (mgmt->u.action.u.public.action != 0x0a &&
+	    mgmt->u.action.u.public.action != 0x0b)
+		return false;
+
+	return true;
+}
+
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			      u32 extra, struct ieee80211_tx_info *control,
 			      u8 hlid)
@@ -310,6 +329,14 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			is_p2p = true;
 	}
 	if (is_p2p_action(skb->data + sizeof(*desc) + extra, skb->len - extra))
+		is_p2p = true;
+
+	/*
+	 * check for Service Discovery frames as well. this is obviously
+	 * wrong (GAS is not p2p specific), but it's need until we'll have
+	 * a way to control allowed tx rates from supplicant
+	 */
+	if (is_gas_action(skb->data + sizeof(*desc) + extra, skb->len - extra))
 		is_p2p = true;
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
