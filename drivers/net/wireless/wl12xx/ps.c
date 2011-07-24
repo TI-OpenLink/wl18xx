@@ -33,6 +33,9 @@ void wl1271_elp_work(struct work_struct *work)
 	struct delayed_work *dwork;
 	struct wl1271 *wl;
 
+	/* Orit WL8 - Disable ELP */
+    return;
+
 	dwork = container_of(work, struct delayed_work, work);
 	wl = container_of(dwork, struct wl1271, elp_work);
 
@@ -112,7 +115,8 @@ int wl1271_ps_elp_wakeup(struct wl1271 *wl)
 		wl->elp_compl = &compl;
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
-	wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_WAKE_UP);
+	/* Orit WL8 - Disable ELP */
+    //wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_WAKE_UP);
 
 	if (!pending) {
 		ret = wait_for_completion_timeout(

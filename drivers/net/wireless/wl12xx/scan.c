@@ -163,8 +163,6 @@ static int wl1271_scan_send(struct wl1271 *wl, enum ieee80211_band band,
 	if (band==IEEE80211_BAND_5GHZ)
 		return WL1271_NOTHING_TO_SCAN;
 
-	printk("\n** In wl1271_scan_send: band=%s **\n ", (band==IEEE80211_BAND_5GHZ)?"5GHz":"2.4GHz");
-
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	trigger = kzalloc(sizeof(*trigger), GFP_KERNEL);
 	if (!cmd || !trigger) {
