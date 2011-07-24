@@ -53,9 +53,6 @@
 #define WL1271_BOOT_RETRIES 1
 //#define WL1271_BOOT_RETRIES 3
 
-#define DRIVER_VERSION "WL18XX_A1.02_disable_5g_scan"
-
-
 static struct conf_drv_settings default_conf = {
 	.sg = {
 		.params = {
@@ -893,17 +890,6 @@ static void wl1271_fw_status(struct wl1271 *wl,
 	u32 old_tx_blk_count = wl->tx_blocks_available;
 	int avail, freed_blocks;
 	int i;
-
-	/* orit - added WA */
-	struct wl1271_partition_set partition;
-	memset(&partition, 0, sizeof(partition));
-	partition.mem.start = REGISTERS_BASE;
-	partition.mem.size = 0x50FC;
-    partition.reg.start = 0xB00404;
-	partition.reg.size =  0x1000;
-    partition.mem2.start = 0xC00000;
-	partition.mem2.size =  0x400;
-	wl1271_set_partition(wl, &partition);
 
 	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
 
@@ -2094,10 +2080,6 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 	wl1271_debug(DEBUG_MAC80211, "mac80211 add interface type %d mac %pM",
 		     ieee80211_vif_type_p2p(vif), vif->addr);
 
-
-	printk("\n ***** Driver Version --> %s *****\n", DRIVER_VERSION);
-
-
 	mutex_lock(&wl->mutex);
 	if (wl->vif) {
 		wl1271_debug(DEBUG_MAC80211,
@@ -2206,6 +2188,7 @@ power_off:
 	wl->vif = vif;
 	wl->state = WL1271_STATE_ON;
 	set_bit(WL1271_FLAG_IF_INITIALIZED, &wl->flags);
+	wl1271_info("Driver Version      (%s)", DRIVER_VERSION);
 	wl1271_info("MAC firmware booted (%s)", wl->chip.fw_ver_str);
 	wl1271_info("PHY firmware booted (%s)", wl->chip.phy_fw_ver_str);
 
@@ -5168,7 +5151,7 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 	wl->hw->sta_data_size = sizeof(struct wl1271_station);
 
 	wl->hw->max_rx_aggregation_subframes = 8;
-
+    
 	return 0;
 }
 EXPORT_SYMBOL_GPL(wl1271_init_ieee80211);

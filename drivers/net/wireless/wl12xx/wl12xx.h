@@ -40,6 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
+#define DRIVER_VERSION "WL18XX_A1.03_DP_Optimization"
 
 /*
  * FW versions support BA 11n

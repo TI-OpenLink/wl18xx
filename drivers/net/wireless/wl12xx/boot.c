@@ -136,7 +136,7 @@ static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 	[PART_WORK] = {
 		.mem = {
 			.start = REGISTERS_BASE,
-			.size  = 0x00015520
+			.size  = 0x000050FC
 		},
 		.reg = {
 			.start = 0x00B00404,
@@ -162,12 +162,12 @@ static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 			.size  = 0x00014578
 		},
 		.mem2 = {
-			.start = 0x00C00000,
-			.size  = 0x00000400
+			.start = 0x00B00404,
+			.size  = 0x00001000
 		},
 		.mem3 = {
-			.start = 0x00000000,
-			.size  = 0x00000000
+			.start = 0x00C00000,
+			.size  = 0x00000400
 		}
 	}
 };
@@ -562,11 +562,8 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	/* get hardware config event mail box */
 	wl->event_box_addr = wl1271_read32(wl, REG_EVENT_MAILBOX_PTR);
 
-	/* set the working partition to its "running" mode offset */
-	wl1271_set_partition(wl, &part_table[PART_WORK]);
-
 	wl1271_debug(DEBUG_MAILBOX, "cmd_box_addr 0x%x event_box_addr 0x%x",
-		     wl->cmd_box_addr, wl->event_box_addr);
+				 wl->cmd_box_addr, wl->event_box_addr);
 
 	wl1271_boot_fw_version(wl);
 
@@ -1062,6 +1059,7 @@ int wl1271_load_firmware(struct wl1271 *wl)
 
 	wl1271_set_partition(wl, &part_table[PART_WORK]);
 #endif
+
 	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	/* Disable interrupts */
@@ -1082,8 +1080,6 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	wl1271_debug(DEBUG_BOOT, "ACX_EEPROMLESS_IND_REG");
 
 	wl1271_write32(wl, ACX_EEPROMLESS_IND_REG, ACX_EEPROMLESS_IND_REG);
-
-	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	tmp = wl1271_read32(wl, CHIP_ID_B);
 
@@ -1137,6 +1133,9 @@ int wl1271_boot(struct wl1271 *wl)
 	wl1271_set_default_filters(wl);
 
 	wl1271_event_mbox_config(wl);
+
+	/* set the working partition to its "running" mode offset */
+	wl1271_set_partition(wl, &part_table[PART_WORK]);
 
 out:
 	return ret;

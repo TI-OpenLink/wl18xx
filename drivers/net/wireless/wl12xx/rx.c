@@ -232,7 +232,8 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 			break;
 		}
 
-		if (wl->chip.id != CHIP_ID_1283_PG20) {
+		if ((wl->chip.id != CHIP_ID_1283_PG20) &&
+			(wl->chip.id != CHIP_ID_185x_PG10)) {
 			/*
 			 * Choose the block we want to read
 			 * For aggregated packets, only the first memory block
