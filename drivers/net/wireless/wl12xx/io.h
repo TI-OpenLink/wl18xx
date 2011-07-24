@@ -116,6 +116,11 @@ static inline int wl1271_translate_addr(struct wl1271 *wl, int addr)
 	{
 		return addr - wl->part.mem2.start + wl->part.mem.size + wl->part.reg.size;
 	}
+	else if ((addr >= wl->part.mem3.start) &&
+	    (addr < wl->part.mem3.start + wl->part.mem3.size))
+	{
+		return addr - wl->part.mem3.start + wl->part.mem.size + wl->part.reg.size + wl->part.mem2.size;
+	}
 	else
 	{
 		wl1271_error("HW address 0x%x out of regions range", addr);
