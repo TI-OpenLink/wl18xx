@@ -1470,7 +1470,7 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	struct ieee802_11_elems elems;
 	struct ieee80211_bss_conf *bss_conf = &sdata->vif.bss_conf;
 	u32 changed = 0;
-	int i, j;
+	int i, j, err;
 	bool have_higher_than_11mbit = false;
 	u16 ap_ht_cap_flags;
 
@@ -1495,20 +1495,19 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 
 	ifmgd->aid = aid;
 
-	rcu_read_lock();
+	mutex_lock(&sdata->local->sta_mtx);
 	/*
 	 * station info was already allocated and inserted before
 	 * the association and should be available to us
 	 */
-	sta = sta_info_get(sdata, cbss->bssid);
+	sta = sta_info_get_rx(sdata, cbss->bssid);
 	if (WARN_ON(!sta)) {
-		rcu_read_unlock();
+		mutex_unlock(&sdata->local->sta_mtx);
 		return false;
 	}
 
 	set_sta_flags(sta, WLAN_STA_AUTH | WLAN_STA_ASSOC |
 			   WLAN_STA_ASSOC_AP);
-	clear_sta_flags(sta, WLAN_STA_PRE_ASSOC);
 	if (!(ifmgd->flags & IEEE80211_STA_CONTROL_PORT))
 		set_sta_flags(sta, WLAN_STA_AUTHORIZED);
 
@@ -1574,8 +1573,15 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	if (elems.wmm_param)
 		set_sta_flags(sta, WLAN_STA_WME);
 
+	err = sta_info_insert_notify(sta);
 	sta = NULL;
+	/* sta_info_insert_notify changed the mutex lock with rcu lock */
 	rcu_read_unlock();
+	if (err) {
+		printk(KERN_DEBUG "%s: failed to insert STA entry for"
+		       " the AP (error %d)\n", sdata->name, err);
+		return false;
+	}
 
 	/*
 	 * Always handle WMM once after association regardless
@@ -2387,6 +2393,7 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
+/* create and insert a dummy station entry */
 static int ieee80211_pre_assoc(struct ieee80211_sub_if_data *sdata,
 				u8 *bssid) {
 	struct sta_info *sta;
@@ -2399,12 +2406,12 @@ static int ieee80211_pre_assoc(struct ieee80211_sub_if_data *sdata,
 		return -ENOMEM;
 	}
 
-	set_sta_flags(sta, WLAN_STA_PRE_ASSOC);
+	sta->dummy = true;
 
 	err = sta_info_insert(sta);
 	sta = NULL;
 	if (err) {
-		printk(KERN_DEBUG "%s: failed to insert STA entry for"
+		printk(KERN_DEBUG "%s: failed to insert Dummy STA entry for"
 		       " the AP (error %d)\n", sdata->name, err);
 		return err;
 	}
@@ -2455,6 +2462,9 @@ static enum work_done_result ieee80211_assoc_done(struct ieee80211_work *wk,
 		}
 
 		mutex_unlock(&wk->sdata->u.mgd.mtx);
+	} else {
+		/* assoc failed - destroy the dummy station entry */
+		sta_info_destroy_addr(wk->sdata, cbss->bssid);
 	}
 
 	cfg80211_send_rx_assoc(wk->sdata->dev, skb->data, skb->len);
@@ -2494,7 +2504,7 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 		return -ENOMEM;
 
 	/*
-	 * create a "pre-associate" state station info in order
+	 * create a dummy station info entry in order
 	 * to start accepting incoming EAPOL packets from the station
 	 */
 	err = ieee80211_pre_assoc(sdata, req->bss->bssid);
