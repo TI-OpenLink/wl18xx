@@ -2791,6 +2791,25 @@ int ieee80211_mgd_disassoc(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
+int ieee80211_disassoc_only(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
+
+	mutex_lock(&ifmgd->mtx);
+
+	if (!ifmgd->associated) {
+		mutex_unlock(&ifmgd->mtx);
+		return -ENOLINK;
+	}
+
+	printk(KERN_DEBUG "%s: disassociating from %pM (for roaming)\n",
+	       sdata->name, ifmgd->bssid);
+
+	ieee80211_set_disassoc(sdata, true, false);
+
+	mutex_unlock(&ifmgd->mtx);
+	return 0;
+}
 void ieee80211_cqm_rssi_notify(struct ieee80211_vif *vif,
 			       enum nl80211_cqm_rssi_threshold_event rssi_event,
 			       gfp_t gfp)
