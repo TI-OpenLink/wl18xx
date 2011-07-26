@@ -80,8 +80,7 @@ static int wl1271_tx_update_filters(struct wl1271 *wl,
 	struct ieee80211_hdr *hdr;
 	int ret;
 
-	hdr = (struct ieee80211_hdr *)(skb->data +
-				       sizeof(struct wl1271_tx_hw_descr));
+	hdr = (struct ieee80211_hdr *)skb->data;
 
 	/*
 	 * stop bssid-based filtering before transmitting authentication
@@ -287,6 +286,25 @@ static bool is_p2p_action(u8 *buf, u32 len)
 	return true;
 }
 
+static bool is_gas_action(u8 *buf, u32 len)
+{
+	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) buf;
+	//TODO: check length
+	if (!ieee80211_is_action(mgmt->frame_control))
+		return false;
+
+	/* public action */
+	if (mgmt->u.action.category != 0x04)
+		return false;
+
+	/* GAS Initial request / response */
+	if (mgmt->u.action.u.public.action != 0x0a &&
+	    mgmt->u.action.u.public.action != 0x0b)
+		return false;
+
+	return true;
+}
+
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			      u32 extra, struct ieee80211_tx_info *control,
 			      u8 hlid)
@@ -310,6 +328,14 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 			is_p2p = true;
 	}
 	if (is_p2p_action(skb->data + sizeof(*desc) + extra, skb->len - extra))
+		is_p2p = true;
+
+	/*
+	 * check for Service Discovery frames as well. this is obviously
+	 * wrong (GAS is not p2p specific), but it's need until we'll have
+	 * a way to control allowed tx rates from supplicant
+	 */
+	if (is_gas_action(skb->data + sizeof(*desc) + extra, skb->len - extra))
 		is_p2p = true;
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
@@ -448,12 +474,18 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 		hlid = wl->system_hlid;
 	else if (wl->bss_type == BSS_TYPE_AP_BSS)
 		hlid = wl1271_tx_get_hlid(wl, skb);
-	else
-		if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags) ||
-		    test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags))
+	else {
+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+		wl1271_tx_update_filters(wl, skb);
+
+		if ((test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags) ||
+		     test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags)) &&
+		    !ieee80211_is_auth(hdr->frame_control) &&
+		    !ieee80211_is_assoc_req(hdr->frame_control))
 			hlid = wl->sta_hlid;
 		else
 			hlid = wl->dev_hlid;
+	}
 
 	if (hlid == WL1271_INVALID_LINK_ID) {
 		wl1271_error("invalid hlid. dropping skb 0x%p", skb);
@@ -469,8 +501,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	if (wl->bss_type == BSS_TYPE_AP_BSS) {
 		wl1271_tx_ap_update_inconnection_sta(wl, skb);
 		wl1271_tx_regulate_link(wl, hlid);
-	} else {
-		wl1271_tx_update_filters(wl, skb);
 	}
 
 	/*
