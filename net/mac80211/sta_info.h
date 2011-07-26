@@ -45,8 +45,6 @@
  *	station in power-save mode, reply when the driver unblocks.
  * @WLAN_STA_PS_DRIVER_BUF: Station has frames pending in driver internal
  *	buffers. Automatically cleared on station wake-up.
- * @WLAN_STA_PRE_ASSOC: Station is in pre-association mode and we
- *	accept EAPOL packets from it.
  */
 enum ieee80211_sta_info_flags {
 	WLAN_STA_AUTH		= 1<<0,
@@ -63,7 +61,6 @@ enum ieee80211_sta_info_flags {
 	WLAN_STA_PS_DRIVER	= 1<<12,
 	WLAN_STA_PSPOLL		= 1<<13,
 	WLAN_STA_PS_DRIVER_BUF	= 1<<14,
-	WLAN_STA_PRE_ASSOC	= 1<<15,
 };
 
 #define STA_TID_NUM 16

@@ -1470,7 +1470,7 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	struct ieee802_11_elems elems;
 	struct ieee80211_bss_conf *bss_conf = &sdata->vif.bss_conf;
 	u32 changed = 0;
-	int i, j;
+	int i, j, err;
 	bool have_higher_than_11mbit = false;
 	u16 ap_ht_cap_flags;
 
@@ -1495,20 +1495,15 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 
 	ifmgd->aid = aid;
 
-	rcu_read_lock();
-	/*
-	 * station info was already allocated and inserted before
-	 * the association and should be available to us
-	 */
-	sta = sta_info_get(sdata, cbss->bssid);
-	if (WARN_ON(!sta)) {
-		rcu_read_unlock();
+	sta = sta_info_alloc(sdata, cbss->bssid, GFP_KERNEL);
+	if (!sta) {
+		printk(KERN_DEBUG "%s: failed to alloc STA entry for"
+		       " the AP\n", sdata->name);
 		return false;
 	}
 
 	set_sta_flags(sta, WLAN_STA_AUTH | WLAN_STA_ASSOC |
 			   WLAN_STA_ASSOC_AP);
-	clear_sta_flags(sta, WLAN_STA_PRE_ASSOC);
 	if (!(ifmgd->flags & IEEE80211_STA_CONTROL_PORT))
 		set_sta_flags(sta, WLAN_STA_AUTHORIZED);
 
@@ -1574,8 +1569,13 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	if (elems.wmm_param)
 		set_sta_flags(sta, WLAN_STA_WME);
 
+	err = sta_info_insert(sta);
 	sta = NULL;
-	rcu_read_unlock();
+	if (err) {
+		printk(KERN_DEBUG "%s: failed to insert STA entry for"
+		       " the AP (error %d)\n", sdata->name, err);
+		return false;
+	}
 
 	/*
 	 * Always handle WMM once after association regardless
@@ -2387,42 +2387,15 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
-static int ieee80211_pre_assoc(struct ieee80211_sub_if_data *sdata,
-				u8 *bssid) {
-	struct sta_info *sta;
-	int err;
-
-	sta = sta_info_alloc(sdata, bssid, GFP_KERNEL);
-	if (!sta) {
-		printk(KERN_DEBUG "%s: failed to alloc STA entry for"
-			   " the AP\n", sdata->name);
-		return -ENOMEM;
-	}
-
-	set_sta_flags(sta, WLAN_STA_PRE_ASSOC);
-
-	err = sta_info_insert(sta);
-	sta = NULL;
-	if (err) {
-		printk(KERN_DEBUG "%s: failed to insert STA entry for"
-		       " the AP (error %d)\n", sdata->name, err);
-		return err;
-	}
-
-	return 0;
-}
-
 static enum work_done_result ieee80211_assoc_done(struct ieee80211_work *wk,
 						  struct sk_buff *skb)
 {
 	struct ieee80211_mgmt *mgmt;
 	struct ieee80211_rx_status *rx_status;
 	struct ieee802_11_elems elems;
-	struct cfg80211_bss *cbss = wk->assoc.bss;
 	u16 status;
 
 	if (!skb) {
-		sta_info_destroy_addr(wk->sdata, cbss->bssid);
 		cfg80211_send_assoc_timeout(wk->sdata->dev, wk->filter_ta);
 		return WORK_DONE_DESTROY;
 	}
@@ -2448,7 +2421,6 @@ static enum work_done_result ieee80211_assoc_done(struct ieee80211_work *wk,
 		if (!ieee80211_assoc_success(wk, mgmt, skb->len)) {
 			mutex_unlock(&wk->sdata->u.mgd.mtx);
 			/* oops -- internal error -- send timeout for now */
-			sta_info_destroy_addr(wk->sdata, cbss->bssid);
 			cfg80211_send_assoc_timeout(wk->sdata->dev,
 						    wk->filter_ta);
 			return WORK_DONE_DESTROY;
@@ -2468,7 +2440,7 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_bss *bss = (void *)req->bss->priv;
 	struct ieee80211_work *wk;
 	const u8 *ssid;
-	int i, err;
+	int i;
 
 	mutex_lock(&ifmgd->mtx);
 	if (ifmgd->associated) {
@@ -2492,16 +2464,6 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 	wk = kzalloc(sizeof(*wk) + req->ie_len, GFP_KERNEL);
 	if (!wk)
 		return -ENOMEM;
-
-	/*
-	 * create a "pre-associate" state station info in order
-	 * to start accepting incoming EAPOL packets from the station
-	 */
-	err = ieee80211_pre_assoc(sdata, req->bss->bssid);
-	if (err) {
-		kfree(wk);
-		return err;
-	}
 
 	ifmgd->flags &= ~IEEE80211_STA_DISABLE_11N;
 	ifmgd->flags &= ~IEEE80211_STA_NULLFUNC_ACKED;

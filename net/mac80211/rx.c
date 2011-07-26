@@ -805,7 +805,6 @@ static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)rx->skb->data;
-	struct ethhdr *ehdr = (struct ethhdr *) rx->skb->data;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
 
 	/* Drop duplicate 802.11 retransmissions (IEEE 802.11 Chap. 9.2.9) */
@@ -843,10 +842,7 @@ ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 		      ieee80211_is_pspoll(hdr->frame_control)) &&
 		     rx->sdata->vif.type != NL80211_IFTYPE_ADHOC &&
 		     rx->sdata->vif.type != NL80211_IFTYPE_WDS &&
-		     (!rx->sta || (!test_sta_flags(rx->sta, WLAN_STA_ASSOC) &&
-		     (!test_sta_flags(rx->sta, WLAN_STA_PRE_ASSOC) ||
-		     (test_sta_flags(rx->sta, WLAN_STA_PRE_ASSOC) &&
-		     (ehdr->h_proto != cpu_to_be16(ETH_P_PAE))))))))
+		     (!rx->sta || !test_sta_flags(rx->sta, WLAN_STA_ASSOC))))
 		return RX_DROP_MONITOR;
 
 	return RX_CONTINUE;
