@@ -473,6 +473,10 @@ ieee80211_authenticate(struct ieee80211_work *wk)
 	struct ieee80211_sub_if_data *sdata = wk->sdata;
 	struct ieee80211_local *local = sdata->local;
 
+	/* first, disconnect from previous AP */
+	if (!wk->probe_auth.tries)
+		ieee80211_disassoc_only(sdata);
+
 	wk->probe_auth.tries++;
 	if (wk->probe_auth.tries > IEEE80211_AUTH_MAX_TRIES) {
 		printk(KERN_DEBUG "%s: authentication with %pM"
