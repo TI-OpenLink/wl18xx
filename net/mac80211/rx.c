@@ -805,7 +805,6 @@ static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)rx->skb->data;
-	struct ethhdr *ehdr = (struct ethhdr *) rx->skb->data;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
 
 	/* Drop duplicate 802.11 retransmissions (IEEE 802.11 Chap. 9.2.9) */
@@ -843,11 +842,20 @@ ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 		      ieee80211_is_pspoll(hdr->frame_control)) &&
 		     rx->sdata->vif.type != NL80211_IFTYPE_ADHOC &&
 		     rx->sdata->vif.type != NL80211_IFTYPE_WDS &&
-		     (!rx->sta || (!test_sta_flags(rx->sta, WLAN_STA_ASSOC) &&
-		     (!test_sta_flags(rx->sta, WLAN_STA_PRE_ASSOC) ||
-		     (test_sta_flags(rx->sta, WLAN_STA_PRE_ASSOC) &&
-		     (ehdr->h_proto != cpu_to_be16(ETH_P_PAE))))))))
+		     (!rx->sta || !test_sta_flags(rx->sta, WLAN_STA_ASSOC)))) {
+		if (rx->sta->dummy && ieee80211_is_data(hdr->frame_control)) {
+			u16 ethertype;
+			u8 *payload;
+
+			payload = rx->skb->data +
+				ieee80211_hdrlen(hdr->frame_control);
+			ethertype = (payload[6] << 8) | payload[7];
+			if (cpu_to_be16(ethertype) ==
+				rx->sdata->control_port_protocol)
+				return RX_CONTINUE;
+		}
 		return RX_DROP_MONITOR;
+	}
 
 	return RX_CONTINUE;
 }
@@ -2786,7 +2794,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 	if (ieee80211_is_data(fc)) {
 		prev_sta = NULL;
 
-		for_each_sta_info(local, hdr->addr2, sta, tmp) {
+		for_each_sta_info_rx(local, hdr->addr2, sta, tmp) {
 			if (!prev_sta) {
 				prev_sta = sta;
 				continue;
@@ -2830,7 +2838,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 			continue;
 		}
 
-		rx.sta = sta_info_get_bss(prev, hdr->addr2);
+		rx.sta = sta_info_get_bss_rx(prev, hdr->addr2);
 		rx.sdata = prev;
 		ieee80211_prepare_and_rx_handle(&rx, skb, false);
 
@@ -2838,7 +2846,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 	}
 
 	if (prev) {
-		rx.sta = sta_info_get_bss(prev, hdr->addr2);
+		rx.sta = sta_info_get_bss_rx(prev, hdr->addr2);
 		rx.sdata = prev;
 
 		if (ieee80211_prepare_and_rx_handle(&rx, skb, true))
