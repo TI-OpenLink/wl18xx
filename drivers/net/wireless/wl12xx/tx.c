@@ -297,9 +297,11 @@ static bool is_gas_action(u8 *buf, u32 len)
 	if (mgmt->u.action.category != 0x04)
 		return false;
 
-	/* GAS Initial request / response */
+	/* GAS Initial request / response, Comeback request / response */
 	if (mgmt->u.action.u.public.action != 0x0a &&
-	    mgmt->u.action.u.public.action != 0x0b)
+	    mgmt->u.action.u.public.action != 0x0b &&
+	    mgmt->u.action.u.public.action != 0x0c &&
+	    mgmt->u.action.u.public.action != 0x0d)
 		return false;
 
 	return true;
