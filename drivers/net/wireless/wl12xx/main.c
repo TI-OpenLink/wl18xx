@@ -4019,7 +4019,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 {
 	struct wl1271 *wl = hw->priv;
 	int ret;
-	u8 hlid;
+	u8 hlid, *ba_bitmap;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
 		     tid);
@@ -4037,11 +4037,13 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 
 	if (wl->bss_type == BSS_TYPE_STA_BSS) {
 		hlid = wl->sta_hlid;
+		ba_bitmap = &wl->ba_rx_bitmap;
 	} else if (wl->bss_type == BSS_TYPE_AP_BSS) {
 		struct wl1271_station *wl_sta;
 
 		wl_sta = (struct wl1271_station *)sta->drv_priv;
 		hlid = wl_sta->hlid;
+		ba_bitmap = &wl->links[hlid].ba_bitmap;
 	} else {
 		ret = -EINVAL;
 		goto out;
@@ -4064,7 +4066,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 			break;
 		}
 
-		if (wl->ba_rx_bitmap & BIT(tid)) {
+		if (*ba_bitmap & BIT(tid)) {
 			ret = -EINVAL;
 			wl1271_error("cannot enable RX BA session on active "
 				     "tid: %d", tid);
@@ -4074,16 +4076,13 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		ret = wl1271_acx_set_ba_receiver_session(wl, tid, *ssn, true,
 							 hlid);
 		if (!ret) {
-			wl->ba_rx_bitmap |= BIT(tid);
+			*ba_bitmap |= BIT(tid);
 			wl->ba_rx_session_count++;
-
-			if (wl->bss_type == BSS_TYPE_AP_BSS)
-				wl->links[hlid].ba_bitmap |= BIT(tid);
 		}
 		break;
 
 	case IEEE80211_AMPDU_RX_STOP:
-		if (!(wl->ba_rx_bitmap & BIT(tid))) {
+		if (!(*ba_bitmap & BIT(tid))) {
 			ret = -EINVAL;
 			wl1271_error("no active RX BA session on tid: %d",
 				     tid);
@@ -4093,11 +4092,8 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		ret = wl1271_acx_set_ba_receiver_session(wl, tid, 0, false,
 							 hlid);
 		if (!ret) {
-			wl->ba_rx_bitmap &= ~BIT(tid);
+			*ba_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;
-
-			if (wl->bss_type == BSS_TYPE_AP_BSS)
-				wl->links[hlid].ba_bitmap &= ~BIT(tid);
 		}
 		break;
 
