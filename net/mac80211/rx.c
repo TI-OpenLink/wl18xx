@@ -843,7 +843,8 @@ ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 		     rx->sdata->vif.type != NL80211_IFTYPE_ADHOC &&
 		     rx->sdata->vif.type != NL80211_IFTYPE_WDS &&
 		     (!rx->sta || !test_sta_flags(rx->sta, WLAN_STA_ASSOC)))) {
-		if (rx->sta->dummy && ieee80211_is_data(hdr->frame_control)) {
+		if (rx->sta && rx->sta->dummy &&
+		    ieee80211_is_data(hdr->frame_control)) {
 			u16 ethertype;
 			u8 *payload;
 
