@@ -2656,6 +2656,10 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 				}
 			}
 		}
+
+        /* liorc patch - TODO rebase latest changes from luca and delete below*/
+        wl1271_cmd_role_start_dev(wl);
+
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_IDLE && !is_ap) {
