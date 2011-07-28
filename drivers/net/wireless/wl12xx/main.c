@@ -3295,6 +3295,24 @@ out:
 	return ret;
 }
 
+/* forward declaration */
+static int wl1271_op_sta_add_locked(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta);
+
+static void wl12xx_sta_iterator(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct ieee80211_sta *sta,
+				void *data)
+{
+	struct wl1271_station *wl_sta = (struct wl1271_station *)sta->drv_priv;
+
+	if (wl_sta->added)
+		return;
+
+	wl1271_op_sta_add_locked(hw, vif, sta);
+}
+
 /* AP mode changes */
 static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 				       struct ieee80211_vif *vif,
@@ -3348,6 +3366,9 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 				set_bit(WL1271_FLAG_AP_STARTED, &wl->flags);
 				wl1271_debug(DEBUG_AP, "started AP");
 			}
+				ieee80211_iterate_sta(vif,
+						      wl12xx_sta_iterator,
+						      NULL);
 		} else {
 			if (test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
 				ret = wl1271_cmd_role_stop_ap(wl);
