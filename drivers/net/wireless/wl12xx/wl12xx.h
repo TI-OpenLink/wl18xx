@@ -672,6 +672,7 @@ struct wl1271 {
 };
 
 struct wl1271_station {
+	bool added;
 	u8 hlid;
 };
 
