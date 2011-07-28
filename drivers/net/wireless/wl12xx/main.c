@@ -3920,13 +3920,43 @@ static void wl1271_free_sta(struct wl1271 *wl, u8 hlid)
 	wl->active_sta_count--;
 }
 
+static int wl1271_op_sta_add_locked(struct ieee80211_hw *hw,
+				    struct ieee80211_vif *vif,
+				    struct ieee80211_sta *sta)
+{
+	struct wl1271 *wl = hw->priv;
+	int ret = 0;
+	u8 hlid;
+	ret = wl1271_allocate_sta(wl, sta, &hlid);
+	if (ret < 0)
+		return ret;
+
+	ret = wl1271_cmd_add_peer(wl, sta, hlid);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_cmd_set_peer_state(wl, hlid);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_acx_set_ht_capabilities(wl, &sta->ht_cap, true, hlid);
+	if (ret < 0)
+		goto out;
+
+	return 0;
+out:
+	wl1271_free_sta(wl, hlid);
+	return ret;
+}
+
 static int wl1271_op_sta_add(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta)
 {
 	struct wl1271 *wl = hw->priv;
 	int ret = 0;
-	u8 hlid;
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 add sta %d", (int)sta->aid);
 
 	mutex_lock(&wl->mutex);
 
@@ -3936,35 +3966,19 @@ static int wl1271_op_sta_add(struct ieee80211_hw *hw,
 	if (wl->bss_type != BSS_TYPE_AP_BSS)
 		goto out;
 
-	wl1271_debug(DEBUG_MAC80211, "mac80211 add sta %d", (int)sta->aid);
-
-	ret = wl1271_allocate_sta(wl, sta, &hlid);
-	if (ret < 0)
+	if (!test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
+		wl1271_debug(DEBUG_MAC80211, "skipping add sta "
+			     "while ap is not started");
 		goto out;
+	}
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
-		goto out_free_sta;
+		goto out;
 
-	ret = wl1271_cmd_add_peer(wl, sta, hlid);
-	if (ret < 0)
-		goto out_sleep;
+	ret = wl1271_op_sta_add_locked(hw, vif, sta);
 
-	ret = wl1271_cmd_set_peer_state(wl, hlid);
-	if (ret < 0)
-		goto out_sleep;
-
-	ret = wl1271_acx_set_ht_capabilities(wl, &sta->ht_cap, true, hlid);
-	if (ret < 0)
-		goto out_sleep;
-
-out_sleep:
 	wl1271_ps_elp_sleep(wl);
-
-out_free_sta:
-	if (ret < 0)
-		wl1271_free_sta(wl, hlid);
-
 out:
 	mutex_unlock(&wl->mutex);
 	return ret;
@@ -3978,6 +3992,8 @@ static int wl1271_op_sta_remove(struct ieee80211_hw *hw,
 	struct wl1271_station *wl_sta;
 	int ret = 0, id;
 
+	wl1271_debug(DEBUG_MAC80211, "mac80211 remove sta %d", (int)sta->aid);
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state == WL1271_STATE_OFF))
@@ -3986,7 +4002,6 @@ static int wl1271_op_sta_remove(struct ieee80211_hw *hw,
 	if (wl->bss_type != BSS_TYPE_AP_BSS)
 		goto out;
 
-	wl1271_debug(DEBUG_MAC80211, "mac80211 remove sta %d", (int)sta->aid);
 
 	wl_sta = (struct wl1271_station *)sta->drv_priv;
 	id = wl_sta->hlid - WL1271_AP_STA_HLID_START;
