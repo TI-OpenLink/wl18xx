@@ -2816,6 +2816,14 @@ struct ieee80211_sta *ieee80211_find_sta_by_ifaddr(struct ieee80211_hw *hw,
 					       const u8 *addr,
 					       const u8 *localaddr);
 
+void ieee80211_iterate_sta(
+			   struct ieee80211_vif *vif,
+			   void (*iterator)(struct ieee80211_hw *hw,
+					    struct ieee80211_vif *vif,
+					    struct ieee80211_sta *sta,
+					    void *data),
+			   void *data);
+
 /**
  * ieee80211_sta_block_awake - block station from waking up
  * @hw: the hardware
