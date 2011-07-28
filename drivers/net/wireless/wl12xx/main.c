@@ -1357,13 +1357,9 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
 			     wl->chip.id);
 
-		/*
-		 * 'end-of-transaction flag' and 'LPD mode flag'
-		 * should be set in wl127x AP mode only
-		 */
+		/* end-of-transaction flag should be set in wl127x AP mode */
 		if (wl->bss_type == BSS_TYPE_AP_BSS)
-			wl->quirks |= (WL12XX_QUIRK_END_OF_TRANSACTION |
-				       WL12XX_QUIRK_LPD_MODE);
+			wl->quirks |= WL12XX_QUIRK_END_OF_TRANSACTION;
 
 		ret = wl1271_setup(wl);
 		if (ret < 0)
@@ -1376,7 +1372,6 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		ret = wl1271_setup(wl);
 		if (ret < 0)
 			goto out;
-
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
 		break;
