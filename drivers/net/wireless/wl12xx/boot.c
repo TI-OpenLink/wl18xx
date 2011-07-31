@@ -31,7 +31,6 @@
 #include "event.h"
 #include "rx.h"
 
-extern u32 wl18xx_fpga_support;
 
 #if 0
 static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
@@ -735,12 +734,32 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 	u32 pllsh_wcs_pll_P;
 #endif
 
-    if (wl18xx_fpga_support) {
-        wl1271_info("Orit Wl18xx - Skip HW TOP init process - FPGA Platform!!!");
-        wl1271_info("Orit Wl18xx - Write BABE to SCR_PAD2!!!");
-        wl1271_write32(wl, SCR_PAD2, 0xBABE);
-    } else {
-        wl1271_info("Orit Wl18xx - Starting HW TOP init process - Real Chip!!!");
+
+	switch (wl->conf.hw_info.board_type)
+	{
+	case BOARD_TYPE_FPGA_18XX:
+		{
+			wl1271_info("Wl18XX FPGA BOARD (skipping top init)!!!");
+			wl1271_write32(wl, SCR_PAD2, 0xB1);
+			break;
+		}
+	case BOARD_TYPE_HDK_18XX:
+		{
+			wl1271_info("Wl18XX HDK BOARD!!!");
+			wl1271_write32(wl, SCR_PAD2,0xB2);
+			break;
+		}
+	case BOARD_TYPE_DVP_EVB_18XX:
+		{
+			wl1271_info("Wl18xx DVP/EVB BOARD!!!");
+			wl1271_write32(wl, SCR_PAD2, 0xB3);
+			break;
+		}
+	}
+
+    if (wl->conf.hw_info.board_type != BOARD_TYPE_FPGA_18XX)
+    {
+        wl1271_info("Wl18xx - Starting HW TOP init process - Real Chip!!!");
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
         wl1271_write32(wl, 0x00A02360, 0xD0078);
         wl1271_write32(wl, 0x00A0236c, 0x12);

@@ -1251,6 +1251,10 @@ struct conf_hw_checksum {
 	u8 state;
 };
 
+struct conf_hw_info {
+	u8 board_type;
+};
+
 struct conf_drv_settings {
 	struct conf_sg_settings sg;
 	struct conf_rx_settings rx;
@@ -1273,6 +1277,7 @@ struct conf_drv_settings {
 	struct conf_rate_policy_settings rate;
 	struct conf_hangover_settings hangover;
 	struct conf_hw_checksum hw_checksum;
+	struct conf_hw_info		hw_info;
 };
 
 #endif

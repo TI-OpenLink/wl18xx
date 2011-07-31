@@ -168,4 +168,13 @@ enum {
 };
 /* end PLL configuration algorithm for wl18xx */
 
+
+enum
+{
+	BOARD_TYPE_FPGA_18XX   	= 0, /* 0xB1, */
+	BOARD_TYPE_HDK_18XX    	= 1, /* 0xB2 */
+	BOARD_TYPE_DVP_EVB_18XX  = 2, /* 0xB3 */
+};
+
+
 #endif
