@@ -385,7 +385,10 @@ static struct conf_drv_settings default_conf = {
 		.threshold                    = 0,
 	},
 	.hw_checksum = {
-		.state         = CHECKSUM_OFFLOAD_ENABLED,
+		.state                        = CHECKSUM_OFFLOAD_ENABLED,
+	},
+	.hw_info = {
+		.board_type                   = BOARD_TYPE_HDK_18XX,
 	},
 };
 
@@ -5413,11 +5416,6 @@ u32 wl12xx_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL_GPL(wl12xx_debug_level);
 module_param_named(debug_level, wl12xx_debug_level, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(debug_level, "wl12xx debugging level");
-
-u32 wl18xx_fpga_support = 0;
-EXPORT_SYMBOL_GPL(wl18xx_fpga_support);
-module_param_named(fpga_support, wl18xx_fpga_support, uint, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(fpga_support, "wl18xx support for FPGA platform");
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
