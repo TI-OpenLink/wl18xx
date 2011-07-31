@@ -1464,6 +1464,54 @@ static const struct file_operations tx_ba_tid_bitmap_ops = {
 };
 
 
+
+
+static ssize_t hw_board_type_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.hw_info.board_type);
+}
+
+static ssize_t hw_board_type_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for hw board type");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+
+        wl->conf.hw_info.board_type = value;
+
+	mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations hw_board_type_ops = {
+        .read = hw_board_type_read,
+        .write = hw_board_type_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
 /**********************************************************
 ***********************************************************/
 
@@ -1712,6 +1760,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(irq_blk_threshold, rootdir);
 	DEBUGFS_ADD(tx_compl_threshold, rootdir);
 	DEBUGFS_ADD(tx_compl_timeout, rootdir);
+	DEBUGFS_ADD(hw_board_type, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
