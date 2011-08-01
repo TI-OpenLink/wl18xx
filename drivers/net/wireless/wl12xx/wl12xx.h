@@ -669,6 +669,9 @@ struct wl1271 {
 
 	/* AP-mode - number of currently connected stations */
 	int active_sta_count;
+
+	/* AP-mode - work to add stations back on AP reconfig */
+	struct work_struct ap_start_work;
 };
 
 struct wl1271_station {

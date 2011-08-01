@@ -2076,6 +2076,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	cancel_work_sync(&wl->rx_streaming_enable_work);
 	cancel_work_sync(&wl->rx_streaming_disable_work);
 	cancel_delayed_work_sync(&wl->pspoll_work);
+	cancel_work_sync(&wl->ap_start_work);
 	cancel_delayed_work_sync(&wl->elp_work);
 
 	mutex_lock(&wl->mutex);
@@ -3303,21 +3304,86 @@ out:
 }
 
 /* forward declaration */
-static int wl1271_op_sta_add_locked(struct ieee80211_hw *hw,
+static int wl1271_op_sta_add(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta);
 
-static void wl12xx_sta_iterator(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif,
-				struct ieee80211_sta *sta,
-				void *data)
+static void wl12xx_add_sta_iterator(struct ieee80211_hw *hw,
+				    struct ieee80211_vif *vif,
+				    struct ieee80211_sta *sta,
+				    void *data)
 {
 	struct wl1271_station *wl_sta = (struct wl1271_station *)sta->drv_priv;
 
 	if (wl_sta->added)
 		return;
 
-	wl1271_op_sta_add_locked(hw, vif, sta);
+	wl1271_op_sta_add(hw, vif, sta);
+}
+
+static void wl12xx_inconn_sta_iterator(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_sta *sta,
+				       void *data)
+{
+	struct wl1271_station *wl_sta = (struct wl1271_station *)sta->drv_priv;
+	struct wl1271 *wl = hw->priv;
+	int ret;
+
+	if (wl_sta->added)
+		return;
+
+	mutex_lock(&wl->mutex);
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	wl1271_acx_set_inconnection_sta(wl, sta->addr);
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+}
+
+static void wl12xx_ap_start_work(struct work_struct *work)
+{
+	int ret;
+	struct wl1271 *wl =
+		container_of(work, struct wl1271, ap_start_work);
+
+	/*
+	 * Cause existing stations to be "in-connection" to prevent the FW
+	 * from de-authenticating them.
+	 */
+	ieee80211_iterate_sta(wl->vif, wl12xx_inconn_sta_iterator, NULL);
+
+	/* only lock wl->mutex here to prevent lock inversion */
+	mutex_lock(&wl->mutex);
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_cmd_role_start_ap(wl);
+	if (ret < 0)
+		goto out_sleep;
+
+	ret = wl1271_ap_init_hwenc(wl);
+	if (ret < 0)
+		goto out_sleep;
+
+	set_bit(WL1271_FLAG_AP_STARTED, &wl->flags);
+	wl1271_debug(DEBUG_AP, "started AP");
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	/* actually add the stations - with wl->mutex unlocked */
+	if (!ret)
+		ieee80211_iterate_sta(wl->vif, wl12xx_add_sta_iterator, NULL);
 }
 
 /* AP mode changes */
@@ -3362,20 +3428,13 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	if ((changed & BSS_CHANGED_BEACON_ENABLED)) {
 		if (bss_conf->enable_beacon) {
 			if (!test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
-				ret = wl1271_cmd_role_start_ap(wl);
-				if (ret < 0)
-					goto out;
-
-				ret = wl1271_ap_init_hwenc(wl);
-				if (ret < 0)
-					goto out;
-
-				set_bit(WL1271_FLAG_AP_STARTED, &wl->flags);
-				wl1271_debug(DEBUG_AP, "started AP");
+				/*
+				 * Actually start the AP in a separate
+				 * work to avoid wl->mutex deadlocks
+				 */
+				ieee80211_queue_work(wl->hw,
+						     &wl->ap_start_work);
 			}
-				ieee80211_iterate_sta(vif,
-						      wl12xx_sta_iterator,
-						      NULL);
 		} else {
 			if (test_bit(WL1271_FLAG_AP_STARTED, &wl->flags)) {
 				ret = wl1271_cmd_role_stop_ap(wl);
@@ -4807,6 +4866,8 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 		  wl1271_rx_streaming_enable_work);
 	INIT_WORK(&wl->rx_streaming_disable_work,
 		  wl1271_rx_streaming_disable_work);
+	INIT_WORK(&wl->ap_start_work,
+		  wl12xx_ap_start_work);
 
 	wl->freezable_wq = create_freezable_workqueue("wl12xx_wq");
 	if (!wl->freezable_wq) {
