@@ -1007,15 +1007,15 @@ void ieee80211_iterate_sta(
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
 
-	rcu_read_lock();
+	mutex_lock(&local->sta_mtx);
 
-	list_for_each_entry_rcu(sta, &local->sta_list, list) {
-		if (sdata != sta->sdata)
+	list_for_each_entry(sta, &local->sta_list, list) {
+		if (sdata != sta->sdata || !sta->uploaded)
 			continue;
 		iterator(&local->hw, vif, &sta->sta, data);
 	}
 
-	rcu_read_unlock();
+	mutex_unlock(&local->sta_mtx);
 }
 EXPORT_SYMBOL_GPL(ieee80211_iterate_sta);
 
