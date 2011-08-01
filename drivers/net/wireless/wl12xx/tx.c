@@ -476,6 +476,10 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		desc->checksum_data = ((*ip_protocol) & 0x01);
 
 		iphdr_offset_from_mac = skb_network_header(skb) - skb_mac_header(skb);
+
+		if (control->control.hw_key->cipher == WLAN_CIPHER_SUITE_CCMP)
+			iphdr_offset_from_mac += 8; /* security header length */
+
 		desc->checksum_data |= iphdr_offset_from_mac << 1;
 	}
 	else
