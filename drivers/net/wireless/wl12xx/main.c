@@ -2120,6 +2120,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->flags = 0;
 
 	wl->tx_blocks_freed = 0;
+	wl->tx_allocated_blocks = 0;
 
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		wl->tx_pkts_freed[i] = 0;
