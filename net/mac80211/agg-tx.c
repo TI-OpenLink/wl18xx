@@ -372,7 +372,8 @@ int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 		return -EINVAL;
 
 	if ((tid >= STA_TID_NUM) ||
-	    !(local->hw.flags & IEEE80211_HW_AMPDU_AGGREGATION))
+	    !(local->hw.flags & IEEE80211_HW_AMPDU_AGGREGATION) ||
+	    (local->hw.flags & IEEE80211_HW_TX_AMPDU_IN_HW_ONLY))
 		return -EINVAL;
 
 #ifdef CONFIG_MAC80211_HT_DEBUG

@@ -355,6 +355,8 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
 		sf += snprintf(buf + sf, mxln - sf, "SUPPORTS_PER_STA_GTK\n");
 	if (local->hw.flags & IEEE80211_HW_AP_LINK_PS)
 		sf += snprintf(buf + sf, mxln - sf, "AP_LINK_PS\n");
+	if (local->hw.flags & IEEE80211_HW_TX_AMPDU_IN_HW_ONLY)
+		sf += snprintf(buf + sf, mxln - sf, "HW_TX_AGGREGATION\n");
 
 	rv = simple_read_from_buffer(user_buf, count, ppos, buf, strlen(buf));
 	kfree(buf);
