@@ -53,6 +53,7 @@
 
 #define WL1271_TX_ALIGN_TO 4
 #define WL1271_TKIP_IV_SPACE 4
+#define WL1271_AES_HEADER_LEN 8
 
 /* Used for management frames and dummy packets */
 #define WL1271_TID_MGMT 7
