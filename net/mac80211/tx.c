@@ -1970,7 +1970,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
 		 */
 		*qos_control = 0;
 	} else
-		memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
+		memcpy(skb_push(skb, hdrlen), &hdr, hdrlen); /* MAC header */
 
 	nh_pos += hdrlen;
 	h_pos += hdrlen;

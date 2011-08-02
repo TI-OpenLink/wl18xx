@@ -466,6 +466,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 	 * it means the NS agrees & expects the HW to do
 	 * the checksum for tcp/udp packets only.
 	*/
+
 	if (skb->ip_summed == CHECKSUM_PARTIAL)
 	{
 		/* The protocol type field starts 9 bytes
@@ -477,8 +478,11 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 
 		iphdr_offset_from_mac = skb_network_header(skb) - skb_mac_header(skb);
 
-		if (control->control.hw_key->cipher == WLAN_CIPHER_SUITE_CCMP)
-			iphdr_offset_from_mac += 8; /* security header length */
+		if (control->control.hw_key)
+		{
+			if (control->control.hw_key->cipher == WLAN_CIPHER_SUITE_CCMP)
+			iphdr_offset_from_mac += WL1271_AES_HEADER_LEN; /* security header length */
+		}
 
 		desc->checksum_data |= iphdr_offset_from_mac << 1;
 	}
