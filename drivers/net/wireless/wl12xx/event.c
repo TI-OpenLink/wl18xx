@@ -308,6 +308,22 @@ static int wl1271_event_process(struct wl1271 *wl, struct event_mailbox *mbox)
 			wl1271_stop_ba_event(wl);
 	}
 
+	if ((vector & CHANNEL_SWITCH_COMPLETE_EVENT_ID) && !is_ap) {
+		wl1271_debug(DEBUG_EVENT, "CHANNEL_SWITCH_COMPLETE_EVENT_ID. "
+					  "channel_switch_status = 0x%x",
+					  mbox->channel_switch_status);
+		/*
+		 * That event uses for two cases:
+		 * 1) channel switch complete with channel_switch_status=0
+		 * 2) fixing beacon actual TSF with channel_switch_status=1
+		 * calling chswitch_done only for the first option
+		 */
+		if (!mbox->channel_switch_status &&
+		    test_and_clear_bit(WL1271_FLAG_CS_PROGRESS, &wl->flags) &&
+		    (wl->vif))
+			ieee80211_chswitch_done(wl->vif, true);
+	}
+
 	if ((vector & DUMMY_PACKET_EVENT_ID)) {
 		wl1271_debug(DEBUG_EVENT, "DUMMY_PACKET_ID_EVENT_ID");
 		if (wl->vif)
