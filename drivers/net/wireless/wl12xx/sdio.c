@@ -263,8 +263,10 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	}
 
 	wl->irq = wlan_data->irq;
-	wl->ref_clock = wlan_data->board_ref_clock;
-	wl->tcxo_clock = wlan_data->board_tcxo_clock;
+	if (wl->ref_clock < 0)
+		wl->ref_clock = wlan_data->board_ref_clock;
+	if (wl->tcxo_clock < 0)
+		wl->tcxo_clock = wlan_data->board_tcxo_clock;
 	wl->platform_quirks = wlan_data->platform_quirks;
 
 	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
