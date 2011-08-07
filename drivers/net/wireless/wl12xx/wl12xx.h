@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.05_Test_Checksum_Liga"
+#define DRIVER_VERSION "WL18XX_A1.06_Remove_TRQ"
 
 /*
  * FW versions support BA 11n
@@ -291,6 +291,17 @@ struct wl1271_stats {
  */
 #define AP_MAX_LINKS               (AP_MAX_STATIONS + WL1271_AP_STA_HLID_START)
 
+/* FW sttus TX descripors free queue */
+struct fw_status_tx_free_q {
+	/* Index of next byte to hold a released host descriptor. */
+	/* (= +1 of the last host descriptor released).           */
+    u8 fw_release_index;
+
+	/* Vector queue of each host desc index of the frame which has finished processing */
+	/* The driver/host should use it to infer released host descriptors.                 */
+    u8 released_desc_ind_vec[ACX_TX_DESCRIPTORS];                                  
+};
+
 /* FW status registers */
 struct wl1271_fw_status {
 	__le32 intr;
@@ -319,6 +330,9 @@ struct wl1271_fw_status {
 	/* Size (in Memory Blocks) of TX pool */
 	__le32 tx_total;
 
+	/* Q of released host descriptors */
+	struct fw_status_tx_free_q tx_desc_release_q;                    
+
 	/* Cumulative counter of released packets per AC */
 	u8 tx_released_pkts[NUM_TX_QUEUES];
 
@@ -327,7 +341,7 @@ struct wl1271_fw_status {
 
 	/* Cumulative counter of released Voice memory blocks */
 	u8 tx_voice_released_blks;
-	u8 padding_1[7];
+	u8 padding_1[6];
 	__le32 log_start_addr;
 } __packed;
 
@@ -540,7 +554,8 @@ struct wl1271 {
 	unsigned long tx_frames_map[BITS_TO_LONGS(ACX_TX_DESCRIPTORS)];
 	struct sk_buff *tx_frames[ACX_TX_DESCRIPTORS];
 	int tx_frames_cnt;
-
+	u8 last_fw_release_index;
+  
 	/*
 	 * Security sequence number
 	 *     bits 0-15: lower 16 bits part of sequence number
