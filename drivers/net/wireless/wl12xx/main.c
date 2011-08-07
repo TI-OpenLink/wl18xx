@@ -953,6 +953,9 @@ static void wl1271_fw_status(struct wl1271 *wl,
 	getnstimeofday(&ts);
 	wl->time_offset = (timespec_to_ns(&ts) >> 10) -
 		(s64)le32_to_cpu(status->fw_localtime);
+
+	/* free Tx descriptors */
+	wl1271_tx_complete(wl, status);
 }
 
 static void wl1271_flush_deferred_work(struct wl1271 *wl)
@@ -1012,7 +1015,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 	if (ret < 0)
 		goto out;
 
-	while (!done && loopcount--) {
+	//while (!done && loopcount--) {
 		/*
 		 * In order to avoid a race with the hardirq, clear the flag
 		 * before acknowledging the chip. Since the mutex is held,
@@ -1026,12 +1029,24 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		intr &= WL1271_INTR_MASK;
 		if (!intr) {
 			done = true;
-			continue;
+			//continue;
 		}
 
 		if (unlikely(intr & WL1271_ACX_INTR_WATCHDOG)) {
 			wl1271_error("watchdog interrupt received! "
 				     "starting recovery.");
+#if 0
+			wl1271_info("alloc_trace_index: %d", wl->alloc_trace_index);
+			for (index = 0; index < ACX_TX_DESCRIPTORS; index++) {
+				wl1271_info("alloc_trace[%d]: 0x%x", index, wl->alloc_trace[index]);
+			}
+			
+			wl1271_info("free_trace_index: %d", wl->free_trace_index);
+			for (index = 0; index < ACX_TX_DESCRIPTORS; index++) {
+				wl1271_info("free_trace[%d]: 0x%x", index, wl->free_trace[index]);
+			}
+#endif			
+
 			/* Orit - Temp Disable recovery */
 			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
 
@@ -1061,7 +1076,10 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 			/* check for tx results */
 			if (wl->fw_status->tx_results_counter !=
 			    (wl->tx_results_count & 0xff))
-				wl1271_tx_complete(wl);
+			{
+				wl1271_debug(DEBUG_IRQ, "****** Orit: Skip wl1271_tx_complete **************");
+                //wl1271_tx_complete(wl);
+			}
 
 			/* Make sure the deferred queues don't get too long */
 			defer_count = skb_queue_len(&wl->deferred_tx_queue) +
@@ -1086,7 +1104,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 
 		if (intr & WL1271_ACX_INTR_HW_AVAILABLE)
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_HW_AVAILABLE");
-	}
+	//}
 
 	wl1271_ps_elp_sleep(wl);
 
@@ -2365,6 +2383,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl->tx_res_if = NULL;
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
+	wl->last_fw_release_index = 0;
 }
 
 static void wl1271_op_remove_interface(struct ieee80211_hw *hw,

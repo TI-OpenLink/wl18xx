@@ -872,6 +872,122 @@ static u8 wl1271_tx_get_rate_flags(u8 rate_class_index)
 	return flags;
 }
 
+static void dump_release_q(const struct fw_status_tx_free_q *tx_desc_release_q)
+{
+	print_hex_dump(KERN_DEBUG, DRIVER_PREFIX "tx release Q:",
+			   DUMP_PREFIX_OFFSET, 16, 1,	
+			   (void *)tx_desc_release_q,			
+			   min_t(size_t, sizeof(*tx_desc_release_q) , DEBUG_DUMP_LIMIT),
+			   0);		
+}
+
+static void wl1271_tx_complete_packet(struct wl1271 *wl, 
+					  int id, struct wl1271_fw_status *status)
+{
+	struct ieee80211_tx_info *info;
+	struct sk_buff *skb;
+	//int id = result->id;
+	int rate = -1;
+	u8 retries = 0;
+
+	/* check for id legality */
+	if (unlikely(id >= ACX_TX_DESCRIPTORS || wl->tx_frames[id] == NULL)) {
+		wl1271_warning("TX result illegal id: %d, last_fw_release_index = %d", id, wl->last_fw_release_index);
+		dump_release_q(&(status->tx_desc_release_q));
+        return;
+	}
+
+	skb = wl->tx_frames[id];
+	info = IEEE80211_SKB_CB(skb);
+
+	if (wl12xx_is_dummy_packet(wl, skb)) {
+		wl1271_free_tx_id(wl, id);
+		return;
+	}
+
+	/* update the TX status info */
+	/*if (result->status == TX_SUCCESS) {
+		if (!(info->flags & IEEE80211_TX_CTL_NO_ACK))
+			info->flags |= IEEE80211_TX_STAT_ACK;
+		rate = wl1271_rate_to_idx(result->rate_class_index, wl->band);
+		retries = result->ack_failures;
+	} else if (result->status == TX_RETRY_EXCEEDED) {
+		wl->stats.excessive_retries++;
+		retries = result->ack_failures;
+	}*/
+
+	info->status.rates[0].idx = rate;
+	info->status.rates[0].count = retries;
+	info->status.rates[0].flags = 0;
+	info->status.ack_signal = -1;
+
+	//wl->stats.retry_count += result->ack_failures;
+
+	/* update security sequence number */
+	//wl->tx_security_seq += (result->lsb_security_sequence_number -
+	//			wl->tx_security_last_seq);
+	//wl->tx_security_last_seq = result->lsb_security_sequence_number;
+
+	/* remove private header from packet */
+	skb_pull(skb, sizeof(struct wl1271_tx_hw_descr));
+
+	/* remove TKIP header space if present */
+	if (info->control.hw_key &&
+	    info->control.hw_key->cipher == WLAN_CIPHER_SUITE_TKIP) {
+		int hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+		memmove(skb->data + WL1271_TKIP_IV_SPACE, skb->data, hdrlen);
+		skb_pull(skb, WL1271_TKIP_IV_SPACE);
+	}
+
+	/*wl1271_debug(DEBUG_TX, "tx status id %u skb 0x%p failures %u rate 0x%x"
+		     " status 0x%x",
+		     result->id, skb, result->ack_failures,
+		     result->rate_class_index, result->status);*/
+
+	/* return the packet to the stack */
+	skb_queue_tail(&wl->deferred_tx_queue, skb);
+	ieee80211_queue_work(wl->hw, &wl->netstack_work);
+	wl1271_free_tx_id(wl, id);
+}
+
+/* Called upon reception of a TX complete interrupt */
+void wl1271_tx_complete(struct wl1271 *wl,
+			   struct wl1271_fw_status *status)
+{
+	u8 index = 0;
+
+	/* free tX descriptors */
+	wl1271_debug(DEBUG_TX, "last_fw_release_index = %d, fw_release_index = %d",
+			 wl->last_fw_release_index,
+		     status->tx_desc_release_q.fw_release_index);
+
+	index = wl->last_fw_release_index;
+
+	if (status->tx_desc_release_q.fw_release_index >= ACX_TX_DESCRIPTORS) {
+		wl1271_error("Bad FW TX desc release index %d", status->tx_desc_release_q.fw_release_index);
+		dump_release_q(& status->tx_desc_release_q);
+        return;
+	}
+
+#if 0
+	if (index != status->txDescReleaseQ.fw_release_index) {
+		dump_release_q(& status->tx_desc_release_q);
+	}
+#endif
+
+	while (index != status->tx_desc_release_q.fw_release_index) {
+		wl1271_tx_complete_packet(wl, status->tx_desc_release_q.released_desc_ind_vec[index], status);
+		index++;
+
+		if (index == ACX_TX_DESCRIPTORS) {
+			index = 0;
+		}
+	}
+
+	wl->last_fw_release_index = status->tx_desc_release_q.fw_release_index;
+}
+
+#if 0
 static void wl1271_tx_complete_packet(struct wl1271 *wl,
 				      struct wl1271_tx_hw_res_descr *result)
 {
@@ -993,6 +1109,7 @@ void wl1271_tx_complete(struct wl1271 *wl)
 		wl->tx_results_count++;
 	}
 }
+#endif
 
 void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid)
 {
