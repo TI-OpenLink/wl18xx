@@ -805,9 +805,7 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl)
 		goto out;
 	}
 
-
 #ifdef CONFIG_WL12XX_HT
-	/* LiorC: TODO*/
 	/* configure 40MHz supported rates */
 	acx->rate_policy_idx = cpu_to_le32(ACX_TX_40_MHZ_RATE);
 	acx->rate_policy.enabled_rates = cpu_to_le32(CONF_TX_RATE_MASK_40_MHZ);
@@ -821,7 +819,6 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl)
 		goto out;
 	}
 #endif
-
 
 out:
 	kfree(acx);
@@ -1092,8 +1089,6 @@ int wl1271_acx_init_mem_config(struct wl1271 *wl)
 		le32_to_cpu(wl->target_mem_map->num_tx_mem_blocks);
 	wl1271_debug(DEBUG_TX, "available tx blocks: %d",
 		     wl->tx_blocks_available);
-    /* Dror Tmp */
-//	wl1271_info("available tx blocks: %d", wl->tx_blocks_available);
 
 	return 0;
 }
@@ -1726,10 +1721,8 @@ int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl)
 	       sizeof(acx->rate_retry_policy));
 
 
-#if 0
 	wl1271_dump(DEBUG_CMD, "RATE_MGMT: ",
 		&acx->header + 1, sizeof(*acx) - sizeof(acx->header));
-#endif
 
 	ret = wl1271_cmd_configure(wl, ACX_SET_RATE_MAMAGEMENT_PARAMS,
 				   acx, sizeof(*acx));

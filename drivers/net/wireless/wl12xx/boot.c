@@ -32,67 +32,6 @@
 #include "rx.h"
 
 
-#if 0
-static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
-	[PART_DOWN] = {
-		.mem = {
-			.start = 0x00000000,
-			.size  = 0x000177c0
-		},
-		.reg = {
-			.start = REGISTERS_BASE,
-			.size  = 0x00008800
-		},
-		.mem2 = {
-			.start = 0x00000000,
-			.size  = 0x00000000
-		},
-		.mem3 = {
-			.start = 0x00000000,
-			.size  = 0x00000000
-		},
-	},
-
-	[PART_WORK] = {
-		.mem = {
-			.start = 0x00040000,
-			.size  = 0x00014fc0
-		},
-		.reg = {
-			.start = REGISTERS_BASE,
-			.size  = 0x0000a000
-		},
-		.mem2 = {
-			.start = 0x003004f8,
-			.size  = 0x00000004
-		},
-		.mem3 = {
-			.start = 0x00040404,
-			.size  = 0x00000000
-		},
-	},
-
-	[PART_DRPW] = {
-		.mem = {
-			.start = 0x00040000,
-			.size  = 0x00014fc0
-		},
-		.reg = {
-			.start = DRPW_BASE,
-			.size  = 0x00006000
-		},
-		.mem2 = {
-			.start = 0x00000000,
-			.size  = 0x00000000
-		},
-		.mem3 = {
-			.start = 0x00000000,
-			.size  = 0x00000000
-		}
-	}
-};
-#endif
-
 static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 	[PART_TOP_PRCM_ELP_SOC] = {
 		.mem = {
@@ -1053,32 +992,6 @@ int wl1271_load_firmware(struct wl1271 *wl)
     			WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	wl1271_write32(wl, WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
-#if 0
-	wl1271_set_partition(wl, &part_table[PART_DRPW]);
-
-	/* Read-modify-write DRPW_SCRATCH_START register (see next state)
-	   to be used by DRPw FW. The RTRIM value will be added by the FW
-	   before taking DRPw out of reset */
-
-	wl1271_debug(DEBUG_BOOT, "DRPW_SCRATCH_START %08x", DRPW_SCRATCH_START);
-	clk = wl1271_read32(wl, DRPW_SCRATCH_START);
-
-	wl1271_debug(DEBUG_BOOT, "clk2 0x%x", clk);
-
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
-		clk |= ((selected_clock & 0x3) << 1) << 4;
-	} else {
-		clk |= (wl->ref_clock << 1) << 4;
-	}
-
-	if (wl->quirks & WL12XX_QUIRK_LPD_MODE)
-		clk |= SCRATCH_ENABLE_LPD;
-
-	wl1271_write32(wl, DRPW_SCRATCH_START, clk);
-
-	wl1271_set_partition(wl, &part_table[PART_WORK]);
-#endif
-
 	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	/* Disable interrupts */

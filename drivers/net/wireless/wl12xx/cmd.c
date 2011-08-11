@@ -67,9 +67,6 @@ int wl1271_cmd_send(struct wl1271 *wl, u16 id, void *buf, size_t len,
 	wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
 
 	wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG_H, INTR_TRIG_CMD);
-#if 0
-	wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG, INTR_TRIG_CMD);
-#endif
 	timeout = jiffies + msecs_to_jiffies(WL1271_COMMAND_TIMEOUT);
 
 	intr = wl1271_read32(wl, ACX_REG_INTERRUPT_NO_CLEAR);
@@ -591,7 +588,7 @@ int wl1271_cmd_role_start_sta(struct wl1271 *wl)
 
 	cmd->channel = wl->channel;
 
-	/* LiorC: added below for 40MHz support */
+	/* Added below for 40MHz support */
 	cmd->channel_type = (u8)wl->channel_type;
 
 	cmd->sta.basic_rate_set = cpu_to_le32(wl->basic_rate_set);
