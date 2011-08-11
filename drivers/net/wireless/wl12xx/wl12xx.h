@@ -209,16 +209,6 @@ enum wl12xx_fw_type {
 	WL12XX_FW_TYPE_PLT,
 };
 
-#if 0
-enum wl1271_partition_type {
-	PART_DOWN,
-	PART_WORK,
-	PART_DRPW,
-
-	PART_TABLE_LEN
-};
-#endif
-
 enum wl18xx_partition_type {
 	PART_TOP_PRCM_ELP_SOC,
 	PART_DOWN,
@@ -496,8 +486,6 @@ struct wl1271 {
 	u8 ssid[IW_ESSID_MAX_SIZE + 1];
 	u8 ssid_len;
 	int channel;
-
-	/* LiorC: TODO: change to enum */
 	enum nl80211_channel_type channel_type;
 
 	u8 role_id;

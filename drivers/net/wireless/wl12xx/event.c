@@ -420,8 +420,5 @@ int wl1271_event_handle(struct wl1271 *wl, u8 mbox_num)
 
 	/* then we let the firmware know it can go on...*/
 	wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG_H, INTR_TRIG_EVENT_ACK);
-#if 0
-	wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG, INTR_TRIG_EVENT_ACK);
-#endif
 	return 0;
 }

@@ -1035,18 +1035,6 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (unlikely(intr & WL1271_ACX_INTR_WATCHDOG)) {
 			wl1271_error("watchdog interrupt received! "
 				     "starting recovery.");
-#if 0
-			wl1271_info("alloc_trace_index: %d", wl->alloc_trace_index);
-			for (index = 0; index < ACX_TX_DESCRIPTORS; index++) {
-				wl1271_info("alloc_trace[%d]: 0x%x", index, wl->alloc_trace[index]);
-			}
-			
-			wl1271_info("free_trace_index: %d", wl->free_trace_index);
-			for (index = 0; index < ACX_TX_DESCRIPTORS; index++) {
-				wl1271_info("free_trace[%d]: 0x%x", index, wl->free_trace[index]);
-			}
-#endif			
-
 			/* Orit - Temp Disable recovery */
 			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
 
@@ -1326,6 +1314,8 @@ static void wl1271_recovery_work(struct work_struct *work)
 	set_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 
 	wl12xx_read_fwlog_panic(wl);
+
+	/* Orit - Temp Disable recovery */
 #if 0
 	wl1271_info("Hardware recovery in progress. MAC FW ver: %s PHY FW ver: %s pc: 0x%x",
 		    wl->chip.fw_ver_str, wl->chip.phy_fw_ver_str, wl1271_read32(wl, SCR_PAD4));

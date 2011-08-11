@@ -423,8 +423,6 @@ struct conf_rx_settings {
 
 #define CONF_TX_MAX_RATE_CLASSES       10
 
-
-/* LiorC: TODO */
 #define CONF_TX_RATE_MASK_40_MHZ 	  (CONF_TX_MCS_RATES | CONF_TX_AP_ENABLED_RATES | BIT(31))
 
 #define CONF_TX_RATE_MASK_UNSPECIFIED  0

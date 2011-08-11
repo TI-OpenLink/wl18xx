@@ -653,8 +653,6 @@ struct acx_new_pipeline_statistics
 
 } __packed;
 
-/* added by lior */
-
 struct acx_ring_statistics
 {
 	__le32  tx_procs;
@@ -666,7 +664,6 @@ struct acx_ring_statistics
 	__le32  rx_data;
 }__packed;
 
-
 struct acx_dbg_statistics
 {
     __le32  debug1;
@@ -676,7 +673,6 @@ struct acx_dbg_statistics
     __le32  debug5;
     __le32  debug6;
 } __packed;
-
 
 struct acx_ps_poll_upsd_statistics
 {
@@ -688,7 +684,6 @@ struct acx_ps_poll_upsd_statistics
 	__le32  upsd_utilization;
 } __packed;
 
-
 struct acx_rx_filter_statistics
 {
 	__le32 beacon_filter;
@@ -698,7 +693,6 @@ struct acx_rx_filter_statistics
 	__le32 data_filter;
 	__le32 ibss_filter;
 } __packed;
-
 
 struct acx_calibration_fail_statistics
 {
@@ -730,7 +724,6 @@ struct acx_calibration_fail_statistics
     __le32 cal_state_fail;
 } __packed;
 
-
 struct acx_statistics {
 	struct acx_header header;
 
@@ -750,7 +743,6 @@ struct acx_statistics {
     struct acx_new_pipeline_statistics new_pipe_line;
 } __packed;
 
-
 struct acx_rate_class {
 	__le32 enabled_rates;
 	u8 short_retry_limit;
@@ -765,9 +757,8 @@ struct acx_rate_class {
 #define ACX_TX_AP_MODE_MGMT_RATE 4
 #define ACX_TX_AP_MODE_BCST_RATE 5
 
-/* LiorC - add support for 40MHz  */
+/* Add support for 40MHz  */
 #define ACX_TX_40_MHZ_RATE      6
-
 
 struct acx_rate_policy {
 	struct acx_header header;
@@ -879,7 +870,6 @@ struct wl1271_acx_rx_config_opt {
 	u8 queue_type;
 	u8 reserved;
 } __packed;
-
 
 struct wl1271_acx_bet_enable {
 	struct acx_header header;
