@@ -967,14 +967,6 @@ static const struct file_operations tx_frag_thld_ops = {
         .llseek = default_llseek,
 };
 
-/*
- * Added by Lior
- *
- */
-/* *************************************************************
- * *************************************************************
- */
-
 static ssize_t tx_compl_timeout_read(struct file *file, char __user *user_buf,
                                   size_t count, loff_t *ppos)
 {
