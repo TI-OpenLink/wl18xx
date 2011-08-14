@@ -170,6 +170,7 @@ struct omap_hsmmc_host {
 	unsigned int		id;
 	unsigned int		dma_len;
 	unsigned int		dma_sg_idx;
+	unsigned int		master_clock;
 	unsigned char		bus_mode;
 	unsigned char		power_mode;
 	u32			*buffer;
@@ -598,12 +599,12 @@ static void omap_hsmmc_disable_irq(struct omap_hsmmc_host *host)
 }
 
 /* Calculate divisor for the given clock frequency */
-static u16 calc_divisor(struct mmc_ios *ios)
+static u16 calc_divisor(struct mmc_ios *ios, unsigned int master_clock)
 {
 	u16 dsor = 0;
 
 	if (ios->clock) {
-		dsor = DIV_ROUND_UP(OMAP_MMC_MASTER_CLOCK, ios->clock);
+		dsor = DIV_ROUND_UP(master_clock, ios->clock);
 		if (dsor > 250)
 			dsor = 250;
 	}
@@ -623,7 +624,7 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 
 	regval = OMAP_HSMMC_READ(host->base, SYSCTL);
 	regval = regval & ~(CLKD_MASK | DTO_MASK);
-	regval = regval | (calc_divisor(ios) << 6) | (DTO << 16);
+	regval |= (calc_divisor(ios, host->master_clock) << 6) | (DTO << 16);
 	OMAP_HSMMC_WRITE(host->base, SYSCTL, regval);
 	OMAP_HSMMC_WRITE(host->base, SYSCTL,
 		OMAP_HSMMC_READ(host->base, SYSCTL) | ICE);
@@ -1914,6 +1915,10 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	host->power_mode = MMC_POWER_OFF;
 	host->next_data.cookie = 1;
+
+	host->master_clock = OMAP_MMC_MASTER_CLOCK;
+	if (mmc_slot(host).features & HSMMC_HAS_48MHZ_MASTER_CLK)
+		host->master_clock /= 2;
 
 	platform_set_drvdata(pdev, host);
 	INIT_WORK(&host->mmc_carddetect_work, omap_hsmmc_detect);
