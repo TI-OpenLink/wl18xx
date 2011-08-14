@@ -343,8 +343,12 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 	else
 		mmc->slots[0].features |= HSMMC_HAS_PBIAS;
 
-	if (cpu_is_omap44xx() && (omap_rev() > OMAP4430_REV_ES1_0))
-		mmc->slots[0].features |= HSMMC_HAS_UPDATED_RESET;
+	if (cpu_is_omap44xx()) {
+		if (omap_rev() > OMAP4430_REV_ES1_0)
+			mmc->slots[0].features |= HSMMC_HAS_UPDATED_RESET;
+		if (c->mmc >= 3 && c->mmc <= 5)
+			mmc->slots[0].features |= HSMMC_HAS_48MHZ_MASTER_CLK;
+	}
 
 	switch (c->mmc) {
 	case 1:
