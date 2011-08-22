@@ -107,16 +107,6 @@ static unsigned int wl12xx_get_fw_ver_quirks(struct wl1271 *wl)
 	unsigned int quirks = 0;
 	unsigned int *fw_ver = wl->chip.fw_ver;
 
-	/* Only for wl127x */
-	if ((fw_ver[FW_VER_CHIP] == FW_VER_CHIP_WL127X) &&
-	    /* Check STA version */
-	    (((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_STA) &&
-	      (fw_ver[FW_VER_MINOR] < FW_VER_MINOR_1_SPARE_STA_MIN)) ||
-	     /* Check AP version */
-	     ((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_AP) &&
-	      (fw_ver[FW_VER_MINOR] < FW_VER_MINOR_1_SPARE_AP_MIN))))
-		quirks |= WL12XX_QUIRK_USE_2_SPARE_BLOCKS;
-
 	/* Only new station firmwares support routing fw logs to the host */
 	if ((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_STA) &&
 	    (fw_ver[FW_VER_MINOR] < FW_VER_MINOR_FWLOG_STA_MIN))
@@ -504,21 +494,18 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	wl->event_mask = BSS_LOSE_EVENT_ID |
 		SCAN_COMPLETE_EVENT_ID |
 		PS_REPORT_EVENT_ID |
-		JOIN_EVENT_COMPLETE_ID |
 		DISCONNECT_EVENT_COMPLETE_ID |
 		RSSI_SNR_TRIGGER_0_EVENT_ID |
 		PSPOLL_DELIVERY_FAILURE_EVENT_ID |
 		SOFT_GEMINI_SENSE_EVENT_ID |
 		PERIODIC_SCAN_REPORT_EVENT_ID |
-		PERIODIC_SCAN_COMPLETE_EVENT_ID;
-
-	if (wl->bss_type == BSS_TYPE_AP_BSS)
-		wl->event_mask |= STA_REMOVE_COMPLETE_EVENT_ID |
-				  INACTIVE_STA_EVENT_ID |
-				  MAX_TX_RETRY_EVENT_ID;
-	else
-		wl->event_mask |= DUMMY_PACKET_EVENT_ID |
-			BA_SESSION_RX_CONSTRAINT_EVENT_ID;
+		PERIODIC_SCAN_COMPLETE_EVENT_ID |
+		DUMMY_PACKET_EVENT_ID |
+		PEER_REMOVE_COMPLETE_EVENT_ID |
+		BA_SESSION_RX_CONSTRAINT_EVENT_ID |
+		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
+		INACTIVE_STA_EVENT_ID |
+		MAX_TX_RETRY_EVENT_ID;
 
 	ret = wl1271_event_unmask(wl);
 	if (ret < 0) {
@@ -854,9 +841,6 @@ int wl1271_boot(struct wl1271 *wl)
 
 	/* Enable firmware interrupts now */
 	wl1271_boot_enable_interrupts(wl);
-
-	/* set the wl1271 default filters */
-	wl1271_set_default_filters(wl);
 
 	wl1271_event_mbox_config(wl);
 
