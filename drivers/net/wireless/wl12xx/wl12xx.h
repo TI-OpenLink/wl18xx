@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.07_HT_MAX_AMPDU_16K"
+#define DRIVER_VERSION "WL18XX_A1.07_AP_MODE_STA_DIS"
 
 /*
  * FW versions support BA 11n
@@ -281,7 +281,10 @@ struct wl1271_stats {
  */
 #define AP_MAX_LINKS               (AP_MAX_STATIONS + WL1271_AP_STA_HLID_START)
 
-/* FW sttus TX descripors free queue */
+#define FW_STATUS_FREE_DESC_MASK      0x7F
+#define FW_STATUS_TX_STATUS_MASK      BIT(7)
+
+/* FW status TX descripors free queue */
 struct fw_status_tx_free_q {
 	/* Index of next byte to hold a released host descriptor. */
 	/* (= +1 of the last host descriptor released).           */
