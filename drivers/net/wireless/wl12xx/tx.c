@@ -890,10 +890,15 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	//int id = result->id;
 	int rate = -1;
 	u8 retries = 0;
+	u8 tx_status = 0;
+
+	id &= FW_STATUS_FREE_DESC_MASK;
+	/* The status of the transmission, indicating success or failure */
+	tx_status = (id & FW_STATUS_TX_STATUS_MASK) >> 7;
 
 	/* check for id legality */
 	if (unlikely(id >= ACX_TX_DESCRIPTORS || wl->tx_frames[id] == NULL)) {
-		wl1271_warning("TX result illegal id: %d, last_fw_release_index = %d", id, wl->last_fw_release_index);
+		wl1271_warning("TX illegal id: %d, last_fw_release_index = %d", id, wl->last_fw_release_index);
 		dump_release_q(&(status->tx_desc_release_q));
         return;
 	}
@@ -906,13 +911,19 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 		return;
 	}
 
+	/* check for tx_status legality */
+	if (unlikely((tx_status != TX_SUCCESS) && (tx_status != TX_HW_ERROR))) {
+		wl1271_warning("TX illegal status: %d", tx_status);
+        return;
+	}
+
 	/* update the TX status info */
-	/*if (result->status == TX_SUCCESS) {
+	if (tx_status == TX_SUCCESS) {
 		if (!(info->flags & IEEE80211_TX_CTL_NO_ACK))
 			info->flags |= IEEE80211_TX_STAT_ACK;
-		rate = wl1271_rate_to_idx(result->rate_class_index, wl->band);
-		retries = result->ack_failures;
-	} else if (result->status == TX_RETRY_EXCEEDED) {
+		//rate = wl1271_rate_to_idx(result->rate_class_index, wl->band);
+		//retries = result->ack_failures;
+	} /*else if (result->status == TX_RETRY_EXCEEDED) {
 		wl->stats.excessive_retries++;
 		retries = result->ack_failures;
 	}*/
