@@ -4703,7 +4703,7 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 	       IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40, \
 	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
 	.ht_supported = true, \
-	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K, \
+	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_16K, \
 	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8, \
 	.mcs = { \
 		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, }, \
