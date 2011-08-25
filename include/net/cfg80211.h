@@ -755,6 +755,12 @@ struct mesh_config {
 	u16 dot11MeshHWMPpreqMinInterval;
 	u16 dot11MeshHWMPnetDiameterTraversalTime;
 	u8  dot11MeshHWMPRootMode;
+	u16 dot11MeshHWMPRannInterval;
+	/* This is missnamed in draft 12.0: dot11MeshGateAnnouncementProtocol
+	 * set to true only means that the station will announce others it's a
+	 * mesh gate, but not necessarily using the gate announcement protocol.
+	 * Still keeping the same nomenclature to be in sync with the spec. */
+	bool  dot11MeshGateAnnouncementProtocol;
 };
 
 /**
@@ -1902,6 +1908,9 @@ struct wiphy {
 	 * you need use set_wiphy_dev() (see below) */
 	struct device dev;
 
+	/* protects ->resume, ->suspend sysfs callbacks against unregister hw */
+	bool registered;
+
 	/* dir in debugfs: ieee80211/<wiphyname> */
 	struct dentry *debugfsdir;
 
@@ -2291,7 +2300,7 @@ struct ieee802_11_elems {
 	struct ieee80211_ht_info *ht_info_elem;
 	struct ieee80211_meshconf_ie *mesh_config;
 	u8 *mesh_id;
-	u8 *peer_link;
+	u8 *peering;
 	u8 *preq;
 	u8 *prep;
 	u8 *perr;
@@ -2318,7 +2327,7 @@ struct ieee802_11_elems {
 	u8 wmm_info_len;
 	u8 wmm_param_len;
 	u8 mesh_id_len;
-	u8 peer_link_len;
+	u8 peering_len;
 	u8 preq_len;
 	u8 prep_len;
 	u8 perr_len;
