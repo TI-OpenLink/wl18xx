@@ -467,6 +467,46 @@ ieee80211_direct_probe(struct ieee80211_work *wk)
 	return WORK_ACT_NONE;
 }
 
+static void ieee80211_update_ap_rates(struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_work *wk, u8 bmin_rate)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_supported_band *sband;
+	u32 rates = 0;
+	struct cfg80211_bss *cbss;
+	u16 capa_val = WLAN_CAPABILITY_ESS;
+	const u8* ie_supp_rate = NULL;
+	u8 ie_supp_rate_len = 0;
+
+	if (wk->probe_auth.privacy)
+		capa_val |= WLAN_CAPABILITY_PRIVACY;
+
+	cbss = cfg80211_get_bss(local->hw.wiphy, wk->chan, wk->filter_ta,
+				wk->probe_auth.ssid, wk->probe_auth.ssid_len,
+				WLAN_CAPABILITY_ESS | WLAN_CAPABILITY_PRIVACY,
+				capa_val);
+	if (!cbss)
+	{
+		printk(KERN_DEBUG "%s: Warning!, desired AP has not found!\n", sdata->name);
+		return;
+	}
+
+	ie_supp_rate = ieee80211_bss_get_ie(cbss, WLAN_EID_SUPP_RATES);
+
+	if (ie_supp_rate)
+	{
+		sband = local->hw.wiphy->bands[wk->chan->band];
+		ie_supp_rate_len = (bmin_rate == true) ? 1 : ie_supp_rate[1];
+
+		if (ieee80211_compatible_rates(&ie_supp_rate[2], ie_supp_rate_len , sband, &rates))
+		{
+			sdata->vif.bss_conf.basic_rates = rates;
+
+			/* notify the driver with the AP's basic/supported rate  */
+			ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BASIC_RATES);
+		}
+	}
+}
 
 static enum work_action __must_check
 ieee80211_authenticate(struct ieee80211_work *wk)
@@ -492,6 +532,8 @@ ieee80211_authenticate(struct ieee80211_work *wk)
 		return WORK_ACT_TIMEOUT;
 	}
 
+	/* update desired AP basic min rate in DR/FW */
+	ieee80211_update_ap_rates(sdata, wk, true);
 	printk(KERN_DEBUG "%s: authenticate with %pM (try %d)\n",
 	       sdata->name, wk->filter_ta, wk->probe_auth.tries);
 

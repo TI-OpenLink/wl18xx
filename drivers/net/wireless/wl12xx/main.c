@@ -3806,6 +3806,11 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		do_join = true;
 	}
 
+	if (changed & BSS_CHANGED_BASIC_RATES)
+	{
+		wl->basic_rate = wl1271_tx_enabled_rates_get(wl, bss_conf->basic_rates);
+		wl1271_acx_sta_rate_policies(wl);
+	}
 	if ((changed & BSS_CHANGED_CQM)) {
 		bool enable = false;
 		if (bss_conf->cqm_rssi_thold)
