@@ -135,15 +135,35 @@ static int wl1271_get_scan_channels(struct wl1271 *wl,
 				     req->channels[i]->beacon_found);
 
 			if (!passive) {
-				channels[j].min_duration =
-					cpu_to_le32(c->min_dwell_time_active);
-				channels[j].max_duration =
-					cpu_to_le32(c->max_dwell_time_active);
+				if (req->min_dwell)
+					channels[j].min_duration =
+						req->min_dwell;
+				else
+					channels[j].min_duration =
+					  cpu_to_le32(c->min_dwell_time_active);
+
+				if (req->max_dwell)
+					channels[j].max_duration =
+						req->max_dwell;
+				else
+					channels[j].max_duration =
+					  cpu_to_le32(c->max_dwell_time_active);
 			} else {
-				channels[j].min_duration =
-					cpu_to_le32(c->min_dwell_time_passive);
-				channels[j].max_duration =
-					cpu_to_le32(c->max_dwell_time_passive);
+				if ((req->min_dwell) &&
+					(wl->scan.req->n_ssids == 0))
+						channels[j].min_duration =
+							req->min_dwell;
+				else
+					channels[j].min_duration =
+					 cpu_to_le32(c->min_dwell_time_passive);
+
+				if ((req->max_dwell) &&
+					(wl->scan.req->n_ssids == 0))
+						channels[j].min_duration =
+							req->max_dwell;
+				else
+					channels[j].max_duration =
+					 cpu_to_le32(c->max_dwell_time_passive);
 			}
 			channels[j].early_termination = 0;
 			channels[j].tx_power_att = req->channels[i]->max_power;
@@ -212,6 +232,16 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
 	cmd->params.tid_trigger = 0;
 	cmd->params.scan_tag = WL1271_SCAN_DEFAULT_TAG;
+
+	if (band == IEEE80211_BAND_2GHZ)
+		cmd->params.band = WL1271_SCAN_BAND_2_4_GHZ;
+	else
+		cmd->params.band = WL1271_SCAN_BAND_5_GHZ;
+
+	if (wl->scan.req->num_probe)
+		cmd->params.n_probe_reqs = wl->scan.req->num_probe;
+	else
+		cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
 
 	if (band == IEEE80211_BAND_2GHZ)
 		cmd->params.band = WL1271_SCAN_BAND_2_4_GHZ;
