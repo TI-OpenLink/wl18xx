@@ -30,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/bitops.h>
+#include <linux/interrupt.h>
 #include <net/mac80211.h>
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
@@ -207,6 +208,11 @@ struct wl1271_if_operations {
 	void (*init)(struct device *child);
 	int (*power)(struct device *child, bool enable);
 	void (*set_block_size) (struct device *child, unsigned int blksz);
+	void (*request_inband_irq)(struct device *child,
+				   irq_handler_t handler,
+				   irq_handler_t thread_fn,
+				   void *cookie);
+	void (*free_inband_irq)(struct device *child);
 };
 
 #define MAX_NUM_KEYS 14
