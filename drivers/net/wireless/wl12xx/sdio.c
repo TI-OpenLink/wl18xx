@@ -44,6 +44,8 @@
 #define SDIO_DEVICE_ID_TI_WL1271	0x4076
 #endif
 
+static char *interrupt;
+
 static const struct sdio_device_id wl1271_devices[] __devinitconst = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271) },
 	{}
@@ -86,7 +88,8 @@ static irqreturn_t wl1271_hardirq(int irq, void *cookie)
 		/* don't enqueue a work right now. mark it as pending */
 		set_bit(WL1271_FLAG_PENDING_WORK, &wl->flags);
 		wl1271_debug(DEBUG_IRQ, "should not enqueue work");
-		disable_irq_nosync(wl->irq);
+		if (!wl->inband_irq)
+			disable_irq_nosync(wl->irq);
 		pm_wakeup_event(wl1271_sdio_wl_to_dev(wl), 0);
 #ifdef CONFIG_HAS_WAKELOCK
 		if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
@@ -104,14 +107,54 @@ static irqreturn_t wl1271_hardirq(int irq, void *cookie)
 	return IRQ_WAKE_THREAD;
 }
 
+static void wl12xx_sdio_interrupt(struct sdio_func *func)
+{
+	struct wl1271 *wl = sdio_get_drvdata(func);
+	irqreturn_t ret;
+
+	ret = wl1271_hardirq(0, wl);
+	if (ret == IRQ_WAKE_THREAD) {
+		sdio_release_host(func);
+		wl1271_irq(0, wl);
+		sdio_claim_host(func);
+	}
+}
+
+static void wl12xx_free_sdio_irq(struct wl1271 *wl)
+{
+	struct sdio_func *func = wl_to_func(wl);
+
+	wl1271_info("releasing sdio irq");
+	sdio_claim_host(func);
+	sdio_release_irq(func);
+	sdio_release_host(func);
+}
+
 static void wl1271_sdio_disable_interrupts(struct wl1271 *wl)
 {
-	disable_irq(wl->irq);
+	if (wl->inband_irq)
+		wl12xx_free_sdio_irq(wl);
+	else
+		disable_irq(wl->irq);
+}
+
+static void wl12xx_claim_sdio_irq(struct wl1271 *wl)
+{
+	struct sdio_func *func = wl_to_func(wl);
+	int ret;
+
+	sdio_claim_host(func);
+	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
+	sdio_release_host(func);
+	wl1271_info("claiming sdio irq (func=%d). ret=%d", func->num, ret);
 }
 
 static void wl1271_sdio_enable_interrupts(struct wl1271 *wl)
 {
-	enable_irq(wl->irq);
+	if (wl->inband_irq)
+		wl12xx_claim_sdio_irq(wl);
+	else
+		enable_irq(wl->irq);
 }
 
 static void wl1271_sdio_raw_read(struct wl1271 *wl, int addr, void *buf,
@@ -284,33 +327,43 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	else
 		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
 
-	ret = request_threaded_irq(wl->irq, wl1271_hardirq, wl1271_irq,
-				   irqflags,
-				   DRIVER_NAME, wl);
-	if (ret < 0) {
-		wl1271_error("request_irq() failed: %d", ret);
-		goto out_free;
+	wl->inband_irq = false;
+	if (interrupt) {
+		if (!strcmp(interrupt, "sdio"))
+			wl->inband_irq = true;
+		else if (strcmp(interrupt, "gpio"))
+			wl1271_warning("Unknown interrupt type, using gpio");
 	}
-
-	ret = enable_irq_wake(wl->irq);
-	if (!ret) {
-		wl->irq_wake_enabled = true;
-		device_init_wakeup(wl1271_sdio_wl_to_dev(wl), 1);
-
-		/* if sdio can keep power while host is suspended, enable wow */
-		mmcflags = sdio_get_host_pm_caps(func);
-		wl1271_debug(DEBUG_SDIO, "sdio PM caps = 0x%x", mmcflags);
-
-		if (mmcflags & MMC_PM_KEEP_POWER) {
-			hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
-			hw->wiphy->wowlan.n_patterns =
-					WL1271_MAX_RX_DATA_FILTERS;
-			hw->wiphy->wowlan.pattern_min_len = 1;
-			hw->wiphy->wowlan.pattern_max_len =
-					WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+ 
+	if (!wl->inband_irq) {
+		ret = request_threaded_irq(wl->irq, wl1271_hardirq, wl1271_irq,
+					   irqflags,
+					   DRIVER_NAME, wl);
+		if (ret < 0) {
+			wl1271_error("request_irq() failed: %d", ret);
+			goto out_free;
 		}
+		ret = enable_irq_wake(wl->irq);
+
+		if (!ret) {
+			wl->irq_wake_enabled = true;
+			device_init_wakeup(wl1271_sdio_wl_to_dev(wl), 1);
+
+			/* if sdio can keep power while host is suspended, enable wow */
+			mmcflags = sdio_get_host_pm_caps(func);
+			wl1271_debug(DEBUG_SDIO, "sdio PM caps = 0x%x", mmcflags);
+
+			if (mmcflags & MMC_PM_KEEP_POWER) {
+				hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
+				hw->wiphy->wowlan.n_patterns =
+						WL1271_MAX_RX_DATA_FILTERS;
+				hw->wiphy->wowlan.pattern_min_len = 1;
+				hw->wiphy->wowlan.pattern_max_len =
+						WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+			}
+		}
+		disable_irq(wl->irq);
 	}
-	disable_irq(wl->irq);
 
 	ret = wl1271_init_ieee80211(wl);
 	if (ret)
@@ -328,8 +381,8 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	return 0;
 
  out_irq:
-	free_irq(wl->irq, wl);
-
+	 if (!wl->inband_irq)
+		free_irq(wl->irq, wl);
  out_free:
 	wl1271_free_hw(wl);
 
@@ -346,9 +399,11 @@ static void __devexit wl1271_remove(struct sdio_func *func)
 	wl1271_unregister_hw(wl);
 	if (wl->irq_wake_enabled) {
 		device_init_wakeup(wl1271_sdio_wl_to_dev(wl), 0);
-		disable_irq_wake(wl->irq);
+		if (!wl->inband_irq)
+			disable_irq_wake(wl->irq);
 	}
-	free_irq(wl->irq, wl);
+	if (!wl->inband_irq)
+		free_irq(wl->irq, wl);
 	wl1271_free_hw(wl);
 }
 
@@ -430,6 +485,10 @@ static void __exit wl1271_exit(void)
 
 module_init(wl1271_init);
 module_exit(wl1271_exit);
+
+module_param_named(interrupt, interrupt, charp, 0);
+MODULE_PARM_DESC(interrupt,
+		 "Set the interrupt type: sdio or gpio (default)");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
