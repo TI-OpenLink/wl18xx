@@ -143,6 +143,7 @@ struct wl1271 {
 	struct wl1271_if_operations *if_ops;
 
 	void (*set_power)(bool enable);
+	bool inband_irq;
 	int irq;
 
 	spinlock_t wl_lock;
@@ -396,6 +397,8 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
 int __devexit wlcore_remove(struct platform_device *pdev);
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size);
 int wlcore_free_hw(struct wl1271 *wl);
+irqreturn_t wl12xx_hardirq(int irq, void *cookie);
+irqreturn_t wl1271_irq(int irq, void *cookie);
 
 /* Firmware image load chunk size */
 #define CHUNK_SIZE	16384
