@@ -62,6 +62,7 @@ static bool no_recovery;
 static char *plt_fw_name;
 static char *sr_fw_name;
 static char *mr_fw_name;
+static char *irq_param;
 
 static void __wl1271_op_remove_interface(struct wl1271 *wl,
 					 struct ieee80211_vif *vif,
@@ -513,7 +514,7 @@ static void wl1271_netstack_work(struct work_struct *work)
 
 #define WL1271_IRQ_MAX_LOOPS 256
 
-static irqreturn_t wl1271_irq(int irq, void *cookie)
+irqreturn_t wl1271_irq(int irq, void *cookie)
 {
 	int ret;
 	u32 intr;
@@ -5162,7 +5163,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 }
 EXPORT_SYMBOL_GPL(wlcore_free_hw);
 
-static irqreturn_t wl12xx_hardirq(int irq, void *cookie)
+irqreturn_t wl12xx_hardirq(int irq, void *cookie)
 {
 	struct wl1271 *wl = cookie;
 	unsigned long flags;
@@ -5181,7 +5182,8 @@ static irqreturn_t wl12xx_hardirq(int irq, void *cookie)
 		/* don't enqueue a work right now. mark it as pending */
 		set_bit(WL1271_FLAG_PENDING_WORK, &wl->flags);
 		wl1271_debug(DEBUG_IRQ, "should not enqueue work");
-		disable_irq_nosync(wl->irq);
+		if (!wl->inband_irq)
+			disable_irq_nosync(wl->irq);
 		pm_wakeup_event(wl->dev, 0);
 #ifdef CONFIG_HAS_WAKELOCK
 		if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
@@ -5228,28 +5230,39 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	else
 		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
 
-	ret = request_threaded_irq(wl->irq, wl12xx_hardirq, wl1271_irq,
-				   irqflags,
-				   pdev->name, wl);
-	if (ret < 0) {
-		wl1271_error("request_irq() failed: %d", ret);
-		goto out_free_hw;
+	wl->inband_irq = false;
+	if (irq_param) {
+		if (!strcmp(irq_param, "sdio"))
+			wl->inband_irq = true;
+		else if (strcmp(irq_param, "gpio"))
+			wl1271_warning("Unknown interrupt type, using gpio");
 	}
-
-	ret = enable_irq_wake(wl->irq);
-	if (!ret) {
-		wl->irq_wake_enabled = true;
-		device_init_wakeup(wl->dev, 1);
-		if (pdata->pwr_in_suspend) {
-			wl->hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
-			wl->hw->wiphy->wowlan.n_patterns = WL1271_MAX_RX_DATA_FILTERS;
-			wl->hw->wiphy->wowlan.pattern_min_len = 1;
-			wl->hw->wiphy->wowlan.pattern_max_len =
-				WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+	wl1271_info("inband_irq: %d", wl->inband_irq);
+	if (!wl->inband_irq) {
+		ret = request_threaded_irq(wl->irq, wl12xx_hardirq, wl1271_irq,
+					   irqflags,
+					   pdev->name, wl);
+		if (ret < 0) {
+			wl1271_error("request_irq() failed: %d", ret);
+			goto out_free_hw;
 		}
 
+		ret = enable_irq_wake(wl->irq);
+		if (!ret) {
+			wl->irq_wake_enabled = true;
+			device_init_wakeup(wl->dev, 1);
+			if (pdata->pwr_in_suspend) {
+				wl->hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
+				wl->hw->wiphy->wowlan.n_patterns =
+					WL1271_MAX_RX_DATA_FILTERS;
+				wl->hw->wiphy->wowlan.pattern_min_len = 1;
+				wl->hw->wiphy->wowlan.pattern_max_len =
+					WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+			}
+
+		}
+		disable_irq(wl->irq);
 	}
-	disable_irq(wl->irq);
 
 	ret = wl12xx_get_hw_info(wl);
 	if (ret < 0) {
@@ -5301,7 +5314,8 @@ out_bt_coex_state:
 	device_remove_file(wl->dev, &dev_attr_bt_coex_state);
 
 out_irq:
-	free_irq(wl->irq, wl);
+	if (!wl->inband_irq)
+		free_irq(wl->irq, wl);
 
 out_free_hw:
 	wlcore_free_hw(wl);
@@ -5317,10 +5331,12 @@ int __devexit wlcore_remove(struct platform_device *pdev)
 
 	if (wl->irq_wake_enabled) {
 		device_init_wakeup(wl->dev, 0);
-		disable_irq_wake(wl->irq);
+		if (!wl->inband_irq)
+			disable_irq_wake(wl->irq);
 	}
 	wl1271_unregister_hw(wl);
-	free_irq(wl->irq, wl);
+	if (!wl->inband_irq)
+		free_irq(wl->irq, wl);
 	wlcore_free_hw(wl);
 
 	return 0;
@@ -5335,6 +5351,10 @@ MODULE_PARM_DESC(debug_level, "wl12xx debugging level");
 module_param_named(fwlog, fwlog_param, charp, 0);
 MODULE_PARM_DESC(keymap,
 		 "FW logger options: continuous, ondemand, dbgpins or disable");
+
+module_param_named(irq, irq_param, charp, S_IRUSR);
+MODULE_PARM_DESC(irq,
+		 "Set the irq type: sdio or gpio (default)");
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");

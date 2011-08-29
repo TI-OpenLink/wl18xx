@@ -52,6 +52,10 @@ static bool dump = false;
 struct wl12xx_sdio_glue {
 	struct device *dev;
 	struct platform_device *core;
+
+	irq_handler_t handler;
+	irq_handler_t thread_fn;
+	void *irq_cookie;
 };
 
 static const struct sdio_device_id wl1271_devices[] __devinitconst = {
@@ -103,7 +107,7 @@ static void wl12xx_sdio_raw_read(struct device *child, int addr, void *buf,
 
 	sdio_release_host(func);
 
-	if (ret)
+	if (WARN_ON_ONCE(ret))
 		dev_err(child->parent, "sdio read failed (%d)\n", ret);
 }
 
@@ -139,7 +143,7 @@ static void wl12xx_sdio_raw_write(struct device *child, int addr, void *buf,
 
 	sdio_release_host(func);
 
-	if (ret)
+	if (WARN_ON_ONCE(ret))
 		dev_err(child->parent, "sdio write failed (%d)\n", ret);
 }
 
@@ -199,11 +203,62 @@ static int wl12xx_sdio_set_power(struct device *child, bool enable)
 		return wl12xx_sdio_power_off(glue);
 }
 
+static void wl12xx_sdio_interrupt(struct sdio_func *func)
+{
+	struct wl12xx_sdio_glue *glue = sdio_get_drvdata(func);
+	irqreturn_t ret;
+
+	if (WARN_ON(!glue->handler || !glue->thread_fn))
+		return;
+
+	ret = glue->handler(0, glue->irq_cookie);
+	if (ret == IRQ_WAKE_THREAD) {
+		sdio_release_host(func);
+		glue->thread_fn(0, glue->irq_cookie);
+		sdio_claim_host(func);
+	}
+}
+
+void wl12xx_sdio_request_irq(struct device *child,
+			     irq_handler_t handler,
+			     irq_handler_t thread_fn,
+			     void *cookie)
+{
+	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
+	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+	int ret;
+
+	sdio_claim_host(func);
+	glue->handler = handler;
+	glue->thread_fn = thread_fn;
+	glue->irq_cookie = cookie;
+	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
+	sdio_release_host(func);
+	printk("claiming sdio irq (func=%d). ret=%d\n", func->num, ret);
+}
+
+static void wl12xx_sdio_free_irq(struct device *child)
+{
+	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
+	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+
+	printk("releasing sdio irq\n");
+	sdio_claim_host(func);
+	sdio_release_irq(func);
+	glue->handler = NULL;
+	glue->thread_fn = NULL;
+	glue->irq_cookie = NULL;
+	sdio_release_host(func);
+}
+
+
 static struct wl1271_if_operations sdio_ops = {
 	.read		= wl12xx_sdio_raw_read,
 	.write		= wl12xx_sdio_raw_write,
 	.power		= wl12xx_sdio_set_power,
 	.set_block_size = wl1271_sdio_set_block_size,
+	.request_inband_irq	= wl12xx_sdio_request_irq,
+	.free_inband_irq	= wl12xx_sdio_free_irq,
 };
 
 static int __devinit wl1271_probe(struct sdio_func *func,
