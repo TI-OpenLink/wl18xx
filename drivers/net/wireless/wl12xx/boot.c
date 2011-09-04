@@ -970,7 +970,9 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	u32 tmp;
 	int selected_clock = -1;
 
-	wl1271_boot_hw_version(wl);
+	/* Orit - Need to add WL8 support !!! */
+	if (wl->chip.id != CHIP_ID_185x_PG10)
+		wl1271_boot_hw_version(wl);
 
 	if (wl->chip.id == CHIP_ID_185x_PG10) {
 		ret = wl18xx_boot_clk(wl, &selected_clock);
