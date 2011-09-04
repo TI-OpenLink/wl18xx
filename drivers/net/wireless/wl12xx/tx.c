@@ -545,7 +545,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	}
 
 	if (hlid == WL1271_INVALID_LINK_ID) {
-		wl1271_error("invalid hlid. dropping skb 0x%p", skb);
+		wl1271_error("invalid hlid %d. frame ctl 0x%x. dropping skb 0x%p", hlid,  
+					 ((struct ieee80211_hdr *)skb->data)->frame_control, skb);
 		return -EINVAL;
 	}
 
