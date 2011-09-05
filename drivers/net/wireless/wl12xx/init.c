@@ -384,9 +384,6 @@ static int wl1271_sta_hw_init(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
-	/* configure checksum state in fw */
-	ret = wl1271_acx_set_checksum_state(wl);
-
 	if (ret < 0)
 		return ret;
 
@@ -651,6 +648,11 @@ int wl1271_hw_init(struct wl1271 *wl)
 	ret = wl1271_acx_init_mem_config(wl);
 	if (ret < 0)
 		return ret;
+
+	/* configure checksum state in fw */
+	ret = wl1271_acx_set_checksum_state(wl);
+	if (ret < 0)
+		goto out_free_memmap;
 
 	/* RX config */
 	ret = wl1271_init_rx_config(wl,

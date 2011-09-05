@@ -2057,7 +2057,7 @@ static u8 wl1271_get_role_type(struct wl1271 *wl)
 }
 
 
-static int wl1271_sta_hw_checksum(struct wl1271 *wl)
+static int wl1271_hw_checksum(struct wl1271 *wl)
 {
 	int flags=0;
 
@@ -2208,7 +2208,7 @@ power_off:
 	strncpy(wiphy->fw_version, wl->chip.fw_ver_str,
 		sizeof(wiphy->fw_version));
 
-	ret = wl1271_sta_hw_checksum(wl);
+	ret = wl1271_hw_checksum(wl);
 		if (ret < 0)
 			return ret;
 
