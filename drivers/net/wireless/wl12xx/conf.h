@@ -1294,6 +1294,7 @@ struct conf_drv_settings {
 	struct conf_hangover_settings hangover;
 	struct conf_hw_checksum hw_checksum;
 	struct conf_hw_info		hw_info;
+	u8	   					sleep_auth;
 };
 
 #endif

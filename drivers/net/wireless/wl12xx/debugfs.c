@@ -1504,6 +1504,63 @@ static const struct file_operations hw_board_type_ops = {
         .llseek = default_llseek,
 };
 
+static ssize_t sleep_auth_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.sleep_auth);
+}
+
+static ssize_t sleep_auth_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for sleep auth ");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+        wl->conf.sleep_auth = value;
+
+        ret = wl1271_ps_elp_wakeup(wl);
+        if (ret < 0)
+        	goto out;
+
+        /* Configure for ELP power saving */
+    	ret = wl1271_acx_sleep_auth(wl, wl->conf.sleep_auth);
+
+    	if (ret < 0)
+    		printk("Error!, FAILED to set sleep_auth_write to wl->conf.sleep_auth ****\n");
+
+    	wl1271_ps_elp_sleep(wl);
+
+out:
+		mutex_unlock(&wl->mutex);
+        return count;
+}
+
+static const struct file_operations sleep_auth_ops = {
+        .read = sleep_auth_read,
+        .write = sleep_auth_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
 /**********************************************************
 ***********************************************************/
 
@@ -1732,7 +1789,6 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(tx_queue_len, rootdir);
 	DEBUGFS_ADD(retry_count, rootdir);
 	DEBUGFS_ADD(excessive_retries, rootdir);
-
 	DEBUGFS_ADD(gpio_power, rootdir);
 	DEBUGFS_ADD(start_recovery, rootdir);
 	DEBUGFS_ADD(dynamic_ps_timeout, rootdir);
@@ -1753,6 +1809,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(tx_compl_threshold, rootdir);
 	DEBUGFS_ADD(tx_compl_timeout, rootdir);
 	DEBUGFS_ADD(hw_board_type, rootdir);
+	DEBUGFS_ADD(sleep_auth, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
