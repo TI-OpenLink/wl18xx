@@ -502,9 +502,6 @@ int wl1271_cmd_role_start_dev(struct wl1271 *wl)
 
 	wl1271_debug(DEBUG_CMD, "wl->bssid = %pM", wl->bssid);
 
-	wl1271_dump(DEBUG_CMD, "CMD_ROLE_START: ",
-		    &cmd->header + 1, sizeof(*cmd) - sizeof(cmd->header));
-
 	ret = wl1271_cmd_send(wl, CMD_ROLE_START, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
 		wl1271_error("failed to initiate cmd role enable");

@@ -53,6 +53,8 @@
 #define WL1271_BOOT_RETRIES 1
 //#define WL1271_BOOT_RETRIES 3
 
+
+
 static struct conf_drv_settings default_conf = {
 	.sg = {
 		.params = {
@@ -390,6 +392,7 @@ static struct conf_drv_settings default_conf = {
 	.hw_info = {
 		.board_type                   = BOARD_TYPE_HDK_18XX,
 	},
+	.sleep_auth                       = WL1271_PSM_CAM,
 };
 
 static char *fwlog_param;

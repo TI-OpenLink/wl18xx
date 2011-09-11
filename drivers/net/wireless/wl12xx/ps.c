@@ -33,9 +33,6 @@ void wl1271_elp_work(struct work_struct *work)
 	struct delayed_work *dwork;
 	struct wl1271 *wl;
 
-	/* Orit WL8 - Disable ELP */
-    return;
-
 	dwork = container_of(work, struct delayed_work, work);
 	wl = container_of(dwork, struct wl1271, elp_work);
 
@@ -56,9 +53,9 @@ void wl1271_elp_work(struct work_struct *work)
 		goto out;
 
 	/* Orit WL8 - Disable ELP */
-	//wl1271_debug(DEBUG_PSM, "chip to elp");
-	//wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_SLEEP);
-	//set_bit(WL1271_FLAG_IN_ELP, &wl->flags);
+	wl1271_debug(DEBUG_PSM, "chip to elp");
+	wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_SLEEP);
+	set_bit(WL1271_FLAG_IN_ELP, &wl->flags);
 
 out:
 	mutex_unlock(&wl->mutex);
@@ -69,6 +66,7 @@ out:
 /* Routines to toggle sleep mode while in ELP */
 void wl1271_ps_elp_sleep(struct wl1271 *wl)
 {
+
 	/* we shouldn't get consecutive sleep requests */
 	if (WARN_ON(test_and_set_bit(WL1271_FLAG_ELP_REQUESTED, &wl->flags)))
 		return;
@@ -115,8 +113,7 @@ int wl1271_ps_elp_wakeup(struct wl1271 *wl)
 		wl->elp_compl = &compl;
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
-	/* Orit WL8 - Disable ELP */
-    //wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_WAKE_UP);
+    wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, ELPCTRL_WAKE_UP);
 
 	if (!pending) {
 		ret = wait_for_completion_timeout(

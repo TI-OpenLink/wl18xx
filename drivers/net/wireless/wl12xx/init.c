@@ -371,7 +371,7 @@ static int wl1271_sta_hw_init(struct wl1271 *wl)
 		return ret;
 
 	/* Configure for ELP power saving */
-	ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_ELP);
+	ret = wl1271_acx_sleep_auth(wl, wl->conf.sleep_auth);
 	if (ret < 0)
 		return ret;
 
