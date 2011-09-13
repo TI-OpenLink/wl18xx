@@ -1193,6 +1193,11 @@ enum sta_notify_cmd {
  *	queue mapping in order to use different queues (not just one per AC)
  *	for different virtual interfaces. See the doc section on HW queue
  *	control for more details.
+ *
+ * @IEEE80211_HW_SUPPORTS_CANCEL_SCAN: Hardware supports cancel scan operation.
+ *
+ * @IEEE80211_HW_SUPPORTS_IM_SCAN_EVENT: Hardware supports intemediate scan
+ *	event.
  */
 enum ieee80211_hw_flags {
 	IEEE80211_HW_HAS_RATE_CONTROL			= 1<<0,
@@ -1220,6 +1225,8 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_AP_LINK_PS				= 1<<22,
 	IEEE80211_HW_TX_AMPDU_SETUP_IN_HW		= 1<<23,
 	IEEE80211_HW_SCAN_WHILE_IDLE			= 1<<24,
+	IEEE80211_HW_SUPPORTS_CANCEL_SCAN		= 1<<25,
+	IEEE80211_HW_SUPPORTS_IM_SCAN_EVENT		= 1<<26,
 };
 
 /**
