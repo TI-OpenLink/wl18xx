@@ -866,6 +866,11 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	if (local->hw.wiphy->flags & WIPHY_FLAG_SUPPORTS_TDLS)
 		local->hw.wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
 
+	if (local->hw.flags & IEEE80211_HW_SUPPORTS_CANCEL_SCAN)
+		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_CANCEL_SCAN;
+	if (local->hw.flags & IEEE80211_HW_SUPPORTS_IM_SCAN_EVENT)
+		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_IM_SCAN_EVENT;
+
 	result = wiphy_register(local->hw.wiphy);
 	if (result < 0)
 		goto fail_wiphy_register;
