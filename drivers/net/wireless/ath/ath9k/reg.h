@@ -619,6 +619,7 @@
 #define AR_D_GBL_IFS_EIFS         0x10b0
 #define AR_D_GBL_IFS_EIFS_M       0x0000FFFF
 #define AR_D_GBL_IFS_EIFS_RESV0   0xFFFF0000
+#define AR_D_GBL_IFS_EIFS_ASYNC_FIFO 363
 
 #define AR_D_GBL_IFS_MISC        0x10f0
 #define AR_D_GBL_IFS_MISC_LFSR_SLICE_SEL        0x00000007
@@ -793,6 +794,8 @@
 #define AR_SREV_REVISION_9485_10	0
 #define AR_SREV_REVISION_9485_11        1
 #define AR_SREV_VERSION_9340		0x300
+#define AR_SREV_VERSION_9580		0x1C0
+#define AR_SREV_REVISION_9580_10	4 /* AR9580 1.0 */
 
 #define AR_SREV_5416(_ah) \
 	(((_ah)->hw_version.macVersion == AR_SREV_VERSION_5416_PCI) || \
@@ -892,6 +895,18 @@
 #define AR_SREV_9285E_20(_ah) \
     (AR_SREV_9285_12_OR_LATER(_ah) && \
      ((REG_READ(_ah, AR_AN_SYNTH9) & 0x7) == 0x1))
+
+#define AR_SREV_9580(_ah) \
+	(((_ah)->hw_version.macVersion == AR_SREV_VERSION_9580) && \
+	((_ah)->hw_version.macRev >= AR_SREV_REVISION_9580_10))
+
+#define AR_SREV_9580_10(_ah) \
+	(((_ah)->hw_version.macVersion == AR_SREV_VERSION_9580) && \
+	((_ah)->hw_version.macRev == AR_SREV_REVISION_9580_10))
+
+/* NOTE: When adding chips newer than Peacock, add chip check here */
+#define AR_SREV_9580_10_OR_LATER(_ah) \
+	(AR_SREV_9580(_ah))
 
 enum ath_usb_dev {
 	AR9280_USB = 1, /* AR7010 + AR9280, UB94 */
@@ -1117,7 +1132,7 @@ enum {
 #define AR_INTR_PRIO_ASYNC_ENABLE (AR_SREV_9340(ah) ? 0x4094 : 0x40d4)
 #define AR_ENT_OTP		  0x40d8
 #define AR_ENT_OTP_CHAIN2_DISABLE               0x00020000
-#define AR_ENT_OTP_MPSD		0x00800000
+#define AR_ENT_OTP_MIN_PKT_SIZE_DISABLE		0x00800000
 
 #define AR_CH0_BB_DPLL1		 0x16180
 #define AR_CH0_BB_DPLL1_REFDIV	 0xF8000000
@@ -1489,6 +1504,7 @@ enum {
 #define AR_USEC_TX_LAT_S     14
 #define AR_USEC_RX_LAT       0x1F800000
 #define AR_USEC_RX_LAT_S     23
+#define AR_USEC_ASYNC_FIFO   0x12E00074
 
 #define AR_RESET_TSF        0x8020
 #define AR_RESET_TSF_ONCE   0x01000000

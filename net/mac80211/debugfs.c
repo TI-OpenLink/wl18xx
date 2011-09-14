@@ -195,20 +195,12 @@ static ssize_t uapsd_queues_write(struct file *file,
 				  size_t count, loff_t *ppos)
 {
 	struct ieee80211_local *local = file->private_data;
-	unsigned long val;
-	char buf[10];
-	size_t len;
+	u8 val;
 	int ret;
 
-	len = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, len))
-		return -EFAULT;
-	buf[len] = '\0';
-
-	ret = strict_strtoul(buf, 0, &val);
-
+	ret = kstrtou8_from_user(user_buf, count, 0, &val);
 	if (ret)
-		return -EINVAL;
+		return ret;
 
 	if (val & ~IEEE80211_WMM_IE_STA_QOSINFO_AC_MASK)
 		return -ERANGE;
@@ -305,6 +297,9 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
 	char *buf = kzalloc(mxln, GFP_KERNEL);
 	int sf = 0; /* how many written so far */
 
+	if (!buf)
+		return 0;
+
 	sf += snprintf(buf, mxln - sf, "0x%x\n", local->hw.flags);
 	if (local->hw.flags & IEEE80211_HW_HAS_RATE_CONTROL)
 		sf += snprintf(buf + sf, mxln - sf, "HAS_RATE_CONTROL\n");
@@ -355,6 +350,8 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
 		sf += snprintf(buf + sf, mxln - sf, "SUPPORTS_PER_STA_GTK\n");
 	if (local->hw.flags & IEEE80211_HW_AP_LINK_PS)
 		sf += snprintf(buf + sf, mxln - sf, "AP_LINK_PS\n");
+	if (local->hw.flags & IEEE80211_HW_TX_AMPDU_SETUP_IN_HW)
+		sf += snprintf(buf + sf, mxln - sf, "TX_AMPDU_SETUP_IN_HW\n");
 
 	rv = simple_read_from_buffer(user_buf, count, ppos, buf, strlen(buf));
 	kfree(buf);

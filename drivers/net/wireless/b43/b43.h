@@ -110,6 +110,8 @@
 #define B43_MMIO_TSF_CFP_START_LOW	0x604
 #define B43_MMIO_TSF_CFP_START_HIGH	0x606
 #define B43_MMIO_TSF_CFP_PRETBTT	0x612
+#define B43_MMIO_TSF_CLK_FRAC_LOW	0x62E
+#define B43_MMIO_TSF_CLK_FRAC_HIGH	0x630
 #define B43_MMIO_TSF_0			0x632	/* core rev < 3 only */
 #define B43_MMIO_TSF_1			0x634	/* core rev < 3 only */
 #define B43_MMIO_TSF_2			0x636	/* core rev < 3 only */
@@ -969,12 +971,6 @@ static inline bool b43_using_pio_transfers(struct b43_wldev *dev)
 {
 	return dev->__using_pio_transfers;
 }
-
-#ifdef CONFIG_B43_FORCE_PIO
-# define B43_PIO_DEFAULT 1
-#else
-# define B43_PIO_DEFAULT 0
-#endif
 
 /* Message printing */
 void b43info(struct b43_wl *wl, const char *fmt, ...)

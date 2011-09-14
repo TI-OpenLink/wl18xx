@@ -1230,7 +1230,7 @@ F:	Documentation/aoe/
 F:	drivers/block/aoe/
 
 ATHEROS ATH GENERIC UTILITIES
-M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
 L:	linux-wireless@vger.kernel.org
 S:	Supported
 F:	drivers/net/wireless/ath/*
@@ -1238,7 +1238,7 @@ F:	drivers/net/wireless/ath/*
 ATHEROS ATH5K WIRELESS DRIVER
 M:	Jiri Slaby <jirislaby@gmail.com>
 M:	Nick Kossifidis <mickflemm@gmail.com>
-M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
 M:	Bob Copeland <me@bobcopeland.com>
 L:	linux-wireless@vger.kernel.org
 L:	ath5k-devel@lists.ath5k.org
@@ -1247,10 +1247,10 @@ S:	Maintained
 F:	drivers/net/wireless/ath/ath5k/
 
 ATHEROS ATH9K WIRELESS DRIVER
-M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
-M:	Jouni Malinen <jmalinen@atheros.com>
-M:	Vasanthakumar Thiagarajan <vasanth@atheros.com>
-M:	Senthil Balasubramanian <senthilkumar@atheros.com>
+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
+M:	Jouni Malinen <jouni@qca.qualcomm.com>
+M:	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
+M:	Senthil Balasubramanian <senthilb@qca.qualcomm.com>
 L:	linux-wireless@vger.kernel.org
 L:	ath9k-devel@lists.ath9k.org
 W:	http://wireless.kernel.org/en/users/Drivers/ath9k
@@ -1278,7 +1278,7 @@ F:	drivers/input/misc/ati_remote2.c
 ATLX ETHERNET DRIVERS
 M:	Jay Cliburn <jcliburn@gmail.com>
 M:	Chris Snook <chris.snook@gmail.com>
-M:	Jie Yang <jie.yang@atheros.com>
+M:	Jie Yang <yangjie@qca.qualcomm.com>
 L:	netdev@vger.kernel.org
 W:	http://sourceforge.net/projects/atl1
 W:	http://atl1.sourceforge.net
@@ -1883,7 +1883,7 @@ S:	Maintained
 F:	drivers/connector/
 
 CONTROL GROUPS (CGROUPS)
-M:	Paul Menage <menage@google.com>
+M:	Paul Menage <paul@paulmenage.org>
 M:	Li Zefan <lizf@cn.fujitsu.com>
 L:	containers@lists.linux-foundation.org
 S:	Maintained
@@ -1932,7 +1932,7 @@ S:	Maintained
 F:	tools/power/cpupower
 
 CPUSETS
-M:	Paul Menage <menage@google.com>
+M:	Paul Menage <paul@paulmenage.org>
 W:	http://www.bullopensource.org/cpuset/
 W:	http://oss.sgi.com/projects/cpusets/
 S:	Supported
@@ -2649,11 +2649,11 @@ F:	drivers/net/wan/dlci.c
 F:	drivers/net/wan/sdla.c
 
 FRAMEBUFFER LAYER
-M:	Paul Mundt <lethal@linux-sh.org>
+M:	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>
 L:	linux-fbdev@vger.kernel.org
 W:	http://linux-fbdev.sourceforge.net/
 Q:	http://patchwork.kernel.org/project/linux-fbdev/list/
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lethal/fbdev-2.6.git
+T:	git git://github.com/schandinat/linux-2.6.git fbdev-next
 S:	Maintained
 F:	Documentation/fb/
 F:	Documentation/devicetree/bindings/fb/
@@ -4450,8 +4450,8 @@ M:	"David S. Miller" <davem@davemloft.net>
 L:	netdev@vger.kernel.org
 W:	http://www.linuxfoundation.org/en/Net
 W:	http://patchwork.ozlabs.org/project/netdev/list/
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
 S:	Maintained
 F:	net/
 F:	include/net/
@@ -5543,6 +5543,7 @@ F:	include/media/*7146*
 
 SAMSUNG AUDIO (ASoC) DRIVERS
 M:	Jassi Brar <jassisinghbrar@gmail.com>
+M:	Sangbeom Kim <sbkim73@samsung.com>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)
 S:	Supported
 F:	sound/soc/samsung
@@ -7098,7 +7099,7 @@ S:	Supported
 F:	drivers/mmc/host/vub300.c
 
 W1 DALLAS'S 1-WIRE BUS
-M:	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+M:	Evgeniy Polyakov <zbr@ioremap.net>
 S:	Maintained
 F:	Documentation/w1/
 F:	drivers/w1/

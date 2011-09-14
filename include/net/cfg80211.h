@@ -452,6 +452,8 @@ struct station_parameters {
 	u8 plink_action;
 	u8 plink_state;
 	struct ieee80211_ht_cap *ht_capa;
+	u8 uapsd_queues;
+	u8 max_sp;
 };
 
 /**
@@ -874,6 +876,15 @@ struct cfg80211_scan_request {
 };
 
 /**
+ * struct cfg80211_match_set - sets of attributes to match
+ *
+ * @ssid: SSID to be matched
+ */
+struct cfg80211_match_set {
+	struct cfg80211_ssid ssid;
+};
+
+/**
  * struct cfg80211_sched_scan_request - scheduled scan request description
  *
  * @ssids: SSIDs to scan for (passed in the probe_reqs in active scans)
@@ -882,6 +893,11 @@ struct cfg80211_scan_request {
  * @interval: interval between each scheduled scan cycle
  * @ie: optional information element(s) to add into Probe Request or %NULL
  * @ie_len: length of ie in octets
+ * @match_sets: sets of parameters to be matched for a scan result
+ * 	entry to be considered valid and to be passed to the host
+ * 	(others are filtered out).
+ *	If ommited, all results are passed.
+ * @n_match_sets: number of match sets
  * @wiphy: the wiphy this was for
  * @dev: the interface
  * @channels: channels to scan
@@ -893,6 +909,8 @@ struct cfg80211_sched_scan_request {
 	u32 interval;
 	const u8 *ie;
 	size_t ie_len;
+	struct cfg80211_match_set *match_sets;
+	int n_match_sets;
 
 	/* internal */
 	struct wiphy *wiphy;
@@ -1617,6 +1635,9 @@ struct cfg80211_ops {
  * @WIPHY_FLAG_MESH_AUTH: The device supports mesh authentication by routing
  *	auth frames to userspace. See @NL80211_MESH_SETUP_USERSPACE_AUTH.
  * @WIPHY_FLAG_SUPPORTS_SCHED_SCAN: The device supports scheduled scans.
+ * @WIPHY_FLAG_SUPPORTS_FW_ROAM: The device supports roaming feature in the
+ *	firmware.
+ * @WIPHY_FLAG_AP_UAPSD: The device supports uapsd on AP.
  */
 enum wiphy_flags {
 	WIPHY_FLAG_CUSTOM_REGULATORY		= BIT(0),
@@ -1631,6 +1652,8 @@ enum wiphy_flags {
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_SCHED_SCAN		= BIT(11),
 	WIPHY_FLAG_ENFORCE_COMBINATIONS		= BIT(12),
+	WIPHY_FLAG_SUPPORTS_FW_ROAM		= BIT(13),
+	WIPHY_FLAG_AP_UAPSD			= BIT(14),
 };
 
 /**
@@ -1790,6 +1813,7 @@ struct wiphy_wowlan_support {
  * @debugfsdir: debugfs directory used for this wiphy, will be renamed
  *	automatically on wiphy renames
  * @dev: (virtual) struct device for this wiphy
+ * @registered: helps synchronize suspend/resume with wiphy unregister
  * @wext: wireless extension handlers
  * @priv: driver private data (sized according to wiphy_new() parameter)
  * @interface_modes: bitmask of interfaces types valid for this wiphy,
@@ -1806,6 +1830,9 @@ struct wiphy_wowlan_support {
  *	any given scan
  * @max_sched_scan_ssids: maximum number of SSIDs the device can scan
  *	for in any given scheduled scan
+ * @max_match_sets: maximum number of match sets the device can handle
+ *	when performing a scheduled scan, 0 if filtering is not
+ *	supported.
  * @max_scan_ie_len: maximum length of user-controlled IEs device can
  *	add to probe request frames transmitted during a scan, must not
  *	include fixed IEs like supported rates
@@ -1863,6 +1890,7 @@ struct wiphy {
 	int bss_priv_size;
 	u8 max_scan_ssids;
 	u8 max_sched_scan_ssids;
+	u8 max_match_sets;
 	u16 max_scan_ie_len;
 	u16 max_sched_scan_ie_len;
 

@@ -954,6 +954,8 @@ struct ieee80211_sta {
 	u16 aid;
 	struct ieee80211_sta_ht_cap ht_cap;
 	bool wme;
+	u8 uapsd_queues;
+	u8 max_sp;
 
 	/* must be last */
 	u8 drv_priv[0] __attribute__((__aligned__(sizeof(void *))));
@@ -1094,6 +1096,10 @@ enum sta_notify_cmd {
  *	stations based on the PM bit of incoming frames.
  *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
  *	the PS mode of connected stations.
+ *
+ * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
+ *	setup strictly in HW. mac80211 should not attempt to do this in
+ *	software.
  */
 enum ieee80211_hw_flags {
 	IEEE80211_HW_HAS_RATE_CONTROL			= 1<<0,
@@ -1119,6 +1125,7 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_SUPPORTS_CQM_RSSI			= 1<<20,
 	IEEE80211_HW_SUPPORTS_PER_STA_GTK		= 1<<21,
 	IEEE80211_HW_AP_LINK_PS				= 1<<22,
+	IEEE80211_HW_TX_AMPDU_SETUP_IN_HW		= 1<<23,
 };
 
 /**

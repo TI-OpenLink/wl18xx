@@ -546,6 +546,7 @@ set_timer:
 	* The interval must be the shortest necessary to satisfy ANI,
 	* short calibration and long calibration.
 	*/
+	ath9k_debug_samp_bb_mac(sc);
 	cal_interval = ATH_LONG_CALINTERVAL;
 	if (sc->sc_ah->config.enable_ani)
 		cal_interval = min(cal_interval,
@@ -978,6 +979,7 @@ int ath_reset(struct ath_softc *sc, bool retry_tx)
 
 	sc->hw_busy_count = 0;
 
+	ath9k_debug_samp_bb_mac(sc);
 	/* Stop ANI */
 
 	del_timer_sync(&common->ani.timer);
@@ -2309,6 +2311,12 @@ static void ath9k_flush(struct ieee80211_hw *hw, bool drop)
 
 	mutex_lock(&sc->mutex);
 	cancel_delayed_work_sync(&sc->tx_complete_work);
+
+	if (ah->ah_flags & AH_UNPLUGGED) {
+		ath_dbg(common, ATH_DBG_ANY, "Device has been unplugged!\n");
+		mutex_unlock(&sc->mutex);
+		return;
+	}
 
 	if (sc->sc_flags & SC_OP_INVALID) {
 		ath_dbg(common, ATH_DBG_ANY, "Device not present\n");
