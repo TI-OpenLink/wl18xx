@@ -2422,11 +2422,7 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (idle) {
 		/* no need to croc if we weren't busy (e.g. during boot) */
 		if (wl12xx_is_roc(wl)) {
-			ret = wl12xx_croc(wl, wlvif->dev_role_id);
-			if (ret < 0)
-				goto out;
-
-			ret = wl12xx_cmd_role_stop_dev(wl, wlvif);
+			ret = wl12xx_stop_dev(wl, wlvif);
 			if (ret < 0)
 				goto out;
 		}
@@ -2448,11 +2444,7 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			ieee80211_sched_scan_stopped(wl->hw);
 		}
 
-		ret = wl12xx_cmd_role_start_dev(wl, wlvif);
-		if (ret < 0)
-			goto out;
-
-		ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
+		ret = wl12xx_start_dev(wl, wlvif);
 		if (ret < 0)
 			goto out;
 		clear_bit(WL1271_FLAG_IDLE, &wl->flags);
@@ -2518,16 +2510,13 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				 */
 				if (wl12xx_is_roc(wl) &&
 				    !(conf->flags & IEEE80211_CONF_IDLE)) {
-					ret = wl12xx_croc(wl,
-							  wlvif->dev_role_id);
+					ret = wl12xx_stop_dev(wl, wlvif);
 					if (ret < 0)
 						return ret;
 
-					ret = wl12xx_roc(wl, wlvif,
-							 wlvif->dev_role_id);
+					ret = wl12xx_start_dev(wl, wlvif);
 					if (ret < 0)
-						wl1271_warning("roc failed %d",
-							       ret);
+						return ret;
 				}
 			}
 		}
@@ -3080,8 +3069,7 @@ static int wl1271_op_hw_scan(struct ieee80211_hw *hw,
 			ret = -EBUSY;
 			goto out_sleep;
 		}
-		wl12xx_croc(wl, wlvif->dev_role_id);
-		wl12xx_cmd_role_stop_dev(wl, wlvif);
+		wl12xx_stop_dev(wl, wlvif);
 	}
 
 	ret = wl1271_scan(hw->priv, vif, ssid, len, req);
@@ -3592,8 +3580,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			if (test_and_clear_bit(WLVIF_FLAG_IBSS_JOINED,
 					       &wlvif->flags)) {
 				wl1271_unjoin(wl, wlvif);
-				wl12xx_cmd_role_start_dev(wl, wlvif);
-				wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
+				wl12xx_start_dev(wl, wlvif);
 			}
 		}
 	}
@@ -3769,11 +3756,8 @@ sta_not_found:
 				}
 
 				wl1271_unjoin(wl, wlvif);
-				if (!(conf_flags & IEEE80211_CONF_IDLE)) {
-					wl12xx_cmd_role_start_dev(wl, wlvif);
-					wl12xx_roc(wl, wlvif,
-						   wlvif->dev_role_id);
-				}
+				if (!(conf_flags & IEEE80211_CONF_IDLE))
+					wl12xx_start_dev(wl, wlvif);
 			}
 		}
 	}
@@ -3852,11 +3836,7 @@ sta_not_found:
 		 * STA role). TODO: make it better.
 		 */
 		if (wlvif->dev_role_id != WL12XX_INVALID_ROLE_ID) {
-			ret = wl12xx_croc(wl, wlvif->dev_role_id);
-			if (ret < 0)
-				goto out;
-
-			ret = wl12xx_cmd_role_stop_dev(wl, wlvif);
+			ret = wl12xx_stop_dev(wl, wlvif);
 			if (ret < 0)
 				goto out;
 		}
