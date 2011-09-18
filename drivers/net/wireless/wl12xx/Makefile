@@ -20,3 +20,6 @@ obj-m  += bmtrace.o
 EXTRA_CFLAGS += -DTIWLAN_BMTRACE
 endif
 
+ifeq ($(WL18XX_DEBUGFS_TI),y)
+EXTRA_CFLAGS += -DDEBUGFS_TI
+endif

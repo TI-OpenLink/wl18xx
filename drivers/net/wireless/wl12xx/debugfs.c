@@ -32,6 +32,109 @@
 #include "io.h"
 #include "tx.h"
 
+
+
+/* ****** 888 ********** */
+#define DEBUGFS_SINGLE_PARAM_ADD(parent, name, base)					\
+static ssize_t name ##_read(struct file *file, char __user *user_buf, 	\
+                                  size_t count, loff_t *ppos)			\
+{													\
+        struct wl1271 *wl = file->private_data;		\
+		printk("0x%02x\n", wl->conf.parent.name);	\
+        return 0;									\
+}													\
+																\
+static ssize_t name ##_write(struct file *file,					\
+                                   const char __user *user_buf,	\
+                                   size_t count, loff_t *ppos)	\
+{																\
+        struct wl1271 *wl = file->private_data;					\
+        char buf[10];				\
+        size_t len;					\
+        unsigned long value;		\
+        int ret;								\
+												\
+        len = min(count, sizeof(buf) - 1);		\
+        if (copy_from_user(buf, user_buf, len))	\
+                return -EFAULT;					\
+        buf[len] = '\0';						\
+												\
+        ret = kstrtoul(buf, 0, &value);							\
+        if (ret < 0) {											\
+                wl1271_warning("illegal value for " #name );	\
+                return -EINVAL;			\
+        }								\
+										\
+        mutex_lock(&wl->mutex);			\
+        wl->conf.parent.name = value;	\
+        mutex_unlock(&wl->mutex);		\
+						\
+        return count;	\
+}						\
+						\
+static const struct file_operations name ##_ops = {	\
+        .read = name ##_read,				\
+        .write = name ##_write,				\
+        .open = wl1271_open_file_generic,	\
+        .llseek = default_llseek,			\
+};											\
+
+
+#define DEBUGFS_ARRAY_PARAM_ADD(parent, name, base, arr_len)			\
+static ssize_t name ##_read(struct file *file, char __user *user_buf, 	\
+                                  size_t count, loff_t *ppos)			\
+{															\
+	struct wl1271 *wl = file->private_data;					\
+	u16 i;													\
+															\
+	for (i=0 ; i<arr_len ; i++)								\
+	{														\
+		printk("[%d] = 0x%02x\n", i, wl->conf.parent.name[i]);	\
+	}									\
+										\
+       return 0;						\
+}										\
+										\
+static ssize_t name ##_write(struct file *file,					\
+                                   const char __user *user_buf,	\
+                                   size_t count, loff_t *ppos)	\
+{												\
+	struct wl1271 *wl = file->private_data;		\
+	unsigned long value;	\
+	int ret;				\
+	u16 i;						\
+	char buf[arr_len*3 + 1];	\
+								\
+	if (count != (arr_len * 3))	\
+    	{						\
+       	printk("Failed to configure " #name "!  str length should be %d! \n", (arr_len*3));	\
+       	return -EINVAL;	\
+    	}				\
+						\
+        if (copy_from_user(buf, user_buf, count))	\
+                return -EFAULT;						\
+        						\
+        						\
+	for (i=0 ; i<arr_len ; i++)	\
+	{							\
+		buf[(i*3 + 2)] = '\0';						\
+		ret = kstrtoul(&buf[i*3], base, &value);	\
+		mutex_lock(&wl->mutex);						\
+		wl->conf.parent.name[i] = value;			\
+		mutex_unlock(&wl->mutex);					\
+	}	\
+		\
+		\
+        return count;	\
+}						\
+						\
+static const struct file_operations name ##_ops = {		\
+        .read = name ##_read,							\
+        .write = name ##_write,							\
+        .open = wl1271_open_file_generic,				\
+        .llseek = default_llseek,						\
+};
+
 /* ms */
 #define WL1271_DEBUGFS_STATS_LIFETIME 1000
 
@@ -66,7 +169,7 @@ static const struct file_operations name## _ops = {			\
 	.llseek	= generic_file_llseek,					\
 };
 
-#define DEBUGFS_ADD(name, parent)					\
+#define DEBUGFS_ADD(name, parent)			        		\
 	entry = debugfs_create_file(#name, 0400, parent,		\
 				    wl, &name## _ops);			\
 	if (!entry || IS_ERR(entry))					\
@@ -344,6 +447,45 @@ DEBUGFS_FWSTATS_FILE(new_pipe_line, cs_rx_packet_out, "%u");
 DEBUGFS_READONLY_FILE(retry_count, "%u", wl->stats.retry_count);
 DEBUGFS_READONLY_FILE(excessive_retries, "%u",
 		      wl->stats.excessive_retries);
+
+
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, primary_clock_setting_time, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, secondary_clock_setting_time, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, external_pa_dc2dc, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, srf_state, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, io_configuration, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, sdio_configuration, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, settings, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, enable_clpc, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, enable_tx_low_pwr_on_siso_rdl, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, rx_profile, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, pwr_limit_reference_11_abg, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, pwr_limit_reference_11p, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, xtal_itrim_val, 0)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, per_chan_pwr_limit_arr_11abg, 16, NUM_OF_CHANNELS_11_ABG)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, per_chan_pwr_limit_arr_11p, 16, NUM_OF_CHANNELS_11_P)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, per_sub_band_tx_trace_loss, 16, NUM_OF_SUB_BANDS)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, per_sub_band_rx_trace_loss, 16, NUM_OF_SUB_BANDS)
+
+
+#ifdef DEBUGFS_TI
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, rdl, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, auto_detect, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, dedicated_fem, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, low_band_component, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, low_band_component_type, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, high_band_component, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, high_band_component_type, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, number_of_assembled_ant2_4, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, number_of_assembled_ant5, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, tcxo_ldo_voltage, 0)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, hw_board_type, 0)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, pin_muxing_platform_options, 16, PIN_MUXING_SIZE)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf1, 16, SRF_TABLE_LEN)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf2, 16, SRF_TABLE_LEN)
+DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf3, 16, SRF_TABLE_LEN)
+#endif
+
 
 static ssize_t tx_queue_len_read(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
@@ -1456,54 +1598,6 @@ static const struct file_operations tx_ba_tid_bitmap_ops = {
 };
 
 
-
-
-static ssize_t hw_board_type_read(struct file *file, char __user *user_buf,
-                                  size_t count, loff_t *ppos)
-{
-        struct wl1271 *wl = file->private_data;
-
-        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
-                                    wl->conf.hw_info.board_type);
-}
-
-static ssize_t hw_board_type_write(struct file *file,
-                                   const char __user *user_buf,
-                                   size_t count, loff_t *ppos)
-{
-        struct wl1271 *wl = file->private_data;
-        char buf[10];
-        size_t len;
-        unsigned long value;
-        int ret;
-
-        len = min(count, sizeof(buf) - 1);
-        if (copy_from_user(buf, user_buf, len))
-                return -EFAULT;
-        buf[len] = '\0';
-
-        ret = kstrtoul(buf, 0, &value);
-        if (ret < 0) {
-                wl1271_warning("illegal value for hw board type");
-                return -EINVAL;
-        }
-
-        mutex_lock(&wl->mutex);
-
-        wl->conf.hw_info.board_type = value;
-
-	mutex_unlock(&wl->mutex);
-
-        return count;
-}
-
-static const struct file_operations hw_board_type_ops = {
-        .read = hw_board_type_read,
-        .write = hw_board_type_write,
-        .open = wl1271_open_file_generic,
-        .llseek = default_llseek,
-};
-
 static ssize_t sleep_auth_read(struct file *file, char __user *user_buf,
                                   size_t count, loff_t *ppos)
 {
@@ -1568,7 +1662,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 				     struct dentry *rootdir)
 {
 	int ret = 0;
-	struct dentry *entry, *stats, *streaming;
+	struct dentry *entry, *stats, *streaming, *phy_mac_params;
 
 	stats = debugfs_create_dir("fw-statistics", rootdir);
 	if (!stats || IS_ERR(stats)) {
@@ -1808,7 +1902,6 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(irq_blk_threshold, rootdir);
 	DEBUGFS_ADD(tx_compl_threshold, rootdir);
 	DEBUGFS_ADD(tx_compl_timeout, rootdir);
-	DEBUGFS_ADD(hw_board_type, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
@@ -1818,6 +1911,50 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD_PREFIX(rx_streaming, interval, streaming);
 	DEBUGFS_ADD_PREFIX(rx_streaming, always, streaming);
 
+
+	phy_mac_params = debugfs_create_dir("phy-mac-ini-params", rootdir);
+	if (!phy_mac_params || IS_ERR(phy_mac_params)) {
+		entry = stats;
+		goto err;
+	}
+
+
+#ifdef DEBUGFS_TI
+	DEBUGFS_ADD(rdl, phy_mac_params)
+	DEBUGFS_ADD(auto_detect, phy_mac_params)
+	DEBUGFS_ADD(dedicated_fem, phy_mac_params)
+	DEBUGFS_ADD(low_band_component, phy_mac_params)
+	DEBUGFS_ADD(low_band_component_type, phy_mac_params)
+	DEBUGFS_ADD(high_band_component, phy_mac_params)
+	DEBUGFS_ADD(high_band_component_type, phy_mac_params)
+	DEBUGFS_ADD(number_of_assembled_ant2_4, phy_mac_params)
+	DEBUGFS_ADD(number_of_assembled_ant5, phy_mac_params)
+	DEBUGFS_ADD(external_pa_dc2dc, phy_mac_params)
+	DEBUGFS_ADD(tcxo_ldo_voltage, phy_mac_params)
+	DEBUGFS_ADD(pin_muxing_platform_options, phy_mac_params)
+	DEBUGFS_ADD(srf1, phy_mac_params)
+	DEBUGFS_ADD(srf2, phy_mac_params)
+	DEBUGFS_ADD(srf3, phy_mac_params)
+	DEBUGFS_ADD(hw_board_type, phy_mac_params)
+#endif
+
+
+	DEBUGFS_ADD(primary_clock_setting_time, phy_mac_params)
+	DEBUGFS_ADD(secondary_clock_setting_time, phy_mac_params)
+	DEBUGFS_ADD(xtal_itrim_val, phy_mac_params)
+	DEBUGFS_ADD(srf_state, phy_mac_params)
+	DEBUGFS_ADD(io_configuration, phy_mac_params)
+	DEBUGFS_ADD(sdio_configuration, phy_mac_params)
+	DEBUGFS_ADD(settings, phy_mac_params)
+	DEBUGFS_ADD(enable_clpc, phy_mac_params)
+	DEBUGFS_ADD(enable_tx_low_pwr_on_siso_rdl, phy_mac_params)
+	DEBUGFS_ADD(rx_profile, phy_mac_params)
+	DEBUGFS_ADD(pwr_limit_reference_11_abg, phy_mac_params)
+	DEBUGFS_ADD(pwr_limit_reference_11p, phy_mac_params)
+	DEBUGFS_ADD(per_chan_pwr_limit_arr_11abg, phy_mac_params)
+	DEBUGFS_ADD(per_chan_pwr_limit_arr_11p, phy_mac_params)
+	DEBUGFS_ADD(per_sub_band_tx_trace_loss, phy_mac_params)
+	DEBUGFS_ADD(per_sub_band_rx_trace_loss, phy_mac_params)
 
 	return 0;
 

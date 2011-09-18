@@ -423,6 +423,14 @@ struct conf_rx_settings {
 
 #define CONF_TX_MAX_RATE_CLASSES       10
 
+#define NUM_OF_CHANNELS_11_ABG		150
+#define NUM_OF_CHANNELS_11_P		7
+#define NUM_OF_SUB_BANDS			9
+#define SRF_TABLE_LEN				16
+#define PIN_MUXING_SIZE				2
+#define NUM_OF_PADDING_TO_COMPLETE_SIZE_DIVIDE_BY_4 1
+
+
 #define CONF_TX_RATE_MASK_40_MHZ 	  (CONF_TX_MCS_RATES | CONF_TX_AP_ENABLED_RATES | BIT(31))
 
 #define CONF_TX_RATE_MASK_UNSPECIFIED  0
@@ -1267,34 +1275,89 @@ struct conf_hw_checksum {
 	u8 state;
 };
 
-struct conf_hw_info {
-	u8 board_type;
+enum {
+	DEDICATED_FEM_NONE = 0x0,
+	DEDICATED_FEM_VENDOR_1 = 0x1,
+	DEDICATED_FEM_VENDOR_2 = 0x2,
+	DEDICATED_FEM_VENDOR_3 = 0x3,
 };
 
+enum {
+	LOW_BAND_COMPONENT_NO_SWITCH = 0x0,
+	LOW_BAND_COMPONENT_2_WAY_SWITCH = 0x1,
+	LOW_BAND_COMPONENT_3_WAY_SWITCH = 0x2,
+	LOW_BAND_COMPONENT_MACTCHING = 0x3,
+};
+
+enum {
+	HIGH_BAND_COMPONENT_NO_SWITCH = 0x0,
+	HIGH_BAND_COMPONENT_2_WAY_SWITCH = 0x1,
+};
+
+/* to be configured before phy fw reset */
+struct conf_mac_and_phy_params {
+	u8 phy_standalone;
+	u8 rdl;
+	u8 enable_clpc;
+	u8 enable_tx_low_pwr_on_siso_rdl;
+	u8 auto_detect;
+	u8 dedicated_fem;
+	u8 low_band_component;
+	u8 low_band_component_type;
+	u8 high_band_component;
+	u8 high_band_component_type;
+	u8 number_of_assembled_ant2_4;
+	u8 number_of_assembled_ant5;
+	u8 pin_muxing_platform_options[PIN_MUXING_SIZE];
+	u8 external_pa_dc2dc;
+	u8 tcxo_ldo_voltage;
+	u8 xtal_itrim_val;
+	u8 srf_state;
+	u8 srf1[SRF_TABLE_LEN];
+	u8 srf2[SRF_TABLE_LEN];
+	u8 srf3[SRF_TABLE_LEN];
+	u8 io_configuration;
+	u8 sdio_configuration;
+	u8 settings;
+	u8 rx_profile;
+	u8 per_chan_pwr_limit_arr_11abg[NUM_OF_CHANNELS_11_ABG];
+	u8 pwr_limit_reference_11_abg;
+	u8 per_chan_pwr_limit_arr_11p[NUM_OF_CHANNELS_11_P];
+	u8 pwr_limit_reference_11p;
+	u8 per_sub_band_tx_trace_loss[NUM_OF_SUB_BANDS];
+	u8 per_sub_band_rx_trace_loss[NUM_OF_SUB_BANDS];
+	u8 primary_clock_setting_time;
+	u8 clock_valid_on_wake_up;
+	u8 secondary_clock_setting_time;
+	u8 hw_board_type;
+	u8 padding[NUM_OF_PADDING_TO_COMPLETE_SIZE_DIVIDE_BY_4];
+} __packed;
+
 struct conf_drv_settings {
-	struct conf_sg_settings sg;
-	struct conf_rx_settings rx;
-	struct conf_tx_settings tx;
-	struct conf_conn_settings conn;
-	struct conf_itrim_settings itrim;
-	struct conf_pm_config_settings pm_config;
-	struct conf_roam_trigger_settings roam_trigger;
-	struct conf_scan_settings scan;
-	struct conf_sched_scan_settings sched_scan;
-	struct conf_rf_settings rf;
-	struct conf_ht_setting ht;
-	struct conf_memory_settings mem_wl127x;
-	struct conf_memory_settings mem_wl128x;
-	struct conf_memory_settings mem_wl18xx;
-    struct conf_fm_coex fm_coex;
-	struct conf_rx_streaming_settings rx_streaming;
-	struct conf_fwlog fwlog;
-	u8 hci_io_ds;
-	struct conf_rate_policy_settings rate;
-	struct conf_hangover_settings hangover;
-	struct conf_hw_checksum hw_checksum;
-	struct conf_hw_info		hw_info;
-	u8	   					sleep_auth;
+	struct conf_sg_settings 				sg;
+	struct conf_rx_settings 				rx;
+	struct conf_tx_settings 				tx;
+	struct conf_conn_settings 				conn;
+	struct conf_itrim_settings 				itrim;
+	struct conf_pm_config_settings 			pm_config;
+	struct conf_roam_trigger_settings 		roam_trigger;
+	struct conf_scan_settings 				scan;
+	struct conf_sched_scan_settings 		sched_scan;
+	struct conf_rf_settings 				rf;
+	struct conf_ht_setting 					ht;
+	struct conf_memory_settings 			mem_wl127x;
+	struct conf_memory_settings 			mem_wl128x;
+	struct conf_memory_settings 			mem_wl18xx;
+	struct conf_fm_coex 					fm_coex;
+	struct conf_rx_streaming_settings 		rx_streaming;
+    struct conf_fwlog                       fwlog;
+	u8 										hci_io_ds;
+	struct conf_rate_policy_settings 		rate;
+	struct conf_hangover_settings 			hangover;
+	struct conf_hw_checksum 				hw_checksum;
+	u8	   									sleep_auth;
+	/* the structure is 4-bytes aligned due to sdio mem copy constraint */
+    struct conf_mac_and_phy_params mac_and_phy_params __aligned(4);
 };
 
 #endif

@@ -107,7 +107,26 @@ static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 			.start = 0x00C00000,
 			.size  = 0x00000400
 		}
-	}
+	},
+
+	[PART_PHY_INIT] = {
+			.mem = {
+				.start = PHY_INIT_MEM_ADDR,
+				.size  = sizeof(struct conf_mac_and_phy_params)
+			},
+			.reg = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+			},
+			.mem2 = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+			},
+			.mem3 = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+					}
+		}
 };
 
 static void wl1271_boot_set_ecpu_ctrl(struct wl1271 *wl, u32 flag)
@@ -674,7 +693,7 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 #endif
 
 
-	switch (wl->conf.hw_info.board_type)
+	switch (wl->conf.mac_and_phy_params.hw_board_type)
 	{
 	case BOARD_TYPE_FPGA_18XX:
 		{
@@ -696,7 +715,7 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 		}
 	}
 
-    if (wl->conf.hw_info.board_type != BOARD_TYPE_FPGA_18XX)
+    if (wl->conf.mac_and_phy_params.hw_board_type != BOARD_TYPE_FPGA_18XX)
     {
         wl1271_info("Wl18xx - Starting HW TOP init process - Real Chip!!!");
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
@@ -1045,6 +1064,9 @@ int wl1271_boot(struct wl1271 *wl)
 	ret = wl1271_load_firmware(wl);
 	if (ret)
 		return ret;
+
+	wl1271_set_partition(wl, &part_table[PART_PHY_INIT]);
+	wl1271_write(wl, PHY_INIT_MEM_ADDR ,(u8*)&wl->conf.mac_and_phy_params, sizeof (wl->conf.mac_and_phy_params), false);
 
 	/* 10.5 start firmware */
 	ret = wl1271_boot_run_firmware(wl);

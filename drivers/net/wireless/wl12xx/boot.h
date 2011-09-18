@@ -42,6 +42,9 @@ struct wl1271_static_data {
 	u8 phy_fw_version[WL1271_FW_VERSION_MAX_LEN];
 };
 
+
+#define PHY_INIT_MEM_ADDR	0x80926000
+
 /* number of times we try to read the INIT interrupt */
 #define INIT_LOOP 20000
 
