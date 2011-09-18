@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.09_Rebase_R4.10"
+#define DRIVER_VERSION "WL18XX_A1.10_Rebase_PHY_INI"
 
 /*
  * FW versions support BA 11n
@@ -214,6 +214,7 @@ enum wl18xx_partition_type {
 	PART_DOWN,
 	PART_WORK,
 	PART_BOOT,
+	PART_PHY_INIT,
 
 	PART_TABLE_LEN
 };
