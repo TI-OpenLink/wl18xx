@@ -1026,7 +1026,7 @@ static void wl1271_netstack_work(struct work_struct *work)
 	} while (skb_queue_len(&wl->deferred_rx_queue));
 }
 
-#define WL1271_IRQ_MAX_LOOPS 256
+#define WL1271_IRQ_MAX_LOOPS 64
 
 irqreturn_t wl1271_irq(int irq, void *cookie)
 {
@@ -1060,7 +1060,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 	if (ret < 0)
 		goto out;
 
-	//while (!done && loopcount--) {
+	while (!done && loopcount--) {
 		/*
 		 * In order to avoid a race with the hardirq, clear the flag
 		 * before acknowledging the chip. Since the mutex is held,
@@ -1137,7 +1137,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 
 		if (intr & WL1271_ACX_INTR_HW_AVAILABLE)
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_HW_AVAILABLE");
-	//}
+	}
 
 	wl1271_ps_elp_sleep(wl);
 
