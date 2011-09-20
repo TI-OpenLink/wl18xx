@@ -2115,6 +2115,10 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		     ieee80211_vif_type_p2p(vif), vif->addr);
 
 	mutex_lock(&wl->mutex);
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out_unlock;
+
 	if (wl->vif) {
 		wl1271_debug(DEBUG_MAC80211,
 			     "multiple vifs are not supported yet");
@@ -2190,6 +2194,8 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 	list_add(&wlvif->list, &wl->wlvif_list);
 	set_bit(WLVIF_FLAG_INITIALIZED, &wlvif->flags);
 out:
+	wl1271_ps_elp_sleep(wl);
+out_unlock:
 	mutex_unlock(&wl->mutex);
 
 	mutex_lock(&wl_list_mutex);
