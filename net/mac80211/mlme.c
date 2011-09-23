@@ -160,7 +160,8 @@ static int ecw2cw(int ecw)
  */
 static u32 ieee80211_enable_ht(struct ieee80211_sub_if_data *sdata,
 			       struct ieee80211_ht_info *hti,
-			       const u8 *bssid, u16 ap_ht_cap_flags)
+			       const u8 *bssid, u16 ap_ht_cap_flags,
+			       bool beacon_htcap_ie)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_supported_band *sband;
@@ -232,6 +233,21 @@ static u32 ieee80211_enable_ht(struct ieee80211_sub_if_data *sdata,
 		WARN_ON(!ieee80211_set_channel_type(local, sdata, channel_type));
 	}
 
+	if (beacon_htcap_ie && (prev_chantype != channel_type)) {
+		/*
+		 * Whenever the AP announces the HT mode change that can be
+		 * 40MHz intolerant or etc., it would be safer to stop tx
+		 * queues before doing hw config to avoid buffer overflow.
+		 */
+		ieee80211_stop_queues_by_reason(&sdata->local->hw,
+				IEEE80211_QUEUE_STOP_REASON_CHTYPE_CHANGE);
+
+		/* flush out all packets */
+		synchronize_net();
+
+		drv_flush(local, false);
+	}
+
 	/* channel_type change automatically detected */
 	ieee80211_hw_config(local, 0);
 
@@ -243,6 +259,10 @@ static u32 ieee80211_enable_ht(struct ieee80211_sub_if_data *sdata,
 						 IEEE80211_RC_HT_CHANGED,
 						 channel_type);
 		rcu_read_unlock();
+
+		if (beacon_htcap_ie)
+			ieee80211_wake_queues_by_reason(&sdata->local->hw,
+				IEEE80211_QUEUE_STOP_REASON_CHTYPE_CHANGE);
 	}
 
 	ht_opmode = le16_to_cpu(hti->operation_mode);
@@ -390,6 +410,9 @@ static void ieee80211_chswitch_work(struct work_struct *work)
 		/* call "hw_config" only if doing sw channel switch */
 		ieee80211_hw_config(sdata->local,
 			IEEE80211_CONF_CHANGE_CHANNEL);
+	} else {
+		/* update the device channel directly */
+		sdata->local->hw.conf.channel = sdata->local->oper_channel;
 	}
 
 	/* XXX: shouldn't really modify cfg80211-owned data! */
@@ -1585,7 +1608,8 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	    (sdata->local->hw.queues >= 4) &&
 	    !(ifmgd->flags & IEEE80211_STA_DISABLE_11N))
 		changed |= ieee80211_enable_ht(sdata, elems.ht_info_elem,
-					       cbss->bssid, ap_ht_cap_flags);
+					       cbss->bssid, ap_ht_cap_flags,
+					       false);
 
 	/* set AID and assoc capability,
 	 * ieee80211_set_associated() will tell the driver */
@@ -1919,7 +1943,7 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
 		rcu_read_unlock();
 
 		changed |= ieee80211_enable_ht(sdata, elems.ht_info_elem,
-					       bssid, ap_ht_cap_flags);
+					       bssid, ap_ht_cap_flags, true);
 	}
 
 	/* Note: country IE parsing is done for us by cfg80211 */
