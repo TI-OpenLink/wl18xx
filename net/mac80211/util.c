@@ -1699,3 +1699,25 @@ int ieee80211_add_ext_srates_ie(struct ieee80211_vif *vif, struct sk_buff *skb)
 	}
 	return 0;
 }
+
+int ieee80211_get_open_count(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *exclude_vif)
+{
+	struct ieee80211_local *local = hw_to_local(hw);
+	struct ieee80211_sub_if_data *sdata;
+	int count = 0;
+
+	list_for_each_entry(sdata, &local->interfaces, list) {
+		if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||
+		    sdata->vif.type == NL80211_IFTYPE_MONITOR ||
+		    !ieee80211_sdata_running(sdata))
+			continue;
+
+		if (exclude_vif == &sdata->vif)
+			continue;
+
+		count++;
+	}
+	return count;
+}
+EXPORT_SYMBOL(ieee80211_get_open_count);

@@ -3694,4 +3694,8 @@ int ieee80211_add_srates_ie(struct ieee80211_vif *vif, struct sk_buff *skb);
 
 int ieee80211_add_ext_srates_ie(struct ieee80211_vif *vif,
 				struct sk_buff *skb);
+
+int ieee80211_get_open_count(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *exclude_vif);
+
 #endif /* MAC80211_H */
