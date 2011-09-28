@@ -492,6 +492,14 @@
  *	event, partial scan results will be available. Returns -ENOENT
  *	if scan is not running.
  *
+ * @NL80211_CMD_IM_SCAN_RESULT: Intermediate scan result notification event,
+ *	this event could be enabled with @NL80211_ATTR_IM_SCAN_RESULT
+ *	flag during @NL80211_CMD_TRIGGER_SCAN. This event contains
+ *	%NL80211_BSS_BSSID which is used to specify the BSSID of received
+ *	scan result and %NL80211_BSS_SIGNAL_MBM to indicate signal strength.
+ *	On reception of this notification, userspace may decide to stop earlier
+ *	currently running scan with (@NL80211_CMD_SCAN_CANCEL).
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -615,6 +623,8 @@ enum nl80211_commands {
 	NL80211_CMD_SCHED_SCAN_STOPPED,
 
 	NL80211_CMD_SCAN_CANCEL,
+
+	NL80211_CMD_IM_SCAN_RESULT,
 
 	/* add new commands above here */
 
@@ -1010,6 +1020,11 @@ enum nl80211_commands {
  * @NL80211_ATTR_STA_WME: Nested attribute containing the wme configuration
  *	of the station, see &enum nl80211_sta_wme_attr.
  *
+ * @%NL80211_ATTR_IM_SCAN_RESULT: Flag attribute to enable intermediate
+ *	scan result notification event (%NL80211_CMD_IM_SCAN_RESULT)
+ *	for the %NL80211_CMD_TRIGGER_SCAN command.
+ *	When set: will notify on each new scan result in the cache.
+ *
  * @NL80211_ATTR_SCAN_SUPP_RATES: rates per to be advertised as supported in scan,
  *	nested array attribute containing an entry for each band, with the entry
  *	being a list of supported rates as defined by IEEE 802.11 7.3.2.2 but
@@ -1223,6 +1238,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_SOFTWARE_IFTYPES,
 
 	NL80211_ATTR_STA_WME,
+
+	NL80211_ATTR_IM_SCAN_RESULT,
+
 	NL80211_ATTR_SCAN_SUPP_RATES,
 
 	NL80211_ATTR_TX_NO_CCK_RATE,
