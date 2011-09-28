@@ -156,6 +156,22 @@ int __cfg80211_stop_sched_scan(struct cfg80211_registered_device *rdev,
 	return err;
 }
 
+int cfg80211_scan_cancel(struct cfg80211_registered_device *rdev)
+{
+	struct net_device *dev;
+
+	ASSERT_RDEV_LOCK(rdev);
+
+	if (!rdev->ops->scan_cancel)
+		return -EOPNOTSUPP;
+	if (!rdev->scan_req)
+		return -ENOENT;
+
+	dev = rdev->scan_req->dev;
+	rdev->ops->scan_cancel(&rdev->wiphy, dev);
+	return 0;
+}
+
 static void bss_release(struct kref *ref)
 {
 	struct cfg80211_internal_bss *bss;
