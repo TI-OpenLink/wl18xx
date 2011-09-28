@@ -1131,6 +1131,22 @@ enum nl80211_commands {
  * @%NL80211_ATTR_CAPABILITIES: Flags (u32) attribute to expose device
  *	capabilities flags which defined in nl80211_device_capabilities.
  *
+ * @%NL80211_ATTR_SCAN_MIN_DWELL: Minimum scan dwell time (in TUs), u32
+ *	attribute to setup minimum time to wait on each channel, if received
+ *	at least one probe response during this period will continue waiting
+ *	%NL80211_ATTR_SCAN_MAX_DWELL, otherwise will move to next channel.
+ *	Relevant only for active scan, used with %NL80211_CMD_TRIGGER_SCAN
+ *	command. This is optional attribute, so if it's not set driver should
+ *	use hardware default values.
+ * @%NL80211_ATTR_SCAN_MAX_DWELL: Maximum scan dwell time (in TUs), u32
+ *	attribute to setup maximum time to wait on each channel.
+ *	Relevant only for active scan, used with %NL80211_CMD_TRIGGER_SCAN
+ *	command. This is optional attribute, so if it's not set driver should
+ *	use hardware default values.
+ * @%NL80211_ATTR_SCAN_NUM_PROBE:  Attribute (u8) to setup number of probe
+ *	requests to transmit on each active scan channel, used with
+ *	%NL80211_CMD_TRIGGER_SCAN command.
+ *
  * @NL80211_ATTR_SCAN_SUPP_RATES: rates per to be advertised as supported in scan,
  *	nested array attribute containing an entry for each band, with the entry
  *	being a list of supported rates as defined by IEEE 802.11 7.3.2.2 but
@@ -1471,6 +1487,10 @@ enum nl80211_attrs {
 	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
 
 	NL80211_ATTR_CAPABILITIES,
+
+	NL80211_ATTR_SCAN_MIN_DWELL,
+	NL80211_ATTR_SCAN_MAX_DWELL,
+	NL80211_ATTR_SCAN_NUM_PROBE,
 
 	/* add attributes here, update the policy in nl80211.c */
 
