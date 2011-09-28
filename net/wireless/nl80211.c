@@ -180,7 +180,6 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_WOWLAN_TRIGGERS] = { .type = NLA_NESTED },
 	[NL80211_ATTR_STA_PLINK_STATE] = { .type = NLA_U8 },
 	[NL80211_ATTR_SCHED_SCAN_INTERVAL] = { .type = NLA_U32 },
-	[NL80211_ATTR_REKEY_DATA] = { .type = NLA_NESTED },
 	[NL80211_ATTR_SCAN_SUPP_RATES] = { .type = NLA_NESTED },
 	[NL80211_ATTR_HIDDEN_SSID] = { .type = NLA_U32 },
 	[NL80211_ATTR_IE_PROBE_RESP] = { .type = NLA_BINARY,
@@ -204,6 +203,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 		.len = NL80211_HT_CAPABILITY_LEN
 	},
 	[NL80211_ATTR_NOACK_MAP] = { .type = NLA_U16 },
+	[NL80211_ATTR_IM_SCAN_RESULT] = { .type = NLA_FLAG },
 };
 
 /* policy for the key attributes */
@@ -3760,6 +3760,11 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		       request->ie_len);
 	}
 
+	if (info->attrs[NL80211_ATTR_IM_SCAN_RESULT])
+		rdev->im_scan_result_snd_pid = info->snd_pid;
+	else
+		rdev->im_scan_result_snd_pid = 0;
+
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
 		if (wiphy->bands[i])
 			request->rates[i] =
@@ -6842,6 +6847,31 @@ nl80211_send_sched_scan_msg(struct sk_buff *msg,
 	return -EMSGSIZE;
 }
 
+static int nl80211_send_intermediate_msg(struct sk_buff *msg,
+					struct cfg80211_registered_device *rdev,
+					struct net_device *netdev,
+					u32 pid, u32 seq, int flags,
+					struct cfg80211_event *ev, u32 cmd)
+{
+	void *hdr;
+
+	hdr = nl80211hdr_put(msg, pid, seq, flags, cmd);
+	if (!hdr)
+		return -1;
+
+	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+	NLA_PUT_U32(msg, NL80211_BSS_SIGNAL_MBM, ev->im.signal);
+	if (!is_zero_ether_addr(ev->im.bssid))
+		NLA_PUT(msg, NL80211_BSS_BSSID, ETH_ALEN, ev->im.bssid);
+
+	return genlmsg_end(msg, hdr);
+
+ nla_put_failure:
+	genlmsg_cancel(msg, hdr);
+	return -EMSGSIZE;
+}
+
 void nl80211_send_scan_start(struct cfg80211_registered_device *rdev,
 			     struct net_device *netdev)
 {
@@ -6897,6 +6927,26 @@ void nl80211_send_scan_aborted(struct cfg80211_registered_device *rdev,
 
 	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
 				nl80211_scan_mcgrp.id, GFP_KERNEL);
+}
+
+void nl80211_send_intermediate_result(struct cfg80211_registered_device *rdev,
+				      struct net_device *netdev,
+				      struct cfg80211_event *ev)
+{
+	struct sk_buff *msg;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return;
+
+	if (nl80211_send_intermediate_msg(msg, rdev, netdev, 0, 0, 0, ev,
+					  NL80211_CMD_IM_SCAN_RESULT) < 0) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_unicast(wiphy_net(&rdev->wiphy), msg,
+				  rdev->im_scan_result_snd_pid);
 }
 
 void nl80211_send_sched_scan_results(struct cfg80211_registered_device *rdev,
