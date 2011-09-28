@@ -862,6 +862,11 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	if (local->ops->sched_scan_start)
 		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_SCHED_SCAN;
 
+	if (local->hw.flags & IEEE80211_HW_SUPPORTS_CANCEL_SCAN)
+		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_CANCEL_SCAN;
+	if (local->hw.flags & IEEE80211_HW_SUPPORTS_IM_SCAN_EVENT)
+		local->hw.wiphy->flags |= WIPHY_FLAG_SUPPORTS_IM_SCAN_EVENT;
+
 	result = wiphy_register(local->hw.wiphy);
 	if (result < 0)
 		goto fail_wiphy_register;
