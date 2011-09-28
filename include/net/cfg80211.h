@@ -1557,6 +1557,9 @@ struct cfg80211_ops {
  * @WIPHY_FLAG_MESH_AUTH: The device supports mesh authentication by routing
  *	auth frames to userspace. See @NL80211_MESH_SETUP_USERSPACE_AUTH.
  * @WIPHY_FLAG_SCHED_SCAN: The device supports scheduled scans.
+ * @WIPHY_FLAG_SUPPORTS_CANCEL_SCAN: The device supports cancel scan.
+ * @WIPHY_FLAG_SUPPORTS_IM_SCAN_EVENT: The device supports intermediate scan
+ * event.
  */
 enum wiphy_flags {
 	WIPHY_FLAG_CUSTOM_REGULATORY		= BIT(0),
@@ -1571,6 +1574,8 @@ enum wiphy_flags {
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_SCHED_SCAN		= BIT(11),
 	WIPHY_FLAG_ENFORCE_COMBINATIONS		= BIT(12),
+	WIPHY_FLAG_SUPPORTS_CANCEL_SCAN		= BIT(13),
+	WIPHY_FLAG_SUPPORTS_IM_SCAN_EVENT	= BIT(14),
 };
 
 /**

@@ -1029,6 +1029,9 @@ enum nl80211_commands {
  *	strength of probe response/beacon (in dBm) is stronger than this
  *	negative value (usually: -20 dBm > X > -95 dBm).
  *
+ * @%NL80211_ATTR_CAPABILITIES: Flags (u32) attribute to expose device
+ *	capabilities flags which defined in nl80211_device_capabilities.
+ *
  * @NL80211_ATTR_SCAN_SUPP_RATES: rates per to be advertised as supported in scan,
  *	nested array attribute containing an entry for each band, with the entry
  *	being a list of supported rates as defined by IEEE 802.11 7.3.2.2 but
@@ -1245,6 +1248,8 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_IM_SCAN_RESULT,
 	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
+
+	NL80211_ATTR_CAPABILITIES,
 
 	NL80211_ATTR_SCAN_SUPP_RATES,
 
@@ -2436,5 +2441,23 @@ enum nl80211_sta_wme_attr {
 	__NL80211_STA_WME_AFTER_LAST,
 	NL80211_STA_WME_MAX = __NL80211_STA_WME_AFTER_LAST - 1
 };
+
+/**
+ * enum nl80211_device_capabilities - device capabilities flags.
+ * @NL80211_DEV_CAPA_SUPPORTS_CANCEL_SCAN: device supports cancel scan command.
+ * @NL80211_DEV_CAPA_SUPPORTS_IM_SCAN_EVENT: device supports intermediate scan
+ * events.
+ */
+enum nl80211_device_capabilities {
+	NL80211_DEV_CAPA_SUPPORTS_CANCEL_SCAN	= (1<<0),
+	NL80211_DEV_CAPA_SUPPORTS_IM_SCAN_EVENT	= (1<<1),
+
+	/* add new flags above here */
+
+	/* keep last */
+	NUM_NL80211_DEV_CAPA,
+	MAX_NL80211_DEV_CAPA = NUM_NL80211_DEV_CAPA - 1
+};
+
 
 #endif /* __LINUX_NL80211_H */
