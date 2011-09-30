@@ -771,6 +771,8 @@ enum nl80211_commands {
  *	scan with a single scheduled scan request, a wiphy attribute.
  * @NL80211_ATTR_MAX_SCAN_IE_LEN: maximum length of information elements
  *	that can be added to a scan request
+ * @NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN: maximum length of information
+ *	elements that can be added to a scheduled scan request
  *
  * @NL80211_ATTR_SCAN_FREQUENCIES: nested attribute with frequencies (in MHz)
  * @NL80211_ATTR_SCAN_SSIDS: nested attribute with SSIDs, leave out for passive
@@ -1269,6 +1271,7 @@ enum nl80211_attrs {
 	   changes in my hostap.  This must be moved below
 	   NL80211_ATTR_SCAN_NUM_PROBE */
 	NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
+	NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN,
 
 	NL80211_ATTR_IM_SCAN_RESULT,
 	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
