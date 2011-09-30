@@ -266,8 +266,8 @@ static struct conf_drv_settings default_conf = {
 	},
 	.sched_scan = {
 		/* sched_scan requires dwell times in TU instead of TU/1000 */
-		.min_dwell_time_active = 8,
-		.max_dwell_time_active = 30,
+		.min_dwell_time_active = 30,
+		.max_dwell_time_active = 60,
 		.dwell_time_passive    = 100,
 		.num_probe_reqs        = 2,
 		.rssi_threshold        = -90,
@@ -4890,7 +4890,8 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 		BIT(NL80211_IFTYPE_ADHOC) | BIT(NL80211_IFTYPE_AP) |
 		BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_GO);
 	wl->hw->wiphy->max_scan_ssids = 1;
-	wl->hw->wiphy->max_sched_scan_ssids = 8;
+	wl->hw->wiphy->max_sched_scan_ssids = 16;
+	wl->hw->wiphy->max_match_sets = 16;
 	/*
 	 * Maximum length of elements in scanning probe request templates
 	 * should be the maximum length possible for a template, without
