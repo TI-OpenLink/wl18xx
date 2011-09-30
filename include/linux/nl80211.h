@@ -767,6 +767,8 @@ enum nl80211_commands {
  *
  * @NL80211_ATTR_MAX_NUM_SCAN_SSIDS: number of SSIDs you can scan with
  *	a single scan request, a wiphy attribute.
+ * @NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS: number of SSIDs you can
+ *	scan with a single scheduled scan request, a wiphy attribute.
  * @NL80211_ATTR_MAX_SCAN_IE_LEN: maximum length of information elements
  *	that can be added to a scan request
  *
@@ -1262,6 +1264,11 @@ enum nl80211_attrs {
 	NL80211_ATTR_SOFTWARE_IFTYPES,
 
 	NL80211_ATTR_STA_WME,
+
+	/* FIXME: just do it here now, because I want to keep the
+	   changes in my hostap.  This must be moved below
+	   NL80211_ATTR_SCAN_NUM_PROBE */
+	NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
 
 	NL80211_ATTR_IM_SCAN_RESULT,
 	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
