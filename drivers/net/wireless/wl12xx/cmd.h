@@ -91,6 +91,7 @@ int wl12xx_cmd_config_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_start_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_channel_switch(struct wl1271 *wl,
+			      struct wl12xx_vif *wlvif,
 			      struct ieee80211_channel_switch *ch_switch);
 int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl);
 int wl12xx_allocate_link(struct wl1271 *wl, struct wl12xx_vif *wlvif,
@@ -344,7 +345,9 @@ struct wl12xx_cmd_role_start {
 			u8 ssid_len;
 			u8 ssid[IEEE80211_MAX_SSID_LEN];
 
-			u8 padding_1[5];
+			u8 reset_tsf;
+
+			u8 padding_1[4];
 		} __packed ap;
 	};
 } __packed;
@@ -704,14 +707,18 @@ struct wl12xx_cmd_stop_fwlog {
 struct wl12xx_cmd_channel_switch {
 	struct wl1271_cmd_header header;
 
+	u8 role_id;
+
 	/* The new serving channel */
 	u8 channel;
 	/* Relative time of the serving channel switch in TBTT units */
 	u8 switch_time;
-	/* 1: Suspend TX till switch time; 0: Do not suspend TX */
-	u8 tx_suspend;
-	/* 1: Flush TX at switch time; 0: Do not flush */
-	u8 flush;
+	/* Stop the role TX, should expect it after radar detection */
+	u8 stop_tx;
+	/* The target channel tx status 1-stopped 0-open*/
+	u8 post_switch_tx_disable;
+
+	u8 padding[3];
 } __packed;
 
 struct wl12xx_cmd_stop_channel_switch {
