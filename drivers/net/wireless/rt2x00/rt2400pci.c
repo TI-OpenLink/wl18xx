@@ -1239,7 +1239,7 @@ static void rt2400pci_fill_rxdone(struct queue_entry *entry,
 	 * call, we must decrease the higher 32bits with 1 to get
 	 * to correct value.
 	 */
-	tsf = rt2x00dev->ops->hw->get_tsf(rt2x00dev->hw);
+	tsf = rt2x00dev->ops->hw->get_tsf(rt2x00dev->hw, NULL);
 	rx_low = rt2x00_get_field32(word4, RXD_W4_RX_END_TIME);
 	rx_high = upper_32_bits(tsf);
 
@@ -1648,7 +1648,8 @@ static int rt2400pci_probe_hw(struct rt2x00_dev *rt2x00dev)
 /*
  * IEEE80211 stack callback functions.
  */
-static int rt2400pci_conf_tx(struct ieee80211_hw *hw, u16 queue,
+static int rt2400pci_conf_tx(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif, u16 queue,
 			     const struct ieee80211_tx_queue_params *params)
 {
 	struct rt2x00_dev *rt2x00dev = hw->priv;
@@ -1661,7 +1662,7 @@ static int rt2400pci_conf_tx(struct ieee80211_hw *hw, u16 queue,
 	if (queue != 0)
 		return -EINVAL;
 
-	if (rt2x00mac_conf_tx(hw, queue, params))
+	if (rt2x00mac_conf_tx(hw, vif, queue, params))
 		return -EINVAL;
 
 	/*
@@ -1673,7 +1674,8 @@ static int rt2400pci_conf_tx(struct ieee80211_hw *hw, u16 queue,
 	return 0;
 }
 
-static u64 rt2400pci_get_tsf(struct ieee80211_hw *hw)
+static u64 rt2400pci_get_tsf(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif)
 {
 	struct rt2x00_dev *rt2x00dev = hw->priv;
 	u64 tsf;

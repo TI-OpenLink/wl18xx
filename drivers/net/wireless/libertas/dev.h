@@ -158,6 +158,7 @@ struct lbs_private {
 	/* protected by hard_start_xmit serialization */
 	u8 txretrycount;
 	struct sk_buff *currenttxskb;
+	struct timer_list tx_lockup_timer;
 
 	/* Locks */
 	struct mutex lock;
@@ -179,7 +180,6 @@ struct lbs_private {
 	wait_queue_head_t scan_q;
 	/* Whether the scan was initiated internally and not by cfg80211 */
 	bool internal_scan;
-	unsigned long last_scan;
 };
 
 extern struct cmd_confirm_sleep confirm_sleep;

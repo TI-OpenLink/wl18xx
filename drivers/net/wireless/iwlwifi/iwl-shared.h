@@ -100,7 +100,7 @@ struct iwl_priv;
 struct iwl_sensitivity_ranges;
 struct iwl_trans_ops;
 
-#define DRV_NAME        "iwlagn"
+#define DRV_NAME        "iwlwifi"
 #define IWLWIFI_VERSION "in-tree:"
 #define DRV_COPYRIGHT	"Copyright(c) 2003-2011 Intel Corporation"
 #define DRV_AUTHOR     "<ilw@linux.intel.com>"
@@ -489,6 +489,7 @@ static inline void iwl_print_rx_config_cmd(struct iwl_priv *priv,
 #define STATUS_FW_ERROR		17
 #define STATUS_DEVICE_ENABLED	18
 #define STATUS_CHANNEL_SWITCH_PENDING 19
+#define STATUS_SCAN_COMPLETE	20
 
 static inline int iwl_is_ready(struct iwl_shared *shrd)
 {

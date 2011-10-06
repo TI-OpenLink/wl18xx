@@ -151,12 +151,19 @@ void ieee80211_set_bitrate_flags(struct wiphy *wiphy)
 			set_mandatory_flags_band(wiphy->bands[band], band);
 }
 
+bool cfg80211_supported_cipher_suite(struct wiphy *wiphy, u32 cipher)
+{
+	int i;
+	for (i = 0; i < wiphy->n_cipher_suites; i++)
+		if (cipher == wiphy->cipher_suites[i])
+			return true;
+	return false;
+}
+
 int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 				   struct key_params *params, int key_idx,
 				   bool pairwise, const u8 *mac_addr)
 {
-	int i;
-
 	if (key_idx > 5)
 		return -EINVAL;
 
@@ -226,10 +233,7 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		}
 	}
 
-	for (i = 0; i < rdev->wiphy.n_cipher_suites; i++)
-		if (params->cipher == rdev->wiphy.cipher_suites[i])
-			break;
-	if (i == rdev->wiphy.n_cipher_suites)
+	if (!cfg80211_supported_cipher_suite(&rdev->wiphy, params->cipher))
 		return -EINVAL;
 
 	return 0;
@@ -392,8 +396,9 @@ int ieee80211_data_to_8023(struct sk_buff *skb, const u8 *addr,
 		}
 		break;
 	case cpu_to_le16(0):
-		if (iftype != NL80211_IFTYPE_ADHOC)
-			return -1;
+		if (iftype != NL80211_IFTYPE_ADHOC &&
+		    iftype != NL80211_IFTYPE_STATION)
+				return -1;
 		break;
 	}
 

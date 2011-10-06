@@ -125,12 +125,12 @@ int iwl_init_geos(struct iwl_priv *priv)
 		return 0;
 	}
 
-	channels = kzalloc(sizeof(struct ieee80211_channel) *
-			   priv->channel_count, GFP_KERNEL);
+	channels = kcalloc(priv->channel_count,
+			   sizeof(struct ieee80211_channel), GFP_KERNEL);
 	if (!channels)
 		return -ENOMEM;
 
-	rates = kzalloc((sizeof(struct ieee80211_rate) * IWL_RATE_COUNT_LEGACY),
+	rates = kcalloc(IWL_RATE_COUNT_LEGACY, sizeof(struct ieee80211_rate),
 			GFP_KERNEL);
 	if (!rates) {
 		kfree(channels);
@@ -1123,8 +1123,9 @@ int iwl_send_statistics_request(struct iwl_priv *priv, u8 flags, bool clear)
 					&statistics_cmd);
 }
 
-int iwl_mac_conf_tx(struct ieee80211_hw *hw, u16 queue,
-			   const struct ieee80211_tx_queue_params *params)
+int iwl_mac_conf_tx(struct ieee80211_hw *hw,
+		    struct ieee80211_vif *vif, u16 queue,
+		    const struct ieee80211_tx_queue_params *params)
 {
 	struct iwl_priv *priv = hw->priv;
 	struct iwl_rxon_context *ctx;

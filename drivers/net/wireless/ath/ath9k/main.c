@@ -133,7 +133,7 @@ void ath9k_ps_restore(struct ath_softc *sc)
 	ath_hw_cycle_counters_update(common);
 	spin_unlock(&common->cc_lock);
 
-	ath9k_hw_setpower(sc->sc_ah, ATH9K_PM_NETWORK_SLEEP);
+	ath9k_hw_setpower(sc->sc_ah, mode);
 
  unlock:
 	spin_unlock_irqrestore(&sc->sc_pm_lock, flags);
@@ -1833,8 +1833,7 @@ static void ath9k_sta_notify(struct ieee80211_hw *hw,
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
 		an->sleeping = true;
-		if (ath_tx_aggr_sleep(sc, an))
-			ieee80211_sta_set_tim(sta);
+		ath_tx_aggr_sleep(sta, sc, an);
 		break;
 	case STA_NOTIFY_AWAKE:
 		an->sleeping = false;
@@ -1843,7 +1842,8 @@ static void ath9k_sta_notify(struct ieee80211_hw *hw,
 	}
 }
 
-static int ath9k_conf_tx(struct ieee80211_hw *hw, u16 queue,
+static int ath9k_conf_tx(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif, u16 queue,
 			 const struct ieee80211_tx_queue_params *params)
 {
 	struct ath_softc *sc = hw->priv;
@@ -2143,7 +2143,7 @@ static void ath9k_bss_info_changed(struct ieee80211_hw *hw,
 	ath9k_ps_restore(sc);
 }
 
-static u64 ath9k_get_tsf(struct ieee80211_hw *hw)
+static u64 ath9k_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct ath_softc *sc = hw->priv;
 	u64 tsf;
@@ -2157,7 +2157,9 @@ static u64 ath9k_get_tsf(struct ieee80211_hw *hw)
 	return tsf;
 }
 
-static void ath9k_set_tsf(struct ieee80211_hw *hw, u64 tsf)
+static void ath9k_set_tsf(struct ieee80211_hw *hw,
+			  struct ieee80211_vif *vif,
+			  u64 tsf)
 {
 	struct ath_softc *sc = hw->priv;
 
@@ -2168,7 +2170,7 @@ static void ath9k_set_tsf(struct ieee80211_hw *hw, u64 tsf)
 	mutex_unlock(&sc->mutex);
 }
 
-static void ath9k_reset_tsf(struct ieee80211_hw *hw)
+static void ath9k_reset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct ath_softc *sc = hw->priv;
 
