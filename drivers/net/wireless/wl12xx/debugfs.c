@@ -348,27 +348,14 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_INT(tx_blocks_freed);
 	DRIVER_STATE_PRINT_INT(tx_security_last_seq_lsb);
 	DRIVER_STATE_PRINT_INT(rx_counter);
-	DRIVER_STATE_PRINT_INT(session_counter);
 	DRIVER_STATE_PRINT_INT(state);
-	DRIVER_STATE_PRINT_INT(bss_type);
 	DRIVER_STATE_PRINT_INT(channel);
-	DRIVER_STATE_PRINT_HEX(rate_set);
-	DRIVER_STATE_PRINT_HEX(basic_rate_set);
-	DRIVER_STATE_PRINT_HEX(basic_rate);
 	DRIVER_STATE_PRINT_INT(band);
-	DRIVER_STATE_PRINT_INT(beacon_int);
-	DRIVER_STATE_PRINT_INT(psm_entry_retry);
-	DRIVER_STATE_PRINT_INT(ps_poll_failures);
 	DRIVER_STATE_PRINT_INT(power_level);
-	DRIVER_STATE_PRINT_INT(rssi_thold);
-	DRIVER_STATE_PRINT_INT(last_rssi_event);
 	DRIVER_STATE_PRINT_INT(sg_enabled);
 	DRIVER_STATE_PRINT_INT(enable_11a);
 	DRIVER_STATE_PRINT_INT(noise);
-	DRIVER_STATE_PRINT_LHEX(ap_hlid_map[0]);
 	DRIVER_STATE_PRINT_INT(last_tx_hlid);
-	DRIVER_STATE_PRINT_INT(ba_support);
-	DRIVER_STATE_PRINT_HEX(ba_rx_bitmap);
 	DRIVER_STATE_PRINT_HEX(ap_fw_ps_map);
 	DRIVER_STATE_PRINT_LHEX(ap_ps_map);
 	DRIVER_STATE_PRINT_HEX(quirks);
@@ -624,10 +611,18 @@ static ssize_t beacon_filtering_write(struct file *file,
 				      size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
+	struct ieee80211_vif *vif;
+	struct wl12xx_vif *wlvif;
 	char buf[10];
 	size_t len;
 	unsigned long value;
 	int ret;
+
+	if (!wl->vif)
+		return -EINVAL;
+
+	vif = wl->vif;
+	wlvif = wl12xx_vif_to_data(vif);
 
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))
@@ -646,7 +641,7 @@ static ssize_t beacon_filtering_write(struct file *file,
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_acx_beacon_filter_opt(wl, !!value);
+	ret = wl1271_acx_beacon_filter_opt(wl, wlvif, !!value);
 
 	wl1271_ps_elp_sleep(wl);
 out:

@@ -146,12 +146,6 @@ extern u32 wl12xx_debug_level;
 #define WL12XX_SYSTEM_HLID         0
 
 /*
- * TODO: we currently don't support multirole. remove
- * this constant from the code when we do.
- */
-#define WL1271_AP_STA_HLID_START   3
-
-/*
  * When in AP-mode, we allow (at least) this number of packets
  * to be transmitted to FW for a STA in PS-mode. Only when packets are
  * present in the FW buffers it will wake the sleeping STA. We want to put
@@ -235,13 +229,6 @@ struct wl1271_stats {
 #define NUM_RX_PKT_DESC            8
 
 #define AP_MAX_STATIONS            8
-
-/* Broadcast and Global links + system link + links to stations */
-/*
- * TODO: when WL1271_AP_STA_HLID_START is no longer constant, change all
- * the places that use this.
- */
-#define AP_MAX_LINKS               (AP_MAX_STATIONS + WL1271_AP_STA_HLID_START)
 
 /* FW status registers */
 struct wl12xx_fw_status {
@@ -348,6 +335,7 @@ enum wl12xx_flags {
 	WL1271_FLAG_SOFT_GEMINI,
 	WL1271_FLAG_RX_STREAMING_STARTED,
 	WL1271_FLAG_RECOVERY_IN_PROGRESS,
+	WL1271_FLAG_CS_PROGRESS,
 };
 
 struct wl1271_link {
@@ -398,21 +386,9 @@ struct wl1271 {
 
 	s8 hw_pg_ver;
 
-	u8 bssid[ETH_ALEN];
 	u8 mac_addr[ETH_ALEN];
-	u8 bss_type;
-	u8 set_bss_type;
-	u8 p2p; /* we are using p2p role */
-	u8 ssid[IEEE80211_MAX_SSID_LEN + 1];
-	u8 ssid_len;
 	int channel;
-	u8 role_id;
-	u8 dev_role_id;
 	u8 system_hlid;
-	u8 sta_hlid;
-	u8 dev_hlid;
-	u8 ap_global_hlid;
-	u8 ap_bcast_hlid;
 
 	unsigned long links_map[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WL12XX_MAX_ROLES)];
@@ -438,9 +414,6 @@ struct wl1271 {
 
 	/* Time-offset between host and chipset clocks */
 	s64 time_offset;
-
-	/* Session counter for the chipset */
-	int session_counter;
 
 	/* Frames scheduled for transmission, not handled yet */
 	struct sk_buff_head tx_queue[NUM_TX_QUEUES];
@@ -506,36 +479,16 @@ struct wl1271 {
 	u32 mbox_ptr[2];
 
 	/* Are we currently scanning */
+	struct ieee80211_vif *scan_vif;
 	struct wl1271_scan scan;
 	struct delayed_work scan_complete_work;
 
 	bool sched_scanning;
 
-	/* probe-req template for the current AP */
-	struct sk_buff *probereq;
-
-	/* Our association ID */
-	u16 aid;
-
-	/*
-	 * currently configured rate set:
-	 *	bits  0-15 - 802.11abg rates
-	 *	bits 16-23 - 802.11n   MCS index mask
-	 * support only 1 stream, thus only 8 bits for the MCS rates (0-7).
-	 */
-	u32 basic_rate_set;
-	u32 basic_rate;
-	u32 rate_set;
 	u32 bitrate_masks[IEEE80211_NUM_BANDS];
 
 	/* The current band */
 	enum ieee80211_band band;
-
-	/* Beaconing interval (needed for ad-hoc) */
-	u32 beacon_int;
-
-	/* Default key (for WEP) */
-	u32 default_key;
 
 	/* Rx Streaming */
 	struct work_struct rx_streaming_enable_work;
@@ -543,21 +496,10 @@ struct wl1271 {
 	struct timer_list rx_streaming_timer;
 
 	struct completion *elp_compl;
-	struct completion *ps_compl;
 	struct delayed_work elp_work;
-	struct delayed_work pspoll_work;
-
-	/* counter for ps-poll delivery failures */
-	int ps_poll_failures;
-
-	/* retry counter for PSM entries */
-	u8 psm_entry_retry;
 
 	/* in dBm */
 	int power_level;
-
-	int rssi_thold;
-	int last_rssi_event;
 
 	struct wl1271_stats stats;
 
@@ -582,19 +524,8 @@ struct wl1271 {
 	/* Most recently reported noise in dBm */
 	s8 noise;
 
-	/* map for HLIDs of associated stations - when operating in AP mode */
-	unsigned long ap_hlid_map[BITS_TO_LONGS(AP_MAX_STATIONS)];
-
-	/* recoreded keys for AP-mode - set here before AP startup */
-	struct wl1271_ap_key *recorded_ap_keys[MAX_NUM_KEYS];
-
 	/* bands supported by this instance of wl12xx */
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
-
-	/* RX BA constraint value */
-	bool ba_support;
-	u8 ba_rx_bitmap;
-	bool ba_allowed;
 
 	int tcxo_clock;
 
@@ -609,7 +540,7 @@ struct wl1271 {
 	 * AP-mode - links indexed by HLID. The global and broadcast links
 	 * are always active.
 	 */
-	struct wl1271_link links[AP_MAX_LINKS];
+	struct wl1271_link links[WL12XX_MAX_LINKS];
 
 	/* the hlid of the link where the last transmitted skb came from */
 	int last_tx_hlid;
@@ -637,6 +568,93 @@ struct wl1271_station {
 	u8 hlid;
 };
 
+struct wl12xx_vif {
+	struct wl1271 *wl;
+	u8 bss_type;
+	u8 p2p; /* we are using p2p role */
+	u8 role_id;
+
+	/* sta/ibss specific */
+	u8 dev_role_id;
+	u8 dev_hlid;
+
+	union {
+		struct {
+			u8 hlid;
+			u8 ba_rx_bitmap;
+		} sta;
+		struct {
+			u8 global_hlid;
+			u8 bcast_hlid;
+
+			/* HLIDs bitmap of associated stations */
+			unsigned long sta_hlid_map[BITS_TO_LONGS(
+							WL12XX_MAX_LINKS)];
+
+			/* recoreded keys - set here before AP startup */
+			struct wl1271_ap_key *recorded_keys[MAX_NUM_KEYS];
+		} ap;
+	};
+
+	unsigned long links_map[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
+
+	u8 ssid[IEEE80211_MAX_SSID_LEN + 1];
+	u8 ssid_len;
+
+	u32 basic_rate_set;
+
+	/*
+	 * currently configured rate set:
+	 *	bits  0-15 - 802.11abg rates
+	 *	bits 16-23 - 802.11n   MCS index mask
+	 * support only 1 stream, thus only 8 bits for the MCS rates (0-7).
+	 */
+	u32 basic_rate;
+	u32 rate_set;
+
+	/* probe-req template for the current AP */
+	struct sk_buff *probereq;
+
+	/* Beaconing interval (needed for ad-hoc) */
+	u32 beacon_int;
+
+	/* Default key (for WEP) */
+	u32 default_key;
+
+	/* Our association ID */
+	u16 aid;
+
+	/* Session counter for the chipset */
+	int session_counter;
+
+	struct completion *ps_compl;
+	struct delayed_work pspoll_work;
+
+	/* counter for ps-poll delivery failures */
+	int ps_poll_failures;
+
+	/* retry counter for PSM entries */
+	u8 psm_entry_retry;
+
+	int rssi_thold;
+	int last_rssi_event;
+
+	/* RX BA constraint value */
+	bool ba_support;
+	bool ba_allowed;
+};
+
+static inline struct wl12xx_vif *wl12xx_vif_to_data(struct ieee80211_vif *vif)
+{
+	return (struct wl12xx_vif *)vif->drv_priv;
+}
+
+static inline
+struct ieee80211_vif *wl12xx_wlvif_to_vif(struct wl12xx_vif *wlvif)
+{
+	return container_of((void *)wlvif, struct ieee80211_vif, drv_priv);
+}
+
 int wl1271_plt_start(struct wl1271 *wl);
 int wl1271_plt_stop(struct wl1271 *wl);
 int wl1271_recalc_rx_streaming(struct wl1271 *wl);
@@ -645,7 +663,8 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 
 #define JOIN_TIMEOUT 5000 /* 5000 milliseconds to join */
 
-#define SESSION_COUNTER_MAX 7 /* maximum value for the session counter */
+#define SESSION_COUNTER_MAX 6 /* maximum value for the session counter */
+#define SESSION_COUNTER_INVALID 7 /* used with dummy_packet */
 
 #define WL1271_DEFAULT_POWER_LEVEL 0
 
@@ -670,12 +689,6 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 
 /* WL128X requires aggregated packets to be aligned to the SDIO block size */
 #define WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT	BIT(2)
-
-/*
- * WL127X AP mode requires Low Power DRPw (LPD) enable to reduce power
- * consumption
- */
-#define WL12XX_QUIRK_LPD_MODE                   BIT(3)
 
 /* Older firmwares did not implement the FW logger over bus feature */
 #define WL12XX_QUIRK_FWLOG_NOT_IMPLEMENTED	BIT(4)
