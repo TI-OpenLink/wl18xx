@@ -53,6 +53,9 @@ struct wl12xx_platform_data {
 	bool use_eeprom;
 	int board_ref_clock;
 	int board_tcxo_clock;
+	const char *chip_family;
+
+	/* internal use */
 	unsigned long platform_quirks;
 	bool pwr_in_suspend;
 
