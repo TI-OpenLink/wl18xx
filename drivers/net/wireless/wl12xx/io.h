@@ -97,16 +97,25 @@ static inline int wl1271_translate_addr(struct wl1271 *wl, int addr)
 	 * The translated regions occur next to each other in physical device
 	 * memory, so just add the sizes of the preceding address regions to
 	 * get the offset to the new region.
-	 *
-	 * Currently, only the two first regions are addressed, and the
-	 * assumption is that all addresses will fall into either of those
-	 * two.
 	 */
-	if ((addr >= wl->part.reg.start) &&
-	    (addr < wl->part.reg.start + wl->part.reg.size))
-		return addr - wl->part.reg.start + wl->part.mem.size;
-	else
+	if ((addr >= wl->part.mem.start) &&
+	    (addr < wl->part.mem.start + wl->part.mem.size))
 		return addr - wl->part.mem.start;
+	else if ((addr >= wl->part.reg.start) &&
+		 (addr < wl->part.reg.start + wl->part.reg.size))
+		return addr - wl->part.reg.start + wl->part.mem.size;
+	else if ((addr >= wl->part.mem2.start) &&
+		 (addr < wl->part.mem2.start + wl->part.mem2.size))
+		return addr - wl->part.mem2.start + wl->part.mem.size +
+		       wl->part.reg.size;
+	else if ((addr >= wl->part.mem3.start) &&
+		 (addr < wl->part.mem3.start + wl->part.mem3.size))
+		return addr - wl->part.mem3.start + wl->part.mem.size +
+		       wl->part.reg.size + wl->part.mem2.size;
+
+	wl1271_error("HW address 0x%x out of range", addr);
+	WARN_ON(1);
+	return 0;
 }
 
 static inline void wl1271_read(struct wl1271 *wl, int addr, void *buf,
@@ -148,10 +157,22 @@ static inline u32 wl1271_read32(struct wl1271 *wl, int addr)
 	return wl1271_raw_read32(wl, wl1271_translate_addr(wl, addr));
 }
 
+/* read a register with a platform dependant prefix */
+#define PLAT_READ_REG32(wl, addr) \
+	((wl->conf.platform_type == 1) ? \
+		wl1271_read32(wl, WL12XX_ ## addr) : \
+		wl1271_read32(wl, WL18XX_ ## addr))
+
 static inline void wl1271_write32(struct wl1271 *wl, int addr, u32 val)
 {
 	wl1271_raw_write32(wl, wl1271_translate_addr(wl, addr), val);
 }
+
+/* write a register with a platform dependant prefix */
+#define PLAT_WRITE_REG32(wl, addr, val) \
+	((wl->conf.platform_type == 1) ? \
+		wl1271_write32(wl, WL12XX_ ## addr, val) : \
+		wl1271_write32(wl, WL18XX_ ## addr, val))
 
 static inline void wl1271_power_off(struct wl1271 *wl)
 {
@@ -170,8 +191,10 @@ static inline int wl1271_power_on(struct wl1271 *wl)
 
 
 /* Top Register IO */
-void wl1271_top_reg_write(struct wl1271 *wl, int addr, u16 val);
-u16 wl1271_top_reg_read(struct wl1271 *wl, int addr);
+void wl12xx_top_reg_write(struct wl1271 *wl, int addr, u16 val);
+void wl18xx_top_reg_write(struct wl1271 *wl, int addr, u16 val);
+u16 wl12xx_top_reg_read(struct wl1271 *wl, int addr);
+u16 wl18xx_top_reg_read(struct wl1271 *wl, int addr);
 
 int wl1271_set_partition(struct wl1271 *wl,
 			 struct wl1271_partition_set *p);

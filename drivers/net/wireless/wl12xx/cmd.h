@@ -272,7 +272,7 @@ struct wl12xx_cmd_role_start {
 	u8 role_id;
 	u8 band;
 	u8 channel;
-	u8 padding;
+	u8 channel_type;
 
 	union {
 		struct {

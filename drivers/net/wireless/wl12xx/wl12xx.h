@@ -114,6 +114,7 @@ extern u32 wl12xx_debug_level;
 
 #define WL127X_FW_NAME "ti-connectivity/wl127x-fw-3.bin"
 #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-3.bin"
+#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 
 /*
  * wl127x and wl128x are using the same NVS file name. However, the
@@ -160,7 +161,9 @@ extern u32 wl12xx_debug_level;
 #define WL1271_AP_BSS_INDEX        0
 #define WL1271_AP_DEF_BEACON_EXP   20
 
-#define ACX_TX_DESCRIPTORS         16
+/* 18xxTODO: rename to wl12xx */
+#define ACX_TX_DESCRIPTORS  16
+#define WL18XX_ACX_TX_DESCRIPTORS  32
 
 #define WL1271_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
 
@@ -173,7 +176,11 @@ enum wl1271_state {
 enum wl1271_partition_type {
 	PART_DOWN,
 	PART_WORK,
+	PART_BOOT,
 	PART_DRPW,
+
+	PART_TOP_PRCM_ELP_SOC,
+	PART_PHY_INIT,
 
 	PART_TABLE_LEN
 };
@@ -220,7 +227,11 @@ struct wl1271_chip {
 };
 
 struct wl1271_stats {
-	struct acx_statistics *fw_stats;
+	union {
+		struct wl12xx_acx_statistics *wl12xx;
+		struct wl18xx_acx_statistics *wl18xx;
+	};
+
 	unsigned long fw_stats_update;
 
 	unsigned int retry_count;
@@ -233,7 +244,33 @@ struct wl1271_stats {
 #define AP_MAX_STATIONS            8
 
 /* FW status registers */
-struct wl12xx_fw_status {
+struct wl_fw_packet_counters {
+	/* Cumulative counter of released packets per AC */
+	u8 tx_released_pkts[NUM_TX_QUEUES];
+
+	/* Cumulative counter of freed packets per HLID */
+	u8 tx_lnk_free_pkts[WL12XX_MAX_LINKS];
+
+	/* Cumulative counter of released Voice memory blocks */
+	u8 tx_voice_released_blks;
+} __packed;
+
+struct fw_status_tx_free_q {
+	/*
+	 * Index of next byte to hold a released host descriptor
+	 * (= +1 of the last host descriptor released).
+	 */
+	u8 fw_release_index;
+
+	/*
+	 * Vector queue of each host desc index for the frames finished
+	 * processing. The driver/host should use it to infer released host
+	 * descriptors.
+	 */
+	u8 released_desc_ind_vec[WL18XX_ACX_TX_DESCRIPTORS];
+};
+
+struct wl_fw_status {
 	__le32 intr;
 	u8  fw_rx_counter;
 	u8  drv_rx_counter;
@@ -260,15 +297,23 @@ struct wl12xx_fw_status {
 	/* Size (in Memory Blocks) of TX pool */
 	__le32 tx_total;
 
-	/* Cumulative counter of released packets per AC */
-	u8 tx_released_pkts[NUM_TX_QUEUES];
+	union {
+		/* used in offsetof() */
+		u8 per_family_data[0];
 
-	/* Cumulative counter of freed packets per HLID */
-	u8 tx_lnk_free_pkts[WL12XX_MAX_LINKS];
+		struct {
+			struct wl_fw_packet_counters counters;
+			u8 padding_1[3];
+		} wl12xx;
+		struct {
+			/* queue of released host descriptors */
+			struct fw_status_tx_free_q tx_desc_release_q;
 
-	/* Cumulative counter of released Voice memory blocks */
-	u8 tx_voice_released_blks;
-	u8 padding_1[3];
+			struct wl_fw_packet_counters counters;
+			u8 padding_1[6];
+		} wl18xx;
+	} __packed;
+
 	__le32 log_start_addr;
 } __packed;
 
@@ -497,7 +542,7 @@ struct wl1271 {
 	u32 buffer_cmd;
 	u32 buffer_busyword[WL1271_BUSY_WORD_CNT];
 
-	struct wl12xx_fw_status *fw_status;
+	struct wl_fw_status *fw_status;
 	struct wl1271_tx_hw_res_if *tx_res_if;
 
 	/* Current chipset configuration */
@@ -550,6 +595,8 @@ struct wl1271 {
 
 	/* last wlvif we transmitted from */
 	struct wl12xx_vif *last_wlvif;
+
+	enum nl80211_channel_type channel_type;
 };
 
 struct wl1271_station {
@@ -576,6 +623,7 @@ struct wl12xx_vif {
 			u8 basic_rate_idx;
 			u8 ap_rate_idx;
 			u8 p2p_rate_idx;
+			u8 wide_chan_rate_idx;
 		} sta;
 		struct {
 			u8 global_hlid;
@@ -657,6 +705,8 @@ struct wl12xx_vif {
 	struct work_struct rx_streaming_disable_work;
 	struct timer_list rx_streaming_timer;
 
+	enum nl80211_channel_type channel_type;
+
 	/*
 	 * This struct must be last!
 	 * data that has to be saved acrossed reconfigs (e.g. recovery)
@@ -730,6 +780,17 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 /* Macros to handle wl1271.sta_rate_set */
 #define HW_BG_RATES_MASK	0xffff
 #define HW_HT_RATES_OFFSET	16
+
+/* 18xxTODO: add 18xx RX perspective */
+/*
+ * On wl128x based devices, when TX packets are aggregated, each packet
+ * size must be aligned to the SDIO block size. The maximum block size
+ * is bounded by the type of the padded bytes field that is sent to the
+ * FW. Currently the type is u8, so the maximum block size is 256 bytes.
+ */
+#define WL12XX_BUS_BLOCK_SIZE min(512u,	\
+	    (1u << (8 * sizeof(((struct wl128x_tx_mem *) 0)->extra_bytes))))
+
 
 /* Quirks */
 

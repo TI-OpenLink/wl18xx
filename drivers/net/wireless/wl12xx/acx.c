@@ -731,7 +731,25 @@ out:
 	return ret;
 }
 
-int wl1271_acx_statistics(struct wl1271 *wl, struct acx_statistics *stats)
+int wl12xx_acx_statistics(struct wl1271 *wl,
+			  struct wl12xx_acx_statistics *stats)
+{
+	int ret;
+
+	wl1271_debug(DEBUG_ACX, "acx statistics");
+
+	ret = wl1271_cmd_interrogate(wl, ACX_STATISTICS, stats,
+				     sizeof(*stats));
+	if (ret < 0) {
+		wl1271_warning("acx statistics failed: %d", ret);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+int wl18xx_acx_statistics(struct wl1271 *wl,
+			  struct wl18xx_acx_statistics *stats)
 {
 	int ret;
 
@@ -807,6 +825,22 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	if (ret < 0) {
 		wl1271_warning("Setting of rate policies failed: %d", ret);
 		goto out;
+	}
+
+	/* 18xxTODO: probably a separate function for index alloc + setting */
+	/* configure 40MHz supported rates */
+	if (wl->conf.platform_type == 2) {
+		acx->rate_policy_idx = cpu_to_le32(wlvif->sta.wide_chan_rate_idx);
+		acx->rate_policy.enabled_rates = cpu_to_le32(CONF_TX_RATE_MASK_40_MHZ);
+		acx->rate_policy.short_retry_limit = c->short_retry_limit;
+		acx->rate_policy.long_retry_limit = c->long_retry_limit;
+		acx->rate_policy.aflags = c->aflags;
+
+		ret = wl1271_cmd_configure(wl, ACX_RATE_POLICY, acx, sizeof(*acx));
+		if (ret < 0) {
+			wl1271_warning("Setting of 40MHz rate policies failed: %d", ret);
+			goto out;
+		}
 	}
 
 out:
@@ -992,7 +1026,9 @@ int wl12xx_acx_mem_cfg(struct wl1271 *wl)
 		goto out;
 	}
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if (wl->chip.id == CHIP_ID_185x_PG10)
+		mem = &wl->conf.mem_wl18xx;
+	else if (wl->chip.id == CHIP_ID_1283_PG20)
 		mem = &wl->conf.mem_wl128x;
 	else
 		mem = &wl->conf.mem_wl127x;
@@ -1046,6 +1082,38 @@ out:
 
 	return ret;
 }
+
+int wl18xx_acx_host_if_cfg_bitmap(struct wl1271 *wl, u32 host_cfg_bitmap,
+				  u32 sdio_blk_size, u32 extra_mem_blks,
+				  u32 len_field_size)
+{
+	struct wl18xx_acx_host_config_bitmap *bitmap_conf;
+	int ret;
+
+	bitmap_conf = kzalloc(sizeof(*bitmap_conf), GFP_KERNEL);
+	if (!bitmap_conf) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	bitmap_conf->host_cfg_bitmap = cpu_to_le32(host_cfg_bitmap);
+	bitmap_conf->host_sdio_block_size = cpu_to_le32(sdio_blk_size);
+	bitmap_conf->extra_mem_blocks = cpu_to_le32(extra_mem_blks);
+	bitmap_conf->length_field_size = cpu_to_le32(len_field_size);
+
+	ret = wl1271_cmd_configure(wl, ACX_HOST_IF_CFG_BITMAP,
+				   bitmap_conf, sizeof(*bitmap_conf));
+	if (ret < 0) {
+		wl1271_warning("wl1271 bitmap config opt failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(bitmap_conf);
+
+	return ret;
+}
+
 
 int wl1271_acx_init_mem_config(struct wl1271 *wl)
 {

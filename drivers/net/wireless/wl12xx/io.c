@@ -137,34 +137,34 @@ void wl1271_io_init(struct wl1271 *wl)
 		wl->if_ops->init(wl);
 }
 
-void wl1271_top_reg_write(struct wl1271 *wl, int addr, u16 val)
+void wl12xx_top_reg_write(struct wl1271 *wl, int addr, u16 val)
 {
 	/* write address >> 1 + 0x30000 to OCP_POR_CTR */
 	addr = (addr >> 1) + 0x30000;
-	wl1271_write32(wl, OCP_POR_CTR, addr);
+	wl1271_write32(wl, WL12XX_OCP_POR_CTR, addr);
 
 	/* write value to OCP_POR_WDATA */
-	wl1271_write32(wl, OCP_DATA_WRITE, val);
+	wl1271_write32(wl, WL12XX_OCP_DATA_WRITE, val);
 
 	/* write 1 to OCP_CMD */
-	wl1271_write32(wl, OCP_CMD, OCP_CMD_WRITE);
+	wl1271_write32(wl, WL12XX_OCP_CMD, OCP_CMD_WRITE);
 }
 
-u16 wl1271_top_reg_read(struct wl1271 *wl, int addr)
+u16 wl12xx_top_reg_read(struct wl1271 *wl, int addr)
 {
 	u32 val;
 	int timeout = OCP_CMD_LOOP;
 
 	/* write address >> 1 + 0x30000 to OCP_POR_CTR */
 	addr = (addr >> 1) + 0x30000;
-	wl1271_write32(wl, OCP_POR_CTR, addr);
+	wl1271_write32(wl, WL12XX_OCP_POR_CTR, addr);
 
 	/* write 2 to OCP_CMD */
-	wl1271_write32(wl, OCP_CMD, OCP_CMD_READ);
+	wl1271_write32(wl, WL12XX_OCP_CMD, OCP_CMD_READ);
 
 	/* poll for data ready */
 	do {
-		val = wl1271_read32(wl, OCP_DATA_READ);
+		val = wl1271_read32(wl, WL12XX_OCP_DATA_READ);
 	} while (!(val & OCP_READY_MASK) && --timeout);
 
 	if (!timeout) {
@@ -178,6 +178,43 @@ u16 wl1271_top_reg_read(struct wl1271 *wl, int addr)
 	else {
 		wl1271_warning("Top register access returned error.");
 		return 0xffff;
+	}
+}
+
+/* 18xxTODO: currently unused (was only used for boot clock detection) */
+void wl18xx_top_reg_write(struct wl1271 *wl, int addr, u16 val)
+{
+	u32 tmp;
+
+	if (WARN_ON(addr % 2))
+		return;
+
+	if ((addr % 4) == 0) {
+		tmp = wl1271_read32(wl, addr);
+		tmp = (tmp & 0xffff0000) | val;
+		wl1271_write32(wl, addr, tmp);
+	} else {
+		tmp = wl1271_read32(wl, addr - 2);
+		tmp = (tmp & 0xffff) | (val << 16);
+		wl1271_write32(wl, addr - 2, tmp);
+	}
+}
+
+/* 18xxTODO: currently unused (was only used for boot clock detection) */
+u16 wl18xx_top_reg_read(struct wl1271 *wl, int addr)
+{
+	u32 val;
+
+	if (WARN_ON(addr % 2))
+		return 0;
+
+	if ((addr % 4) == 0) {
+		/* address is 4-bytes aligned */
+		val = wl1271_read32(wl, addr);
+		return val & 0xffff;
+	} else {
+		val = wl1271_read32(wl, addr - 2);
+		return (val & 0xffff0000) >> 16;
 	}
 }
 

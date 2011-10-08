@@ -96,6 +96,12 @@
 #define RX_MEM_BLOCK_MASK            0xFF
 #define RX_BUF_SIZE_MASK             0xFFF00
 #define RX_BUF_SIZE_SHIFT_DIV        6
+
+/* 18xxTODO: make this depend on the SDIO block size? */
+#define ALIGNED_RX_BUF_SIZE_MASK     0xFFFF00
+#define ALIGNED_RX_BUF_SIZE_SHIFT    8
+
+
 /* If set, the start of IP payload is not 4 bytes aligned */
 #define RX_BUF_UNALIGNED_PAYLOAD     BIT(20)
 
@@ -126,7 +132,63 @@ struct wl1271_rx_descriptor {
 	u8  reserved;
 } __packed;
 
-void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status);
+#define CFG_RX_FCS		BIT(2)
+#define CFG_RX_ALL_GOOD		BIT(3)
+#define CFG_UNI_FILTER_EN	BIT(4)
+#define CFG_BSSID_FILTER_EN	BIT(5)
+#define CFG_MC_FILTER_EN	BIT(6)
+#define CFG_MC_ADDR0_EN		BIT(7)
+#define CFG_MC_ADDR1_EN		BIT(8)
+#define CFG_BC_REJECT_EN	BIT(9)
+#define CFG_SSID_FILTER_EN	BIT(10)
+#define CFG_RX_INT_FCS_ERROR	BIT(11)
+#define CFG_RX_INT_ENCRYPTED	BIT(12)
+#define CFG_RX_WR_RX_STATUS	BIT(13)
+#define CFG_RX_FILTER_NULTI	BIT(14)
+#define CFG_RX_RESERVE		BIT(15)
+#define CFG_RX_TIMESTAMP_TSF	BIT(16)
+
+/* 1 = use RX_BSSID_FILTER for data frames. */
+#define CFG_RX_FLTR_BSSID_DATA  BIT(17)
+
+/* 1 = use RX_BSSID_FILTER for management frames */
+#define CFG_RX_FLTR_BSSID_MGMT  BIT(18)
+
+/* syncing MAC DMV and the tail bytes fro PHY. should be 0. */
+#define CFG_RX_NOT_WAIT_PPDU_END BIT(19)
+#define CFG_RX_SIMU_AP_STA      BIT(30)
+
+#define CFG_RX_RSV_EN		BIT(0)
+#define CFG_RX_RCTS_ACK		BIT(1)
+#define CFG_RX_PRSP_EN		BIT(2)
+#define CFG_RX_PREQ_EN		BIT(3)
+#define CFG_RX_MGMT_EN		BIT(4)
+#define CFG_RX_FCS_ERROR	BIT(5)
+#define CFG_RX_DATA_EN		BIT(6)
+#define CFG_RX_CTL_EN		BIT(7)
+#define CFG_RX_CF_EN		BIT(8)
+#define CFG_RX_BCN_EN		BIT(9)
+#define CFG_RX_AUTH_EN		BIT(10)
+#define CFG_RX_ASSOC_EN		BIT(11)
+
+/* 18xxTODO: put in wl->conf ? */
+#define WL18XX_DEFAULT_STA_RX_CONFIG (CFG_UNI_FILTER_EN | \
+				      CFG_BSSID_FILTER_EN | \
+				      CFG_MC_FILTER_EN)
+
+#define WL18XX_DEFAULT_STA_RX_FILTER (CFG_RX_RCTS_ACK | CFG_RX_PRSP_EN |  \
+				      CFG_RX_MGMT_EN | CFG_RX_DATA_EN |   \
+				      CFG_RX_CTL_EN | CFG_RX_BCN_EN |     \
+				      CFG_RX_AUTH_EN | CFG_RX_ASSOC_EN)
+
+#define WL18XX_DEFAULT_AP_RX_CONFIG  0
+
+#define WL18XX_DEFAULT_AP_RX_FILTER  (CFG_RX_RCTS_ACK | CFG_RX_PREQ_EN | \
+				      CFG_RX_MGMT_EN | CFG_RX_DATA_EN | \
+				      CFG_RX_CTL_EN | CFG_RX_AUTH_EN | \
+				      CFG_RX_ASSOC_EN)
+
+void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status);
 u8 wl1271_rate_to_idx(int rate, enum ieee80211_band band);
 
 #endif

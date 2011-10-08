@@ -424,11 +424,61 @@ struct acx_ctsprotect {
 	u8 padding[2];
 } __packed;
 
-struct acx_tx_statistics {
+struct wl12xx_acx_tx_statistics {
 	__le32 internal_desc_overflow;
-}  __packed;
+} __packed;
 
-struct acx_rx_statistics {
+struct wl18xx_acx_tx_statistics {
+	__le32 frag_called;
+	__le32 frag_mpdu_alloc_failed;
+	__le32 frag_init_called;
+	__le32 frag_in_process_called;
+	__le32 frag_tkip_called;
+	__le32 frag_key_not_found;
+	__le32 frag_need_fragmentation;
+	__le32 frag_bad_mem_blk_num;
+	__le32 frag_failed;
+	__le32 frag_cache_hit;
+	__le32 frag_cache_miss;
+	__le32 frag_1;
+	__le32 frag_2;
+	__le32 frag_3;
+	__le32 frag_4;
+	__le32 frag_5;
+	__le32 frag_6;
+	__le32 frag_7;
+	__le32 frag_8;
+	__le32 template_prepared;
+	__le32 data_prepared;
+	__le32 template_programmed;
+	__le32 data_programmed;
+	__le32 burst_programmed;
+	__le32 starts;
+	__le32 imm_resp;
+	__le32 start_tempaltes;
+	__le32 start_int_template;
+	__le32 start_fw_gen;
+	__le32 start_data;
+	__le32 start_null_frame;
+	__le32 exch;
+	__le32 retry_template;
+	__le32 retry_data;
+	__le32 exch_pending;
+	__le32 exch_expiry;
+	__le32 exch_mismatch;
+	__le32 done_template;
+	__le32 done_data;
+	__le32 done_intTemplate;
+	__le32 pre_xfr;
+	__le32 xfr;
+	__le32 xfr_out_of_mem;
+	__le32 dma_programmed;
+	__le32 dma_done;
+	__le32 checksum_req;
+	__le32 checksum_calc;
+} __packed;
+
+struct wl12xx_acx_rx_statistics {
 	__le32 out_of_mem;
 	__le32 hdr_overflow;
 	__le32 hw_stuck;
@@ -439,14 +489,57 @@ struct acx_rx_statistics {
 	__le32 reset_counter;
 } __packed;
 
-struct acx_dma_statistics {
+struct wl18xx_acx_rx_statistics {
+	__le32 rx_out_of_mem;
+	__le32 rx_hdr_overflow;
+	__le32 rx_hw_stuck;
+	__le32 rx_dropped_frame;
+	__le32 rx_complete_dropped_frame;
+	__le32 rx_Alloc_frame;
+	__le32 rx_done_queue;
+	__le32 rx_done;
+	__le32 defrag_called;
+	__le32 defrag_init_Called;
+	__le32 defrag_in_Process_Called;
+	__le32 defrag_tkip_called;
+	__le32 defrag_need_defrag;
+	__le32 defrag_decrypt_failed;
+	__le32 decrypt_Key_not_found;
+	__le32 defrag_need_decr;
+	__le32 defrag1;
+	__le32 defrag2;
+	__le32 defrag3;
+	__le32 defrag4;
+	__le32 defrag5;
+	__le32 defrag6;
+	__le32 defrag7;
+	__le32 defrag8;
+	__le32 defrag;
+	__le32 defrag_end;
+	__le32 xfr;
+	__le32 xfr_end;
+	__le32 cmplt;
+	__le32 pre_cmplt;
+	__le32 cmplt_task;
+	__le32 phy_hdr;
+	__le32 timeout;
+	__le32 checksum_req;
+	__le32 checksum_calc;
+} __packed;
+
+struct wl12xx_acx_dma_statistics {
 	__le32 rx_requested;
 	__le32 rx_errors;
 	__le32 tx_requested;
 	__le32 tx_errors;
 }  __packed;
 
-struct acx_isr_statistics {
+struct wl18xx_acx_dma_statistics {
+	__le32 rx_errors;
+	__le32 tx_errors;
+}  __packed;
+
+struct wl12xx_acx_isr_statistics {
 	/* host command complete */
 	__le32 cmd_cmplt;
 
@@ -505,7 +598,11 @@ struct acx_isr_statistics {
 	__le32 low_rssi;
 } __packed;
 
-struct acx_wep_statistics {
+struct wl18xx_acx_isr_statistics {
+	__le32 irqs;
+} __packed;
+
+struct wl12xx_acx_wep_statistics {
 	/* WEP address keys configured */
 	__le32 addr_key_count;
 
@@ -529,7 +626,7 @@ struct acx_wep_statistics {
 
 #define ACX_MISSED_BEACONS_SPREAD 10
 
-struct acx_pwr_statistics {
+struct wl12xx_acx_pwr_statistics {
 	/* the amount of enters into power save mode (both PD & ELP) */
 	__le32 ps_enter;
 
@@ -587,12 +684,42 @@ struct acx_pwr_statistics {
 	__le32 rcvd_awake_beacons;
 } __packed;
 
+struct wl18xx_acx_pwr_statistics {
+	/* amount of missing beacon interrupts to the host.*/
+	__le32 missing_bcns;
+
+	/* number of received beacons.*/
+	__le32 rcvd_beacons;
+
+	/*
+	 * Count the number of times TSF Out Of Sync occures,
+	 * meaning we lost more consecutive beacons
+	 * that defined by the host's threshold.
+	 */
+	__le32 conn_out_of_sync;
+
+	/* Gives statistics about spread continuous missed beacons */
+	__le32 cont_missbcns_spread_1; /* single beacon */
+	__le32 cont_missbcns_spread_2;
+	__le32 cont_missbcns_spread_3;
+	__le32 cont_missbcns_spread_4;
+	__le32 cont_missbcns_spread_5;
+	__le32 cont_missbcns_spread_6;
+	__le32 cont_missbcns_spread_7;
+	__le32 cont_missbcns_spread_8;
+	__le32 cont_missbcns_spread_9;
+	__le32 cont_missbcns_spread_10_plus; /* 10+ beacons */
+
+	/* Count the number of beacons in awake mode */
+	__le32 rcvd_awake_beacons_cnt;
+} __packed;
+
 struct acx_mic_statistics {
 	__le32 rx_pkts;
 	__le32 calc_failure;
 } __packed;
 
-struct acx_aes_statistics {
+struct wl12xx_acx_aes_statistics {
 	__le32 encrypt_fail;
 	__le32 decrypt_fail;
 	__le32 encrypt_packets;
@@ -601,7 +728,7 @@ struct acx_aes_statistics {
 	__le32 decrypt_interrupt;
 } __packed;
 
-struct acx_event_statistics {
+struct wl12xx_acx_event_statistics {
 	__le32 heart_beat;
 	__le32 calibration;
 	__le32 rx_mismatch;
@@ -612,7 +739,13 @@ struct acx_event_statistics {
 	__le32 tx_stuck;
 } __packed;
 
-struct acx_ps_statistics {
+struct wl18xx_acx_event_statistics {
+	__le32 calibration;
+	__le32 rx_mismatch;
+	__le32 rx_mem_empty;
+} __packed;
+
+struct wl12xx_acx_ps_statistics {
 	__le32 pspoll_timeouts;
 	__le32 upsd_timeouts;
 	__le32 upsd_max_sptime;
@@ -622,7 +755,7 @@ struct acx_ps_statistics {
 	__le32 upsd_utilization;
 } __packed;
 
-struct acx_rxpipe_statistics {
+struct wl12xx_acx_rxpipe_statistics {
 	__le32 rx_prep_beacon_drop;
 	__le32 descr_host_int_trig_rx_data;
 	__le32 beacon_buffer_thres_host_int_trig_rx_data;
@@ -630,20 +763,142 @@ struct acx_rxpipe_statistics {
 	__le32 tx_xfr_host_int_trig_rx_data;
 } __packed;
 
-struct acx_statistics {
+struct wl18xx_acx_rx_rates_statistics
+{
+	/* max number of rates */
+	__le32 rx_frames_per_rates[50];
+} __packed;
+
+struct wl18xx_acx_aggregation_size_statistics {
+	__le32 size_1;
+	__le32 size_2;
+	__le32 size_3;
+	__le32 size_4;
+	__le32 size_5;
+	__le32 size_6;
+	__le32 size_7;
+	__le32 size_8;
+} __packed;
+
+struct wl18xx_acx_new_pipeline_statistics {
+	__le32 hs_tx_stat_fifo_int;
+	__le32 hs_rx_stat_fifo_int;
+	__le32 tcp_tx_stat_fifo_int;
+	__le32 tcp_rx_stat_fifo_int;
+	__le32 enc_tx_stat_fifo_int;
+	__le32 enc_rx_stat_fifo_int;
+	__le32 rx_complete_stat_fifo_Int;
+	__le32 pre_proc_swi;
+	__le32 post_proc_swi;
+	__le32 sec_frag_swi;
+	__le32 pre_to_defrag_swi;
+	__le32 defrag_to_csum_swi;
+	__le32 csum_to_rx_xfer_swi;
+	__le32 dec_Packet_in;
+	__le32 dec_packet_in_fifo_Full;
+	__le32 dec_packet_out;
+	__le32 cs_rx_packet_in;
+	__le32 cs_rx_packet_out;
+} __packed;
+
+struct wl18xx_acx_ring_statistics {
+	__le32  tx_procs;
+	__le32  prepared_descs;
+	__le32  tx_xfr;
+	__le32  tx_dma;
+	__le32  tx_cmplt;
+	__le32  rx_procs;
+	__le32  rx_data;
+} __packed;
+
+struct wl18xx_acx_dbg_statistics {
+	__le32  debug1;
+	__le32  debug2;
+	__le32  debug3;
+	__le32  debug4;
+	__le32  debug5;
+	__le32  debug6;
+} __packed;
+
+struct wl18xx_acx_ps_poll_upsd_statistics {
+	__le32  ps_poll_timeouts;
+	__le32  upsd_timeouts;
+	__le32  upsd_max_ap_turn;
+	__le32  ps_poll_max_ap_turn;
+	__le32  ps_poll_utilization;
+	__le32  upsd_utilization;
+} __packed;
+
+struct wl18xx_acx_rx_filter_statistics {
+	__le32 beacon_filter;
+	__le32 arp_filter;
+	__le32 mc_filter;
+	__le32 dup_filter;
+	__le32 data_filter;
+	__le32 ibss_filter;
+} __packed;
+
+struct wl18xx_acx_calibration_fail_statistics {
+	__le32 init_cal_total;
+	__le32 init_radio_bands_fail;
+	__le32 init_set_params;
+	__le32 init_tx_clpc_fail;
+	__le32 init_rx_iq_mm_fail;
+	__le32 tune_cal_total;
+	__le32 tune_drpw_rtrim_fail;
+	__le32 tune_drpw_pd_buf_fail;
+	__le32 tune_drpw_tx_mix_freq_fail;
+	__le32 tune_drpw_ta_cal;
+	__le32 tune_drpw_rxIf2Gain;
+	__le32 tune_drpw_rx_dac;
+	__le32 tune_drpw_chan_tune;
+	__le32 tune_drpw_rx_tx_lpf;
+	__le32 tune_drpw_lna_tank;
+	__le32 tune_tx_lo_leak_fail;
+	__le32 tune_tx_iq_mm_fail;
+	__le32 tune_tx_pdet_fail;
+	__le32 tune_tx_ppa_fail;
+	__le32 tune_tx_clpc_fail;
+	__le32 tune_rx_ana_dc_fail;
+	/* 18xxTODO: there was a "ifdef TNETW1283" around this one */
+	__le32 tune_rx_dig_dc_fail;
+	__le32 tune_rx_iq_mm_fail;
+	__le32 cal_state_fail;
+} __packed;
+
+struct wl12xx_acx_statistics {
 	struct acx_header header;
 
-	struct acx_tx_statistics tx;
-	struct acx_rx_statistics rx;
-	struct acx_dma_statistics dma;
-	struct acx_isr_statistics isr;
-	struct acx_wep_statistics wep;
-	struct acx_pwr_statistics pwr;
-	struct acx_aes_statistics aes;
+	struct wl12xx_acx_tx_statistics tx;
+	struct wl12xx_acx_rx_statistics rx;
+	struct wl12xx_acx_dma_statistics dma;
+	struct wl12xx_acx_isr_statistics isr;
+	struct wl12xx_acx_wep_statistics wep;
+	struct wl12xx_acx_pwr_statistics pwr;
+	struct wl12xx_acx_aes_statistics aes;
 	struct acx_mic_statistics mic;
-	struct acx_event_statistics event;
-	struct acx_ps_statistics ps;
-	struct acx_rxpipe_statistics rxpipe;
+	struct wl12xx_acx_event_statistics event;
+	struct wl12xx_acx_ps_statistics ps;
+	struct wl12xx_acx_rxpipe_statistics rxpipe;
+} __packed;
+
+struct wl18xx_acx_statistics {
+	struct acx_header header;
+
+	struct wl18xx_acx_ring_statistics ring;
+	struct wl18xx_acx_dbg_statistics dbg;
+	struct wl18xx_acx_tx_statistics tx;
+	struct wl18xx_acx_rx_statistics rx;
+	struct wl18xx_acx_dma_statistics dma;
+	struct wl18xx_acx_isr_statistics isr;
+	struct wl18xx_acx_pwr_statistics pwr;
+	struct wl18xx_acx_event_statistics event;
+	struct wl18xx_acx_ps_poll_upsd_statistics ps_poll_upsd;
+	struct wl18xx_acx_rx_filter_statistics rx_filter;
+	struct wl18xx_acx_calibration_fail_statistics calibration_fail;
+	struct wl18xx_acx_rx_rates_statistics rx_rates;
+	struct wl18xx_acx_aggregation_size_statistics agg;
+	struct wl18xx_acx_new_pipeline_statistics new_pipe_line;
 } __packed;
 
 struct acx_rate_class {
@@ -834,11 +1089,33 @@ struct wl1271_acx_keep_alive_config {
 #define HOST_IF_CFG_RX_FIFO_ENABLE     BIT(0)
 #define HOST_IF_CFG_TX_EXTRA_BLKS_SWAP BIT(1)
 #define HOST_IF_CFG_TX_PAD_TO_SDIO_BLK BIT(3)
+#define HOST_IF_CFG_RX_PAD_TO_SDIO_BLK BIT(4)
 
 struct wl1271_acx_host_config_bitmap {
 	struct acx_header header;
 
 	__le32 host_cfg_bitmap;
+} __packed;
+
+/* numbers of bits the length field takes (add 1 for the actual number) */
+#define WL18XX_HOST_IF_LEN_SIZE_FIELD 15
+
+struct wl18xx_acx_host_config_bitmap {
+	struct acx_header header;
+
+	__le32 host_cfg_bitmap;
+
+	__le32 host_sdio_block_size;
+
+	/* extra mem blocks per frame in TX. */
+	__le32 extra_mem_blocks;
+
+	/*
+	 * number of bits of the length field in the first TX word
+	 * (up to 15 - for using the entire 16 bits).
+	 */
+	__le32 length_field_size;
+
 } __packed;
 
 enum {
@@ -1264,7 +1541,10 @@ int wl1271_acx_set_preamble(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			    enum acx_preamble_type preamble);
 int wl1271_acx_cts_protect(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			   enum acx_ctsprotect_type ctsprotect);
-int wl1271_acx_statistics(struct wl1271 *wl, struct acx_statistics *stats);
+int wl12xx_acx_statistics(struct wl1271 *wl,
+			  struct wl12xx_acx_statistics *stats);
+int wl18xx_acx_statistics(struct wl1271 *wl,
+			  struct wl18xx_acx_statistics *stats);
 int wl1271_acx_sta_rate_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 int wl1271_acx_ap_rate_policy(struct wl1271 *wl, struct conf_tx_rate_class *c,
 		      u8 idx);
@@ -1279,6 +1559,9 @@ int wl1271_acx_tx_config_options(struct wl1271 *wl);
 int wl12xx_acx_mem_cfg(struct wl1271 *wl);
 int wl1271_acx_init_mem_config(struct wl1271 *wl);
 int wl1271_acx_host_if_cfg_bitmap(struct wl1271 *wl, u32 host_cfg_bitmap);
+int wl18xx_acx_host_if_cfg_bitmap(struct wl1271 *wl, u32 host_cfg_bitmap,
+				  u32 sdio_blk_size, u32 extra_mem_blks,
+				  u32 len_field_size);
 int wl1271_acx_init_rx_interrupt(struct wl1271 *wl);
 int wl1271_acx_smart_reflex(struct wl1271 *wl);
 int wl1271_acx_bet_enable(struct wl1271 *wl, struct wl12xx_vif *wlvif,

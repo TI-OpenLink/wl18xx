@@ -25,8 +25,11 @@
 #ifndef __TX_H__
 #define __TX_H__
 
-#define TX_HW_BLOCK_SPARE_DEFAULT        1
-#define TX_HW_BLOCK_SIZE                 252
+#define WL12XX_TX_HW_BLOCK_SPARE        1
+#define WL12XX_TX_HW_BLOCK_SIZE         252
+
+#define WL18XX_TX_HW_BLOCK_SPARE        2
+#define WL18XX_TX_HW_BLOCK_SIZE         268
 
 #define TX_HW_MGMT_PKT_LIFETIME_TU       2000
 #define TX_HW_AP_MODE_PKT_LIFETIME_TU    8000
@@ -84,15 +87,6 @@ struct wl128x_tx_mem {
 	 */
 	u8 extra_bytes;
 } __packed;
-
-/*
- * On wl128x based devices, when TX packets are aggregated, each packet
- * size must be aligned to the SDIO block size. The maximum block size
- * is bounded by the type of the padded bytes field that is sent to the
- * FW. Currently the type is u8, so the maximum block size is 256 bytes.
- */
-#define WL12XX_BUS_BLOCK_SIZE min(512u,	\
-	    (1u << (8 * sizeof(((struct wl128x_tx_mem *) 0)->extra_bytes))))
 
 struct wl1271_tx_hw_descr {
 	/* Length of packet in words, including descriptor+header+data */

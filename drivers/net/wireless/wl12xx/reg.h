@@ -27,14 +27,48 @@
 
 #include <linux/bitops.h>
 
-#define REGISTERS_BASE 0x00300000
-#define DRPW_BASE      0x00310000
+#define WL12XX_REGISTERS_BASE 0x00300000
+#define WL12XX_DRPW_BASE      0x00310000
 
-#define REGISTERS_DOWN_SIZE 0x00008800
-#define REGISTERS_WORK_SIZE 0x0000b000
+#define WL12XX_REGISTERS_DOWN_SIZE 0x00008800
+#define WL12XX_REGISTERS_WORK_SIZE 0x0000b000
+
+#define WL18XX_REGISTERS_BASE      0x00800000
+#define WL18XX_CODE_BASE           0x00000000
+#define WL18XX_DATA_BASE           0x00400000
+#define WL18XX_DOUBLE_BUFFER_BASE  0x00600000
+#define WL18XX_MCU_KEY_SEARCH_BASE 0x00700000
+#define WL18XX_PHY_BASE            0x00900000
+#define WL18XX_TOP_OCP_BASE        0x00A00000
+#define WL18XX_PACKET_RAM_BASE     0x00B00000
+#define WL18XX_HOST_BASE           0x00C00000
+
+#define WL18XX_REGISTERS_DOWN_SIZE 0x0000B000
+
+#define WL18XX_REG_BOOT_PART_START 0x00802000
+#define WL18XX_REG_BOOT_PART_SIZE  0x00014578
+
+#define WL18XX_PHY_INIT_MEM_ADDR   0x80926000
+
+#define WL18XX_SDIO_WSPI_BASE      (WL18XX_REGISTERS_BASE)
+#define WL18XX_REG_CONFIG_BASE     (WL18XX_REGISTERS_BASE + 0x02000)
+#define WL18XX_WGCM_REGS_BASE      (WL18XX_REGISTERS_BASE + 0x03000)
+#define WL18XX_ENC_BASE            (WL18XX_REGISTERS_BASE + 0x04000)
+#define WL18XX_INTERRUPT_BASE      (WL18XX_REGISTERS_BASE + 0x05000)
+#define WL18XX_UART_BASE           (WL18XX_REGISTERS_BASE + 0x06000)
+#define WL18XX_WELP_BASE           (WL18XX_REGISTERS_BASE + 0x07000)
+#define WL18XX_TCP_CKSM_BASE       (WL18XX_REGISTERS_BASE + 0x08000)
+#define WL18XX_FIFO_BASE           (WL18XX_REGISTERS_BASE + 0x09000)
+#define WL18XX_OCP_BRIDGE_BASE     (WL18XX_REGISTERS_BASE + 0x0A000)
+#define WL18XX_PMAC_RX_BASE        (WL18XX_REGISTERS_BASE + 0x14800)
+#define WL18XX_PMAC_ACM_BASE       (WL18XX_REGISTERS_BASE + 0x14C00)
+#define WL18XX_PMAC_TX_BASE        (WL18XX_REGISTERS_BASE + 0x15000)
+#define WL18XX_PMAC_CSR_BASE       (WL18XX_REGISTERS_BASE + 0x15400)
+
 
 #define HW_ACCESS_ELP_CTRL_REG_ADDR         0x1FFFC
-#define FW_STATUS_ADDR                      (0x14FC0 + 0xA000)
+#define WL12XX_FW_STATUS_ADDR               (0x14FC0 + 0xA000)
+#define WL18XX_FW_STATUS_ADDR               0x50F8
 
 /* ELP register commands */
 #define ELPCTRL_WAKE_UP             0x1
@@ -57,14 +91,20 @@
     (not self-clearing), the Wlan hardware
     exits the software reset state.
 ===============================================*/
-#define ACX_REG_SLV_SOFT_RESET         (REGISTERS_BASE + 0x0000)
+#define WL12XX_ACX_REG_SLV_SOFT_RESET  (WL12XX_REGISTERS_BASE + 0x0000)
+#define WL18XX_ACX_REG_SLV_SOFT_RESET  (WL18XX_HOST_BASE)
 
-#define WL1271_SLV_REG_DATA            (REGISTERS_BASE + 0x0008)
-#define WL1271_SLV_REG_ADATA           (REGISTERS_BASE + 0x000c)
-#define WL1271_SLV_MEM_DATA            (REGISTERS_BASE + 0x0018)
+#define WL12XX_SLV_REG_DATA            (WL12XX_REGISTERS_BASE + 0x0008)
+#define WL18XX_SLV_REG_DATA            (WL18XX_HOST_BASE + 0x0008)
+#define WL12XX_SLV_REG_ADATA           (WL12XX_REGISTERS_BASE + 0x000c)
+#define WL18XX_SLV_REG_ADATA           (WL18XX_HOST_BASE + 0x000c)
+#define WL12XX_SLV_MEM_DATA            (WL12XX_REGISTERS_BASE + 0x0018)
+#define WL18XX_SLV_MEM_DATA            (WL18XX_HOST_BASE + 0x0018)
 
-#define ACX_REG_INTERRUPT_TRIG         (REGISTERS_BASE + 0x0474)
-#define ACX_REG_INTERRUPT_TRIG_H       (REGISTERS_BASE + 0x0478)
+#define WL12XX_ACX_REG_INTERRUPT_TRIG   (WL12XX_REGISTERS_BASE + 0x0474)
+#define WL18XX_ACX_REG_INTERRUPT_TRIG   (WL18XX_REGISTERS_BASE + 0x5074)
+#define WL12XX_ACX_REG_INTERRUPT_TRIG_H (WL12XX_REGISTERS_BASE + 0x0478)
+#define WL18XX_ACX_REG_INTERRUPT_TRIG_H (WL18XX_REGISTERS_BASE + 0x5078)
 
 /*=============================================
   Host Interrupt Mask Register - 32bit (RW)
@@ -94,7 +134,8 @@
  21-			-
  Default: 0x0001
 *==============================================*/
-#define ACX_REG_INTERRUPT_MASK         (REGISTERS_BASE + 0x04DC)
+#define WL12XX_ACX_REG_INTERRUPT_MASK         (WL12XX_REGISTERS_BASE + 0x04DC)
+#define WL18XX_ACX_REG_INTERRUPT_MASK         (WL18XX_REGISTERS_BASE + 0x0050DC)
 
 /*=============================================
   Host Interrupt Mask Set 16bit, (Write only)
@@ -104,7 +145,8 @@
  without effecting the mask
  state of other bits (0 = no effect).
 ==============================================*/
-#define ACX_REG_HINT_MASK_SET          (REGISTERS_BASE + 0x04E0)
+#define WL12XX_ACX_REG_HINT_MASK_SET          (WL12XX_REGISTERS_BASE + 0x04E0)
+#define WL18XX_ACX_REG_HINT_MASK_SET          (WL18XX_REGISTERS_BASE + 0x0050E0)
 
 /*=============================================
   Host Interrupt Mask Clear 16bit,(Write only)
@@ -114,7 +156,8 @@
  without effecting the mask
  state of other bits (0 = no effect).
 =============================================*/
-#define ACX_REG_HINT_MASK_CLR          (REGISTERS_BASE + 0x04E4)
+#define WL12XX_ACX_REG_HINT_MASK_CLR          (WL12XX_REGISTERS_BASE + 0x04E4)
+#define WL18XX_ACX_REG_HINT_MASK_CLR          (WL18XX_REGISTERS_BASE + 0x0050E4)
 
 /*=============================================
   Host Interrupt Status Nondestructive Read
@@ -125,7 +168,8 @@
  Reading this register doesn't
  effect its content.
 =============================================*/
-#define ACX_REG_INTERRUPT_NO_CLEAR     (REGISTERS_BASE + 0x04E8)
+#define WL12XX_ACX_REG_INTERRUPT_NO_CLEAR     (WL12XX_REGISTERS_BASE + 0x04E8)
+#define WL18XX_ACX_REG_INTERRUPT_NO_CLEAR     (WL18XX_REGISTERS_BASE + 0x050E8)
 
 /*=============================================
   Host Interrupt Status Clear on Read  Register
@@ -136,7 +180,8 @@
  Reading this register clears it,
  thus making all interrupts inactive.
 ==============================================*/
-#define ACX_REG_INTERRUPT_CLEAR        (REGISTERS_BASE + 0x04F8)
+#define WL12XX_ACX_REG_INTERRUPT_CLEAR        (WL12XX_REGISTERS_BASE + 0x04F8)
+#define WL18XX_ACX_REG_INTERRUPT_CLEAR        (WL18XX_REGISTERS_BASE + 0x0050F8)
 
 /*=============================================
   Host Interrupt Acknowledge Register
@@ -148,12 +193,13 @@
  HINT_STS_ND registers, thus making the
  assotiated interrupt inactive. (0-no effect)
 ==============================================*/
-#define ACX_REG_INTERRUPT_ACK          (REGISTERS_BASE + 0x04F0)
+#define WL12XX_ACX_REG_INTERRUPT_ACK          (WL12XX_REGISTERS_BASE + 0x04F0)
+#define WL18XX_ACX_REG_INTERRUPT_ACK          (WL18XX_REGISTERS_BASE + 0x050F0)
 
-#define RX_DRIVER_COUNTER_ADDRESS      (REGISTERS_BASE + 0x0538)
+#define WL12XX_RX_DRIVER_COUNTER_ADDRESS      (WL12XX_REGISTERS_BASE + 0x0538)
 
 /* Device Configuration registers*/
-#define SOR_CFG                        (REGISTERS_BASE + 0x0800)
+#define WL12XX_SOR_CFG                        (WL12XX_REGISTERS_BASE + 0x0800)
 
 /* Embedded ARM CPU Control */
 
@@ -175,9 +221,10 @@
  1 halt eCPU
  0 enable eCPU
  ===============================================*/
-#define ACX_REG_ECPU_CONTROL           (REGISTERS_BASE + 0x0804)
+#define WL12XX_ACX_REG_ECPU_CONTROL           (WL12XX_REGISTERS_BASE + 0x0804)
+#define WL18XX_ACX_REG_ECPU_CONTROL           (WL18XX_REGISTERS_BASE + 0x02004)
 
-#define HI_CFG                         (REGISTERS_BASE + 0x0808)
+#define WL12XX_HI_CFG                         (WL12XX_REGISTERS_BASE + 0x0808)
 
 /*===============================================
  EEPROM Burst Read Start  - 32bit RW
@@ -194,72 +241,112 @@
 
  Default: 0x00000000
 *================================================*/
-#define ACX_REG_EE_START               (REGISTERS_BASE + 0x080C)
+#define WL12XX_ACX_REG_EE_START               (WL12XX_REGISTERS_BASE + 0x080C)
 
-#define OCP_POR_CTR                    (REGISTERS_BASE + 0x09B4)
-#define OCP_DATA_WRITE                 (REGISTERS_BASE + 0x09B8)
-#define OCP_DATA_READ                  (REGISTERS_BASE + 0x09BC)
-#define OCP_CMD                        (REGISTERS_BASE + 0x09C0)
+#define WL12XX_OCP_POR_CTR                    (WL12XX_REGISTERS_BASE + 0x09B4)
+#define WL12XX_OCP_DATA_WRITE                 (WL12XX_REGISTERS_BASE + 0x09B8)
+#define WL12XX_OCP_DATA_READ                  (WL12XX_REGISTERS_BASE + 0x09BC)
+#define WL12XX_OCP_CMD                        (WL12XX_REGISTERS_BASE + 0x09C0)
 
-#define WL1271_HOST_WR_ACCESS          (REGISTERS_BASE + 0x09F8)
+#define WL12XX_HOST_WR_ACCESS                 (WL12XX_REGISTERS_BASE + 0x09F8)
 
-#define CHIP_ID_B                      (REGISTERS_BASE + 0x5674)
+#define WL12XX_CHIP_ID_B               (WL12XX_REGISTERS_BASE + 0x5674)
+#define WL18XX_CHIP_ID_B               (WL18XX_REGISTERS_BASE + 0x01542C)
 
 #define CHIP_ID_1271_PG10              (0x4030101)
 #define CHIP_ID_1271_PG20              (0x4030111)
 #define CHIP_ID_1283_PG10              (0x05030101)
 #define CHIP_ID_1283_PG20              (0x05030111)
+#define CHIP_ID_185x_PG10              (0x06030101)
 
-#define ENABLE                         (REGISTERS_BASE + 0x5450)
+#define WL12XX_ENABLE                  (WL12XX_REGISTERS_BASE + 0x5450)
+#define WL18XX_ENABLE                  (WL18XX_REGISTERS_BASE + 0x01543C)
 
 /* Power Management registers */
-#define ELP_CFG_MODE                   (REGISTERS_BASE + 0x5804)
-#define ELP_CMD                        (REGISTERS_BASE + 0x5808)
-#define PLL_CAL_TIME                   (REGISTERS_BASE + 0x5810)
-#define CLK_REQ_TIME                   (REGISTERS_BASE + 0x5814)
-#define CLK_BUF_TIME                   (REGISTERS_BASE + 0x5818)
+#define WL12XX_ELP_CFG_MODE                   (WL12XX_REGISTERS_BASE + 0x5804)
+#define WL12XX_ELP_CMD                        (WL12XX_REGISTERS_BASE + 0x5808)
+#define WL12XX_PLL_CAL_TIME                   (WL12XX_REGISTERS_BASE + 0x5810)
+#define WL12XX_CLK_REQ_TIME                   (WL12XX_REGISTERS_BASE + 0x5814)
+#define WL12XX_CLK_BUF_TIME                   (WL12XX_REGISTERS_BASE + 0x5818)
 
-#define CFG_PLL_SYNC_CNT               (REGISTERS_BASE + 0x5820)
+#define WL12XX_CFG_PLL_SYNC_CNT               (WL12XX_REGISTERS_BASE + 0x5820)
 
 /* Scratch Pad registers*/
-#define SCR_PAD0                       (REGISTERS_BASE + 0x5608)
-#define SCR_PAD1                       (REGISTERS_BASE + 0x560C)
-#define SCR_PAD2                       (REGISTERS_BASE + 0x5610)
-#define SCR_PAD3                       (REGISTERS_BASE + 0x5614)
-#define SCR_PAD4                       (REGISTERS_BASE + 0x5618)
-#define SCR_PAD4_SET                   (REGISTERS_BASE + 0x561C)
-#define SCR_PAD4_CLR                   (REGISTERS_BASE + 0x5620)
-#define SCR_PAD5                       (REGISTERS_BASE + 0x5624)
-#define SCR_PAD5_SET                   (REGISTERS_BASE + 0x5628)
-#define SCR_PAD5_CLR                   (REGISTERS_BASE + 0x562C)
-#define SCR_PAD6                       (REGISTERS_BASE + 0x5630)
-#define SCR_PAD7                       (REGISTERS_BASE + 0x5634)
-#define SCR_PAD8                       (REGISTERS_BASE + 0x5638)
-#define SCR_PAD9                       (REGISTERS_BASE + 0x563C)
+#define WL12XX_SCR_PAD0                (WL12XX_REGISTERS_BASE + 0x5608)
+#define WL12XX_SCR_PAD1                (WL12XX_REGISTERS_BASE + 0x560C)
+#define WL12XX_SCR_PAD2                (WL12XX_REGISTERS_BASE + 0x5610)
+#define WL12XX_SCR_PAD3                (WL12XX_REGISTERS_BASE + 0x5614)
+#define WL12XX_SCR_PAD4                (WL12XX_REGISTERS_BASE + 0x5618)
+#define WL12XX_SCR_PAD4_SET            (WL12XX_REGISTERS_BASE + 0x561C)
+#define WL12XX_SCR_PAD4_CLR            (WL12XX_REGISTERS_BASE + 0x5620)
+#define WL12XX_SCR_PAD5                (WL12XX_REGISTERS_BASE + 0x5624)
+#define WL12XX_SCR_PAD5_SET            (WL12XX_REGISTERS_BASE + 0x5628)
+#define WL12XX_SCR_PAD5_CLR            (WL12XX_REGISTERS_BASE + 0x562C)
+#define WL12XX_SCR_PAD6                (WL12XX_REGISTERS_BASE + 0x5630)
+#define WL12XX_SCR_PAD7                (WL12XX_REGISTERS_BASE + 0x5634)
+#define WL12XX_SCR_PAD8                (WL12XX_REGISTERS_BASE + 0x5638)
+#define WL12XX_SCR_PAD9                (WL12XX_REGISTERS_BASE + 0x563C)
+
+#define WL18XX_SCR_PAD0                (WL18XX_REGISTERS_BASE + 0x0154EC)
+#define WL18XX_SCR_PAD1                (WL18XX_REGISTERS_BASE + 0x0154F0)
+#define WL18XX_SCR_PAD2                (WL18XX_REGISTERS_BASE + 0x0154F4)
+#define WL18XX_SCR_PAD3                (WL18XX_REGISTERS_BASE + 0x0154F8)
+#define WL18XX_SCR_PAD4                (WL18XX_REGISTERS_BASE + 0x0154FC)
+#define WL18XX_SCR_PAD4_SET            (WL18XX_REGISTERS_BASE + 0x015504)
+#define WL18XX_SCR_PAD4_CLR            (WL18XX_REGISTERS_BASE + 0x015500)
+#define WL18XX_SCR_PAD5                (WL18XX_REGISTERS_BASE + 0x015508)
+#define WL18XX_SCR_PAD5_SET            (WL18XX_REGISTERS_BASE + 0x015510)
+#define WL18XX_SCR_PAD5_CLR            (WL18XX_REGISTERS_BASE + 0x01550C)
+#define WL18XX_SCR_PAD6                (WL18XX_REGISTERS_BASE + 0x015514)
+#define WL18XX_SCR_PAD7                (WL18XX_REGISTERS_BASE + 0x015518)
+#define WL18XX_SCR_PAD8                (WL18XX_REGISTERS_BASE + 0x01551C)
+#define WL18XX_SCR_PAD9                (WL18XX_REGISTERS_BASE + 0x015520)
+
 
 /* Spare registers*/
-#define SPARE_A1                       (REGISTERS_BASE + 0x0994)
-#define SPARE_A2                       (REGISTERS_BASE + 0x0998)
-#define SPARE_A3                       (REGISTERS_BASE + 0x099C)
-#define SPARE_A4                       (REGISTERS_BASE + 0x09A0)
-#define SPARE_A5                       (REGISTERS_BASE + 0x09A4)
-#define SPARE_A6                       (REGISTERS_BASE + 0x09A8)
-#define SPARE_A7                       (REGISTERS_BASE + 0x09AC)
-#define SPARE_A8                       (REGISTERS_BASE + 0x09B0)
-#define SPARE_B1                       (REGISTERS_BASE + 0x5420)
-#define SPARE_B2                       (REGISTERS_BASE + 0x5424)
-#define SPARE_B3                       (REGISTERS_BASE + 0x5428)
-#define SPARE_B4                       (REGISTERS_BASE + 0x542C)
-#define SPARE_B5                       (REGISTERS_BASE + 0x5430)
-#define SPARE_B6                       (REGISTERS_BASE + 0x5434)
-#define SPARE_B7                       (REGISTERS_BASE + 0x5438)
-#define SPARE_B8                       (REGISTERS_BASE + 0x543C)
+#define WL12XX_SPARE_A1                (WL12XX_REGISTERS_BASE + 0x0994)
+#define WL12XX_SPARE_A2                (WL12XX_REGISTERS_BASE + 0x0998)
+#define WL12XX_SPARE_A3                (WL12XX_REGISTERS_BASE + 0x099C)
+#define WL12XX_SPARE_A4                (WL12XX_REGISTERS_BASE + 0x09A0)
+#define WL12XX_SPARE_A5                (WL12XX_REGISTERS_BASE + 0x09A4)
+#define WL12XX_SPARE_A6                (WL12XX_REGISTERS_BASE + 0x09A8)
+#define WL12XX_SPARE_A7                (WL12XX_REGISTERS_BASE + 0x09AC)
+#define WL12XX_SPARE_A8                (WL12XX_REGISTERS_BASE + 0x09B0)
+#define WL12XX_SPARE_B1                (WL12XX_REGISTERS_BASE + 0x5420)
+#define WL12XX_SPARE_B2                (WL12XX_REGISTERS_BASE + 0x5424)
+#define WL12XX_SPARE_B3                (WL12XX_REGISTERS_BASE + 0x5428)
+#define WL12XX_SPARE_B4                (WL12XX_REGISTERS_BASE + 0x542C)
+#define WL12XX_SPARE_B5                (WL12XX_REGISTERS_BASE + 0x5430)
+#define WL12XX_SPARE_B6                (WL12XX_REGISTERS_BASE + 0x5434)
+#define WL12XX_SPARE_B7                (WL12XX_REGISTERS_BASE + 0x5438)
+#define WL12XX_SPARE_B8                (WL12XX_REGISTERS_BASE + 0x543C)
 
-#define PLL_PARAMETERS                 (REGISTERS_BASE + 0x6040)
-#define WU_COUNTER_PAUSE               (REGISTERS_BASE + 0x6008)
-#define WELP_ARM_COMMAND               (REGISTERS_BASE + 0x6100)
-#define DRPW_SCRATCH_START             (DRPW_BASE + 0x002C)
+#define WL18XX_SPARE_A1                (WL18XX_REGISTERS_BASE + 0x002194)
+#define WL18XX_SPARE_A2                (WL18XX_REGISTERS_BASE + 0x002198)
+#define WL18XX_SPARE_A3                (WL18XX_REGISTERS_BASE + 0x00219C)
+#define WL18XX_SPARE_A4                (WL18XX_REGISTERS_BASE + 0x0021A0)
+#define WL18XX_SPARE_A5                (WL18XX_REGISTERS_BASE + 0x0021A4)
+#define WL18XX_SPARE_A6                (WL18XX_REGISTERS_BASE + 0x0021A8)
+#define WL18XX_SPARE_A7                (WL18XX_REGISTERS_BASE + 0x0021AC)
+#define WL18XX_SPARE_A8                (WL18XX_REGISTERS_BASE + 0x0021B0)
+#define WL18XX_SPARE_B1                (WL18XX_REGISTERS_BASE + 0x015524)
+#define WL18XX_SPARE_B2                (WL18XX_REGISTERS_BASE + 0x015528)
+#define WL18XX_SPARE_B3                (WL18XX_REGISTERS_BASE + 0x01552C)
+#define WL18XX_SPARE_B4                (WL18XX_REGISTERS_BASE + 0x015530)
+#define WL18XX_SPARE_B5                (WL18XX_REGISTERS_BASE + 0x015534)
+#define WL18XX_SPARE_B6                (WL18XX_REGISTERS_BASE + 0x015538)
+#define WL18XX_SPARE_B7                (WL18XX_REGISTERS_BASE + 0x01553C)
+#define WL18XX_SPARE_B8                (WL18XX_REGISTERS_BASE + 0x015540)
 
+
+#define WL12XX_PLL_PARAMETERS          (WL12XX_REGISTERS_BASE + 0x6040)
+#define WL18XX_PLL_PARAMETERS          (WL18XX_REGISTERS_BASE + 0x7040)
+#define WL12XX_WU_COUNTER_PAUSE        (WL12XX_REGISTERS_BASE + 0x6008)
+#define WL18XX_WU_COUNTER_PAUSE        (WL18XX_REGISTERS_BASE + 0x7008)
+#define WL12XX_WELP_ARM_COMMAND        (WL12XX_REGISTERS_BASE + 0x6100)
+#define WL18XX_WELP_ARM_COMMAND        (WL18XX_REGISTERS_BASE + 0x7100)
+
+#define WL12XX_DRPW_SCRATCH_START      (WL12XX_DRPW_BASE + 0x002C)
 
 #define ACX_SLV_SOFT_RESET_BIT   BIT(1)
 #define ACX_REG_EEPROM_START_BIT BIT(1)
@@ -279,7 +366,8 @@
  the host receives the Init Complete interrupt from
  the Wlan hardware.
  ===============================================*/
-#define REG_COMMAND_MAILBOX_PTR				(SCR_PAD0)
+#define WL12XX_REG_COMMAND_MAILBOX_PTR			(WL12XX_SCR_PAD0)
+#define WL18XX_REG_COMMAND_MAILBOX_PTR			(WL18XX_SCR_PAD0)
 
 /*===============================================
   Information Mailbox Pointer - 32bit RW
@@ -294,7 +382,8 @@
  until after the host receives the Init Complete interrupt from
  the Wlan hardware.
  ===============================================*/
-#define REG_EVENT_MAILBOX_PTR				(SCR_PAD1)
+#define WL12XX_REG_EVENT_MAILBOX_PTR			(WL12XX_SCR_PAD1)
+#define WL18XX_REG_EVENT_MAILBOX_PTR			(WL18XX_SCR_PAD1)
 
 /*===============================================
  EEPROM Read/Write Request 32bit RW
@@ -400,7 +489,8 @@
 #define LUT_PARAM_BB_PLL_LOOP_FILTER        5
 #define LUT_PARAM_NUM                       6
 
-#define ACX_EEPROMLESS_IND_REG              (SCR_PAD4)
+#define WL12XX_ACX_EEPROMLESS_IND_REG              (WL12XX_SCR_PAD4)
+#define WL18XX_ACX_EEPROMLESS_IND_REG              (WL18XX_SCR_PAD4)
 #define USE_EEPROM                          0
 #define SOFT_RESET_MAX_TIME                 1000000
 #define SOFT_RESET_STALL_TIME               1000
@@ -480,7 +570,8 @@ b12-b0 - Supported Rate indicator bits as defined below.
  * the FW that it has sent a command
  * to the Wlan hardware Command Mailbox.
  */
-#define INTR_TRIG_CMD       BIT(0)
+#define WL12XX_INTR_TRIG_CMD       BIT(0)
+#define WL18XX_INTR_TRIG_CMD       BIT(28)
 
 /*
  * Host Event Acknowlegde Interrupt. The host
@@ -488,7 +579,8 @@ b12-b0 - Supported Rate indicator bits as defined below.
  * the unsolicited information from the event
  * mailbox.
  */
-#define INTR_TRIG_EVENT_ACK BIT(1)
+#define WL12XX_INTR_TRIG_EVENT_ACK BIT(1)
+#define WL18XX_INTR_TRIG_EVENT_ACK BIT(29)
 
 /*
  * The host sets this bit to inform the Wlan

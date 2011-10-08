@@ -31,21 +31,29 @@
 #include "tx.h"
 #include "io.h"
 
-static u8 wl12xx_rx_get_mem_block(struct wl12xx_fw_status *status,
+static u8 wl12xx_rx_get_mem_block(struct wl_fw_status *status,
 				  u32 drv_rx_counter)
 {
 	return le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
 		RX_MEM_BLOCK_MASK;
 }
 
-static u32 wl12xx_rx_get_buf_size(struct wl12xx_fw_status *status,
-				 u32 drv_rx_counter)
+static u32 wl12xx_rx_get_buf_size(struct wl1271 *wl,
+				  struct wl_fw_status *status,
+				  u32 drv_rx_counter)
 {
+	/* 18xxTODO: maybe split up into 2 quirks - tx and rx alignment */
+	if (wl->conf.platform_type == 2 &&
+	    (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)) {
+		return (le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
+			ALIGNED_RX_BUF_SIZE_MASK) >> ALIGNED_RX_BUF_SIZE_SHIFT;
+	}
+
 	return (le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
 		RX_BUF_SIZE_MASK) >> RX_BUF_SIZE_SHIFT_DIV;
 }
 
-static bool wl12xx_rx_get_unaligned(struct wl12xx_fw_status *status,
+static bool wl12xx_rx_get_unaligned(struct wl_fw_status *status,
 				    u32 drv_rx_counter)
 {
 	/* Convert the value to bool */
@@ -176,7 +184,10 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 		     beacon ? "beacon" : "",
 		     seq_num, *hlid);
 
-	skb_trim(skb, skb->len - desc->pad_len);
+	/* 18xxTODO: does desc->pad_len contain garbage? if so remove it from
+	   the debug print as well */
+	if (wl->conf.platform_type == 1)
+		skb_trim(skb, skb->len - desc->pad_len);
 
 	skb_queue_tail(&wl->deferred_rx_queue, skb);
 	queue_work(wl->freezable_wq, &wl->netstack_work);
@@ -184,17 +195,25 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	return is_data;
 }
 
-void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
+static unsigned int wl12xx_rx_aligned_size(struct wl1271 *wl,
+					   unsigned int packet_length)
+{
+	/* 18xxTODO: use RX_ALIGN quirk here */
+	if ((wl->conf.platform_type == 2) &&
+	    wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
+		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
+
+	return packet_length;
+}
+
+void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 {
 	struct wl1271_acx_mem_map *wl_mem_map = wl->target_mem_map;
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	u32 buf_size;
 	u32 fw_rx_counter  = status->fw_rx_counter & NUM_RX_PKT_DESC_MOD_MASK;
 	u32 drv_rx_counter = wl->rx_counter & NUM_RX_PKT_DESC_MOD_MASK;
-	u32 rx_counter;
-	u32 mem_block;
-	u32 pkt_length;
-	u32 pkt_offset;
+	u32 rx_counter, mem_block, pkt_length, pkt_offset, align_pkt_len;
 	u8 hlid;
 	bool unaligned = false;
 
@@ -202,10 +221,13 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 		buf_size = 0;
 		rx_counter = drv_rx_counter;
 		while (rx_counter != fw_rx_counter) {
-			pkt_length = wl12xx_rx_get_buf_size(status, rx_counter);
-			if (buf_size + pkt_length > WL1271_AGGR_BUFFER_SIZE)
+			pkt_length = wl12xx_rx_get_buf_size(wl, status,
+							    rx_counter);
+			align_pkt_len = wl12xx_rx_aligned_size(wl, pkt_length);
+
+			if (buf_size + align_pkt_len > WL1271_AGGR_BUFFER_SIZE)
 				break;
-			buf_size += pkt_length;
+			buf_size += align_pkt_len;
 			rx_counter++;
 			rx_counter &= NUM_RX_PKT_DESC_MOD_MASK;
 		}
@@ -215,7 +237,8 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 			break;
 		}
 
-		if (wl->chip.id != CHIP_ID_1283_PG20) {
+		if (wl->chip.id == CHIP_ID_1271_PG10 ||
+		    wl->chip.id == CHIP_ID_1271_PG20) {
 			/*
 			 * Choose the block we want to read
 			 * For aggregated packets, only the first memory block
@@ -230,23 +253,27 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 			wl->rx_mem_pool_addr.addr_extra =
 				wl->rx_mem_pool_addr.addr + 4;
 
-			wl1271_write(wl, WL1271_SLV_REG_DATA,
+			wl1271_write(wl, WL12XX_SLV_REG_DATA,
 				     &wl->rx_mem_pool_addr,
 				     sizeof(wl->rx_mem_pool_addr), false);
 		}
 
 		/* Read all available packets at once */
-		wl1271_read(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
-				buf_size, true);
+		if (wl->conf.platform_type == 1)
+			wl1271_read(wl, WL12XX_SLV_MEM_DATA, wl->aggr_buf,
+					buf_size, true);
+		else
+			wl1271_read(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf,
+					buf_size, true);
 
 		/* Split data into separate packets */
 		pkt_offset = 0;
 		while (pkt_offset < buf_size) {
-			pkt_length = wl12xx_rx_get_buf_size(status,
-					drv_rx_counter);
+			pkt_length = wl12xx_rx_get_buf_size(wl, status,
+							    drv_rx_counter);
 
 			unaligned = wl12xx_rx_get_unaligned(status,
-					drv_rx_counter);
+							    drv_rx_counter);
 
 			/*
 			 * the handle data call can only fail in memory-outage
@@ -264,7 +291,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 			wl->rx_counter++;
 			drv_rx_counter++;
 			drv_rx_counter &= NUM_RX_PKT_DESC_MOD_MASK;
-			pkt_offset += pkt_length;
+			pkt_offset += wl12xx_rx_aligned_size(wl, pkt_length);
 		}
 	}
 
@@ -273,7 +300,23 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 	 * for older hardware revisions
 	 */
 	if (wl->quirks & WL12XX_QUIRK_END_OF_TRANSACTION)
-		wl1271_write32(wl, RX_DRIVER_COUNTER_ADDRESS, wl->rx_counter);
+		wl1271_write32(wl, WL12XX_RX_DRIVER_COUNTER_ADDRESS,
+			       wl->rx_counter);
 
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
 }
+
+/* 18xxTODO: we probably don't need this function at all. remove. */
+void wl18xx_set_default_filters(struct wl12xx_vif *wlvif)
+{
+#if 0
+	if (wlvif->bss_type == BSS_TYPE_AP_BSS) {
+		wl->rx_config = WL18XX_DEFAULT_AP_RX_CONFIG;
+		wl->rx_filter = WL18XX_DEFAULT_AP_RX_FILTER;
+	} else {
+		wl->rx_config = WL18XX_DEFAULT_STA_RX_CONFIG;
+		wl->rx_filter = WL18XX_DEFAULT_STA_RX_FILTER;
+	}
+#endif
+}
+

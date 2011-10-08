@@ -39,7 +39,58 @@ struct wl1271_static_data {
 	u8 fw_version[WL1271_FW_VERSION_MAX_LEN];
 	u32 hw_version;
 	u8 tx_power_table[WL1271_NO_SUBBANDS][WL1271_NO_POWER_LEVELS];
-};
+} __packed;
+
+#define NUM_OF_CHANNELS_11_ABG 150
+#define NUM_OF_CHANNELS_11_P 7
+#define WL18XX_NUM_OF_SUB_BANDS 9
+#define SRF_TABLE_LEN 16
+#define PIN_MUXING_SIZE 2
+
+struct wl18xx_mac_and_phy_params {
+	u8 phy_standalone;
+	u8 rdl;
+	u8 enable_clpc;
+	u8 enable_tx_low_pwr_on_siso_rdl;
+	u8 auto_detect;
+	u8 dedicated_fem;
+
+	u8 low_band_component;
+
+	/* Bit 0: One Hot, Bit 1: Control Enable, Bit 2: 1.8V, Bit 3: 3V */
+	u8 low_band_component_type;
+
+	u8 high_band_component;
+
+	/* Bit 0: One Hot, Bit 1: Control Enable, Bit 2: 1.8V, Bit 3: 3V */
+	u8 high_band_component_type;
+	u8 number_of_assembled_ant2_4;
+	u8 number_of_assembled_ant5;
+	u8 pin_muxing_platform_options[PIN_MUXING_SIZE];
+	u8 external_pa_dc2dc;
+	u8 tcxo_ldo_voltage;
+	u8 xtal_itrim_val;
+	u8 srf_state;
+	u8 srf1[SRF_TABLE_LEN];
+	u8 srf2[SRF_TABLE_LEN];
+	u8 srf3[SRF_TABLE_LEN];
+	u8 io_configuration;
+	u8 sdio_configuration;
+	u8 settings;
+	u8 rx_profile;
+	u8 per_chan_pwr_limit_arr_11abg[NUM_OF_CHANNELS_11_ABG];
+	u8 pwr_limit_reference_11_abg;
+	u8 per_chan_pwr_limit_arr_11p[NUM_OF_CHANNELS_11_P];
+	u8 pwr_limit_reference_11p;
+	u8 per_sub_band_tx_trace_loss[WL18XX_NUM_OF_SUB_BANDS];
+	u8 per_sub_band_rx_trace_loss[WL18XX_NUM_OF_SUB_BANDS];
+	u8 primary_clock_setting_time;
+	u8 clock_valid_on_wake_up;
+	u8 secondary_clock_setting_time;
+	u8 board_type;
+	u8 padding[1];
+} __packed;
+
 
 /* number of times we try to read the INIT interrupt */
 #define INIT_LOOP 20000
@@ -65,7 +116,8 @@ struct wl1271_static_data {
 #define PG_MINOR_VER_MASK    0xc
 #define PG_MINOR_VER_OFFSET  0x2
 
-#define CMD_MBOX_ADDRESS     0x407B4
+#define WL12XX_CMD_MBOX_ADDRESS     0x407B4
+#define WL18XX_CMD_MBOX_ADDRESS     0xB007B4
 
 #define POLARITY_LOW         BIT(1)
 #define NO_PULL              (BIT(14) | BIT(15))

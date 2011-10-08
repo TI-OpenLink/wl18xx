@@ -48,7 +48,8 @@
 #include "testmode.h"
 #include "scan.h"
 
-#define WL1271_BOOT_RETRIES 3
+/* 18xxTODO: only for debug */
+#define WL1271_BOOT_RETRIES 1
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
@@ -310,6 +311,17 @@ static struct conf_drv_settings default_conf = {
 		.min_req_rx_blocks            = 22,
 		.tx_min                       = 27,
 	},
+	/* 18xxTODO: seems the same as 128x. would this change sometime? */
+	.mem_wl18xx = {
+		.num_stations                 = 1,
+		.ssid_profiles                = 1,
+		.rx_block_num                 = 40,
+		.tx_min_block_num             = 40,
+		.dynamic_memory               = 1,
+		.min_req_tx_blocks            = 45,
+		.min_req_rx_blocks            = 22,
+		.tx_min                       = 27,
+	},
 	.fm_coex = {
 		.enable                       = true,
 		.swallow_period               = 5,
@@ -371,6 +383,34 @@ static struct conf_drv_settings default_conf = {
 		.increase_time              = 1,
 		.window_size                = 16,
 	},
+	.phy_params = {
+		.phy_standalone = 0x0,
+		.primary_clock_setting_time = 0x5,
+		.clock_valid_on_wake_up = 0x0,
+		.secondary_clock_setting_time = 0x5,
+		.rdl = 0x1,
+		.auto_detect = 0x0,
+		.dedicated_fem = DEDICATED_FEM_NONE,
+		.low_band_component = LOW_BAND_COMPONENT_2_WAY_SWITCH,
+		.low_band_component_type = 0x5,
+		.high_band_component = HIGH_BAND_COMPONENT_2_WAY_SWITCH,
+		.high_band_component_type = 0x5,
+		.number_of_assembled_ant2_4 = 0x1,
+		.number_of_assembled_ant5 = 0x1,
+		.external_pa_dc2dc = 0x0,
+		.tcxo_ldo_voltage = 0x0,
+		.xtal_itrim_val = 0x4,
+		.srf_state = 0x0,
+		.io_configuration = 0x01,
+		.sdio_configuration = 0x0,
+		.settings = 0x0,
+		.enable_clpc = 0x0,
+		.enable_tx_low_pwr_on_siso_rdl = 0x0,
+		.rx_profile = 0x0,
+	},
+
+	.platform_type = 1,
+	.subtype_18xx = BOARD_TYPE_DVP_EVB_18XX,
 };
 
 static char *fwlog_param;
@@ -807,11 +847,17 @@ static void wl12xx_irq_ps_regulate_link(struct wl1271 *wl,
 
 static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 					   struct wl12xx_vif *wlvif,
-					   struct wl12xx_fw_status *status)
+					   struct wl_fw_status *status)
 {
 	struct wl1271_link *lnk;
 	u32 cur_fw_ps_map;
 	u8 hlid, cnt;
+	struct wl_fw_packet_counters *counters;
+
+	if (wl->conf.platform_type == 1)
+		counters = &status->wl12xx.counters;
+	else
+		counters = &status->wl18xx.counters;
 
 	/* TODO: also use link_fast_bitmap here */
 
@@ -827,9 +873,9 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 
 	for_each_set_bit(hlid, wlvif->ap.sta_hlid_map, WL12XX_MAX_LINKS) {
 		lnk = &wl->links[hlid];
-		cnt = status->tx_lnk_free_pkts[hlid] - lnk->prev_freed_pkts;
+		cnt = counters->tx_lnk_free_pkts[hlid] - lnk->prev_freed_pkts;
 
-		lnk->prev_freed_pkts = status->tx_lnk_free_pkts[hlid];
+		lnk->prev_freed_pkts = counters->tx_lnk_free_pkts[hlid];
 		lnk->allocated_pkts -= cnt;
 
 		wl12xx_irq_ps_regulate_link(wl, wlvif, hlid,
@@ -838,15 +884,28 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 }
 
 static void wl12xx_fw_status(struct wl1271 *wl,
-			     struct wl12xx_fw_status *status)
+			     struct wl_fw_status *status)
 {
 	struct wl12xx_vif *wlvif;
 	struct timespec ts;
 	u32 old_tx_blk_count = wl->tx_blocks_available;
 	int avail, freed_blocks;
 	int i;
+	size_t common_status_len, plat_status_len;
+	struct wl_fw_packet_counters *counters;
 
-	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
+	common_status_len = offsetof(struct wl_fw_status, per_family_data) +
+			    sizeof(status->log_start_addr);
+
+	if (wl->conf.platform_type == 1) {
+		plat_status_len = sizeof(status->wl12xx);
+		wl1271_raw_read(wl, WL12XX_FW_STATUS_ADDR, status,
+				common_status_len + plat_status_len, false);
+	} else {
+		plat_status_len = sizeof(status->wl18xx);
+		wl1271_raw_read(wl, WL18XX_FW_STATUS_ADDR, status,
+				common_status_len + plat_status_len, false);
+	}
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
 		     "drv_rx_counter = %d, tx_results_counter = %d)",
@@ -855,13 +914,18 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 		     status->drv_rx_counter,
 		     status->tx_results_counter);
 
+	if (wl->conf.platform_type == 1)
+		counters = &status->wl12xx.counters;
+	else
+		counters = &status->wl18xx.counters;
+
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		/* prevent wrap-around in freed-packets counter */
 		wl->tx_allocated_pkts[i] -=
-				(status->tx_released_pkts[i] -
+				(counters->tx_released_pkts[i] -
 				wl->tx_pkts_freed[i]) & 0xff;
 
-		wl->tx_pkts_freed[i] = status->tx_released_pkts[i];
+		wl->tx_pkts_freed[i] = counters->tx_released_pkts[i];
 	}
 
 	/* prevent wrap-around in total blocks counter */
@@ -1060,7 +1124,9 @@ static int wl1271_fetch_firmware(struct wl1271 *wl)
 	const char *fw_name;
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if (wl->conf.platform_type == 2)
+		fw_name = WL18XX_FW_NAME;
+	else if (wl->chip.id == CHIP_ID_1283_PG20)
 		fw_name = WL128X_FW_NAME;
 	else
 		fw_name	= WL127X_FW_NAME;
@@ -1217,6 +1283,7 @@ static void wl1271_recovery_work(struct work_struct *work)
 		container_of(work, struct wl1271, recovery_work);
 	struct wl12xx_vif *wlvif;
 	struct ieee80211_vif *vif;
+	u32 recovery_pc;
 
 	mutex_lock(&wl->mutex);
 
@@ -1228,8 +1295,14 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	wl12xx_read_fwlog_panic(wl);
 
+	/* 18xxTODO: SCR_PAD4 still shows the PC on recovery? */
+	if (wl->conf.platform_type == 1)
+		recovery_pc = wl1271_read32(wl, WL12XX_SCR_PAD4);
+	else
+		recovery_pc = wl1271_read32(wl, WL18XX_SCR_PAD4);
+
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
-		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
+		    wl->chip.fw_ver_str, recovery_pc);
 
 	BUG_ON(bug_on_recovery);
 
@@ -1316,8 +1389,13 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	/* We don't need a real memory partition here, because we only want
 	 * to use the registers at this point. */
 	memset(&partition, 0, sizeof(partition));
-	partition.reg.start = REGISTERS_BASE;
-	partition.reg.size = REGISTERS_DOWN_SIZE;
+	if (wl->conf.platform_type == 1) {
+		partition.reg.start = WL12XX_REGISTERS_BASE;
+		partition.reg.size = WL12XX_REGISTERS_DOWN_SIZE;
+	} else if (wl->conf.platform_type == 2) {
+		partition.reg.start = WL18XX_REG_BOOT_PART_START;
+		partition.reg.size = WL18XX_REG_BOOT_PART_SIZE;
+	}
 	wl1271_set_partition(wl, &partition);
 
 	/* ELP module wake up */
@@ -1326,7 +1404,10 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	/* whal_FwCtrl_BootSm() */
 
 	/* 0. read chip id from CHIP_ID */
-	wl->chip.id = wl1271_read32(wl, CHIP_ID_B);
+	if (wl->conf.platform_type == 1)
+		wl->chip.id = wl1271_read32(wl, WL12XX_CHIP_ID_B);
+	else if (wl->conf.platform_type == 2)
+		wl->chip.id = wl1271_read32(wl, WL18XX_CHIP_ID_B);
 
 	/* 1. check if chip id is valid */
 
@@ -1355,6 +1436,16 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 		if (ret < 0)
 			goto out;
 
+		if (wl1271_set_block_size(wl))
+			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
+		break;
+	case CHIP_ID_185x_PG10:
+		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
+			     wl->chip.id);
+
+		ret = wl1271_setup(wl);
+		if (ret < 0)
+			goto out;
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
 		break;
@@ -1866,12 +1957,17 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 
 	wl->rx_counter = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
+	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->tx_blocks_available = 0;
 	wl->tx_allocated_blocks = 0;
 	wl->tx_results_count = 0;
 	wl->tx_packets_count = 0;
 	wl->time_offset = 0;
-	wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+	if (wl->conf.platform_type == 1)
+		wl->tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
+	else
+		wl->tx_spare_blocks = WL18XX_TX_HW_BLOCK_SPARE;
+
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sched_scanning = false;
@@ -1994,6 +2090,9 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.basic_rate_idx);
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.ap_rate_idx);
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.p2p_rate_idx);
+
+		if (wl->conf.platform_type == 2)
+			wl12xx_allocate_rate_policy(wl, &wlvif->sta.wide_chan_rate_idx);
 	} else {
 		/* init ap data */
 		wlvif->ap.bcast_hlid = WL12XX_INVALID_LINK_ID;
@@ -2019,6 +2118,7 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 	wlvif->band = wl->band;
 	wlvif->channel = wl->channel;
 	wlvif->power_level = wl->power_level;
+	wlvif->channel_type = wl->channel_type;
 
 	INIT_WORK(&wlvif->rx_streaming_enable_work,
 		  wl1271_rx_streaming_enable_work);
@@ -2465,11 +2565,13 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	/* if the channel changes while joined, join again */
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL &&
 	    ((wlvif->band != conf->channel->band) ||
-	     (wlvif->channel != channel))) {
+	     (wlvif->channel != channel) ||
+	     (wlvif->channel_type != conf->channel_type))) {
 		/* send all pending packets */
 		wl1271_tx_work_locked(wl);
 		wlvif->band = conf->channel->band;
 		wlvif->channel = channel;
+		wlvif->channel_type = conf->channel_type;
 
 		if (!is_ap) {
 			/*
@@ -2606,6 +2708,7 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		wl->band = conf->channel->band;
 		wl->channel = channel;
+		wl->channel_type = conf->channel_type;
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_POWER)
@@ -2876,6 +2979,7 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 		};
 
+		/* 18xxTODO: disable GEM initially probably because of this */
 		/*
 		 * A STA set to GEM cipher requires 2 tx spare blocks.
 		 * Return to default value when GEM cipher key is removed
@@ -2883,8 +2987,14 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		if (key_type == KEY_GEM) {
 			if (action == KEY_ADD_OR_REPLACE)
 				wl->tx_spare_blocks = 2;
-			else if (action == KEY_REMOVE)
-				wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+			else if (action == KEY_REMOVE) {
+				if (wl->conf.platform_type == 1)
+					wl->tx_spare_blocks =
+						WL12XX_TX_HW_BLOCK_SPARE;
+				else
+					wl->tx_spare_blocks =
+						WL18XX_TX_HW_BLOCK_SPARE;
+			}
 		}
 
 		addr = sta ? sta->addr : bcast_addr;
@@ -5008,6 +5118,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->channel = WL1271_DEFAULT_CHANNEL;
 	wl->rx_counter = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
+	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->band = IEEE80211_BAND_2GHZ;
 	wl->flags = 0;
 	wl->sg_enabled = true;
@@ -5017,7 +5128,12 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
-	wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+	/* 18xxTODO: move to add_interface, to allow change of platform_type
+	   via debugfs */
+	if (wl->conf.platform_type == 1)
+		wl->tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
+	else
+		wl->tx_spare_blocks = WL18XX_TX_HW_BLOCK_SPARE;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;
 	wl->active_sta_count = 0;
 	wl->fwlog_size = 0;

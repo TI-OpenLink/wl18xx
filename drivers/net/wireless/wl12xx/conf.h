@@ -427,6 +427,11 @@ struct conf_rx_settings {
 #define CONF_TX_RATE_MASK_BASIC_P2P    (CONF_HW_BIT_RATE_6MBPS | \
 	CONF_HW_BIT_RATE_12MBPS | CONF_HW_BIT_RATE_24MBPS)
 
+/* basic rates for 40mhz channels */
+#define CONF_TX_RATE_MASK_40_MHZ       (CONF_TX_MCS_RATES | \
+	CONF_TX_AP_ENABLED_RATES | BIT(31))
+
+
 /*
  * Rates supported for data packets when operating as AP. Note the absence
  * of the 22Mbps rate. There is a FW limitation on 12 rates so we must drop
@@ -1244,6 +1249,58 @@ struct conf_hangover_settings {
 	u8 window_size;
 };
 
+/* 18xx board types */
+enum {
+	BOARD_TYPE_FPGA_18XX    = 0,
+	BOARD_TYPE_HDK_18XX     = 1,
+	BOARD_TYPE_DVP_EVB_18XX = 2,
+};
+
+enum {
+	DEDICATED_FEM_NONE = 0x0,
+	DEDICATED_FEM_VENDOR_1 = 0x1,
+	DEDICATED_FEM_VENDOR_2 = 0x2,
+	DEDICATED_FEM_VENDOR_3 = 0x3,
+};
+
+enum {
+	LOW_BAND_COMPONENT_NO_SWITCH = 0x0,
+	LOW_BAND_COMPONENT_2_WAY_SWITCH = 0x1,
+	LOW_BAND_COMPONENT_3_WAY_SWITCH = 0x2,
+	LOW_BAND_COMPONENT_MACTCHING = 0x3,
+};
+
+enum {
+	HIGH_BAND_COMPONENT_NO_SWITCH = 0x0,
+	HIGH_BAND_COMPONENT_2_WAY_SWITCH = 0x1,
+};
+
+struct wl18xx_conf_mac_and_phy_params {
+	u8 phy_standalone;
+	u8 rdl;
+	u8 enable_clpc;
+	u8 enable_tx_low_pwr_on_siso_rdl;
+	u8 auto_detect;
+	u8 dedicated_fem;
+	u8 low_band_component;
+	u8 low_band_component_type;
+	u8 high_band_component;
+	u8 high_band_component_type;
+	u8 number_of_assembled_ant2_4;
+	u8 number_of_assembled_ant5;
+	u8 external_pa_dc2dc;
+	u8 tcxo_ldo_voltage;
+	u8 xtal_itrim_val;
+	u8 srf_state;
+	u8 io_configuration;
+	u8 sdio_configuration;
+	u8 settings;
+	u8 rx_profile;
+	u8 primary_clock_setting_time;
+	u8 clock_valid_on_wake_up;
+	u8 secondary_clock_setting_time;
+};
+
 struct conf_drv_settings {
 	struct conf_sg_settings sg;
 	struct conf_rx_settings rx;
@@ -1258,12 +1315,23 @@ struct conf_drv_settings {
 	struct conf_ht_setting ht;
 	struct conf_memory_settings mem_wl127x;
 	struct conf_memory_settings mem_wl128x;
+	struct conf_memory_settings mem_wl18xx;
 	struct conf_fm_coex fm_coex;
 	struct conf_rx_streaming_settings rx_streaming;
 	struct conf_fwlog fwlog;
 	struct conf_rate_policy_settings rate;
 	struct conf_hangover_settings hangover;
 	u8 hci_io_ds;
+
+	/* 18xxTODO: merge with some settings we already have in other structs? */
+	struct wl18xx_conf_mac_and_phy_params phy_params;
+
+	/* 18xxTODO: this is only temporary. will be in platform data */
+	/* 1 = wl12xx, 2 = wl18xx */
+	u8 platform_type;
+
+	/* subtype of board for 18xx. 1 - HDK, 2 - EVB */
+	u8 subtype_18xx;
 };
 
 #endif

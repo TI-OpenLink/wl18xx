@@ -128,7 +128,7 @@ static void wl1271_sdio_raw_read(struct wl1271 *wl, int addr, void *buf,
 	}
 
 	if (ret)
-		wl1271_error("sdio read failed (%d)", ret);
+		wl1271_error("sdio read 0x%x failed (%d)", addr, ret);
 }
 
 static void wl1271_sdio_raw_write(struct wl1271 *wl, int addr, void *buf,
@@ -153,7 +153,7 @@ static void wl1271_sdio_raw_write(struct wl1271 *wl, int addr, void *buf,
 	}
 
 	if (ret)
-		wl1271_error("sdio write failed (%d)", ret);
+		wl1271_error("sdio write 0x%x failed (%d)", addr, ret);
 }
 
 static int wl1271_sdio_power_on(struct wl1271 *wl)
@@ -414,3 +414,4 @@ MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
 MODULE_AUTHOR("Juuso Oikarinen <juuso.oikarinen@nokia.com>");
 MODULE_FIRMWARE(WL127X_FW_NAME);
 MODULE_FIRMWARE(WL128X_FW_NAME);
+MODULE_FIRMWARE(WL18XX_FW_NAME);

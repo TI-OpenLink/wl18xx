@@ -327,7 +327,8 @@ static int wl1271_sta_hw_init(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	int ret;
 
-	if (wl->chip.id != CHIP_ID_1283_PG20) {
+	if (wl->chip.id == CHIP_ID_1271_PG20 ||
+	    wl->chip.id == CHIP_ID_1271_PG10) {
 		ret = wl1271_cmd_ext_radio_parms(wl);
 		if (ret < 0)
 			return ret;
@@ -496,9 +497,10 @@ static int wl1271_set_ba_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 int wl1271_chip_specific_init(struct wl1271 *wl)
 {
 	int ret = 0;
+	u32 host_cfg_bitmap, sdio_align_size;
 
 	if (wl->chip.id == CHIP_ID_1283_PG20) {
-		u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
+		host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
 
 		if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
 			/* Enable SDIO padding */
@@ -506,6 +508,27 @@ int wl1271_chip_specific_init(struct wl1271 *wl)
 
 		/* Must be before wl1271_acx_init_mem_config() */
 		ret = wl1271_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap);
+		if (ret < 0)
+			goto out;
+	} else if (wl->chip.id == CHIP_ID_185x_PG10) {
+		host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
+
+		/* 18xxTODO: can this even work? */
+		sdio_align_size = 0;
+
+		if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT) {
+			/* Enable SDIO padding for Tx and Rx */
+			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK |
+					   HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
+
+			sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
+		}
+
+		/* Must be before wl1271_acx_init_mem_config() */
+		ret = wl18xx_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap,
+						    sdio_align_size,
+						    wl->tx_spare_blocks,
+						    WL18XX_HOST_IF_LEN_SIZE_FIELD);
 		if (ret < 0)
 			goto out;
 	}
@@ -589,8 +612,13 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 			if (ret < 0)
 				return ret;
 		} else if (!sta_roles_cnt) {
-			/* Configure for ELP power saving */
-			ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_ELP);
+			/* 18xxTODO: ELP is not supported for now (TEMP) */
+			if (wl->conf.platform_type == 2)
+				ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_CAM);
+			else
+				/* Configure for ELP power saving */
+				ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_ELP);
+
 			if (ret < 0)
 				return ret;
 		}
@@ -666,19 +694,21 @@ int wl1271_hw_init(struct wl1271 *wl)
 {
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
-		ret = wl128x_cmd_general_parms(wl);
-	else
-		ret = wl1271_cmd_general_parms(wl);
-	if (ret < 0)
-		return ret;
+	if (wl->conf.platform_type == 1) {
+		if (wl->chip.id == CHIP_ID_1283_PG20)
+			ret = wl128x_cmd_general_parms(wl);
+		else
+			ret = wl1271_cmd_general_parms(wl);
+		if (ret < 0)
+			return ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
-		ret = wl128x_cmd_radio_parms(wl);
-	else
-		ret = wl1271_cmd_radio_parms(wl);
-	if (ret < 0)
-		return ret;
+		if (wl->chip.id == CHIP_ID_1283_PG20)
+			ret = wl128x_cmd_radio_parms(wl);
+		else
+			ret = wl1271_cmd_radio_parms(wl);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Chip-specific init */
 	ret = wl1271_chip_specific_init(wl);

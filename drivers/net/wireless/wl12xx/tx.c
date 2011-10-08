@@ -217,6 +217,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks = wl->tx_spare_blocks;
 	bool is_dummy = false;
+	u32 tx_hw_block_size;
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
 		return -EAGAIN;
@@ -233,10 +234,14 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	/* in case of a dummy packet, use default amount of spare mem blocks */
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb))) {
 		is_dummy = true;
-		spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+		spare_blocks = (wl->conf.platform_type == 1) ?
+			WL12XX_TX_HW_BLOCK_SPARE : WL18XX_TX_HW_BLOCK_SPARE;
 	}
 
-	total_blocks = (len + TX_HW_BLOCK_SIZE - 1) / TX_HW_BLOCK_SIZE +
+	tx_hw_block_size = (wl->conf.platform_type == 1) ?
+			WL12XX_TX_HW_BLOCK_SIZE : WL18XX_TX_HW_BLOCK_SIZE;
+
+	total_blocks = (len + tx_hw_block_size - 1) / tx_hw_block_size +
 		spare_blocks;
 
 	if (total_blocks <= wl->tx_blocks_available) {
@@ -723,8 +728,12 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, wlvif, skb);
-			wl1271_write(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
-				     buf_offset, true);
+			if (wl->conf.platform_type == 1)
+				wl1271_write(wl, WL12XX_SLV_MEM_DATA, wl->aggr_buf,
+					     buf_offset, true);
+			else
+				wl1271_write(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf,
+					     buf_offset, true);
 			sent_packets = true;
 			buf_offset = 0;
 			continue;
@@ -751,8 +760,12 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 
 out_ack:
 	if (buf_offset) {
-		wl1271_write(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
-				buf_offset, true);
+		if (wl->conf.platform_type == 1)
+			wl1271_write(wl, WL12XX_SLV_MEM_DATA, wl->aggr_buf,
+				     buf_offset, true);
+		else
+			wl1271_write(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf,
+				     buf_offset, true);
 		sent_packets = true;
 	}
 	if (sent_packets) {
@@ -761,7 +774,7 @@ out_ack:
 		 * required for older hardware revisions
 		 */
 		if (wl->quirks & WL12XX_QUIRK_END_OF_TRANSACTION)
-			wl1271_write32(wl, WL1271_HOST_WR_ACCESS,
+			wl1271_write32(wl, WL12XX_HOST_WR_ACCESS,
 				       wl->tx_packets_count);
 
 		wl1271_handle_tx_low_watermark(wl);
