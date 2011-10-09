@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.10_Rebase_PHY_INI"
+#define DRIVER_VERSION "WL18XX_A1.11_IBI"
 
 /*
  * FW versions support BA 11n
