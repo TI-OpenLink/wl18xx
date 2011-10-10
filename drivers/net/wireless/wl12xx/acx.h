@@ -751,14 +751,14 @@ struct acx_rate_class {
 	u8 reserved;
 };
 
-#define ACX_TX_BASIC_RATE      0
-#define ACX_TX_AP_FULL_RATE    1
-#define ACX_TX_BASIC_RATE_P2P  2
-#define ACX_TX_AP_MODE_MGMT_RATE 4
-#define ACX_TX_AP_MODE_BCST_RATE 5
-
-/* Add support for 40MHz  */
-#define ACX_TX_40_MHZ_RATE      6
+#define ACX_TX_BASIC_RATE      		0
+#define ACX_TX_AP_FULL_RATE    		1
+#define ACX_TX_BASIC_RATE_P2P  		2
+#define ACX_TX_AP_MODE_MGMT_RATE 	4
+#define ACX_TX_AP_MODE_BCST_RATE 	5
+#define ACX_TX_SISO_40_MHZ_RATE     6
+#define ACX_TX_MIMO_20_MHZ_RATE     7
+#define ACX_TX_MIMO_40_MHZ_RATE     8
 
 struct acx_rate_policy {
 	struct acx_header header;

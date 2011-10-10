@@ -53,7 +53,8 @@
 #define WL1271_BOOT_RETRIES 1
 //#define WL1271_BOOT_RETRIES 3
 
-
+u32 wl18xx_bool_40mhz = true;
+u32 wl18xx_bool_mimo = false;
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
@@ -3899,9 +3900,11 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 
 		/* save the supp_rates of the ap */
 		sta_rate_set = sta->supp_rates[wl->hw->conf.channel->band];
-		if (sta->ht_cap.ht_supported)
-			sta_rate_set |=
-			    (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
+		if (sta->ht_cap.ht_supported) {
+			sta_rate_set |=  (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
+			sta_rate_set |=  (sta->ht_cap.mcs.rx_mask[1] << HW_HT_MIMO_RATES_OFFSET); /* for MIMO support */
+		}
+
 		sta_ht_cap = sta->ht_cap;
 		sta_exists = true;
 
@@ -4717,7 +4720,20 @@ static struct ieee80211_channel wl1271_channels[] = {
 /* mapping to indexes for wl1271_rates */
 static const u8 wl1271_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
+
+#if 0
+	/* LiorC: ToDo: Add below rate to fw first, then comment out this rate */
 	7,                            /* CONF_HW_RXTX_RATE_MCS7_SGI */
+#endif
+
+	15,                           /* CONF_HW_RXTX_RATE_MCS15 */
+	14,                           /* CONF_HW_RXTX_RATE_MCS14 */
+	13,                           /* CONF_HW_RXTX_RATE_MCS13 */
+	12,                           /* CONF_HW_RXTX_RATE_MCS12 */
+	11,                           /* CONF_HW_RXTX_RATE_MCS11 */
+	10,                           /* CONF_HW_RXTX_RATE_MCS10 */
+	9,                            /* CONF_HW_RXTX_RATE_MCS9 */
+	8,                            /* CONF_HW_RXTX_RATE_MCS8 */
 	7,                            /* CONF_HW_RXTX_RATE_MCS7 */
 	6,                            /* CONF_HW_RXTX_RATE_MCS6 */
 	5,                            /* CONF_HW_RXTX_RATE_MCS5 */
@@ -4746,18 +4762,23 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 };
 
 /* 11n STA capabilities */
-#define HW_RX_HIGHEST_RATE	72
+#define HW_RX_HIGHEST_RATE_20MHZ_SISO	72
+#define HW_RX_HIGHEST_RATE_20MHZ_MIMO	144
+#define HW_RX_HIGHEST_RATE_40MHZ_SISO	150
+
+
+#define CAP_INFO (IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
+					(1 << IEEE80211_HT_CAP_RX_STBC_SHIFT))
+#define RX_MASK { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 #define WL12XX_HT_CAP { \
-	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
-	       IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40 | \
-	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
+	.cap = CAP_INFO ,\
 	.ht_supported = true, \
 	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_16K, \
 	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8, \
 	.mcs = { \
-		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, }, \
-		.rx_highest = cpu_to_le16(HW_RX_HIGHEST_RATE), \
+		.rx_mask = RX_MASK , \
+		.rx_highest = cpu_to_le16(HW_RX_HIGHEST_RATE_20MHZ_SISO), \
 		.tx_params = IEEE80211_HT_MCS_TX_DEFINED, \
 		}, \
 }
@@ -4840,7 +4861,20 @@ static struct ieee80211_channel wl1271_channels_5ghz[] = {
 /* mapping to indexes for wl1271_rates_5ghz */
 static const u8 wl1271_rate_to_idx_5ghz[] = {
 	/* MCS rates are used only with 11n */
+
+#if 0
+	/* LiorC: ToDo: add below rate support to fw first, then comment out */
 	7,                            /* CONF_HW_RXTX_RATE_MCS7_SGI */
+#endif
+
+	15,                           /* CONF_HW_RXTX_RATE_MCS15 */
+	14,                           /* CONF_HW_RXTX_RATE_MCS14 */
+	13,                           /* CONF_HW_RXTX_RATE_MCS13 */
+	12,                           /* CONF_HW_RXTX_RATE_MCS12 */
+	11,                           /* CONF_HW_RXTX_RATE_MCS11 */
+	10,                           /* CONF_HW_RXTX_RATE_MCS10 */
+	9,                            /* CONF_HW_RXTX_RATE_MCS9 */
+	8,                            /* CONF_HW_RXTX_RATE_MCS8 */
 	7,                            /* CONF_HW_RXTX_RATE_MCS7 */
 	6,                            /* CONF_HW_RXTX_RATE_MCS6 */
 	5,                            /* CONF_HW_RXTX_RATE_MCS5 */
@@ -5189,6 +5223,22 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 	BUILD_BUG_ON(ARRAY_SIZE(wl1271_channels) +
 		     ARRAY_SIZE(wl1271_channels_5ghz) >
 		     WL1271_MAX_CHANNELS);
+
+	/* currently, the mimo & 40mhz are currently mutually exclusive supported */
+	if (wl18xx_bool_40mhz) {
+		wl1271_band_2ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40);
+		wl1271_band_5ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40);
+		wl1271_band_2ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_40MHZ_SISO;
+		wl1271_band_5ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_40MHZ_SISO;
+	}
+
+	if (wl18xx_bool_mimo) {
+		wl1271_band_2ghz.ht_cap.mcs.rx_mask[1] = 0xff;
+		wl1271_band_5ghz.ht_cap.mcs.rx_mask[1] = 0xff;
+		wl1271_band_2ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_20MHZ_MIMO;
+		wl1271_band_5ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_20MHZ_MIMO;
+	}
+
 	/*
 	 * We keep local copies of the band structs because we need to
 	 * modify them on a per-device basis.
@@ -5475,6 +5525,14 @@ u32 wl12xx_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL_GPL(wl12xx_debug_level);
 module_param_named(debug_level, wl12xx_debug_level, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(debug_level, "wl12xx debugging level");
+
+EXPORT_SYMBOL_GPL(wl18xx_bool_40mhz);
+module_param_named(wl18xx_bool_40mhz, wl18xx_bool_40mhz, uint, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(wl18xx_bool_40mhz, "wl18xx 40mhz support");
+
+EXPORT_SYMBOL_GPL(wl18xx_bool_mimo);
+module_param_named(wl18xx_bool_mimo, wl18xx_bool_mimo, uint, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(wl18xx_bool_mimo, "wl18xx mimo support");
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
