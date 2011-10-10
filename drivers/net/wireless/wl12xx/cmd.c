@@ -1509,9 +1509,11 @@ int wl1271_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid)
 			cmd->psd_type[i] = WL1271_PSD_LEGACY;
 
 	sta_rates = sta->supp_rates[wl->band];
-	if (sta->ht_cap.ht_supported)
+	if (sta->ht_cap.ht_supported) {
 		sta_rates |= sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET;
-
+		sta_rates |= sta->ht_cap.mcs.rx_mask[1] << HW_HT_MIMO_RATES_OFFSET; /* for MIMO support */
+	}
+	
 	cmd->supported_rates =
 		cpu_to_le32(wl1271_tx_enabled_rates_get(wl, sta_rates,
 			    wl->band));

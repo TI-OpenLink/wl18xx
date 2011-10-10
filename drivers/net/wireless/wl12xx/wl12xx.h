@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.12_Top_Init"
+#define DRIVER_VERSION "WL18XX_A1.12_MIMO_Support"
 
 /*
  * FW versions support BA 11n
@@ -608,8 +608,7 @@ struct wl1271 {
 	/*
 	 * currently configured rate set:
 	 *	bits  0-15 - 802.11abg rates
-	 *	bits 16-23 - 802.11n   MCS index mask
-	 * support only 1 stream, thus only 8 bits for the MCS rates (0-7).
+	 *	bits 16-31 - 802.11n   MCS index mask
 	 */
 	u32 basic_rate_set;
 	u32 basic_rate;
@@ -773,6 +772,7 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 /* Macros to handle wl1271.sta_rate_set */
 #define HW_BG_RATES_MASK	0xffff
 #define HW_HT_RATES_OFFSET	16
+#define HW_HT_MIMO_RATES_OFFSET	24
 
 /* Quirks */
 

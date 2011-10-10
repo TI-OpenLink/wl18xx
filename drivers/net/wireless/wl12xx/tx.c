@@ -35,6 +35,9 @@
 
 #define IP_PROTOCOL_OFFSET 9
 
+extern u32 wl18xx_bool_40mhz;
+extern u32 wl18xx_bool_mimo;
+
 static int wl1271_set_default_wep_key(struct wl1271 *wl, u8 id)
 {
 	int ret;
@@ -396,8 +399,10 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 		   send them with AP rate policies, otherwise use default
 		   basic rates */
 #ifdef CONFIG_WL12XX_HT
-		if (wl->channel_type == NL80211_CHAN_HT40MINUS || wl->channel_type == NL80211_CHAN_HT40PLUS)
-			rate_idx = ACX_TX_40_MHZ_RATE;
+		if (wl18xx_bool_40mhz && (wl->channel_type == NL80211_CHAN_HT40MINUS || wl->channel_type == NL80211_CHAN_HT40PLUS))
+				rate_idx = ACX_TX_SISO_40_MHZ_RATE;
+		else if (wl18xx_bool_mimo && wl->rate_set & CONF_TX_MCS_RATES_MIMO)
+				rate_idx = ACX_TX_MIMO_20_MHZ_RATE;
 		else
 #endif
 		{
@@ -598,7 +603,7 @@ u32 wl1271_tx_enabled_rates_get(struct wl1271 *wl, u32 rate_set,
 	/* MCS rates indication are on bits 16 - 23 */
 	rate_set >>= HW_HT_RATES_OFFSET - band->n_bitrates;
 
-	for (bit = 0; bit < 8; bit++) {
+	for (bit = 0; bit < 16; bit++) {
 		if (rate_set & 0x1)
 			enabled_rates |= (CONF_HW_BIT_RATE_MCS_0 << bit);
 		rate_set >>= 1;

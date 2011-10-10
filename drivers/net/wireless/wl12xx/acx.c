@@ -807,8 +807,8 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl)
 
 #ifdef CONFIG_WL12XX_HT
 	/* configure 40MHz supported rates */
-	acx->rate_policy_idx = cpu_to_le32(ACX_TX_40_MHZ_RATE);
-	acx->rate_policy.enabled_rates = cpu_to_le32(CONF_TX_RATE_MASK_40_MHZ);
+	acx->rate_policy_idx = cpu_to_le32(ACX_TX_SISO_40_MHZ_RATE);
+	acx->rate_policy.enabled_rates = cpu_to_le32(CONF_TX_RATE_MASK_SISO_40_MHZ);
 	acx->rate_policy.short_retry_limit = c->short_retry_limit;
 	acx->rate_policy.long_retry_limit = c->long_retry_limit;
 	acx->rate_policy.aflags = c->aflags;
@@ -818,6 +818,20 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl)
 		wl1271_warning("Setting of 40MHz rates policies failed: %d", ret);
 		goto out;
 	}
+	
+	/* configure 20MHz MIMO supported rates */
+	acx->rate_policy_idx = cpu_to_le32(ACX_TX_MIMO_20_MHZ_RATE);
+	acx->rate_policy.enabled_rates = cpu_to_le32(CONF_TX_RATE_MASK_MIMO_20MHZ);
+	acx->rate_policy.short_retry_limit = c->short_retry_limit;
+	acx->rate_policy.long_retry_limit = c->long_retry_limit;
+	acx->rate_policy.aflags = c->aflags;
+
+	ret = wl1271_cmd_configure(wl, ACX_RATE_POLICY, acx, sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("Setting of 40MHz rates policies failed: %d", ret);
+		goto out;
+	}
+
 #endif
 
 out:
@@ -1720,9 +1734,10 @@ int wl1271_acx_set_rate_mgmt_params(struct wl1271 *wl)
 	memcpy(acx->rate_retry_policy, conf->rate_retry_policy,
 	       sizeof(acx->rate_retry_policy));
 
-
+#if 0
 	wl1271_dump(DEBUG_CMD, "RATE_MGMT: ",
 		&acx->header + 1, sizeof(*acx) - sizeof(acx->header));
+#endif
 
 	ret = wl1271_cmd_configure(wl, ACX_SET_RATE_MAMAGEMENT_PARAMS,
 				   acx, sizeof(*acx));
