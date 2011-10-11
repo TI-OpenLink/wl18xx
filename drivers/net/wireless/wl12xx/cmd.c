@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 
 #include "wl12xx.h"
+#include "debug.h"
 #include "reg.h"
 #include "io.h"
 #include "acx.h"
@@ -481,9 +482,9 @@ int wl12xx_cmd_role_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	wl1271_debug(DEBUG_CMD, "cmd role start dev %d", wlvif->dev_role_id);
 
 	cmd->role_id = wlvif->dev_role_id;
-	if (wl->band == IEEE80211_BAND_5GHZ)
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
 		cmd->band = WL12XX_BAND_5GHZ;
-	cmd->channel = wl->channel;
+	cmd->channel = wlvif->channel;
 
 	if (wlvif->dev_hlid == WL12XX_INVALID_LINK_ID) {
 		ret = wl12xx_allocate_link(wl, wlvif, &wlvif->dev_hlid);
@@ -571,9 +572,9 @@ int wl12xx_cmd_role_start_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	wl1271_debug(DEBUG_CMD, "cmd role start sta %d", wlvif->role_id);
 
 	cmd->role_id = wlvif->role_id;
-	if (wl->band == IEEE80211_BAND_5GHZ)
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
 		cmd->band = WL12XX_BAND_5GHZ;
-	cmd->channel = wl->channel;
+	cmd->channel = wlvif->channel;
 	cmd->sta.basic_rate_set = cpu_to_le32(wlvif->basic_rate_set);
 	cmd->sta.beacon_interval = cpu_to_le16(wlvif->beacon_int);
 	cmd->sta.ssid_type = WL12XX_SSID_TYPE_ANY;
@@ -654,7 +655,8 @@ out:
 int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	struct wl12xx_cmd_role_start *cmd;
-	struct ieee80211_bss_conf *bss_conf = &wl->vif->bss_conf;
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
 	int ret;
 
 	wl1271_debug(DEBUG_CMD, "cmd role start ap %d", wlvif->role_id);
@@ -689,7 +691,7 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	cmd->ap.beacon_interval = cpu_to_le16(wlvif->beacon_int);
 	cmd->ap.dtim_interval = bss_conf->dtim_period;
 	cmd->ap.beacon_expiry = WL1271_AP_DEF_BEACON_EXP;
-	cmd->channel = wl->channel;
+	cmd->channel = wlvif->channel;
 
 	if (!bss_conf->hidden_ssid) {
 		/* take the SSID from the beacon for backward compatibility */
@@ -704,7 +706,7 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 
 	cmd->ap.local_rates = cpu_to_le32(0xffffffff);
 
-	switch (wl->band) {
+	switch (wlvif->band) {
 	case IEEE80211_BAND_2GHZ:
 		cmd->band = RADIO_BAND_2_4GHZ;
 		break;
@@ -712,7 +714,7 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		cmd->band = RADIO_BAND_5GHZ;
 		break;
 	default:
-		wl1271_warning("ap start - unknown band: %d", (int)wl->band);
+		wl1271_warning("ap start - unknown band: %d", (int)wlvif->band);
 		cmd->band = RADIO_BAND_2_4GHZ;
 		break;
 	}
@@ -773,7 +775,7 @@ int wl12xx_cmd_role_start_ibss(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	struct wl12xx_cmd_role_start *cmd;
-	struct ieee80211_bss_conf *bss_conf = &wl->vif->bss_conf;
+	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
 	int ret;
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
@@ -785,9 +787,9 @@ int wl12xx_cmd_role_start_ibss(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	wl1271_debug(DEBUG_CMD, "cmd role start ibss %d", wlvif->role_id);
 
 	cmd->role_id = wlvif->role_id;
-	if (wl->band == IEEE80211_BAND_5GHZ)
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
 		cmd->band = WL12XX_BAND_5GHZ;
-	cmd->channel = wl->channel;
+	cmd->channel = wlvif->channel;
 	cmd->ibss.basic_rate_set = cpu_to_le32(wlvif->basic_rate_set);
 	cmd->ibss.beacon_interval = cpu_to_le16(wlvif->beacon_int);
 	cmd->ibss.dtim_interval = bss_conf->dtim_period;
@@ -1096,10 +1098,11 @@ out:
 int wl1271_cmd_build_ps_poll(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     u16 aid)
 {
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	struct sk_buff *skb;
 	int ret = 0;
 
-	skb = ieee80211_pspoll_get(wl->hw, wl->vif);
+	skb = ieee80211_pspoll_get(wl->hw, vif);
 	if (!skb)
 		goto out;
 
@@ -1111,15 +1114,16 @@ out:
 	return ret;
 }
 
-int wl1271_cmd_build_probe_req(struct wl1271 *wl,
+int wl1271_cmd_build_probe_req(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			       const u8 *ssid, size_t ssid_len,
 			       const u8 *ie, size_t ie_len, u8 band)
 {
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	struct sk_buff *skb;
 	int ret;
 	u32 rate;
 
-	skb = ieee80211_probereq_get(wl->hw, wl->vif, ssid, ssid_len,
+	skb = ieee80211_probereq_get(wl->hw, vif, ssid, ssid_len,
 				     ie, ie_len);
 	if (!skb) {
 		ret = -ENOMEM;
@@ -1128,7 +1132,7 @@ int wl1271_cmd_build_probe_req(struct wl1271 *wl,
 
 	wl1271_dump(DEBUG_SCAN, "PROBE REQ: ", skb->data, skb->len);
 
-	rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[band]);
+	rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);
 	if (band == IEEE80211_BAND_2GHZ)
 		ret = wl1271_cmd_template_set(wl, CMD_TEMPL_CFG_PROBE_REQ_2_4,
 					      skb->data, skb->len, 0, rate);
@@ -1142,20 +1146,22 @@ out:
 }
 
 struct sk_buff *wl1271_cmd_build_ap_probe_req(struct wl1271 *wl,
+					      struct wl12xx_vif *wlvif,
 					      struct sk_buff *skb)
 {
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	int ret;
 	u32 rate;
 
 	if (!skb)
-		skb = ieee80211_ap_probereq_get(wl->hw, wl->vif);
+		skb = ieee80211_ap_probereq_get(wl->hw, vif);
 	if (!skb)
 		goto out;
 
 	wl1271_dump(DEBUG_SCAN, "AP PROBE REQ: ", skb->data, skb->len);
 
-	rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[wl->band]);
-	if (wl->band == IEEE80211_BAND_2GHZ)
+	rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[wlvif->band]);
+	if (wlvif->band == IEEE80211_BAND_2GHZ)
 		ret = wl1271_cmd_template_set(wl, CMD_TEMPL_CFG_PROBE_REQ_2_4,
 					      skb->data, skb->len, 0, rate);
 	else
@@ -1173,6 +1179,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     __be32 ip_addr)
 {
 	int ret;
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	struct wl12xx_arp_rsp_template tmpl;
 	struct ieee80211_hdr_3addr *hdr;
 	struct arphdr *arp_hdr;
@@ -1184,8 +1191,8 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_DATA |
 					 IEEE80211_STYPE_DATA |
 					 IEEE80211_FCTL_TODS);
-	memcpy(hdr->addr1, wl->vif->bss_conf.bssid, ETH_ALEN);
-	memcpy(hdr->addr2, wl->vif->addr, ETH_ALEN);
+	memcpy(hdr->addr1, vif->bss_conf.bssid, ETH_ALEN);
+	memcpy(hdr->addr2, vif->addr, ETH_ALEN);
 	memset(hdr->addr3, 0xff, ETH_ALEN);
 
 	/* llc layer */
@@ -1201,7 +1208,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	arp_hdr->ar_op = cpu_to_be16(ARPOP_REPLY);
 
 	/* arp payload */
-	memcpy(tmpl.sender_hw, wl->vif->addr, ETH_ALEN);
+	memcpy(tmpl.sender_hw, vif->addr, ETH_ALEN);
 	tmpl.sender_ip = ip_addr;
 
 	ret = wl1271_cmd_template_set(wl, CMD_TEMPL_ARP_RSP,
@@ -1425,7 +1432,8 @@ out:
 	return ret;
 }
 
-int wl12xx_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid)
+int wl12xx_cmd_add_peer(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			struct ieee80211_sta *sta, u8 hlid)
 {
 	struct wl12xx_cmd_add_peer *cmd;
 	int i, ret;
@@ -1452,13 +1460,13 @@ int wl12xx_cmd_add_peer(struct wl1271 *wl, struct ieee80211_sta *sta, u8 hlid)
 		else
 			cmd->psd_type[i] = WL1271_PSD_LEGACY;
 
-	sta_rates = sta->supp_rates[wl->band];
+	sta_rates = sta->supp_rates[wlvif->band];
 	if (sta->ht_cap.ht_supported)
 		sta_rates |= sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET;
 
 	cmd->supported_rates =
 		cpu_to_le32(wl1271_tx_enabled_rates_get(wl, sta_rates,
-							wl->band));
+							wlvif->band));
 
 	wl1271_debug(DEBUG_CMD, "new peer rates=0x%x queues=0x%x",
 		     cmd->supported_rates, sta->uapsd_queues);
@@ -1598,12 +1606,13 @@ out:
 	return ret;
 }
 
-static int wl12xx_cmd_roc(struct wl1271 *wl, u8 role_id)
+static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			  u8 role_id)
 {
 	struct wl12xx_cmd_roc *cmd;
 	int ret = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wl->channel, role_id);
+	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wlvif->channel, role_id);
 
 	if (WARN_ON(role_id == WL12XX_INVALID_ROLE_ID))
 		return -EINVAL;
@@ -1615,8 +1624,8 @@ static int wl12xx_cmd_roc(struct wl1271 *wl, u8 role_id)
 	}
 
 	cmd->role_id = role_id;
-	cmd->channel = wl->channel;
-	switch (wl->band) {
+	cmd->channel = wlvif->channel;
+	switch (wlvif->band) {
 	case IEEE80211_BAND_2GHZ:
 		cmd->band = RADIO_BAND_2_4GHZ;
 		break;
@@ -1624,7 +1633,7 @@ static int wl12xx_cmd_roc(struct wl1271 *wl, u8 role_id)
 		cmd->band = RADIO_BAND_5GHZ;
 		break;
 	default:
-		wl1271_error("roc - unknown band: %d", (int)wl->band);
+		wl1271_error("roc - unknown band: %d", (int)wlvif->band);
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -1671,14 +1680,14 @@ out:
 	return ret;
 }
 
-int wl12xx_roc(struct wl1271 *wl, u8 role_id)
+int wl12xx_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 role_id)
 {
 	int ret = 0;
 
 	if (WARN_ON(test_bit(role_id, wl->roc_map)))
 		return 0;
 
-	ret = wl12xx_cmd_roc(wl, role_id);
+	ret = wl12xx_cmd_roc(wl, wlvif, role_id);
 	if (ret < 0)
 		goto out;
 

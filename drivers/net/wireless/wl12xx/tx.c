@@ -26,6 +26,7 @@
 #include <linux/etherdevice.h>
 
 #include "wl12xx.h"
+#include "debug.h"
 #include "io.h"
 #include "reg.h"
 #include "ps.h"
@@ -102,7 +103,7 @@ static int wl1271_tx_update_filters(struct wl1271 *wl,
 	if (ret < 0)
 		goto out;
 
-	ret = wl12xx_roc(wl, wlvif->dev_role_id);
+	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
 	if (ret < 0)
 		goto out;
 out:
@@ -146,7 +147,7 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 	 * case FW-memory congestion is not a problem.
 	 */
 	if (!single_sta && fw_ps && tx_pkts >= WL1271_PS_STA_MAX_PACKETS)
-		wl1271_ps_link_start(wl, hlid, true);
+		wl12xx_ps_link_start(wl, wlvif, hlid, true);
 }
 
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
@@ -168,7 +169,7 @@ u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	} else {
 		struct ieee80211_hdr *hdr;
 
-		if (!test_bit(WL1271_FLAG_AP_STARTED, &wl->flags))
+		if (!test_bit(WLVIF_FLAG_AP_STARTED, &wlvif->flags))
 			return wl->system_hlid;
 
 		hdr = (struct ieee80211_hdr *)skb->data;
@@ -179,14 +180,12 @@ u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 }
 
-static u8 wl1271_tx_get_hlid(struct wl1271 *wl, struct ieee80211_vif *vif,
-			     struct sk_buff *skb)
+u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+		      struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 
-
-	if (wl12xx_is_dummy_packet(wl, skb))
+	if (!wlvif || wl12xx_is_dummy_packet(wl, skb))
 		return wl->system_hlid;
 
 	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
@@ -194,8 +193,8 @@ static u8 wl1271_tx_get_hlid(struct wl1271 *wl, struct ieee80211_vif *vif,
 
 	wl1271_tx_update_filters(wl, wlvif, skb);
 
-	if ((test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags) ||
-	     test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags)) &&
+	if ((test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) ||
+	     test_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags)) &&
 	    !ieee80211_is_auth(hdr->frame_control) &&
 	    !ieee80211_is_assoc_req(hdr->frame_control))
 		return wlvif->sta.hlid;
@@ -212,17 +211,17 @@ static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
 		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 }
 
-static int wl1271_tx_allocate(struct wl1271 *wl, struct ieee80211_vif *vif,
+static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			      struct sk_buff *skb, u32 extra, u32 buf_offset,
 			      u8 hlid)
 {
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct wl1271_tx_hw_descr *desc;
 	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
 	u32 len;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks = wl->tx_spare_blocks;
+	bool is_dummy = false;
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
 		return -EAGAIN;
@@ -237,8 +236,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct ieee80211_vif *vif,
 	len = wl12xx_calc_packet_alignment(wl, total_len);
 
 	/* in case of a dummy packet, use default amount of spare mem blocks */
-	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
+	if (unlikely(wl12xx_is_dummy_packet(wl, skb))) {
+		is_dummy = true;
 		spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+	}
 
 	total_blocks = (len + TX_HW_BLOCK_SIZE - 1) / TX_HW_BLOCK_SIZE +
 		spare_blocks;
@@ -263,7 +264,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct ieee80211_vif *vif,
 		ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 		wl->tx_allocated_pkts[ac]++;
 
-		if (wlvif->bss_type == BSS_TYPE_AP_BSS &&
+		if (!is_dummy && wlvif &&
+		    wlvif->bss_type == BSS_TYPE_AP_BSS &&
 		    test_bit(hlid, wlvif->ap.sta_hlid_map))
 			wl->links[hlid].allocated_pkts++;
 
@@ -279,16 +281,16 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct ieee80211_vif *vif,
 	return ret;
 }
 
-static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct ieee80211_vif *vif,
+static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			       struct sk_buff *skb, u32 extra,
 			       struct ieee80211_tx_info *control, u8 hlid)
 {
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct timespec ts;
 	struct wl1271_tx_hw_descr *desc;
 	int aligned_len, ac, rate_idx;
 	s64 hosttime;
 	u16 tx_attr;
+	bool is_dummy;
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
 
@@ -305,7 +307,8 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct ieee80211_vif *vif,
 	hosttime = (timespec_to_ns(&ts) >> 10);
 	desc->start_time = cpu_to_le32(hosttime - wl->time_offset);
 
-	if (wlvif->bss_type != BSS_TYPE_AP_BSS)
+	is_dummy = wl12xx_is_dummy_packet(wl, skb);
+	if (is_dummy || !wlvif || wlvif->bss_type != BSS_TYPE_AP_BSS)
 		desc->life_time = cpu_to_le16(TX_HW_MGMT_PKT_LIFETIME_TU);
 	else
 		desc->life_time = cpu_to_le16(TX_HW_AP_MODE_PKT_LIFETIME_TU);
@@ -314,7 +317,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct ieee80211_vif *vif,
 	ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 	desc->tid = skb->priority;
 
-	if (wl12xx_is_dummy_packet(wl, skb)) {
+	if (is_dummy) {
 		/*
 		 * FW expects the dummy packet to have an invalid session id -
 		 * any session id that is different than the one set in the join
@@ -324,28 +327,30 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct ieee80211_vif *vif,
 			   TX_HW_ATTR_SESSION_COUNTER;
 
 		tx_attr |= TX_HW_ATTR_TX_DUMMY_REQ;
-	} else {
+	} else if (wlvif) {
 		/* configure the tx attributes */
 		tx_attr = wlvif->session_counter <<
 			  TX_HW_ATTR_OFST_SESSION_COUNTER;
 	}
 
 	desc->hlid = hlid;
-	if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
+	if (is_dummy || !wlvif)
+		rate_idx = 0;
+	else if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
 		/* if the packets are destined for AP (have a STA entry)
 		   send them with AP rate policies, otherwise use default
 		   basic rates */
 		if (control->control.sta)
-			rate_idx = ACX_TX_AP_FULL_RATE;
+			rate_idx = wlvif->sta.ap_rate_idx;
 		else
-			rate_idx = ACX_TX_BASIC_RATE;
+			rate_idx = wlvif->sta.basic_rate_idx;
 	} else {
 		if (hlid == wlvif->ap.global_hlid)
-			rate_idx = ACX_TX_AP_MODE_MGMT_RATE;
+			rate_idx = wlvif->ap.mgmt_rate_idx;
 		else if (hlid == wlvif->ap.bcast_hlid)
-			rate_idx = ACX_TX_AP_MODE_BCST_RATE;
+			rate_idx = wlvif->ap.bcast_rate_idx;
 		else
-			rate_idx = ac;
+			rate_idx = wlvif->ap.ucast_rate_idx[ac];
 	}
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
@@ -385,12 +390,10 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct ieee80211_vif *vif,
 }
 
 /* caller must hold wl->mutex */
-static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
-							u32 buf_offset)
+static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+				   struct sk_buff *skb, u32 buf_offset)
 {
 	struct ieee80211_tx_info *info;
-	struct ieee80211_vif *vif;
-	struct wl12xx_vif *wlvif;
 	u32 extra = 0;
 	int ret = 0;
 	u32 total_len;
@@ -404,11 +407,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 
 	/* TODO: handle dummy packets on multi-vifs */
 	is_dummy = wl12xx_is_dummy_packet(wl, skb);
-	if (is_dummy)
-		info->control.vif = wl->vif;
-
-	vif = info->control.vif;
-	wlvif = wl12xx_vif_to_data(vif);
 
 	if (info->control.hw_key &&
 	    info->control.hw_key->cipher == WLAN_CIPHER_SUITE_TKIP)
@@ -429,19 +427,27 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 			wlvif->default_key = idx;
 		}
 	}
-	hlid = wl1271_tx_get_hlid(wl, vif, skb);
+	hlid = wl12xx_tx_get_hlid(wl, wlvif, skb);
 	if (hlid == WL12XX_INVALID_LINK_ID) {
-		wl1271_error("invalid hlid. dropping skb 0x%p", skb);
+		if (wlvif->bss_type == BSS_TYPE_IBSS &&
+		    !test_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags)) {
+			/* It's ok to drop packets when not joined to IBSS */
+			wl1271_debug(DEBUG_TX, "dropping skb while IBSS not "
+				     " joined");
+		} else {
+			wl1271_error("invalid hlid. dropping skb 0x%p", skb);
+		}
+
 		return -EINVAL;
 	}
 
-	ret = wl1271_tx_allocate(wl, vif, skb, extra, buf_offset, hlid);
+	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid);
 	if (ret < 0)
 		return ret;
 
-	wl1271_tx_fill_hdr(wl, vif, skb, extra, info, hlid);
+	wl1271_tx_fill_hdr(wl, wlvif, skb, extra, info, hlid);
 
-	if (wlvif->bss_type == BSS_TYPE_AP_BSS && !is_dummy) {
+	if (!is_dummy && wlvif && wlvif->bss_type == BSS_TYPE_AP_BSS) {
 		wl1271_tx_ap_update_inconnection_sta(wl, skb);
 		wl1271_tx_regulate_link(wl, wlvif, hlid);
 	}
@@ -538,19 +544,18 @@ static struct sk_buff_head *wl1271_select_queue(struct wl1271 *wl,
 	return &queues[q];
 }
 
-static struct sk_buff *wl1271_sta_skb_dequeue(struct wl1271 *wl)
+static struct sk_buff *wl12xx_lnk_skb_dequeue(struct wl1271 *wl,
+					      struct wl1271_link *lnk)
 {
-	struct sk_buff *skb = NULL;
+	struct sk_buff *skb;
 	unsigned long flags;
 	struct sk_buff_head *queue;
 
-	queue = wl1271_select_queue(wl, wl->tx_queue);
+	queue = wl1271_select_queue(wl, lnk->tx_queue);
 	if (!queue)
-		goto out;
+		return NULL;
 
 	skb = skb_dequeue(queue);
-
-out:
 	if (skb) {
 		int q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 		spin_lock_irqsave(&wl->wl_lock, flags);
@@ -561,16 +566,14 @@ out:
 	return skb;
 }
 
-static struct sk_buff *wl1271_ap_skb_dequeue(struct wl1271 *wl,
-					     struct wl12xx_vif *wlvif)
+static struct sk_buff *wl12xx_vif_skb_dequeue(struct wl1271 *wl,
+					      struct wl12xx_vif *wlvif)
 {
 	struct sk_buff *skb = NULL;
-	unsigned long flags;
 	int i, h, start_hlid;
-	struct sk_buff_head *queue;
 
 	/* start from the link after the last one */
-	start_hlid = (wl->last_tx_hlid + 1) % WL12XX_MAX_LINKS;
+	start_hlid = (wlvif->last_tx_hlid + 1) % WL12XX_MAX_LINKS;
 
 	/* dequeue according to AC, round robin on each link */
 	for (i = 0; i < WL12XX_MAX_LINKS; i++) {
@@ -580,38 +583,49 @@ static struct sk_buff *wl1271_ap_skb_dequeue(struct wl1271 *wl,
 		if (!test_bit(h, wlvif->links_map))
 			continue;
 
-		queue = wl1271_select_queue(wl, wl->links[h].tx_queue);
-		if (!queue)
+		skb = wl12xx_lnk_skb_dequeue(wl, &wl->links[h]);
+		if (!skb)
 			continue;
 
-		skb = skb_dequeue(queue);
-		if (skb)
-			break;
+		wlvif->last_tx_hlid = h;
+		break;
 	}
 
-	if (skb) {
-		int q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
-		wl->last_tx_hlid = h;
-		spin_lock_irqsave(&wl->wl_lock, flags);
-		wl->tx_queue_count[q]--;
-		spin_unlock_irqrestore(&wl->wl_lock, flags);
-	} else {
-		wl->last_tx_hlid = 0;
-	}
+	if (!skb)
+		wlvif->last_tx_hlid = 0;
 
 	return skb;
 }
 
-static struct sk_buff *wl1271_skb_dequeue(struct wl1271 *wl,
-					  struct wl12xx_vif *wlvif)
+static struct sk_buff *wl1271_skb_dequeue(struct wl1271 *wl)
 {
 	unsigned long flags;
+	struct wl12xx_vif *wlvif = wl->last_wlvif;
 	struct sk_buff *skb = NULL;
 
-	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
-		skb = wl1271_ap_skb_dequeue(wl, wlvif);
-	else
-		skb = wl1271_sta_skb_dequeue(wl);
+	if (wlvif) {
+		wl12xx_for_each_wlvif_continue(wl, wlvif) {
+			skb = wl12xx_vif_skb_dequeue(wl, wlvif);
+			if (skb) {
+				wl->last_wlvif = wlvif;
+				break;
+			}
+		}
+	}
+
+	/* do another pass */
+	if (!skb) {
+		wl12xx_for_each_wlvif(wl, wlvif) {
+			skb = wl12xx_vif_skb_dequeue(wl, wlvif);
+			if (skb) {
+				wl->last_wlvif = wlvif;
+				break;
+			}
+		}
+	}
+
+	if (!skb)
+		skb = wl12xx_lnk_skb_dequeue(wl, &wl->links[wl->system_hlid]);
 
 	if (!skb &&
 	    test_and_clear_bit(WL1271_FLAG_DUMMY_PACKET_PENDING, &wl->flags)) {
@@ -627,24 +641,21 @@ static struct sk_buff *wl1271_skb_dequeue(struct wl1271 *wl,
 	return skb;
 }
 
-static void wl1271_skb_queue_head(struct wl1271 *wl, struct ieee80211_vif *vif,
+static void wl1271_skb_queue_head(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				  struct sk_buff *skb)
 {
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	unsigned long flags;
 	int q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 
 	if (wl12xx_is_dummy_packet(wl, skb)) {
 		set_bit(WL1271_FLAG_DUMMY_PACKET_PENDING, &wl->flags);
-	} else if (wlvif->bss_type == BSS_TYPE_AP_BSS) {
-		u8 hlid = wl1271_tx_get_hlid(wl, vif, skb);
+	} else {
+		u8 hlid = wl12xx_tx_get_hlid(wl, wlvif, skb);
 		skb_queue_head(&wl->links[hlid].tx_queue[q], skb);
 
 		/* make sure we dequeue the same packet next time */
-		wl->last_tx_hlid = (hlid + WL12XX_MAX_LINKS - 1) %
-				   WL12XX_MAX_LINKS;
-	} else {
-		skb_queue_head(&wl->tx_queue[q], skb);
+		wlvif->last_tx_hlid = (hlid + WL12XX_MAX_LINKS - 1) %
+				      WL12XX_MAX_LINKS;
 	}
 
 	spin_lock_irqsave(&wl->wl_lock, flags);
@@ -659,30 +670,71 @@ static bool wl1271_tx_is_data_present(struct sk_buff *skb)
 	return ieee80211_is_data_present(hdr->frame_control);
 }
 
-void wl1271_tx_work_locked(struct wl1271 *wl, struct ieee80211_vif *vif)
+void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 {
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl12xx_vif *wlvif;
+	u32 timeout;
+	u8 hlid;
+
+	if (!wl->conf.rx_streaming.interval)
+		return;
+
+	if (!wl->conf.rx_streaming.always &&
+	    !test_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags))
+		return;
+
+	timeout = wl->conf.rx_streaming.duration;
+	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		bool found = false;
+		for_each_set_bit(hlid, active_hlids, WL12XX_MAX_LINKS) {
+			if (test_bit(hlid, wlvif->links_map)) {
+				found  = true;
+				break;
+			}
+		}
+
+		if (!found)
+			continue;
+
+		/* enable rx streaming */
+		if (!test_bit(WLVIF_FLAG_RX_STREAMING_STARTED, &wlvif->flags))
+			ieee80211_queue_work(wl->hw,
+					     &wlvif->rx_streaming_enable_work);
+
+		mod_timer(&wlvif->rx_streaming_timer,
+			  jiffies + msecs_to_jiffies(timeout));
+	}
+}
+
+void wl1271_tx_work_locked(struct wl1271 *wl)
+{
+	struct wl12xx_vif *wlvif;
 	struct sk_buff *skb;
+	struct wl1271_tx_hw_descr *desc;
 	u32 buf_offset = 0;
 	bool sent_packets = false;
-	bool had_data = false;
-	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
+	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	int ret;
 
 	if (unlikely(wl->state == WL1271_STATE_OFF))
 		return;
 
-	while ((skb = wl1271_skb_dequeue(wl, wlvif))) {
-		if (wl1271_tx_is_data_present(skb))
-			had_data = true;
+	while ((skb = wl1271_skb_dequeue(wl))) {
+		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+		bool has_data = false;
 
-		ret = wl1271_prepare_tx_frame(wl, skb, buf_offset);
+		wlvif = NULL;
+		if (!wl12xx_is_dummy_packet(wl, skb) && info->control.vif)
+			wlvif = wl12xx_vif_to_data(info->control.vif);
+
+		has_data = wlvif && wl1271_tx_is_data_present(skb);
+		ret = wl1271_prepare_tx_frame(wl, wlvif, skb, buf_offset);
 		if (ret == -EAGAIN) {
 			/*
 			 * Aggregation buffer is full.
 			 * Flush buffer and try again.
 			 */
-			wl1271_skb_queue_head(wl, vif, skb);
+			wl1271_skb_queue_head(wl, wlvif, skb);
 			wl1271_write(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
 				     buf_offset, true);
 			sent_packets = true;
@@ -693,7 +745,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl, struct ieee80211_vif *vif)
 			 * Firmware buffer is full.
 			 * Queue back last skb, and stop aggregating.
 			 */
-			wl1271_skb_queue_head(wl, vif, skb);
+			wl1271_skb_queue_head(wl, wlvif, skb);
 			/* No work left, avoid scheduling redundant tx work */
 			set_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
 			goto out_ack;
@@ -703,6 +755,10 @@ void wl1271_tx_work_locked(struct wl1271 *wl, struct ieee80211_vif *vif)
 		}
 		buf_offset += ret;
 		wl->tx_packets_count++;
+		if (has_data) {
+			desc = (struct wl1271_tx_hw_descr *) skb->data;
+			__set_bit(desc->hlid, active_hlids);
+		}
 	}
 
 out_ack:
@@ -722,19 +778,7 @@ out_ack:
 
 		wl1271_handle_tx_low_watermark(wl);
 	}
-	if (!is_ap && wl->conf.rx_streaming.interval && had_data &&
-	    (wl->conf.rx_streaming.always ||
-	     test_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags))) {
-		u32 timeout = wl->conf.rx_streaming.duration;
-
-		/* enable rx streaming */
-		if (!test_bit(WL1271_FLAG_RX_STREAMING_STARTED, &wl->flags))
-			ieee80211_queue_work(wl->hw,
-					     &wl->rx_streaming_enable_work);
-
-		mod_timer(&wl->rx_streaming_timer,
-			  jiffies + msecs_to_jiffies(timeout));
-	}
+	wl12xx_rearm_rx_streaming(wl, active_hlids);
 }
 
 void wl1271_tx_work(struct work_struct *work)
@@ -747,7 +791,7 @@ void wl1271_tx_work(struct work_struct *work)
 	if (ret < 0)
 		goto out;
 
-	wl1271_tx_work_locked(wl, wl->vif);
+	wl1271_tx_work_locked(wl);
 
 	wl1271_ps_elp_sleep(wl);
 out:
@@ -758,6 +802,8 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 				      struct wl1271_tx_hw_res_descr *result)
 {
 	struct ieee80211_tx_info *info;
+	struct ieee80211_vif *vif;
+	struct wl12xx_vif *wlvif;
 	struct sk_buff *skb;
 	int id = result->id;
 	int rate = -1;
@@ -777,11 +823,16 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 		return;
 	}
 
+	/* info->control is valid as long as we don't update info->status */
+	vif = info->control.vif;
+	wlvif = wl12xx_vif_to_data(vif);
+
 	/* update the TX status info */
 	if (result->status == TX_SUCCESS) {
 		if (!(info->flags & IEEE80211_TX_CTL_NO_ACK))
 			info->flags |= IEEE80211_TX_STAT_ACK;
-		rate = wl1271_rate_to_idx(result->rate_class_index, wl->band);
+		rate = wl1271_rate_to_idx(result->rate_class_index,
+					  wlvif->band);
 		retries = result->ack_failures;
 	} else if (result->status == TX_RETRY_EXCEEDED) {
 		wl->stats.excessive_retries++;
@@ -804,14 +855,14 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	     info->control.hw_key->cipher == WLAN_CIPHER_SUITE_CCMP ||
 	     info->control.hw_key->cipher == WL1271_CIPHER_SUITE_GEM)) {
 		u8 fw_lsb = result->tx_security_sequence_number_lsb;
-		u8 cur_lsb = wl->tx_security_last_seq_lsb;
+		u8 cur_lsb = wlvif->tx_security_last_seq_lsb;
 
 		/*
 		 * update security sequence number, taking care of potential
 		 * wrap-around
 		 */
-		wl->tx_security_seq += (fw_lsb - cur_lsb + 256) % 256;
-		wl->tx_security_last_seq_lsb = fw_lsb;
+		wlvif->tx_security_seq += (fw_lsb - cur_lsb) & 0xff;
+		wlvif->tx_security_last_seq_lsb = fw_lsb;
 	}
 
 	/* remove private header from packet */
@@ -907,41 +958,30 @@ void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid)
 }
 
 /* caller must hold wl->mutex and TX must be stopped */
-void wl1271_tx_reset(struct wl1271 *wl, bool reset_tx_queues)
+void wl12xx_tx_reset_wlvif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
-	struct ieee80211_vif *vif = wl->vif; /* TODO: get as param */
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	int i;
+
+	/* TX failure */
+	for_each_set_bit(i, wlvif->links_map, WL12XX_MAX_LINKS) {
+		if (wlvif->bss_type == BSS_TYPE_AP_BSS)
+			wl1271_free_sta(wl, wlvif, i);
+		else
+			wlvif->sta.ba_rx_bitmap = 0;
+
+		wl1271_tx_reset_link_queues(wl, i);
+		wl->links[i].allocated_pkts = 0;
+		wl->links[i].prev_freed_pkts = 0;
+	}
+	wlvif->last_tx_hlid = 0;
+
+}
+/* caller must hold wl->mutex and TX must be stopped */
+void wl12xx_tx_reset(struct wl1271 *wl, bool reset_tx_queues)
+{
 	int i;
 	struct sk_buff *skb;
 	struct ieee80211_tx_info *info;
-
-	/* TX failure */
-	if (wlvif->bss_type == BSS_TYPE_AP_BSS) {
-		for (i = 0; i < WL12XX_MAX_LINKS; i++) {
-			wl1271_free_sta(wl, wlvif, i);
-			wl1271_tx_reset_link_queues(wl, i);
-			wl->links[i].allocated_pkts = 0;
-			wl->links[i].prev_freed_pkts = 0;
-		}
-
-		wl->last_tx_hlid = 0;
-	} else {
-		for (i = 0; i < NUM_TX_QUEUES; i++) {
-			while ((skb = skb_dequeue(&wl->tx_queue[i]))) {
-				wl1271_debug(DEBUG_TX, "freeing skb 0x%p",
-					     skb);
-
-				if (!wl12xx_is_dummy_packet(wl, skb)) {
-					info = IEEE80211_SKB_CB(skb);
-					info->status.rates[0].idx = -1;
-					info->status.rates[0].count = 0;
-					ieee80211_tx_status_ni(wl->hw, skb);
-				}
-			}
-		}
-
-		wlvif->sta.ba_rx_bitmap = 0;
-	}
 
 	for (i = 0; i < NUM_TX_QUEUES; i++)
 		wl->tx_queue_count[i] = 0;

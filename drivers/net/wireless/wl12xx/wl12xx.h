@@ -35,82 +35,12 @@
 #include "conf.h"
 #include "ini.h"
 
-#define DRIVER_NAME "wl1271"
-#define DRIVER_PREFIX DRIVER_NAME ": "
-
 /*
  * FW versions support BA 11n
  * versions marks x.x.x.50-60.x
  */
 #define WL12XX_BA_SUPPORT_FW_COST_VER2_START    50
 #define WL12XX_BA_SUPPORT_FW_COST_VER2_END      60
-
-enum {
-	DEBUG_NONE	= 0,
-	DEBUG_IRQ	= BIT(0),
-	DEBUG_SPI	= BIT(1),
-	DEBUG_BOOT	= BIT(2),
-	DEBUG_MAILBOX	= BIT(3),
-	DEBUG_TESTMODE	= BIT(4),
-	DEBUG_EVENT	= BIT(5),
-	DEBUG_TX	= BIT(6),
-	DEBUG_RX	= BIT(7),
-	DEBUG_SCAN	= BIT(8),
-	DEBUG_CRYPT	= BIT(9),
-	DEBUG_PSM	= BIT(10),
-	DEBUG_MAC80211	= BIT(11),
-	DEBUG_CMD	= BIT(12),
-	DEBUG_ACX	= BIT(13),
-	DEBUG_SDIO	= BIT(14),
-	DEBUG_FILTERS   = BIT(15),
-	DEBUG_ADHOC     = BIT(16),
-	DEBUG_AP	= BIT(17),
-	DEBUG_MASTER	= (DEBUG_ADHOC | DEBUG_AP),
-	DEBUG_ALL	= ~0,
-};
-
-extern u32 wl12xx_debug_level;
-
-#define DEBUG_DUMP_LIMIT 1024
-
-#define wl1271_error(fmt, arg...) \
-	pr_err(DRIVER_PREFIX "ERROR " fmt "\n", ##arg)
-
-#define wl1271_warning(fmt, arg...) \
-	pr_warning(DRIVER_PREFIX "WARNING " fmt "\n", ##arg)
-
-#define wl1271_notice(fmt, arg...) \
-	pr_info(DRIVER_PREFIX fmt "\n", ##arg)
-
-#define wl1271_info(fmt, arg...) \
-	pr_info(DRIVER_PREFIX fmt "\n", ##arg)
-
-#define wl1271_debug(level, fmt, arg...) \
-	do { \
-		if (level & wl12xx_debug_level) \
-			pr_debug(DRIVER_PREFIX fmt "\n", ##arg); \
-	} while (0)
-
-/* TODO: use pr_debug_hex_dump when it will be available */
-#define wl1271_dump(level, prefix, buf, len)	\
-	do { \
-		if (level & wl12xx_debug_level) \
-			print_hex_dump(KERN_DEBUG, DRIVER_PREFIX prefix, \
-				       DUMP_PREFIX_OFFSET, 16, 1,	\
-				       buf,				\
-				       min_t(size_t, len, DEBUG_DUMP_LIMIT), \
-				       0);				\
-	} while (0)
-
-#define wl1271_dump_ascii(level, prefix, buf, len)	\
-	do { \
-		if (level & wl12xx_debug_level) \
-			print_hex_dump(KERN_DEBUG, DRIVER_PREFIX prefix, \
-				       DUMP_PREFIX_OFFSET, 16, 1,	\
-				       buf,				\
-				       min_t(size_t, len, DEBUG_DUMP_LIMIT), \
-				       true);				\
-	} while (0)
 
 #define WL127X_FW_NAME "ti-connectivity/wl127x-fw-3.bin"
 #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-3.bin"
@@ -141,6 +71,8 @@ extern u32 wl12xx_debug_level;
 #define WL12XX_MAX_LINKS           12
 #define WL12XX_INVALID_ROLE_ID     0xff
 #define WL12XX_INVALID_LINK_ID     0xff
+
+#define WL12XX_MAX_RATE_POLICIES 16
 
 /* Defined by FW as 0. Will not be freed or allocated. */
 #define WL12XX_SYSTEM_HLID         0
@@ -286,17 +218,14 @@ struct wl1271_scan {
 };
 
 struct wl1271_if_operations {
-	void (*read)(struct wl1271 *wl, int addr, void *buf, size_t len,
+	void (*read)(struct device *child, int addr, void *buf, size_t len,
 		     bool fixed);
-	void (*write)(struct wl1271 *wl, int addr, void *buf, size_t len,
+	void (*write)(struct device *child, int addr, void *buf, size_t len,
 		     bool fixed);
-	void (*reset)(struct wl1271 *wl);
-	void (*init)(struct wl1271 *wl);
-	int (*power)(struct wl1271 *wl, bool enable);
-	struct device* (*dev)(struct wl1271 *wl);
-	void (*enable_irq)(struct wl1271 *wl);
-	void (*disable_irq)(struct wl1271 *wl);
-	void (*set_block_size) (struct wl1271 *wl, unsigned int blksz);
+	void (*reset)(struct device *child);
+	void (*init)(struct device *child);
+	int (*power)(struct device *child, bool enable);
+	void (*set_block_size) (struct device *child, unsigned int blksz);
 };
 
 #define MAX_NUM_KEYS 14
@@ -313,29 +242,32 @@ struct wl1271_ap_key {
 };
 
 enum wl12xx_flags {
-	WL1271_FLAG_STA_ASSOCIATED,
-	WL1271_FLAG_IBSS_JOINED,
 	WL1271_FLAG_GPIO_POWER,
 	WL1271_FLAG_TX_QUEUE_STOPPED,
 	WL1271_FLAG_TX_PENDING,
 	WL1271_FLAG_IN_ELP,
 	WL1271_FLAG_ELP_REQUESTED,
-	WL1271_FLAG_PSM,
-	WL1271_FLAG_PSM_REQUESTED,
 	WL1271_FLAG_IRQ_RUNNING,
 	WL1271_FLAG_IDLE,
-	WL1271_FLAG_PSPOLL_FAILURE,
-	WL1271_FLAG_STA_STATE_SENT,
 	WL1271_FLAG_FW_TX_BUSY,
-	WL1271_FLAG_AP_STARTED,
-	WL1271_FLAG_IF_INITIALIZED,
 	WL1271_FLAG_DUMMY_PACKET_PENDING,
 	WL1271_FLAG_SUSPENDED,
 	WL1271_FLAG_PENDING_WORK,
 	WL1271_FLAG_SOFT_GEMINI,
-	WL1271_FLAG_RX_STREAMING_STARTED,
 	WL1271_FLAG_RECOVERY_IN_PROGRESS,
-	WL1271_FLAG_CS_PROGRESS,
+};
+
+enum wl12xx_vif_flags {
+	WLVIF_FLAG_INITIALIZED,
+	WLVIF_FLAG_STA_ASSOCIATED,
+	WLVIF_FLAG_IBSS_JOINED,
+	WLVIF_FLAG_AP_STARTED,
+	WLVIF_FLAG_PSM,
+	WLVIF_FLAG_PSM_REQUESTED,
+	WLVIF_FLAG_STA_STATE_SENT,
+	WLVIF_FLAG_RX_STREAMING_STARTED,
+	WLVIF_FLAG_PSPOLL_FAILURE,
+	WLVIF_FLAG_CS_PROGRESS,
 };
 
 struct wl1271_link {
@@ -353,9 +285,10 @@ struct wl1271_link {
 };
 
 struct wl1271 {
-	struct platform_device *plat_dev;
 	struct ieee80211_hw *hw;
 	bool mac80211_registered;
+
+	struct device *dev;
 
 	void *if_priv;
 
@@ -393,6 +326,13 @@ struct wl1271 {
 	unsigned long links_map[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WL12XX_MAX_ROLES)];
 	unsigned long roc_map[BITS_TO_LONGS(WL12XX_MAX_ROLES)];
+	unsigned long rate_policies_map[
+			BITS_TO_LONGS(WL12XX_MAX_RATE_POLICIES)];
+
+	struct list_head wlvif_list;
+
+	u8 sta_count;
+	u8 ap_count;
 
 	struct wl1271_acx_mem_map *target_mem_map;
 
@@ -416,7 +356,6 @@ struct wl1271 {
 	s64 time_offset;
 
 	/* Frames scheduled for transmission, not handled yet */
-	struct sk_buff_head tx_queue[NUM_TX_QUEUES];
 	int tx_queue_count[NUM_TX_QUEUES];
 	long stopped_queues_map;
 
@@ -433,17 +372,6 @@ struct wl1271 {
 	unsigned long tx_frames_map[BITS_TO_LONGS(ACX_TX_DESCRIPTORS)];
 	struct sk_buff *tx_frames[ACX_TX_DESCRIPTORS];
 	int tx_frames_cnt;
-
-	/*
-	 * Security sequence number
-	 *     bits 0-15: lower 16 bits part of sequence number
-	 *     bits 16-47: higher 32 bits part of sequence number
-	 *     bits 48-63: not in use
-	 */
-	u64 tx_security_seq;
-
-	/* 8 bits of the last sequence number in use */
-	u8 tx_security_last_seq_lsb;
 
 	/* FW Rx counter */
 	u32 rx_counter;
@@ -485,15 +413,8 @@ struct wl1271 {
 
 	bool sched_scanning;
 
-	u32 bitrate_masks[IEEE80211_NUM_BANDS];
-
 	/* The current band */
 	enum ieee80211_band band;
-
-	/* Rx Streaming */
-	struct work_struct rx_streaming_enable_work;
-	struct work_struct rx_streaming_disable_work;
-	struct timer_list rx_streaming_timer;
 
 	struct completion *elp_compl;
 	struct delayed_work elp_work;
@@ -542,9 +463,6 @@ struct wl1271 {
 	 */
 	struct wl1271_link links[WL12XX_MAX_LINKS];
 
-	/* the hlid of the link where the last transmitted skb came from */
-	int last_tx_hlid;
-
 	/* AP-mode - a bitmap of links currently in PS mode according to FW */
 	u32 ap_fw_ps_map;
 
@@ -562,6 +480,9 @@ struct wl1271 {
 
 	/* AP-mode - number of currently connected stations */
 	int active_sta_count;
+
+	/* last wlvif we transmitted from */
+	struct wl12xx_vif *last_wlvif;
 };
 
 struct wl1271_station {
@@ -570,6 +491,8 @@ struct wl1271_station {
 
 struct wl12xx_vif {
 	struct wl1271 *wl;
+	struct list_head list;
+	unsigned long flags;
 	u8 bss_type;
 	u8 p2p; /* we are using p2p role */
 	u8 role_id;
@@ -582,6 +505,10 @@ struct wl12xx_vif {
 		struct {
 			u8 hlid;
 			u8 ba_rx_bitmap;
+
+			u8 basic_rate_idx;
+			u8 ap_rate_idx;
+			u8 p2p_rate_idx;
 		} sta;
 		struct {
 			u8 global_hlid;
@@ -593,14 +520,26 @@ struct wl12xx_vif {
 
 			/* recoreded keys - set here before AP startup */
 			struct wl1271_ap_key *recorded_keys[MAX_NUM_KEYS];
+
+			u8 mgmt_rate_idx;
+			u8 bcast_rate_idx;
+			u8 ucast_rate_idx[CONF_TX_MAX_AC_COUNT];
 		} ap;
 	};
+
+	/* the hlid of the last transmitted skb */
+	int last_tx_hlid;
 
 	unsigned long links_map[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
 
 	u8 ssid[IEEE80211_MAX_SSID_LEN + 1];
 	u8 ssid_len;
 
+	/* The current band */
+	enum ieee80211_band band;
+	int channel;
+
+	u32 bitrate_masks[IEEE80211_NUM_BANDS];
 	u32 basic_rate_set;
 
 	/*
@@ -636,12 +575,39 @@ struct wl12xx_vif {
 	/* retry counter for PSM entries */
 	u8 psm_entry_retry;
 
+	/* in dBm */
+	int power_level;
+
 	int rssi_thold;
 	int last_rssi_event;
 
 	/* RX BA constraint value */
 	bool ba_support;
 	bool ba_allowed;
+
+	/* Rx Streaming */
+	struct work_struct rx_streaming_enable_work;
+	struct work_struct rx_streaming_disable_work;
+	struct timer_list rx_streaming_timer;
+
+	/*
+	 * This struct must be last!
+	 * data that has to be saved acrossed reconfigs (e.g. recovery)
+	 * should be declared in this struct.
+	 */
+	struct {
+		u8 persistent[0];
+		/*
+		 * Security sequence number
+		 *     bits 0-15: lower 16 bits part of sequence number
+		 *     bits 16-47: higher 32 bits part of sequence number
+		 *     bits 48-63: not in use
+		 */
+		u64 tx_security_seq;
+
+		/* 8 bits of the last sequence number in use */
+		u8 tx_security_last_seq_lsb;
+	};
 };
 
 static inline struct wl12xx_vif *wl12xx_vif_to_data(struct ieee80211_vif *vif)
@@ -655,9 +621,25 @@ struct ieee80211_vif *wl12xx_wlvif_to_vif(struct wl12xx_vif *wlvif)
 	return container_of((void *)wlvif, struct ieee80211_vif, drv_priv);
 }
 
+#define wl12xx_for_each_wlvif(wl, wlvif) \
+		list_for_each_entry(wlvif, &wl->wlvif_list, list)
+
+#define wl12xx_for_each_wlvif_continue(wl, wlvif) \
+		list_for_each_entry_continue(wlvif, &wl->wlvif_list, list)
+
+#define wl12xx_for_each_wlvif_bss_type(wl, wlvif, _bss_type)	\
+		wl12xx_for_each_wlvif(wl, wlvif)		\
+			if (wlvif->bss_type == _bss_type)
+
+#define wl12xx_for_each_wlvif_sta(wl, wlvif)	\
+		wl12xx_for_each_wlvif_bss_type(wl, wlvif, BSS_TYPE_STA_BSS)
+
+#define wl12xx_for_each_wlvif_ap(wl, wlvif)	\
+		wl12xx_for_each_wlvif_bss_type(wl, wlvif, BSS_TYPE_AP_BSS)
+
 int wl1271_plt_start(struct wl1271 *wl);
 int wl1271_plt_stop(struct wl1271 *wl);
-int wl1271_recalc_rx_streaming(struct wl1271 *wl);
+int wl1271_recalc_rx_streaming(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 void wl12xx_queue_recovery_work(struct wl1271 *wl);
 size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 

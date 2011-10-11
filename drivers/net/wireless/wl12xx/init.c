@@ -25,6 +25,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include "debug.h"
 #include "init.h"
 #include "wl12xx_80211.h"
 #include "acx.h"
@@ -343,11 +344,6 @@ static int wl1271_sta_hw_init(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	if (ret < 0)
 		return ret;
 
-	/* Configure for ELP power saving */
-	ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_ELP);
-	if (ret < 0)
-		return ret;
-
 	ret = wl1271_acx_sta_rate_policies(wl, wlvif);
 	if (ret < 0)
 		return ret;
@@ -381,11 +377,6 @@ static int wl1271_sta_hw_init_post_mem(struct wl1271 *wl,
 static int wl1271_ap_hw_init(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	int ret;
-
-	/* Configure for power always on */
-	ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_CAM);
-	if (ret < 0)
-		return ret;
 
 	ret = wl1271_init_ap_rates(wl, wlvif);
 	if (ret < 0)
@@ -444,7 +435,7 @@ int wl1271_init_ap_rates(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	rc.long_retry_limit = 10;
 	rc.short_retry_limit = 10;
 	rc.aflags = 0;
-	ret = wl1271_acx_ap_rate_policy(wl, &rc, ACX_TX_AP_MODE_MGMT_RATE);
+	ret = wl1271_acx_ap_rate_policy(wl, &rc, wlvif->ap.mgmt_rate_idx);
 	if (ret < 0)
 		return ret;
 
@@ -453,7 +444,7 @@ int wl1271_init_ap_rates(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	rc.short_retry_limit = 10;
 	rc.long_retry_limit = 10;
 	rc.aflags = 0;
-	ret = wl1271_acx_ap_rate_policy(wl, &rc, ACX_TX_AP_MODE_BCST_RATE);
+	ret = wl1271_acx_ap_rate_policy(wl, &rc, wlvif->ap.bcast_rate_idx);
 	if (ret < 0)
 		return ret;
 
@@ -475,7 +466,8 @@ int wl1271_init_ap_rates(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		rc.short_retry_limit = 10;
 		rc.long_retry_limit = 10;
 		rc.aflags = 0;
-		ret = wl1271_acx_ap_rate_policy(wl, &rc, i);
+		ret = wl1271_acx_ap_rate_policy(wl, &rc,
+						wlvif->ap.ucast_rate_idx[i]);
 		if (ret < 0)
 			return ret;
 	}
@@ -564,7 +556,7 @@ static int wl12xx_init_ap_role(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		return ret;
 
 	/* initialize Tx power */
-	ret = wl1271_acx_tx_power(wl, wlvif, wl->power_level);
+	ret = wl1271_acx_tx_power(wl, wlvif, wlvif->power_level);
 	if (ret < 0)
 		return ret;
 
@@ -577,8 +569,25 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 	struct conf_tx_ac_category *conf_ac;
 	struct conf_tx_tid *conf_tid;
 	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
-
 	int ret, i;
+
+	/*
+	 * consider all existing roles before configuring psm.
+	 * TODO: reconfigure on interface removal.
+	 */
+	if (!wl->ap_count) {
+		if (is_ap) {
+			/* Configure for power always on */
+			ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_CAM);
+			if (ret < 0)
+				return ret;
+		} else if (!wl->sta_count) {
+			/* Configure for ELP power saving */
+			ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_ELP);
+			if (ret < 0)
+				return ret;
+		}
+	}
 
 	/* Mode specific init */
 	if (is_ap) {

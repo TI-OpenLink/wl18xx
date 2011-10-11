@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 
 #include "wl12xx.h"
+#include "debug.h"
 #include "wl12xx_80211.h"
 #include "reg.h"
 #include "ps.h"
@@ -766,7 +767,7 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		wlvif->basic_rate, wlvif->rate_set);
 
 	/* configure one basic rate class */
-	acx->rate_policy_idx = cpu_to_le32(ACX_TX_BASIC_RATE);
+	acx->rate_policy_idx = cpu_to_le32(wlvif->sta.basic_rate_idx);
 	acx->rate_policy.enabled_rates = cpu_to_le32(wlvif->basic_rate);
 	acx->rate_policy.short_retry_limit = c->short_retry_limit;
 	acx->rate_policy.long_retry_limit = c->long_retry_limit;
@@ -779,7 +780,7 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	}
 
 	/* configure one AP supported rate class */
-	acx->rate_policy_idx = cpu_to_le32(ACX_TX_AP_FULL_RATE);
+	acx->rate_policy_idx = cpu_to_le32(wlvif->sta.ap_rate_idx);
 	acx->rate_policy.enabled_rates = cpu_to_le32(wlvif->rate_set);
 	acx->rate_policy.short_retry_limit = c->short_retry_limit;
 	acx->rate_policy.long_retry_limit = c->long_retry_limit;
@@ -796,7 +797,7 @@ int wl1271_acx_sta_rate_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	 * (p2p packets should always go out with OFDM rates, even
 	 * if we are currently connected to 11b AP)
 	 */
-	acx->rate_policy_idx = cpu_to_le32(ACX_TX_BASIC_RATE_P2P);
+	acx->rate_policy_idx = cpu_to_le32(wlvif->sta.p2p_rate_idx);
 	acx->rate_policy.enabled_rates =
 				cpu_to_le32(CONF_TX_RATE_MASK_BASIC_P2P);
 	acx->rate_policy.short_retry_limit = c->short_retry_limit;
@@ -1510,10 +1511,9 @@ out:
 	return ret;
 }
 
-int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, bool enable)
+int wl1271_acx_ps_rx_streaming(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			       bool enable)
 {
-	struct ieee80211_vif *vif = wl->vif; /* TODO: get as param */
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct wl1271_acx_ps_rx_streaming *rx_streaming;
 	u32 conf_queues, enable_queues;
 	int i, ret = 0;

@@ -24,6 +24,7 @@
 #include <linux/ieee80211.h>
 
 #include "wl12xx.h"
+#include "debug.h"
 #include "cmd.h"
 #include "scan.h"
 #include "acx.h"
@@ -64,20 +65,20 @@ void wl1271_scan_complete_work(struct work_struct *work)
 	if (ret < 0)
 		goto out;
 
-	if (test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) {
+	if (test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags)) {
 		/* restore hardware connection monitoring template */
-		wl1271_cmd_build_ap_probe_req(wl, wlvif->probereq);
+		wl1271_cmd_build_ap_probe_req(wl, wlvif, wlvif->probereq);
 	}
 
 	/* return to ROC if needed */
 	is_sta = (wlvif->bss_type == BSS_TYPE_STA_BSS);
 	is_ibss = (wlvif->bss_type == BSS_TYPE_IBSS);
-	if (((is_sta && !test_bit(WL1271_FLAG_STA_ASSOCIATED, &wl->flags)) ||
-	     (is_ibss && !test_bit(WL1271_FLAG_IBSS_JOINED, &wl->flags))) &&
+	if (((is_sta && !test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags)) ||
+	     (is_ibss && !test_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags))) &&
 	    !test_bit(wlvif->dev_role_id, wl->roc_map)) {
 		/* restore remain on channel */
 		wl12xx_cmd_role_start_dev(wl, wlvif);
-		wl12xx_roc(wl, wlvif->dev_role_id);
+		wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
 	}
 	wl1271_ps_elp_sleep(wl);
 
@@ -218,9 +219,9 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 
 	memcpy(cmd->addr, vif->addr, ETH_ALEN);
 
-	ret = wl1271_cmd_build_probe_req(wl, wl->scan.ssid, wl->scan.ssid_len,
-					 wl->scan.req->ie, wl->scan.req->ie_len,
-					 band);
+	ret = wl1271_cmd_build_probe_req(wl, wlvif, wl->scan.ssid,
+					 wl->scan.ssid_len, wl->scan.req->ie,
+					 wl->scan.req->ie_len, band);
 	if (ret < 0) {
 		wl1271_error("PROBE request template failed");
 		goto out;
@@ -251,6 +252,7 @@ out:
 
 void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif)
 {
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret = 0;
 	enum ieee80211_band band;
 	u32 rate;
@@ -261,7 +263,7 @@ void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif)
 
 	case WL1271_SCAN_STATE_2GHZ_ACTIVE:
 		band = IEEE80211_BAND_2GHZ;
-		rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[band]);
+		rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);
 		ret = wl1271_scan_send(wl, vif, band, false, rate);
 		if (ret == WL1271_NOTHING_TO_SCAN) {
 			wl->scan.state = WL1271_SCAN_STATE_2GHZ_PASSIVE;
@@ -272,7 +274,7 @@ void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif)
 
 	case WL1271_SCAN_STATE_2GHZ_PASSIVE:
 		band = IEEE80211_BAND_2GHZ;
-		rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[band]);
+		rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);
 		ret = wl1271_scan_send(wl, vif, band, true, rate);
 		if (ret == WL1271_NOTHING_TO_SCAN) {
 			if (wl->enable_11a)
@@ -286,7 +288,7 @@ void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif)
 
 	case WL1271_SCAN_STATE_5GHZ_ACTIVE:
 		band = IEEE80211_BAND_5GHZ;
-		rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[band]);
+		rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);
 		ret = wl1271_scan_send(wl, vif, band, false, rate);
 		if (ret == WL1271_NOTHING_TO_SCAN) {
 			wl->scan.state = WL1271_SCAN_STATE_5GHZ_PASSIVE;
@@ -297,7 +299,7 @@ void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif)
 
 	case WL1271_SCAN_STATE_5GHZ_PASSIVE:
 		band = IEEE80211_BAND_5GHZ;
-		rate = wl1271_tx_min_rate_get(wl, wl->bitrate_masks[band]);
+		rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);
 		ret = wl1271_scan_send(wl, vif, band, true, rate);
 		if (ret == WL1271_NOTHING_TO_SCAN) {
 			wl->scan.state = WL1271_SCAN_STATE_DONE;
@@ -642,7 +644,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	}
 
 	if (!force_passive && cfg->active[0]) {
-		ret = wl1271_cmd_build_probe_req(wl, req->ssids[0].ssid,
+		ret = wl1271_cmd_build_probe_req(wl, wlvif, req->ssids[0].ssid,
 						 req->ssids[0].ssid_len,
 						 ies->ie[IEEE80211_BAND_2GHZ],
 						 ies->len[IEEE80211_BAND_2GHZ],
@@ -654,7 +656,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	}
 
 	if (!force_passive && cfg->active[1]) {
-		ret = wl1271_cmd_build_probe_req(wl,  req->ssids[0].ssid,
+		ret = wl1271_cmd_build_probe_req(wl, wlvif, req->ssids[0].ssid,
 						 req->ssids[0].ssid_len,
 						 ies->ie[IEEE80211_BAND_5GHZ],
 						 ies->len[IEEE80211_BAND_5GHZ],

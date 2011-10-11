@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 
 #include "wl12xx.h"
+#include "debug.h"
 #include "acx.h"
 #include "ps.h"
 #include "io.h"
@@ -346,7 +347,6 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_INT(tx_results_count);
 	DRIVER_STATE_PRINT_LHEX(flags);
 	DRIVER_STATE_PRINT_INT(tx_blocks_freed);
-	DRIVER_STATE_PRINT_INT(tx_security_last_seq_lsb);
 	DRIVER_STATE_PRINT_INT(rx_counter);
 	DRIVER_STATE_PRINT_INT(state);
 	DRIVER_STATE_PRINT_INT(channel);
@@ -355,7 +355,6 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_INT(sg_enabled);
 	DRIVER_STATE_PRINT_INT(enable_11a);
 	DRIVER_STATE_PRINT_INT(noise);
-	DRIVER_STATE_PRINT_INT(last_tx_hlid);
 	DRIVER_STATE_PRINT_HEX(ap_fw_ps_map);
 	DRIVER_STATE_PRINT_LHEX(ap_ps_map);
 	DRIVER_STATE_PRINT_HEX(quirks);
@@ -507,6 +506,7 @@ static ssize_t rx_streaming_interval_write(struct file *file,
 			   size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
+	struct wl12xx_vif *wlvif;
 	unsigned long value;
 	int ret;
 
@@ -530,7 +530,9 @@ static ssize_t rx_streaming_interval_write(struct file *file,
 	if (ret < 0)
 		goto out;
 
-	wl1271_recalc_rx_streaming(wl);
+	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		wl1271_recalc_rx_streaming(wl, wlvif);
+	}
 
 	wl1271_ps_elp_sleep(wl);
 out:
@@ -559,6 +561,7 @@ static ssize_t rx_streaming_always_write(struct file *file,
 			   size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
+	struct wl12xx_vif *wlvif;
 	unsigned long value;
 	int ret;
 
@@ -582,7 +585,9 @@ static ssize_t rx_streaming_always_write(struct file *file,
 	if (ret < 0)
 		goto out;
 
-	wl1271_recalc_rx_streaming(wl);
+	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		wl1271_recalc_rx_streaming(wl, wlvif);
+	}
 
 	wl1271_ps_elp_sleep(wl);
 out:
@@ -611,18 +616,11 @@ static ssize_t beacon_filtering_write(struct file *file,
 				      size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
-	struct ieee80211_vif *vif;
 	struct wl12xx_vif *wlvif;
 	char buf[10];
 	size_t len;
 	unsigned long value;
 	int ret;
-
-	if (!wl->vif)
-		return -EINVAL;
-
-	vif = wl->vif;
-	wlvif = wl12xx_vif_to_data(vif);
 
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))
@@ -641,7 +639,9 @@ static ssize_t beacon_filtering_write(struct file *file,
 	if (ret < 0)
 		goto out;
 
-	ret = wl1271_acx_beacon_filter_opt(wl, wlvif, !!value);
+	wl12xx_for_each_wlvif(wl, wlvif) {
+		ret = wl1271_acx_beacon_filter_opt(wl, wlvif, !!value);
+	}
 
 	wl1271_ps_elp_sleep(wl);
 out:
