@@ -61,8 +61,11 @@ struct wl1271_static_data {
 
 #define WL127X_REG_FUSE_DATA_2_1    0x050a
 #define WL128X_REG_FUSE_DATA_2_1    0x2152
-#define PG_VER_MASK          0x3c
-#define PG_VER_OFFSET        2
+#define WL18XX_REG_FUSE_DATA_1_3    0xA0260C
+#define WL12XX_PG_VER_MASK          0x3c
+#define WL12XX_PG_VER_OFFSET        2
+#define WL18XX_PG_VER_MASK          0x70
+#define WL18XX_PG_VER_OFFSET        4
 
 #define PG_MAJOR_VER_MASK    0x3
 #define PG_MAJOR_VER_OFFSET  0x0

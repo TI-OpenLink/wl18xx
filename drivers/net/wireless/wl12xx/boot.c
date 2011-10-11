@@ -587,11 +587,20 @@ static void wl1271_boot_hw_version(struct wl1271 *wl)
 {
 	u32 fuse;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
-		fuse = wl1271_top_reg_read(wl, WL128X_REG_FUSE_DATA_2_1);
-	else
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+        wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
+        fuse = wl1271_read32(wl, WL18XX_REG_FUSE_DATA_1_3);
+		wl1271_set_partition(wl, &part_table[PART_BOOT]);
+        fuse = (fuse & WL18XX_PG_VER_MASK) >> WL18XX_PG_VER_OFFSET;
+	}
+	else if (wl->chip.id == CHIP_ID_1283_PG20) {
+        fuse = wl1271_top_reg_read(wl, WL128X_REG_FUSE_DATA_2_1);
+		fuse = (fuse & WL12XX_PG_VER_MASK) >> WL12XX_PG_VER_OFFSET;
+	}
+	else {
 		fuse = wl1271_top_reg_read(wl, WL127X_REG_FUSE_DATA_2_1);
-	fuse = (fuse & PG_VER_MASK) >> PG_VER_OFFSET;
+		fuse = (fuse & WL12XX_PG_VER_MASK) >> WL12XX_PG_VER_OFFSET;
+	}
 
 	wl->hw_pg_ver = (s8)fuse;
 }
@@ -989,9 +998,7 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	u32 tmp;
 	int selected_clock = -1;
 
-	/* Orit - Need to add WL8 support !!! */
-	if (wl->chip.id != CHIP_ID_185x_PG10)
-		wl1271_boot_hw_version(wl);
+	wl1271_boot_hw_version(wl);
 
 	if (wl->chip.id == CHIP_ID_185x_PG10) {
 		ret = wl18xx_boot_clk(wl, &selected_clock);
