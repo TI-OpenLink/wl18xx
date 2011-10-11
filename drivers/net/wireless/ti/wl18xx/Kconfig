@@ -1,0 +1,12 @@
+config WL18XX
+	tristate "TI wl18xx support"
+	depends on GENERIC_HARDIRQS && MAC80211 && WL_TI && EXPERIMENTAL
+	select FW_LOADER
+	select WLCORE
+	---help---
+	  This module adds support for wireless adapters based on TI's wl18xx
+	  family of chipsets.
+
+	  If you choose to build a module, it will be called wl18xx. Say N if
+	  unsure.
+

@@ -4,4 +4,5 @@ menuconfig WL_TI
 	  This section contains suppot for all the wireless drivers
 	  for TI WLAN chips, such as wl1251 and the wl12xx family.
 
+source "drivers/net/wireless/ti/wl18xx/Kconfig"
 source "drivers/net/wireless/ti/wlcore/Kconfig"
