@@ -39,6 +39,14 @@
 
 #define WL1271_CMD_FAST_POLL_COUNT       50
 
+static void wlcore_cmd_trigger(struct wl1271 *wl)
+{
+	if (wl->conf.platform_type == 1)
+		wl1271_write32(wl, WL12XX_ACX_REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_CMD);
+	else
+		wl1271_write32(wl, WL18XX_ACX_REG_INTERRUPT_TRIG_H, WL18XX_INTR_TRIG_CMD);
+}
+
 /*
  * send command to firmware
  *
@@ -66,17 +74,11 @@ int wl1271_cmd_send(struct wl1271 *wl, u16 id, void *buf, size_t len,
 
 	wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
 
-	if (wl->conf.platform_type == 1)
-		wl1271_write32(wl, WL12XX_ACX_REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_CMD);
-	else
-		wl1271_write32(wl, WL18XX_ACX_REG_INTERRUPT_TRIG_H, WL18XX_INTR_TRIG_CMD);
+	wlcore_cmd_trigger(wl);
 
 	timeout = jiffies + msecs_to_jiffies(WL1271_COMMAND_TIMEOUT);
 
-	if (wl->conf.platform_type == 1)
-		intr = wl1271_read32(wl, WL12XX_ACX_REG_INTERRUPT_NO_CLEAR);
-	else
-		intr = wl1271_read32(wl, WL18XX_ACX_REG_INTERRUPT_NO_CLEAR);
+	intr = PLAT_READ_REG32(wl, ACX_REG_INTERRUPT_NO_CLEAR);
 	while (!(intr & WL1271_ACX_INTR_CMD_COMPLETE)) {
 		if (time_after(jiffies, timeout)) {
 			wl1271_error("command complete timeout");
@@ -90,10 +92,7 @@ int wl1271_cmd_send(struct wl1271 *wl, u16 id, void *buf, size_t len,
 		else
 			msleep(1);
 
-		if (wl->conf.platform_type == 1)
-			intr = wl1271_read32(wl, WL12XX_ACX_REG_INTERRUPT_NO_CLEAR);
-		else
-			intr = wl1271_read32(wl, WL18XX_ACX_REG_INTERRUPT_NO_CLEAR);
+		intr = PLAT_READ_REG32(wl, ACX_REG_INTERRUPT_NO_CLEAR);
 	}
 
 	/* read back the status code of the command */
@@ -107,12 +106,9 @@ int wl1271_cmd_send(struct wl1271 *wl, u16 id, void *buf, size_t len,
 		ret = -EIO;
 		goto fail;
 	}
-	if (wl->conf.platform_type == 1)
-		wl1271_write32(wl, WL12XX_ACX_REG_INTERRUPT_ACK,
-			       WL1271_ACX_INTR_CMD_COMPLETE);
-	else
-		wl1271_write32(wl, WL18XX_ACX_REG_INTERRUPT_ACK,
-			       WL1271_ACX_INTR_CMD_COMPLETE);
+
+	PLAT_WRITE_REG32(wl, ACX_REG_INTERRUPT_ACK,
+			 WL1271_ACX_INTR_CMD_COMPLETE);
 
 	return 0;
 

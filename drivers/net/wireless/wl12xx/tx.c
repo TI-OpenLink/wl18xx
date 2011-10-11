@@ -407,7 +407,7 @@ static void wlcore_tx_set_desc_data_len(struct wl1271 *wl, struct sk_buff *skb,
 			     le16_to_cpu(desc->length),
 			     le16_to_cpu(desc->life_time),
 			     desc->wl18xx_mem.total_mem_blocks);
-	} 
+	}
 }
 
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
@@ -904,7 +904,7 @@ static void wl18xx_tx_complete_packet(struct wl1271 *wl, int tx_stat_byte)
 	}
 
 	/* update the TX status info */
- 	if (tx_success && !(info->flags & IEEE80211_TX_CTL_NO_ACK))
+	if (tx_success && !(info->flags & IEEE80211_TX_CTL_NO_ACK))
 		info->flags |= IEEE80211_TX_STAT_ACK;
 
 	/* no real data about Tx completion */
