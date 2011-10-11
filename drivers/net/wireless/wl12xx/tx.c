@@ -51,12 +51,21 @@ static int wl1271_set_default_wep_key(struct wl1271 *wl,
 	return 0;
 }
 
+u32 wlcore_num_tx_descriptors(struct wl1271 *wl)
+{
+	if (wl->conf.platform_type == 1)
+		return WL12XX_ACX_TX_DESCRIPTORS;
+	else
+		return WL18XX_ACX_TX_DESCRIPTORS;
+}
+
 static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 {
 	int id;
 
-	id = find_first_zero_bit(wl->tx_frames_map, ACX_TX_DESCRIPTORS);
-	if (id >= ACX_TX_DESCRIPTORS)
+	id = find_first_zero_bit(wl->tx_frames_map,
+				 wlcore_num_tx_descriptors(wl));
+	if (id >= wlcore_num_tx_descriptors(wl))
 		return -EBUSY;
 
 	__set_bit(id, wl->tx_frames_map);
@@ -68,7 +77,8 @@ static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 static void wl1271_free_tx_id(struct wl1271 *wl, int id)
 {
 	if (__test_and_clear_bit(id, wl->tx_frames_map)) {
-		if (unlikely(wl->tx_frames_cnt == ACX_TX_DESCRIPTORS))
+		if (unlikely(wl->tx_frames_cnt ==
+			     wlcore_num_tx_descriptors(wl)))
 			clear_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
 
 		wl->tx_frames[id] = NULL;
@@ -200,6 +210,7 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
 						unsigned int packet_length)
 {
+	/* 18xxTODO: turn into Tx quirk */
 	if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
 		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
 	else
@@ -227,9 +238,15 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (id < 0)
 		return id;
 
-	/* approximate the number of blocks required for this packet
-	   in the firmware */
-	len = wl12xx_calc_packet_alignment(wl, total_len);
+	/*
+	 * approximate the number of blocks required for this packet
+	 * in the firmware
+	 */
+	if (wl->conf.platform_type == 1)
+		len = wl12xx_calc_packet_alignment(wl, total_len);
+	else
+		/* 18xxTODO: make sure this is ok */
+		len = total_len;
 
 	/* in case of a dummy packet, use default amount of spare mem blocks */
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb))) {
@@ -242,14 +259,20 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			WL12XX_TX_HW_BLOCK_SIZE : WL18XX_TX_HW_BLOCK_SIZE;
 
 	total_blocks = (len + tx_hw_block_size - 1) / tx_hw_block_size +
-		spare_blocks;
+		       spare_blocks;
 
 	if (total_blocks <= wl->tx_blocks_available) {
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
 			skb, total_len - skb->len);
 
-		/* HW descriptor fields change between wl127x and wl128x */
-		if (wl->chip.id == CHIP_ID_1283_PG20) {
+		/*
+		 * HW descriptor fields change between wl127x,
+		 * wl128x and wl18xx
+		 */
+		if (wl->chip.id == CHIP_ID_185x_PG10) {
+			desc->wl128x_mem.total_mem_blocks = total_blocks;
+			desc->wl128x_mem.extra_bytes = 0;
+		} else if (wl->chip.id == CHIP_ID_1283_PG20) {
 			desc->wl128x_mem.total_mem_blocks = total_blocks;
 		} else {
 			desc->wl127x_mem.extra_blocks = spare_blocks;
@@ -339,7 +362,12 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		/* if the packets are destined for AP (have a STA entry)
 		   send them with AP rate policies, otherwise use default
 		   basic rates */
-		if (control->control.sta)
+		if (wl->conf.platform_type == 2 &&
+		    control->control.sta &&
+		    (wlvif->channel_type == NL80211_CHAN_HT40MINUS ||
+		     wlvif->channel_type == NL80211_CHAN_HT40PLUS))
+			rate_idx = wlvif->sta.wide_chan_rate_idx;
+		else if (control->control.sta)
 			rate_idx = wlvif->sta.ap_rate_idx;
 		else
 			rate_idx = wlvif->sta.basic_rate_idx;
@@ -357,7 +385,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		desc->length = skb->len;
+	} else if (wl->chip.id == CHIP_ID_1283_PG20) {
 		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
 		desc->length = cpu_to_le16(aligned_len >> 2);
 
@@ -799,6 +829,98 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
+static void wl18xx_tx_complete_packet(struct wl1271 *wl, int tx_stat_byte)
+{
+	struct ieee80211_tx_info *info;
+	struct sk_buff *skb;
+	int id = tx_stat_byte & WL18XX_TX_STATUS_DESC_ID_MASK;
+	bool tx_success;
+
+	tx_success = !!((id & BIT(WL18XX_TX_STATUS_STAT_BIT_IDX)) >>
+			WL18XX_TX_STATUS_STAT_BIT_IDX);
+
+	/* check for id legality */
+	if (unlikely(id >= WL18XX_ACX_TX_DESCRIPTORS ||
+		     wl->tx_frames[id] == NULL)) {
+		wl1271_warning("illegal id in tx completion: %d", id);
+		return;
+	}
+
+	skb = wl->tx_frames[id];
+	info = IEEE80211_SKB_CB(skb);
+
+	if (wl12xx_is_dummy_packet(wl, skb)) {
+		wl1271_free_tx_id(wl, id);
+		return;
+	}
+
+	/* update the TX status info */
+ 	if (tx_success && !(info->flags & IEEE80211_TX_CTL_NO_ACK))
+		info->flags |= IEEE80211_TX_STAT_ACK;
+
+	/* no real data about Tx completion */
+	info->status.rates[0].idx = -1;
+	info->status.rates[0].count = 0;
+	info->status.rates[0].flags = 0;
+	info->status.ack_signal = -1;
+
+	if (!tx_success)
+		wl->stats.retry_count++;
+
+	/*
+	 * wl18xxTODO: update sequence number for encryption? seems to be
+	 * unsupported for now. needed for recovery with encryption
+	 */
+
+	/* remove private header from packet */
+	skb_pull(skb, sizeof(struct wl1271_tx_hw_descr));
+
+	/* remove TKIP header space if present */
+	if (info->control.hw_key &&
+	    info->control.hw_key->cipher == WLAN_CIPHER_SUITE_TKIP) {
+		int hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+		memmove(skb->data + WL1271_TKIP_IV_SPACE, skb->data, hdrlen);
+		skb_pull(skb, WL1271_TKIP_IV_SPACE);
+	}
+
+	wl1271_debug(DEBUG_TX, "tx status id %u skb 0x%p success %d",
+		     id, skb, tx_success);
+
+	/* return the packet to the stack */
+	skb_queue_tail(&wl->deferred_tx_queue, skb);
+	ieee80211_queue_work(wl->hw, &wl->netstack_work);
+	wl1271_free_tx_id(wl, id);
+}
+
+/* called on each FW interrupt */
+void wl18xx_tx_complete(struct wl1271 *wl)
+{
+	u8 i;
+	struct wl_fw_status *status = wl->fw_status;
+
+	/* freed Tx descriptors */
+	wl1271_debug(DEBUG_TX, "last released desc = %d, current idx = %d",
+		     wl->last_fw_rls_idx, status->wl18xx.fw_release_idx);
+
+	if (status->wl18xx.fw_release_idx >= WL18XX_ACX_TX_DESCRIPTORS) {
+		wl1271_error("invalid desc release index %d",
+			     status->wl18xx.fw_release_idx);
+		WARN_ON(1);
+		return;
+	}
+
+	for (i = wl->last_fw_rls_idx; i != status->wl18xx.fw_release_idx;
+	     i = (i + 1) % WL18XX_ACX_TX_DESCRIPTORS) {
+		wl18xx_tx_complete_packet(wl,
+					  status->wl18xx.released_tx_desc[i]);
+
+		wl->tx_results_count++;
+	}
+
+	wl->last_fw_rls_idx = status->wl18xx.fw_release_idx;
+}
+
+
 static void wl1271_tx_complete_packet(struct wl1271 *wl,
 				      struct wl1271_tx_hw_res_descr *result)
 {
@@ -811,7 +933,8 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	u8 retries = 0;
 
 	/* check for id legality */
-	if (unlikely(id >= ACX_TX_DESCRIPTORS || wl->tx_frames[id] == NULL)) {
+	if (unlikely(id >= WL12XX_ACX_TX_DESCRIPTORS ||
+		     wl->tx_frames[id] == NULL)) {
 		wl1271_warning("TX result illegal id: %d", id);
 		return;
 	}
@@ -997,7 +1120,7 @@ void wl12xx_tx_reset(struct wl1271 *wl, bool reset_tx_queues)
 	if (reset_tx_queues)
 		wl1271_handle_tx_low_watermark(wl);
 
-	for (i = 0; i < ACX_TX_DESCRIPTORS; i++) {
+	for (i = 0; i < wlcore_num_tx_descriptors(wl); i++) {
 		if (wl->tx_frames[i] == NULL)
 			continue;
 

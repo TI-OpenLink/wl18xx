@@ -967,6 +967,9 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	getnstimeofday(&ts);
 	wl->time_offset = (timespec_to_ns(&ts) >> 10) -
 		(s64)le32_to_cpu(status->fw_localtime);
+
+	if (wl->conf.platform_type == 2)
+		wl18xx_tx_complete(wl);
 }
 
 static void wl1271_flush_deferred_work(struct wl1271 *wl)
@@ -992,6 +995,7 @@ static void wl1271_netstack_work(struct work_struct *work)
 	} while (skb_queue_len(&wl->deferred_rx_queue));
 }
 
+/* 18xxTODO: loops was reduced to 64 here for 18xx. is there a reason? */
 #define WL1271_IRQ_MAX_LOOPS 256
 
 irqreturn_t wl1271_irq(int irq, void *cookie)
@@ -1071,8 +1075,9 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 				spin_unlock_irqrestore(&wl->wl_lock, flags);
 			}
 
-			/* check for tx results */
-			if (wl->fw_status->tx_results_counter !=
+			/* check for tx results on wl12xx cards */
+			if (wl->conf.platform_type == 1 &&
+			    wl->fw_status->tx_results_counter !=
 			    (wl->tx_results_count & 0xff))
 				wl1271_tx_complete(wl);
 
@@ -1557,6 +1562,7 @@ static int __wl1271_plt_stop(struct wl1271 *wl)
 
 	wl->state = WL1271_STATE_OFF;
 	wl->rx_counter = 0;
+	wl->last_fw_rls_idx = 0;
 
 	mutex_unlock(&wl->mutex);
 	wl1271_disable_interrupts(wl);
@@ -1958,6 +1964,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	wl->rx_counter = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
 	wl->channel_type = NL80211_CHAN_NO_HT;
+	wl->last_fw_rls_idx = 0;
 	wl->tx_blocks_available = 0;
 	wl->tx_allocated_blocks = 0;
 	wl->tx_results_count = 0;
@@ -4588,18 +4595,32 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 /* 11n STA capabilities */
 #define HW_RX_HIGHEST_RATE	72
 
-#define WL12XX_HT_CAP { \
-	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
-	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT), \
-	.ht_supported = true, \
-	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K, \
-	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8, \
-	.mcs = { \
-		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, }, \
-		.rx_highest = cpu_to_le16(HW_RX_HIGHEST_RATE), \
-		.tx_params = IEEE80211_HT_MCS_TX_DEFINED, \
-		}, \
-}
+static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
+	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 |
+	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT),
+	.ht_supported = true,
+	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K,
+	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8,
+	.mcs = {
+		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		.rx_highest = cpu_to_le16(HW_RX_HIGHEST_RATE),
+		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
+		},
+};
+
+static struct ieee80211_sta_ht_cap wl18xx_ht_cap = {
+	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 |
+	       IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
+	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT),
+	.ht_supported = true,
+	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_16K,
+	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8,
+	.mcs = {
+		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+		.rx_highest = cpu_to_le16(HW_RX_HIGHEST_RATE),
+		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
+		},
+};
 
 /* can't be const, mac80211 writes to this */
 static struct ieee80211_supported_band wl1271_band_2ghz = {
@@ -4607,7 +4628,7 @@ static struct ieee80211_supported_band wl1271_band_2ghz = {
 	.n_channels = ARRAY_SIZE(wl1271_channels),
 	.bitrates = wl1271_rates,
 	.n_bitrates = ARRAY_SIZE(wl1271_rates),
-	.ht_cap	= WL12XX_HT_CAP,
+	.ht_cap = { 0 },
 };
 
 /* 5 GHz data rates for WL1273 */
@@ -4711,7 +4732,7 @@ static struct ieee80211_supported_band wl1271_band_5ghz = {
 	.n_channels = ARRAY_SIZE(wl1271_channels_5ghz),
 	.bitrates = wl1271_rates_5ghz,
 	.n_bitrates = ARRAY_SIZE(wl1271_rates_5ghz),
-	.ht_cap	= WL12XX_HT_CAP,
+	.ht_cap = { 0 },
 };
 
 static const u8 *wl1271_band_rate_to_idx[] = {
@@ -5040,6 +5061,19 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 	memcpy(&wl->bands[IEEE80211_BAND_5GHZ], &wl1271_band_5ghz,
 	       sizeof(wl1271_band_5ghz));
 
+	/* enable HT caps according to family */
+	if (wl->conf.platform_type == 1) {
+		memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap, &wl12xx_ht_cap,
+		       sizeof(struct ieee80211_sta_ht_cap));
+		memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap, &wl12xx_ht_cap,
+		       sizeof(struct ieee80211_sta_ht_cap));
+	} else {
+		memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap, &wl18xx_ht_cap,
+		       sizeof(struct ieee80211_sta_ht_cap));
+		memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap, &wl18xx_ht_cap,
+		       sizeof(struct ieee80211_sta_ht_cap));
+	}
+
 	wl->hw->wiphy->bands[IEEE80211_BAND_2GHZ] =
 		&wl->bands[IEEE80211_BAND_2GHZ];
 	wl->hw->wiphy->bands[IEEE80211_BAND_5GHZ] =
@@ -5120,6 +5154,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
 	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->band = IEEE80211_BAND_2GHZ;
+	wl->last_fw_rls_idx = 0;
 	wl->flags = 0;
 	wl->sg_enabled = true;
 	wl->hw_pg_ver = -1;
@@ -5143,7 +5178,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	__set_bit(WL12XX_SYSTEM_HLID, wl->links_map);
 
 	memset(wl->tx_frames_map, 0, sizeof(wl->tx_frames_map));
-	for (i = 0; i < ACX_TX_DESCRIPTORS; i++)
+	for (i = 0; i < wlcore_num_tx_descriptors(wl); i++)
 		wl->tx_frames[i] = NULL;
 
 	spin_lock_init(&wl->wl_lock);

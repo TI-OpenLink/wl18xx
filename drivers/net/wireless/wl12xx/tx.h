@@ -53,6 +53,10 @@
 #define TX_HW_RESULT_QUEUE_LEN           16
 #define TX_HW_RESULT_QUEUE_LEN_MASK      0xf
 
+#define WL18XX_TX_STATUS_DESC_ID_MASK    0x7F
+#define WL18XX_TX_STATUS_STAT_BIT_IDX    7
+
+
 #define WL1271_TX_ALIGN_TO 4
 #define WL1271_TKIP_IV_SPACE 4
 
@@ -215,6 +219,8 @@ void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid);
 void wl1271_handle_tx_low_watermark(struct wl1271 *wl);
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb);
 void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids);
+u32 wlcore_num_tx_descriptors(struct wl1271 *wl);
+void wl18xx_tx_complete(struct wl1271 *wl);
 
 /* from main.c */
 void wl1271_free_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 hlid);

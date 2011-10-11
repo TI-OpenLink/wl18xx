@@ -161,8 +161,7 @@ extern u32 wl12xx_debug_level;
 #define WL1271_AP_BSS_INDEX        0
 #define WL1271_AP_DEF_BEACON_EXP   20
 
-/* 18xxTODO: rename to wl12xx */
-#define ACX_TX_DESCRIPTORS  16
+#define WL12XX_ACX_TX_DESCRIPTORS  16
 #define WL18XX_ACX_TX_DESCRIPTORS  32
 
 #define WL1271_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
@@ -255,21 +254,6 @@ struct wl_fw_packet_counters {
 	u8 tx_voice_released_blks;
 } __packed;
 
-struct fw_status_tx_free_q {
-	/*
-	 * Index of next byte to hold a released host descriptor
-	 * (= +1 of the last host descriptor released).
-	 */
-	u8 fw_release_index;
-
-	/*
-	 * Vector queue of each host desc index for the frames finished
-	 * processing. The driver/host should use it to infer released host
-	 * descriptors.
-	 */
-	u8 released_desc_ind_vec[WL18XX_ACX_TX_DESCRIPTORS];
-};
-
 struct wl_fw_status {
 	__le32 intr;
 	u8  fw_rx_counter;
@@ -306,8 +290,17 @@ struct wl_fw_status {
 			u8 padding_1[3];
 		} wl12xx;
 		struct {
-			/* queue of released host descriptors */
-			struct fw_status_tx_free_q tx_desc_release_q;
+			/*
+			 * Index in released_tx_desc for first byte that holds
+			 * released tx host desc
+			 */
+			u8 fw_release_idx;
+
+			/*
+			 * Array of host Tx descriptors, where fw_release_idx
+			 * indicated the first released idx.
+			 */
+			u8 released_tx_desc[WL18XX_ACX_TX_DESCRIPTORS];
 
 			struct wl_fw_packet_counters counters;
 			u8 padding_1[6];
@@ -483,9 +476,12 @@ struct wl1271 {
 	struct workqueue_struct *freezable_wq;
 
 	/* Pending TX frames */
-	unsigned long tx_frames_map[BITS_TO_LONGS(ACX_TX_DESCRIPTORS)];
-	struct sk_buff *tx_frames[ACX_TX_DESCRIPTORS];
+	unsigned long tx_frames_map[BITS_TO_LONGS(WL18XX_ACX_TX_DESCRIPTORS)];
+	struct sk_buff *tx_frames[WL18XX_ACX_TX_DESCRIPTORS];
 	int tx_frames_cnt;
+
+	/* Index of last released Tx desc in 18xx FW */
+	u8 last_fw_rls_idx;
 
 	/* FW Rx counter */
 	u32 rx_counter;

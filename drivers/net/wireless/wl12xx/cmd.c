@@ -589,7 +589,10 @@ int wl12xx_cmd_role_start_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	if (wlvif->band == IEEE80211_BAND_5GHZ)
 		cmd->band = WL12XX_BAND_5GHZ;
 	cmd->channel = wlvif->channel;
-	/* wl18xxTODO: make sure this does no harm for 12xx */
+	/* wl18xxTODO: make sure this does no harm for 12xx, we also want to
+	   translate this enum into wl18xx specific values, to prevent changes
+	   in mac80211 from affecting the FW.
+	   also what happens when setting NL80211_CHAN_NO_HT? */
 	cmd->channel_type = (u8)wlvif->channel_type;
 	cmd->sta.basic_rate_set = cpu_to_le32(wlvif->basic_rate_set);
 	cmd->sta.beacon_interval = cpu_to_le16(wlvif->beacon_int);

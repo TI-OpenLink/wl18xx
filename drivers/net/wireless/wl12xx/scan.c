@@ -170,6 +170,10 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	int ret;
 	u16 scan_options = 0;
 
+	/* 18xxTODO: is 11a scanning/operation currently not supported? */
+	if (wl->conf.platform_type == 2 && band == IEEE80211_BAND_5GHZ)
+		return WL1271_NOTHING_TO_SCAN;
+
 	/* skip active scans if we don't have SSIDs */
 	if (!passive && wl->scan.req->n_ssids == 0)
 		return WL1271_NOTHING_TO_SCAN;

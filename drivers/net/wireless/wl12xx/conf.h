@@ -1301,6 +1301,8 @@ struct wl18xx_conf_mac_and_phy_params {
 	u8 secondary_clock_setting_time;
 };
 
+/* 18xxTODO: after driver split, set conf values for 18xx according
+   to commit 741065e06978747f7896d153bfc0a145c2b8c750 */
 struct conf_drv_settings {
 	struct conf_sg_settings sg;
 	struct conf_rx_settings rx;
