@@ -322,17 +322,27 @@ static int wl12xx_init_fwlog(struct wl1271 *wl)
 	return 0;
 }
 
+int wlcore_init_ext_radio_params(struct wl1271 *wl)
+{
+	if (wl->conf.platform_type == 1) {
+		if (wl->chip.id != CHIP_ID_1283_PG20) {
+			int ret = wl1271_cmd_ext_radio_parms(wl);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 /* generic sta initialization (non vif-specific) */
 static int wl1271_sta_hw_init(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_1271_PG20 ||
-	    wl->chip.id == CHIP_ID_1271_PG10) {
-		ret = wl1271_cmd_ext_radio_parms(wl);
-		if (ret < 0)
-			return ret;
-	}
+	ret = wlcore_init_ext_radio_params(wl);
+	if (ret < 0)
+		return ret;
 
 	/* PS config */
 	ret = wl12xx_acx_config_ps(wl, wlvif);
@@ -494,52 +504,6 @@ static int wl1271_set_ba_policies(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	return wl12xx_acx_set_ba_initiator_policy(wl, wlvif);
 }
 
-int wl1271_chip_specific_init(struct wl1271 *wl)
-{
-	int ret = 0;
-	u32 host_cfg_bitmap, sdio_align_size;
-
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
-		host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
-
-		if (wl->quirks & WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT)
-			/* Enable SDIO padding */
-			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
-
-		/* Must be before wl1271_acx_init_mem_config() */
-		ret = wl1271_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap);
-		if (ret < 0)
-			goto out;
-	} else if (wl->chip.id == CHIP_ID_185x_PG10) {
-		host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
-
-		/* 18xxTODO: can this even work? */
-		sdio_align_size = 0;
-
-		/* Enable Tx SDIO padding */
-		if (wl->quirks & WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT) {
-			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
-			sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
-		}
-
-		/* Enable Rx SDIO padding */
-		if (wl->quirks & WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT) {
-			host_cfg_bitmap |= HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
-			sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
-		}
-
-		/* Must be before wl1271_acx_init_mem_config() */
-		ret = wl18xx_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap,
-						    sdio_align_size,
-						    wl->tx_spare_blocks,
-						    WL18XX_HOST_IF_LEN_SIZE_FIELD);
-		if (ret < 0)
-			goto out;
-	}
-out:
-	return ret;
-}
-
 /* vif-specifc initialization */
 static int wl12xx_init_sta_role(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
@@ -694,11 +658,12 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 	return 0;
 }
 
-int wl1271_hw_init(struct wl1271 *wl)
+int wlcore_family_specific_init(struct wl1271 *wl)
 {
-	int ret;
+	int ret = 0;
 
 	if (wl->conf.platform_type == 1) {
+
 		if (wl->chip.id == CHIP_ID_1283_PG20)
 			ret = wl128x_cmd_general_parms(wl);
 		else
@@ -712,10 +677,53 @@ int wl1271_hw_init(struct wl1271 *wl)
 			ret = wl1271_cmd_radio_parms(wl);
 		if (ret < 0)
 			return ret;
+
+		if (wl->chip.id == CHIP_ID_1283_PG20) {
+			u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
+
+			if (wl->quirks & WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT)
+				/* Enable SDIO padding */
+				host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
+
+			/* Must be before wl1271_acx_init_mem_config() */
+			ret = wl1271_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap);
+			if (ret < 0)
+				return ret;
+		}
+	} else {
+		u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
+
+		/* 18xxTODO: can this even work? */
+		u32 sdio_align_size = 0;
+
+		/* Enable Tx SDIO padding */
+		if (wl->quirks & WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT) {
+			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
+			sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
+		}
+
+		/* Enable Rx SDIO padding */
+		if (wl->quirks & WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT) {
+			host_cfg_bitmap |= HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
+			sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
+		}
+
+		ret = wl18xx_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap,
+						    sdio_align_size,
+						    WL18XX_TX_HW_BLOCK_SPARE,
+						    WL18XX_HOST_IF_LEN_SIZE_FIELD);
+		if (ret < 0)
+			return ret;
 	}
 
-	/* Chip-specific init */
-	ret = wl1271_chip_specific_init(wl);
+	return ret;
+}
+
+int wl1271_hw_init(struct wl1271 *wl)
+{
+	int ret;
+
+	ret = wlcore_family_specific_init(wl);
 	if (ret < 0)
 		return ret;
 

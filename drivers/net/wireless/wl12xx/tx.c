@@ -248,6 +248,23 @@ static u32 wlcore_tx_get_hw_blocks_num(struct wl1271 *wl, u32 total_len,
 	}
 }
 
+static void wlcore_tx_set_desc_memblocks(struct wl1271 *wl,
+					 struct wl1271_tx_hw_descr *desc,
+					 u32 total_blocks, u32 spare_blocks)
+{
+	if (wl->conf.platform_type == 1) {
+		if (wl->chip.id == CHIP_ID_1283_PG20) {
+			desc->wl128x_mem.total_mem_blocks = total_blocks;
+		} else {
+			desc->wl127x_mem.extra_blocks = spare_blocks;
+			desc->wl127x_mem.total_mem_blocks = total_blocks;
+		}
+	} else {
+		desc->wl18xx_mem.total_mem_blocks = total_blocks;
+		desc->wl18xx_mem.reserved = 0;
+	}
+}
+
 static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			      struct sk_buff *skb, u32 extra, u32 buf_offset,
 			      u8 hlid)
@@ -275,20 +292,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
 			skb, total_len - skb->len);
 
-		/*
-		 * HW descriptor fields change between wl127x,
-		 * wl128x and wl18xx
-		 */
-		if (wl->chip.id == CHIP_ID_185x_PG10) {
-			desc->wl128x_mem.total_mem_blocks = total_blocks;
-			desc->wl128x_mem.extra_bytes = 0;
-		} else if (wl->chip.id == CHIP_ID_1283_PG20) {
-			desc->wl128x_mem.total_mem_blocks = total_blocks;
-		} else {
-			desc->wl127x_mem.extra_blocks = spare_blocks;
-			desc->wl127x_mem.total_mem_blocks = total_blocks;
-		}
-
+		wlcore_tx_set_desc_memblocks(wl, desc, total_blocks,
+					     spare_blocks);
 		desc->id = id;
 
 		wl->tx_blocks_available -= total_blocks;
@@ -313,13 +318,105 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	return ret;
 }
 
+static u8 wlcore_tx_get_rate_idx(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+				  struct sk_buff *skb, u8 hlid,
+				  struct ieee80211_tx_info *control)
+{
+	if (wl->conf.platform_type == 1) {
+		if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
+			/* if the packets are destined for AP (have a STA entry)
+			   send them with AP rate policies, otherwise use default
+			   basic rates */
+			if (control->control.sta)
+				return wlvif->sta.ap_rate_idx;
+			else
+				return wlvif->sta.basic_rate_idx;
+		} else {
+			if (hlid == wlvif->ap.global_hlid) {
+				return wlvif->ap.mgmt_rate_idx;
+			} else if (hlid == wlvif->ap.bcast_hlid) {
+				return wlvif->ap.bcast_rate_idx;
+			} else {
+				u8 ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
+				return wlvif->ap.ucast_rate_idx[ac];
+			}
+		}
+	} else {
+		if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
+			if (control->control.sta &&
+			    (wlvif->channel_type == NL80211_CHAN_HT40MINUS ||
+			     wlvif->channel_type == NL80211_CHAN_HT40PLUS))
+				return wlvif->sta.wide_chan_rate_idx;
+			else if (control->control.sta)
+				return wlvif->sta.ap_rate_idx;
+			else
+				return wlvif->sta.basic_rate_idx;
+		} else {
+			if (hlid == wlvif->ap.global_hlid) {
+				return wlvif->ap.mgmt_rate_idx;
+			} else if (hlid == wlvif->ap.bcast_hlid) {
+				return wlvif->ap.bcast_rate_idx;
+			} else {
+				u8 ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
+				return wlvif->ap.ucast_rate_idx[ac];
+			}
+		}
+	}
+
+
+}
+
+static void wlcore_tx_set_desc_data_len(struct wl1271 *wl, struct sk_buff *skb,
+					struct wl1271_tx_hw_descr *desc)
+{
+	if (wl->conf.platform_type == 1) {
+		u32 aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
+
+		if (wl->chip.id == CHIP_ID_1283_PG20) {
+			desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
+			desc->length = cpu_to_le16(aligned_len >> 2);
+
+			wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
+				     "len: %d life: %d mem: %d extra %d",
+				     desc->hlid,
+				     le16_to_cpu(desc->length),
+				     le16_to_cpu(desc->life_time),
+				     desc->wl128x_mem.total_mem_blocks,
+				     desc->wl128x_mem.extra_bytes);
+		} else {
+			/* calculate number of padding bytes */
+			int pad = aligned_len - skb->len;
+			desc->tx_attr |= cpu_to_le16(pad << TX_HW_ATTR_OFST_LAST_WORD_PAD);
+
+			/* Store the aligned length in terms of words */
+			desc->length = cpu_to_le16(aligned_len >> 2);
+
+			wl1271_debug(DEBUG_TX, "tx_fill_hdr: pad: %d hlid: %d "
+				     "len: %d life: %d mem: %d", pad,
+				     desc->hlid,
+				     le16_to_cpu(desc->length),
+				     le16_to_cpu(desc->life_time),
+				     desc->wl127x_mem.total_mem_blocks);
+		}
+	} else {
+		desc->length = cpu_to_le16(skb->len);
+
+		wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
+			     "len: %d life: %d mem: %d",
+			     desc->hlid,
+			     le16_to_cpu(desc->length),
+			     le16_to_cpu(desc->life_time),
+			     desc->wl18xx_mem.total_mem_blocks);
+	} 
+}
+
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			       struct sk_buff *skb, u32 extra,
 			       struct ieee80211_tx_info *control, u8 hlid)
 {
 	struct timespec ts;
 	struct wl1271_tx_hw_descr *desc;
-	int aligned_len, ac, rate_idx;
+	int rate_idx;
 	s64 hosttime;
 	u16 tx_attr;
 	bool is_dummy;
@@ -346,7 +443,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		desc->life_time = cpu_to_le16(TX_HW_AP_MODE_PKT_LIFETIME_TU);
 
 	/* queue */
-	ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 	desc->tid = skb->priority;
 
 	if (is_dummy) {
@@ -368,64 +464,15 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	desc->hlid = hlid;
 	if (is_dummy)
 		rate_idx = 0;
-	else if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
-		/* if the packets are destined for AP (have a STA entry)
-		   send them with AP rate policies, otherwise use default
-		   basic rates */
-		if (wl->conf.platform_type == 2 &&
-		    control->control.sta &&
-		    (wlvif->channel_type == NL80211_CHAN_HT40MINUS ||
-		     wlvif->channel_type == NL80211_CHAN_HT40PLUS))
-			rate_idx = wlvif->sta.wide_chan_rate_idx;
-		else if (control->control.sta)
-			rate_idx = wlvif->sta.ap_rate_idx;
-		else
-			rate_idx = wlvif->sta.basic_rate_idx;
-	} else {
-		if (hlid == wlvif->ap.global_hlid)
-			rate_idx = wlvif->ap.mgmt_rate_idx;
-		else if (hlid == wlvif->ap.bcast_hlid)
-			rate_idx = wlvif->ap.bcast_rate_idx;
-		else
-			rate_idx = wlvif->ap.ucast_rate_idx[ac];
-	}
+	else
+		rate_idx = wlcore_tx_get_rate_idx(wl, wlvif, skb, hlid,
+						  control);
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
 	desc->reserved = 0;
-
-	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
-
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
-		desc->length = skb->len;
-	} else if (wl->chip.id == CHIP_ID_1283_PG20) {
-		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
-		desc->length = cpu_to_le16(aligned_len >> 2);
-
-		wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
-			     "tx_attr: 0x%x len: %d life: %d mem: %d",
-			     desc->hlid, tx_attr,
-			     le16_to_cpu(desc->length),
-			     le16_to_cpu(desc->life_time),
-			     desc->wl128x_mem.total_mem_blocks);
-	} else {
-		int pad;
-
-		/* Store the aligned length in terms of words */
-		desc->length = cpu_to_le16(aligned_len >> 2);
-
-		/* calculate number of padding bytes */
-		pad = aligned_len - skb->len;
-		tx_attr |= pad << TX_HW_ATTR_OFST_LAST_WORD_PAD;
-
-		wl1271_debug(DEBUG_TX, "tx_fill_hdr: pad: %d hlid: %d "
-			     "tx_attr: 0x%x len: %d life: %d mem: %d", pad,
-			     desc->hlid, tx_attr,
-			     le16_to_cpu(desc->length),
-			     le16_to_cpu(desc->life_time),
-			     desc->wl127x_mem.total_mem_blocks);
-	}
-
 	desc->tx_attr = cpu_to_le16(tx_attr);
+
+	wlcore_tx_set_desc_data_len(wl, skb, desc);
 }
 
 /* caller must hold wl->mutex */
@@ -768,12 +815,8 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, wlvif, skb);
-			if (wl->conf.platform_type == 1)
-				wl1271_write(wl, WL12XX_SLV_MEM_DATA, wl->aggr_buf,
-					     buf_offset, true);
-			else
-				wl1271_write(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf,
-					     buf_offset, true);
+			PLAT_WRITE_REG(wl, SLV_MEM_DATA, wl->aggr_buf,
+				       buf_offset, true);
 			sent_packets = true;
 			buf_offset = 0;
 			continue;
@@ -800,12 +843,8 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 
 out_ack:
 	if (buf_offset) {
-		if (wl->conf.platform_type == 1)
-			wl1271_write(wl, WL12XX_SLV_MEM_DATA, wl->aggr_buf,
-				     buf_offset, true);
-		else
-			wl1271_write(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf,
-				     buf_offset, true);
+		PLAT_WRITE_REG(wl, SLV_MEM_DATA, wl->aggr_buf, buf_offset,
+			       true);
 		sent_packets = true;
 	}
 	if (sent_packets) {

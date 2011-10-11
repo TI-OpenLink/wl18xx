@@ -138,6 +138,12 @@ static inline void wl1271_write(struct wl1271 *wl, int addr, void *buf,
 	wl1271_raw_write(wl, physical, buf, len, fixed);
 }
 
+/* write register with a platform dependant prefix */
+#define PLAT_WRITE_REG(wl, reg_name, buf, len, fixed) \
+	((wl->conf.platform_type == 1) ? \
+		wl1271_write(wl, WL12XX_ ## reg_name, buf, len, fixed) : \
+		wl1271_write(wl, WL18XX_ ## reg_name, buf, len, fixed))
+
 static inline void wl1271_read_hwaddr(struct wl1271 *wl, int hwaddr,
 				      void *buf, size_t len, bool fixed)
 {
@@ -157,11 +163,11 @@ static inline u32 wl1271_read32(struct wl1271 *wl, int addr)
 	return wl1271_raw_read32(wl, wl1271_translate_addr(wl, addr));
 }
 
-/* read a register with a platform dependant prefix */
-#define PLAT_READ_REG32(wl, addr) \
+/* read a 32bit register with a platform dependant prefix */
+#define PLAT_READ_REG32(wl, reg_name) \
 	((wl->conf.platform_type == 1) ? \
-		wl1271_read32(wl, WL12XX_ ## addr) : \
-		wl1271_read32(wl, WL18XX_ ## addr))
+		wl1271_read32(wl, WL12XX_ ## reg_name) : \
+		wl1271_read32(wl, WL18XX_ ## reg_name))
 
 static inline void wl1271_write32(struct wl1271 *wl, int addr, u32 val)
 {
