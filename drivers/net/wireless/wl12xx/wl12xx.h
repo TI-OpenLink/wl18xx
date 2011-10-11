@@ -793,8 +793,11 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 /* Each RX/TX transaction requires an end-of-transaction transfer */
 #define WL12XX_QUIRK_END_OF_TRANSACTION		BIT(0)
 
-/* WL128X requires aggregated packets to be aligned to the SDIO block size */
-#define WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT	BIT(2)
+/* means aggregated Tx packets are to be aligned to a SDIO block */
+#define WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT	BIT(2)
+
+/* mean aggregated Rx packets are to be aligned to a SDIO block */
+#define WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT	BIT(3)
 
 /* Older firmwares did not implement the FW logger over bus feature */
 #define WL12XX_QUIRK_FWLOG_NOT_IMPLEMENTED	BIT(4)

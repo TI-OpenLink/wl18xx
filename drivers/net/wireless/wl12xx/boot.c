@@ -1112,9 +1112,6 @@ int wl1271_boot(struct wl1271 *wl)
 	/* Enable firmware interrupts now */
 	wl1271_boot_enable_interrupts(wl);
 
-	/* 18xxTODO: put somewhere in init, per vif, not in boot */
-	//wl18xx_set_default_filters(wlvif);
-
 	wl1271_event_mbox_config(wl);
 
 	if (wl->conf.platform_type == 2)

@@ -210,11 +210,42 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
 						unsigned int packet_length)
 {
-	/* 18xxTODO: turn into Tx quirk */
-	if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT)
+	if (wl->quirks & WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT)
 		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
 	else
 		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
+}
+
+static u32 wlcore_tx_get_hw_spare_blocks(struct wl1271 *wl,
+					 bool is_dummy_packet)
+{
+	if (wl->conf.platform_type == 1) {
+		/* in case of a dummy packet, use default amount of spare mem blocks */
+		if (is_dummy_packet)
+			return  WL12XX_TX_HW_BLOCK_SPARE;
+
+		return wl->tx_spare_blocks;
+	} else {
+		return WL18XX_TX_HW_BLOCK_SPARE;
+	}
+}
+
+/*
+ * approximate the number of blocks required for this packet
+ * in the firmware
+ */
+static u32 wlcore_tx_get_hw_blocks_num(struct wl1271 *wl, u32 total_len,
+				       u32 spare_blocks)
+{
+	if (wl->conf.platform_type == 1) {
+		u32 align_len = wl12xx_calc_packet_alignment(wl, total_len);
+
+		return (align_len + WL12XX_TX_HW_BLOCK_SIZE - 1) / WL12XX_TX_HW_BLOCK_SIZE +
+		       spare_blocks;
+	} else {
+		return (total_len + WL18XX_TX_HW_BLOCK_SIZE - 1) / WL18XX_TX_HW_BLOCK_SIZE +
+		       WL18XX_TX_HW_BLOCK_SPARE;
+	}
 }
 
 static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
@@ -223,12 +254,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 {
 	struct wl1271_tx_hw_descr *desc;
 	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
-	u32 len;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
-	u32 spare_blocks = wl->tx_spare_blocks;
-	bool is_dummy = false;
-	u32 tx_hw_block_size;
+	u32 spare_blocks;
+	bool is_dummy;
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
 		return -EAGAIN;
@@ -238,28 +267,9 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (id < 0)
 		return id;
 
-	/*
-	 * approximate the number of blocks required for this packet
-	 * in the firmware
-	 */
-	if (wl->conf.platform_type == 1)
-		len = wl12xx_calc_packet_alignment(wl, total_len);
-	else
-		/* 18xxTODO: make sure this is ok */
-		len = total_len;
-
-	/* in case of a dummy packet, use default amount of spare mem blocks */
-	if (unlikely(wl12xx_is_dummy_packet(wl, skb))) {
-		is_dummy = true;
-		spare_blocks = (wl->conf.platform_type == 1) ?
-			WL12XX_TX_HW_BLOCK_SPARE : WL18XX_TX_HW_BLOCK_SPARE;
-	}
-
-	tx_hw_block_size = (wl->conf.platform_type == 1) ?
-			WL12XX_TX_HW_BLOCK_SIZE : WL18XX_TX_HW_BLOCK_SIZE;
-
-	total_blocks = (len + tx_hw_block_size - 1) / tx_hw_block_size +
-		       spare_blocks;
+	is_dummy = wl12xx_is_dummy_packet(wl, skb);
+	spare_blocks = wlcore_tx_get_hw_spare_blocks(wl, is_dummy);
+	total_blocks = wlcore_tx_get_hw_blocks_num(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
