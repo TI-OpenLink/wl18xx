@@ -783,6 +783,7 @@ static struct wl12xx_platform_data omap4_sdp4430_wlan_data __initdata = {
 	.irq = OMAP_GPIO_IRQ(GPIO_WIFI_IRQ),
 	.board_ref_clock = WL12XX_REFCLOCK_26,
 	.board_tcxo_clock = WL12XX_TCXOCLOCK_26,
+	.chip_family = "wl18xx",
 };
 
 static void omap4_sdp4430_wifi_init(void)
