@@ -1,0 +1,7 @@
+menuconfig WL_TI
+	bool "TI Wireless LAN support"
+	---help---
+	  This section contains suppot for all the wireless drivers
+	  for TI WLAN chips, such as wl1251 and the wl12xx family.
+
+source "drivers/net/wireless/ti/wlcore/Kconfig"
