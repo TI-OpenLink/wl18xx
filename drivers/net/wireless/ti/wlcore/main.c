@@ -20,15 +20,63 @@
  */
 
 #include <linux/module.h>
+#include <net/mac80211.h>
 
+#include "wlcore.h"
 #include "debug.h"
+#include "mac80211_ops.h"
 
 u32 wlcore_debug_level = DEBUG_ALL;
 
+static const struct ieee80211_ops wlcore_ops = {
+	.tx		  = wlcore_tx,
+	.start		  = wlcore_start,
+	.stop		  = wlcore_stop,
+	.config		  = wlcore_config,
+	.add_interface	  = wlcore_add_interface,
+	.remove_interface = wlcore_remove_interface,
+	.configure_filter = wlcore_configure_filter,
+};
+
+struct wlcore *wlcore_alloc_hw(void)
+{
+	struct ieee80211_hw *hw;
+	struct wlcore *wl;
+	int ret;
+
+	hw = ieee80211_alloc_hw(sizeof(*wl), &wlcore_ops);
+	if (!hw) {
+		wlcore_error("could not alloc ieee80211_hw");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wl = hw->priv;
+	memset(wl, 0, sizeof(*wl));
+
+	wl->hw = hw;
+
+	spin_lock_init(&wl->wl_lock);
+
+	mutex_init(&wl->mutex);
+
+	return wl;
+
+out:
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(wlcore_alloc_hw);
+
+int wlcore_free_hw(struct wlcore *wl)
+{
+	ieee80211_free_hw(wl->hw);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wlcore_free_hw);
+
 static int __init wlcore_init(void)
 {
-	printk(KERN_DEBUG "wlcore_init\n");
-
 	return 0;
 }
 module_init(wlcore_init);
