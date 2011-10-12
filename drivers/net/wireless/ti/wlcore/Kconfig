@@ -1,0 +1,36 @@
+config WLCORE
+	tristate "TI WLAN core support"
+	depends on GENERIC_HARDIRQS && MAC80211 && WL_TI
+	depends on INET
+	select FW_LOADER
+	---help---
+
+	  This is a support module for TI WLAN chips.  It contains common
+	   code that is used across different chip families (eg. wl1271,
+	   wl1273, wl1281, wl1283 etc.)
+
+	  If you choose to build a module, it will be called wlcore. Say N if
+	  unsure.
+
+config WLCORE_SPI
+	tristate "TI WLAN SPI support"
+	depends on SPI_MASTER && WL_TI
+	select CRC7
+	---help---
+	  This module adds support for the SPI interface of adapters using
+	  TI WLAN chipsets.  Select this if your platform is using
+	  the SPI bus.
+
+	  If you choose to build a module, it'll be called wlcore_spi.
+	  Say N if unsure.
+
+config WLCORE_SDIO
+	tristate "TI WLAN SDIO support"
+	depends on MMC && WL_TI
+	---help---
+	  This module adds support for the SDIO interface of adapters using
+	  TI WLAN chipsets.  Select this if your platform is using
+	  the SDIO bus.
+
+	  If you choose to build a module, it'll be called wlcore_sdio.
+	  Say N if unsure.
