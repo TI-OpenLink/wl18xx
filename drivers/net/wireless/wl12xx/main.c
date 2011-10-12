@@ -1983,7 +1983,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 		wl->tx_allocated_pkts[i] = 0;
 	}
 
-	wl1271_debugfs_reset(wl);
+	wlcore_debugfs_reset(wl);
 
 	kfree(wl->fw_status);
 	wl->fw_status = NULL;
@@ -2246,6 +2246,8 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 			ret = -EINVAL;
 			goto out;
 		}
+
+		wlcore_debugfs_add_fw_files(wl);
 	}
 
 	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
@@ -4955,7 +4957,7 @@ int wl1271_register_hw(struct wl1271 *wl)
 
 	wl->mac80211_registered = true;
 
-	wl1271_debugfs_init(wl);
+	wlcore_debugfs_init(wl);
 
 	register_netdevice_notifier(&wl1271_dev_notifier);
 
@@ -5245,7 +5247,7 @@ err_wq:
 	destroy_workqueue(wl->freezable_wq);
 
 err_hw:
-	wl1271_debugfs_exit(wl);
+	wlcore_debugfs_exit(wl);
 	kfree(plat_dev);
 
 err_plat_alloc:
@@ -5277,7 +5279,7 @@ int wl1271_free_hw(struct wl1271 *wl)
 			get_order(WL1271_AGGR_BUFFER_SIZE));
 	kfree(wl->plat_dev);
 
-	wl1271_debugfs_exit(wl);
+	wlcore_debugfs_exit(wl);
 
 	vfree(wl->fw);
 	wl->fw = NULL;

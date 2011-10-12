@@ -931,17 +931,23 @@ static const struct file_operations platform_type_ops = {
 	.llseek = default_llseek,
 };
 
-static int wl12xx_debugfs_add_files(struct wl1271 *wl,
-				     struct dentry *rootdir)
+static int wl12xx_debugfs_add_fwstats(struct wl1271 *wl,
+				      struct dentry *rootdir)
 {
 	int ret = 0;
-	struct dentry *entry, *stats, *streaming;
+	struct dentry *entry, *stats;
+
+	wl->stats.wl12xx = kzalloc(sizeof(*wl->stats.wl12xx), GFP_KERNEL);
+	if (!wl->stats.wl12xx)
+		return -ENOMEM;
 
 	stats = debugfs_create_dir("fw-statistics", rootdir);
 	if (!stats || IS_ERR(stats)) {
 		entry = stats;
 		goto err;
 	}
+
+	wl->stats.fw_stats_update = jiffies;
 
 	DEBUGFS_WL12XX_FWSTATS_ADD(tx, internal_desc_overflow);
 
@@ -1034,29 +1040,6 @@ static int wl12xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_WL12XX_FWSTATS_ADD(rxpipe, missed_beacon_host_int_trig_rx_data);
 	DEBUGFS_WL12XX_FWSTATS_ADD(rxpipe, tx_xfr_host_int_trig_rx_data);
 
-	/* 18xxTODO: add in common function for 12xx and 18xx, on register_hw().
-	   The platform specific files should only be added later,
-	   on add_interface(), to give a chance for the platform to change? */
-	DEBUGFS_ADD(tx_queue_len, rootdir);
-	DEBUGFS_ADD(retry_count, rootdir);
-	DEBUGFS_ADD(excessive_retries, rootdir);
-
-	DEBUGFS_ADD(gpio_power, rootdir);
-	DEBUGFS_ADD(start_recovery, rootdir);
-	DEBUGFS_ADD(driver_state, rootdir);
-	DEBUGFS_ADD(dtim_interval, rootdir);
-	DEBUGFS_ADD(beacon_interval, rootdir);
-	DEBUGFS_ADD(beacon_filtering, rootdir);
-	DEBUGFS_ADD(platform_type, rootdir);
-
-	streaming = debugfs_create_dir("rx_streaming", rootdir);
-	if (!streaming || IS_ERR(streaming))
-		goto err;
-
-	DEBUGFS_ADD_PREFIX(rx_streaming, interval, streaming);
-	DEBUGFS_ADD_PREFIX(rx_streaming, always, streaming);
-
-
 	return 0;
 
 err:
@@ -1068,17 +1051,23 @@ err:
 	return ret;
 }
 
-static int wl18xx_debugfs_add_files(struct wl1271 *wl,
-				     struct dentry *rootdir)
+static int wl18xx_debugfs_add_fwstats(struct wl1271 *wl,
+				      struct dentry *rootdir)
 {
 	int ret = 0;
-	struct dentry *entry, *stats, *streaming;
+	struct dentry *entry, *stats;
+
+	wl->stats.wl18xx = kzalloc(sizeof(*wl->stats.wl18xx), GFP_KERNEL);
+	if (!wl->stats.wl12xx)
+		return -ENOMEM;
 
 	stats = debugfs_create_dir("fw-statistics", rootdir);
 	if (!stats || IS_ERR(stats)) {
 		entry = stats;
 		goto err;
 	}
+
+	wl->stats.fw_stats_update = jiffies;
 
 	/* ring */
 	DEBUGFS_WL18XX_FWSTATS_ADD(ring, prepared_descs);
@@ -1287,18 +1276,39 @@ static int wl18xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_WL18XX_FWSTATS_ADD(new_pipe_line, cs_rx_packet_in);
 	DEBUGFS_WL18XX_FWSTATS_ADD(new_pipe_line, cs_rx_packet_out);
 
-	/* 18xxTODO: add in common function for 12xx and 18xx */
-	DEBUGFS_ADD(tx_queue_len, rootdir);
-	DEBUGFS_ADD(retry_count, rootdir);
-	DEBUGFS_ADD(excessive_retries, rootdir);
+	return 0;
 
-	DEBUGFS_ADD(gpio_power, rootdir);
+err:
+	if (IS_ERR(entry))
+		ret = PTR_ERR(entry);
+	else
+		ret = -ENOMEM;
+
+	return ret;
+}
+
+static int wlcore_debugfs_add_family_specific(struct wl1271 *wl,
+					      struct dentry *rootdir)
+{
+	if (wl->conf.platform_type == 1)
+		return wl12xx_debugfs_add_fwstats(wl, rootdir);
+	else
+		return wl18xx_debugfs_add_fwstats(wl, rootdir);
+}
+
+/* add debugfs files that depend on a running FW */
+int wlcore_debugfs_add_fw_files(struct wl1271 *wl)
+{
+	int ret = 0;
+	struct dentry *entry, *streaming, *rootdir;
+
+	if (!wl->debugfs_rootdir)
+		return -EINVAL;
+
+	rootdir = wl->debugfs_rootdir;
+
 	DEBUGFS_ADD(start_recovery, rootdir);
-	DEBUGFS_ADD(driver_state, rootdir);
-	DEBUGFS_ADD(dtim_interval, rootdir);
-	DEBUGFS_ADD(beacon_interval, rootdir);
 	DEBUGFS_ADD(beacon_filtering, rootdir);
-	DEBUGFS_ADD(platform_type, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
@@ -1307,6 +1317,37 @@ static int wl18xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD_PREFIX(rx_streaming, interval, streaming);
 	DEBUGFS_ADD_PREFIX(rx_streaming, always, streaming);
 
+	return wlcore_debugfs_add_family_specific(wl, rootdir);
+
+err:
+	if (IS_ERR(entry))
+		ret = PTR_ERR(entry);
+	else
+		ret = -ENOMEM;
+
+	return ret;
+}
+
+/*
+ * Common debugfs files for all chip families. Added before the FW is up,
+ * when the device is first registered.
+ */
+static int wlcore_debugfs_add_device_files(struct wl1271 *wl,
+					   struct dentry *rootdir)
+{
+	int ret = 0;
+	struct dentry *entry;
+
+	DEBUGFS_ADD(tx_queue_len, rootdir);
+	DEBUGFS_ADD(retry_count, rootdir);
+	DEBUGFS_ADD(excessive_retries, rootdir);
+
+	DEBUGFS_ADD(gpio_power, rootdir);
+	DEBUGFS_ADD(driver_state, rootdir);
+	DEBUGFS_ADD(dtim_interval, rootdir);
+	DEBUGFS_ADD(beacon_interval, rootdir);
+
+	DEBUGFS_ADD(platform_type, rootdir);
 
 	return 0;
 
@@ -1319,85 +1360,58 @@ err:
 	return ret;
 }
 
-
-void wl1271_debugfs_reset(struct wl1271 *wl)
+void wlcore_debugfs_reset(struct wl1271 *wl)
 {
-	if (wl->conf.platform_type == 1) {
-		if (!wl->stats.wl18xx)
-			return;
+	/* remove all files and add back just the ones not related to FW */
+	if (wl->debugfs_rootdir)
+		wlcore_debugfs_exit(wl);
 
-		memset(wl->stats.wl12xx, 0, sizeof(*wl->stats.wl12xx));
-	} else {
-		if (!wl->stats.wl18xx)
-			return;
-
-		memset(wl->stats.wl18xx, 0, sizeof(*wl->stats.wl18xx));
-	}
+	wlcore_debugfs_init(wl);
 
 	wl->stats.retry_count = 0;
 	wl->stats.excessive_retries = 0;
 }
 
-int wl1271_debugfs_init(struct wl1271 *wl)
+int wlcore_debugfs_init(struct wl1271 *wl)
 {
 	int ret;
-	struct dentry *rootdir;
 
-	rootdir = debugfs_create_dir(KBUILD_MODNAME,
-				     wl->hw->wiphy->debugfsdir);
+	if (!wl->debugfs_rootdir) {
+		struct dentry *rootdir;
 
-	if (IS_ERR(rootdir)) {
-		ret = PTR_ERR(rootdir);
-		goto err;
+		rootdir = debugfs_create_dir(KBUILD_MODNAME,
+					     wl->hw->wiphy->debugfsdir);
+
+		if (IS_ERR(rootdir)) {
+			ret = PTR_ERR(rootdir);
+			return ret;
+		}
+
+		wl->debugfs_rootdir = rootdir;
 	}
 
-	/* 18xxTODO: probably split to 2 functions for 12xx and 18xx */
-	if (wl->conf.platform_type == 1)
-		wl->stats.wl12xx = kzalloc(sizeof(*wl->stats.wl12xx),
-					   GFP_KERNEL);
-	else
-		wl->stats.wl18xx = kzalloc(sizeof(*wl->stats.wl18xx),
-					   GFP_KERNEL);
-
-	if (!wl->stats.wl12xx && !wl->stats.wl12xx) {
-		ret = -ENOMEM;
-		goto err_fw;
-	}
-
-	wl->stats.fw_stats_update = jiffies;
-
-	if (wl->conf.platform_type == 1)
-		ret = wl12xx_debugfs_add_files(wl, rootdir);
-	else
-		ret = wl18xx_debugfs_add_files(wl, rootdir);
-
+	ret = wlcore_debugfs_add_device_files(wl, wl->debugfs_rootdir);
 	if (ret < 0)
-		goto err_file;
+		goto err;
 
 	return 0;
 
-err_file:
-	if (wl->conf.platform_type == 1) {
-		kfree(wl->stats.wl12xx);
-		wl->stats.wl12xx = NULL;
-	} else {
-		kfree(wl->stats.wl18xx);
-		wl->stats.wl18xx = NULL;
-	}
-
-err_fw:
-	debugfs_remove_recursive(rootdir);
-
 err:
+	debugfs_remove_recursive(wl->debugfs_rootdir);
+	wl->debugfs_rootdir = NULL;
 	return ret;
 }
 
-void wl1271_debugfs_exit(struct wl1271 *wl)
+void wlcore_debugfs_exit(struct wl1271 *wl)
 {
 	if (wl->conf.platform_type == 1) {
+		debugfs_remove_recursive(wl->debugfs_rootdir);
+		wl->debugfs_rootdir = NULL;
 		kfree(wl->stats.wl12xx);
 		wl->stats.wl12xx = NULL;
 	} else {
+		debugfs_remove_recursive(wl->debugfs_rootdir);
+		wl->debugfs_rootdir = NULL;
 		kfree(wl->stats.wl18xx);
 		wl->stats.wl18xx = NULL;
 	}

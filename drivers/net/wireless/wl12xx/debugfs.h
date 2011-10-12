@@ -26,8 +26,9 @@
 
 #include "wl12xx.h"
 
-int wl1271_debugfs_init(struct wl1271 *wl);
-void wl1271_debugfs_exit(struct wl1271 *wl);
-void wl1271_debugfs_reset(struct wl1271 *wl);
+int wlcore_debugfs_init(struct wl1271 *wl);
+void wlcore_debugfs_exit(struct wl1271 *wl);
+void wlcore_debugfs_reset(struct wl1271 *wl);
+int wlcore_debugfs_add_fw_files(struct wl1271 *wl);
 
 #endif /* WL1271_DEBUGFS_H */

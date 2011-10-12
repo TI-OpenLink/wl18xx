@@ -593,6 +593,8 @@ struct wl1271 {
 	struct wl12xx_vif *last_wlvif;
 
 	enum nl80211_channel_type channel_type;
+
+	struct dentry *debugfs_rootdir;
 };
 
 struct wl1271_station {
