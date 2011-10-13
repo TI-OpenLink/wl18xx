@@ -21,6 +21,10 @@
 
 #include <linux/module.h>
 
+#include "debug.h"
+
+u32 wlcore_debug_level = DEBUG_ALL;
+
 static int __init wlcore_init(void)
 {
 	printk(KERN_DEBUG "wlcore_init\n");
