@@ -23,16 +23,43 @@
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
 
+#include "../wlcore/wlcore.h"
+
 static int __devinit wl18xx_probe(struct platform_device *pdev)
 {
+	struct wlcore *wl;
+	int ret = -ENODEV;
+
 	printk(KERN_DEBUG "wl18xx_probe\n");
 
-	return 0;
+	wl = wlcore_alloc_hw();
+	if (IS_ERR(wl)) {
+		ret = PTR_ERR(wl);
+		goto out;
+	}
+
+	wl->dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, wl);
+
+	ret = wlcore_register_hw(wl);
+	if (ret)
+		goto out_free_hw;
+
+out_free_hw:
+	wlcore_free_hw(wl);
+out:
+	return ret;
 }
 
 static int __devexit wl18xx_remove(struct platform_device *pdev)
 {
+	struct wlcore *wl = platform_get_drvdata(pdev);
+
 	printk(KERN_DEBUG "wl18xx_remove\n");
+
+	wlcore_unregister_hw(wl);
+	wlcore_free_hw(wl);
 
 	return 0;
 }
