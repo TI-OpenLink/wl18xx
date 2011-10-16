@@ -1281,7 +1281,8 @@ enum {
 };
 
 
-int wl1271_acx_wake_up_conditions(struct wl1271 *wl);
+int wl1271_acx_wake_up_conditions(struct wl1271 *wl,
+				  u8 wake_up_event, u8 listen_interval);
 int wl1271_acx_sleep_auth(struct wl1271 *wl, u8 sleep_auth);
 int wl1271_acx_tx_power(struct wl1271 *wl, int power);
 int wl1271_acx_feature_cfg(struct wl1271 *wl);

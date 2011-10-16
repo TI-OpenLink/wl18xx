@@ -215,6 +215,8 @@ static struct conf_drv_settings default_conf = {
 	.conn = {
 		.wake_up_event               = CONF_WAKE_UP_EVENT_DTIM,
 		.listen_interval             = 1,
+		.suspend_wake_up_event       = CONF_WAKE_UP_EVENT_N_DTIM,
+		.suspend_listen_interval     = 3,
 		.bcn_filt_mode               = CONF_BCN_FILT_MODE_ENABLED,
 		.bcn_filt_ie_count           = 2,
 		.bcn_filt_ie = {
@@ -1680,13 +1682,23 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl)
 		if (ret < 0)
 			goto out_unlock;
 	}
+
+	/* In any case set wake up conditions to suspend values to conserve
+	 *  more power while willing to lose some broadcast traffic
+	 */
+	ret = wl1271_acx_wake_up_conditions(wl,
+			    wl->conf.conn.suspend_wake_up_event,
+			    wl->conf.conn.suspend_listen_interval);
+
+	if (ret < 0)
+		wl1271_error("suspend: set wake up conditions failed: %d", ret);
+
 out_sleep:
 	wl1271_ps_elp_sleep(wl);
 out_unlock:
 	mutex_unlock(&wl->mutex);
 out:
 	return ret;
-
 }
 
 static int wl1271_configure_suspend_ap(struct wl1271 *wl)
@@ -1708,7 +1720,6 @@ static int wl1271_configure_suspend_ap(struct wl1271 *wl)
 out_unlock:
 	mutex_unlock(&wl->mutex);
 	return ret;
-
 }
 
 static int wl1271_configure_suspend(struct wl1271 *wl)
@@ -1739,6 +1750,15 @@ static void wl1271_configure_resume(struct wl1271 *wl)
 		if (!test_bit(WL1271_FLAG_PSM_REQUESTED, &wl->flags))
 			wl1271_ps_set_mode(wl, STATION_ACTIVE_MODE,
 					   wl->basic_rate, true);
+
+		/* switch back to normal wake up conditions */
+		ret = wl1271_acx_wake_up_conditions(wl,
+				    wl->conf.conn.wake_up_event,
+				    wl->conf.conn.listen_interval);
+
+		if (ret < 0)
+			wl1271_error("resume: wake up conditions failed: %d",
+				     ret);
 	} else if (is_ap) {
 		wl1271_acx_beacon_filter_opt(wl, false);
 	}
