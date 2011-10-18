@@ -94,6 +94,33 @@ enum {
 	WLCORE_HW_RXTX_RATE_UNSUPPORTED = 0xff
 };
 
+enum wlcore_flags {
+	WLCORE_FLAG_GPIO_POWER,
+};
+
+struct wlcore_if_ops {
+	void (*read)(struct device *child, int addr, void *buf, size_t len,
+		     bool fixed);
+	void (*write)(struct device *child, int addr, void *buf, size_t len,
+		     bool fixed);
+	void (*reset)(struct device *child);
+	void (*init)(struct device *child);
+	int (*power)(struct device *child, bool enable);
+	void (*set_block_size) (struct device *child, unsigned int blksz);
+};
+
+struct wlcore_partition {
+	u32 size;
+	u32 start;
+};
+
+struct wlcore_partition_set {
+	struct wlcore_partition mem;
+	struct wlcore_partition reg;
+	struct wlcore_partition mem2;
+	struct wlcore_partition mem3;
+};
+
 struct wlcore {
 	struct ieee80211_hw *hw;
 	struct device *dev;
@@ -101,9 +128,17 @@ struct wlcore {
 	spinlock_t wl_lock;
 	struct mutex mutex;
 
+	struct wlcore_if_ops *if_ops;
+
 	bool mac80211_registered;
+	unsigned long flags;
 
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
+
+	struct wlcore_partition_set part;
+
+	/* TODO: is this really still needed? */
+	__le32 buffer_32;
 };
 
 struct wlcore *wlcore_alloc_hw(void);
