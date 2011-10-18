@@ -690,17 +690,14 @@ static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
 
 static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 {
-#if 0
 	u32 platform_type;
 	u32 osc_en;
     u32 clk_type;
 	u32 clk_freq;
-	u32 pllsh_wcs_pll_N;
-	u32 pllsh_wcs_pll_M;
-	u32 pllsh_wcs_pll_Q;
-	u32 pllsh_wcs_pll_P;
-#endif
-
+	u32 pllsh_wcs_pll_N = 0;
+	u32 pllsh_wcs_pll_M = 0;
+	u32 pllsh_wcs_pll_Q = 0;
+	u32 pllsh_wcs_pll_P = 0;
 
 	switch (wl->conf.mac_and_phy_params.hw_board_type)
 	{
@@ -728,162 +725,150 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
     {
         wl1271_info("Wl18xx - Starting HW TOP init process - Real Chip!!!");
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
-        wl1271_write32(wl, 0x00A02360, 0xD0078);
-        wl1271_write32(wl, 0x00A0236c, 0x12);
-        wl1271_write32(wl, 0x00A02390, 0x20118);
-    }
 
-	/* 1. Platform detection */
-#if 0
-	/* Read platform type */
-	platform_type = wl1271_top_reg_read(wl, PLATFORM_DETECTION);
-	wl1271_debug(DEBUG_BOOT, "Platform Found --->>>  0x%x!!!", platform_type);
+		/* 1. Platform detection */
 
-	/* Platform detection */
-    switch (platform_type) {
-	case 0:
-		wl1271_info("ORCA (6450) platform Detected!");
-		break;
-	case 1:
-		wl1271_info("TRIO (1273)  platform Detected!");
-		break;
-	case 2:
-		wl1271_info("NL5500 platform Detected!");
-		break;
-	case 3:
-		wl1271_info("NAPOLEON platform Detected!");
-		break;
-	case 4:
-		wl1271_info("QUATTRO (1283) platform Detected!");
-		break;
-	case 5:
-		wl1271_info("185X platform Detected!");
-		break;
-	case 6:
-		wl1271_info("189X platform Detected!");
-		break;
-	default:
-		wl1271_error("Unknown platform Detected!!!");
-	}
+		/* Read platform type */
+		platform_type = wl1271_top_reg_read(wl, PLATFORM_DETECTION);
 
-	/* 2. CLK detection */
-    wl1271_info("Orit Wl18xx - CLK detection");
-    /* Read CLK type from detection (for PG2) - TCXO/FREF or XTAL */
-	osc_en = wl1271_top_reg_read(wl, OSC_EN);
-    wl1271_info("Orit Wl18xx - osc_en = 0x%x", osc_en);
-
-	/* Check the clock source in bit 3 from OSC_EN */
-	if (!(osc_en & PRCM_WLAN_CLK_DETECTION_MASK)) {
-		wl1271_debug(DEBUG_BOOT, "CLK detection bit 3 is clear (OSC_EN=0x%x), working with TCXO/FREF clock", osc_en);
-		wl1271_info("CLK detection bit 3 is clear (OSC_EN=0x%x), working with TCXO/FREF clock", osc_en);
-		clk_type = FREF;
-
-	} else {
-		if (platform_type == 5) /* platform_type = 185x */ {
-			wl1271_debug(DEBUG_BOOT, "185x Platform Detected, CLK Type Is XTAL");
-			wl1271_info("185x Platform Detected, CLK Type Is XTAL");
-			clk_type = XTAL;
-		} else {               /* platform_type = 189x */
-			wl1271_error("189x Platform Detected, ERROR");
-			return -EINVAL;
+		/* Platform detection */
+		switch (platform_type) {
+		case 0:
+			wl1271_info("ORCA (6450) platform Detected!");
+			break;
+		case 1:
+			wl1271_info("TRIO (1273)  platform Detected!");
+			break;
+		case 2:
+			wl1271_info("NL5500 platform Detected!");
+			break;
+		case 3:
+			wl1271_info("NAPOLEON platform Detected!");
+			break;
+		case 4:
+			wl1271_info("QUATTRO (1283) platform Detected!");
+			break;
+		case 5:
+			wl1271_info("185X platform Detected!");
+			break;
+		case 6:
+			wl1271_info("189X platform Detected!");
+			break;
+		default:
+			wl1271_error("Unknown platform Detected!!!");
 		}
+
+		/* 2. CLK detection */
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - CLK detection");
+		/* Read CLK type from detection (for PG2) - TCXO/FREF or XTAL */
+		osc_en = wl1271_top_reg_read(wl, OSC_EN);
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - osc_en = 0x%x", osc_en);
+
+		/* Check the clock source in bit 3 from OSC_EN */
+		if (!(osc_en & PRCM_WLAN_CLK_DETECTION_MASK)) {
+			wl1271_debug(DEBUG_BOOT, "CLK detection bit 3 is clear (OSC_EN=0x%x), working with TCXO/FREF clock", osc_en);
+			clk_type = FREF;
+
+		} else {
+			if (platform_type == 5) /* platform_type = 185x */ {
+				wl1271_debug(DEBUG_BOOT, "185x Platform Detected, CLK Type Is XTAL");
+				clk_type = XTAL;
+			} else {               /* platform_type = 189x */
+				wl1271_error("189x Platform Detected, ERROR");
+				return -EINVAL;
+			}
+		}
+
+		/* Read freq from detection */
+		clk_freq = wl1271_top_reg_read(wl, PRIMARY_CLK_DETECT);
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
+
+		/* 3. WCS PLL Config */
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - WCS PLL Config");
+
+		switch (clk_freq) {
+		case CLOCK_CONFIG_16_2_M:
+			pllsh_wcs_pll_N = 7;
+			pllsh_wcs_pll_M = 104;
+			pllsh_wcs_pll_Q = 801;
+			pllsh_wcs_pll_P = 4;
+			break;
+		case CLOCK_CONFIG_16_368_M:
+			pllsh_wcs_pll_N = 9;
+			pllsh_wcs_pll_M = 132;
+			pllsh_wcs_pll_Q = 3751;
+			pllsh_wcs_pll_P = 4;
+			break;
+		case CLOCK_CONFIG_16_8_M:
+			pllsh_wcs_pll_N = 7;
+			pllsh_wcs_pll_M = 100;
+			break;
+		case CLOCK_CONFIG_19_2_M:
+			pllsh_wcs_pll_N = 8;
+			pllsh_wcs_pll_M = 100;
+			break;
+		case CLOCK_CONFIG_26_M:
+			pllsh_wcs_pll_N = 13;
+			pllsh_wcs_pll_M = 120;
+			break;
+		case CLOCK_CONFIG_32_736_M:
+			pllsh_wcs_pll_N = 9;
+			pllsh_wcs_pll_M = 132;
+			pllsh_wcs_pll_Q = 3751;
+			pllsh_wcs_pll_P = 4;
+			break;
+		case CLOCK_CONFIG_33_6_M:
+			pllsh_wcs_pll_N = 7;
+			pllsh_wcs_pll_M = 100;
+			break;
+		case CLOCK_CONFIG_38_468_M:
+			pllsh_wcs_pll_N = 8;
+			pllsh_wcs_pll_M = 100;
+			break;
+		case CLOCK_CONFIG_52_M:
+			pllsh_wcs_pll_N = 13;
+			pllsh_wcs_pll_M = 120;
+			break;
+		default:
+			wl1271_error("Unknown clock frequency 0x%x!!!", clk_freq);
+		}
+
+		/* Config N (pre divider) parameters according to the input frequency */
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
+		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
+	
+		/* Config M (divider) parameters according to the input frequency */
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx -  write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
+		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
+	
+		/* Swallowing is only needed for the following CLK frequencies:
+			16.2MHz, 16.368MHz, 32.736MHz */
+		if ((clk_freq == CLOCK_CONFIG_16_2_M) ||
+			(clk_freq == CLOCK_CONFIG_16_368_M) ||
+			(clk_freq == CLOCK_CONFIG_32_736_M)) {
+	
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_1,
+					(pllsh_wcs_pll_Q & PLLSH_WCS_PLL_Q_FACTOR_CFG_1_MASK));
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_2,
+					((pllsh_wcs_pll_Q >> REG_16_SHIFT) & PLLSH_WCS_PLL_Q_FACTOR_CFG_2_MASK));
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_1,
+					(pllsh_wcs_pll_P & PLLSH_WCS_PLL_P_FACTOR_CFG_1_MASK));
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_2,
+					((pllsh_wcs_pll_P >> REG_16_SHIFT) & PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK));
+	
+			/* Activate swallowing mechanism if needed */
+			wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
+		}
+		else {
+			/* Activate swallowing mechanism if needed */
+			wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Activate swallowing mechanism %d in addr 0x%x",
+					PLLSH_WCS_PLL_SWALLOW_EN_VAL2, PLLSH_WCS_PLL_SWALLOW_EN);
+			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
+		}
+	
+		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - HW TOP init is done!!!");
 	}
-
-	/* Read freq from detection */
-	clk_freq = wl1271_top_reg_read(wl, PRIMARY_CLK_DETECT);
-    wl1271_info("Orit Wl18xx - Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
-
-	/* 3. WCS PLL Config */
-    wl1271_info("Orit Wl18xx - WCS PLL Config");
-
-    switch (clk_freq) {
-	case CLOCK_CONFIG_16_2_M:
-		pllsh_wcs_pll_N = 7;
-		pllsh_wcs_pll_M = 104;
-		pllsh_wcs_pll_Q = 801;
-		pllsh_wcs_pll_P = 4;
-		break;
-	case CLOCK_CONFIG_16_368_M:
-		pllsh_wcs_pll_N = 9;
-		pllsh_wcs_pll_M = 132;
-		pllsh_wcs_pll_Q = 3751;
-		pllsh_wcs_pll_P = 4;
-        break;
-	case CLOCK_CONFIG_16_8_M:
-		pllsh_wcs_pll_N = 7;
-		pllsh_wcs_pll_M = 100;
-		break;
-	case CLOCK_CONFIG_19_2_M:
-		pllsh_wcs_pll_N = 8;
-		pllsh_wcs_pll_M = 100;
-        break;
-	case CLOCK_CONFIG_26_M:
-		pllsh_wcs_pll_N = 13;
-		pllsh_wcs_pll_M = 120;
-		break;
-	case CLOCK_CONFIG_32_736_M:
-		pllsh_wcs_pll_N = 9;
-		pllsh_wcs_pll_M = 132;
-		pllsh_wcs_pll_Q = 3751;
-		pllsh_wcs_pll_P = 4;
-        break;
-	case CLOCK_CONFIG_33_6_M:
-		pllsh_wcs_pll_N = 7;
-		pllsh_wcs_pll_M = 100;
-		break;
-	case CLOCK_CONFIG_38_468_M:
-		pllsh_wcs_pll_N = 8;
-		pllsh_wcs_pll_M = 100;
-		break;
-	case CLOCK_CONFIG_52_M:
-		pllsh_wcs_pll_N = 13;
-		pllsh_wcs_pll_M = 120;
-		break;
-	default:
-		wl1271_error("Unknown clock frequency 0x%x!!!", clk_freq);
-	}
-
-	/* Config N (pre divider) parameters according to the input frequency */
-    wl1271_info("Orit Wl18xx - write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
-    wl1271_top_reg_write(wl, PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
-
-	/* Config M (divider) parameters according to the input frequency */
-    wl1271_info("Orit Wl18xx -  write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
-    wl1271_top_reg_write(wl, PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
-
-	/* Swallowing is only needed for the following CLK frequencies:
-		16.2MHz, 16.368MHz, 32.736MHz */
-	if ((clk_freq == CLOCK_CONFIG_16_2_M) ||
-		(clk_freq == CLOCK_CONFIG_16_368_M) ||
-		(clk_freq == CLOCK_CONFIG_32_736_M)) {
-
-		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_1,
-				(pllsh_wcs_pll_Q & PLLSH_WCS_PLL_Q_FACTOR_CFG_1_MASK));
-		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_Q_FACTOR_CFG_2,
-				((pllsh_wcs_pll_Q >> REG_16_SHIFT) & PLLSH_WCS_PLL_Q_FACTOR_CFG_2_MASK));
-		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_1,
-				(pllsh_wcs_pll_P & PLLSH_WCS_PLL_P_FACTOR_CFG_1_MASK));
-		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_2,
-				((pllsh_wcs_pll_P >> REG_16_SHIFT) & PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK));
-
-		/* Activate swallowing mechanism if needed */
-	    wl1271_info("Orit Wl18xx - Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
-	    wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
-	}
-	else {
-		/* Activate swallowing mechanism if needed */
-	    wl1271_info("Orit Wl18xx - Activate swallowing mechanism %d in addr 0x%x",
-	    		PLLSH_WCS_PLL_SWALLOW_EN_VAL2, PLLSH_WCS_PLL_SWALLOW_EN);
-	    wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
-	}
-
-	/* En WCS PLL in the TOP */
-    wl1271_info("Orit Wl18xx - En WCS PLL in the TOP addr 0x%x val 0x%x",
-    		PLLSH_WL_PLL_EN, PLLSH_WL_PLL_EN_VAL);
-    wl1271_top_reg_write(wl, PLLSH_WL_PLL_EN, PLLSH_WL_PLL_EN_VAL);
-#endif
-
-    wl1271_info("Orit Wl18xx - HW TOP init is done!!!");
 
 	return 0;
 }
