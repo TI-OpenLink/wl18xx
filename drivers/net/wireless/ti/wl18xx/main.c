@@ -22,11 +22,52 @@
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
+#include <linux/wl12xx.h>
 
 #include "../wlcore/wlcore.h"
+#include "../wlcore/io.h"
+#include "reg.h"
+
+static int wl18xx_get_chip_id(struct wlcore *wl)
+{
+	struct wlcore_partition_set partition;
+	u32 id;
+
+	printk(KERN_DEBUG "wl18xx_get_chip_id\n");
+
+	/*
+	 * We don't need a real memory partition here, because we only want
+	 * to use the registers at this point.
+	 */
+	memset(&partition, 0, sizeof(partition));
+	partition.reg.start = WL18XX_REG_BOOT_PART_START;
+	partition.reg.size = WL18XX_REG_BOOT_PART_SIZE;
+
+	wlcore_set_partition(wl, &partition);
+
+	id = wlcore_read32(wl, WL18XX_CHIP_ID_B);
+
+	switch (id) {
+	case CHIP_ID_185x_PG10:
+		printk(KERN_DEBUG "chip id 0x%x (185x PG10)\n", id);
+
+		break;
+	default:
+		printk(KERN_DEBUG "unsupported chip id: 0x%x\n", id);
+		id = -ENODEV;
+		break;
+	}
+
+	return id;
+}
+
+static struct wlcore_ops wl18xx_ops = {
+	.get_chip_id = wl18xx_get_chip_id,
+};
 
 static int __devinit wl18xx_probe(struct platform_device *pdev)
 {
+	struct wl12xx_platform_data *pdata = pdev->dev.platform_data;
 	struct wlcore *wl;
 	int ret = -ENODEV;
 
@@ -38,6 +79,13 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	/*
+	 * HACK! We're casting ops here, it should be fine for now,
+	 * because they're the same, but this needs to be properly
+	 * fixed
+	 */
+	wl->if_ops = (struct wlcore_if_ops *) pdata->ops;
+	wl->ops = &wl18xx_ops;
 	wl->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, wl);
