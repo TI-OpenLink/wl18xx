@@ -327,12 +327,12 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	else
 		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
 
-	wl->inband_irq = false;
+	wl->inband_irq = true;
 	if (interrupt) {
-		if (!strcmp(interrupt, "sdio"))
-			wl->inband_irq = true;
-		else if (strcmp(interrupt, "gpio"))
-			wl1271_warning("Unknown interrupt type, using gpio");
+		if (!strcmp(interrupt, "gpio"))
+			wl->inband_irq = false;
+		else if (strcmp(interrupt, "sdio"))
+			wl1271_warning("Unknown interrupt type, using sdio");
 	}
  
 	if (!wl->inband_irq) {
@@ -488,7 +488,7 @@ module_exit(wl1271_exit);
 
 module_param_named(interrupt, interrupt, charp, 0);
 MODULE_PARM_DESC(interrupt,
-		 "Set the interrupt type: sdio or gpio (default)");
+		 "Set the interrupt type: gpio or sdio (default)");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
