@@ -128,24 +128,16 @@ void wl1271_top_reg_write(struct wl1271 *wl, int addr, u16 val)
 {
 	u32 tmp_val;
 
-    wl1271_info("Orit Wl18xx - wl1271_top_reg_write addr 0x%x val 0x%x", addr, val);
-
 	if (!(addr % 4))
 	{
-	    wl1271_info("Orit Wl18xx - address aligned");
 		tmp_val = wl1271_read32(wl, addr);
-	    wl1271_info("Orit Wl18xx - read from 0x%x val 0x%x", addr, tmp_val);
-		val = (tmp_val & 0xffff0000) | val;
-	    wl1271_info("Orit Wl18xx - write to addr 0x%x val 0x%x", addr, val);
-		wl1271_write32(wl, addr, val);
+		tmp_val = (tmp_val & 0xffff0000) | val;
+		wl1271_write32(wl, addr, tmp_val);
 
 	} else {
-	    wl1271_info("Orit Wl18xx - address not aligned read from addr 0x%x", addr - 2);
 		tmp_val = wl1271_read32(wl, (addr - 2));
-	    wl1271_info("Orit Wl18xx - read from 0x%x val 0x%x", addr-2, tmp_val);
-		val = (tmp_val & 0xffff) | (val << 16);
-	    wl1271_info("Orit Wl18xx - write to addr 0x%x val 0x%x", (addr-2), val);
-		wl1271_write32(wl, (addr-2), val);
+		tmp_val = (tmp_val & 0xffff) | (val << 16);
+		wl1271_write32(wl, (addr-2), tmp_val);
 	}
 }
 
@@ -153,21 +145,13 @@ u16 wl1271_top_reg_read(struct wl1271 *wl, int addr)
 {
 	u32 val;
 
-    wl1271_info("Orit Wl18xx - wl1271_top_reg_read addr 0x%x", addr);
-
 	if (!(addr % 4))
 	{
-	    wl1271_info("Orit Wl18xx - address aligned");
 		val = wl1271_read32(wl, addr);
-	    wl1271_info("Orit Wl18xx - read val 0x%x", val);
-	    wl1271_info("Orit Wl18xx - return val 0x%x", val & 0xffff);
 		return val & 0xffff;
 
 	} else {
-	    wl1271_info("Orit Wl18xx - address not aligned read from addr 0x%x", addr - 2);
 		val = wl1271_read32(wl, (addr - 2));
-	    wl1271_info("Orit Wl18xx - read val 0x%x", val);
-	    wl1271_info("Orit Wl18xx - return val 0x%x", (val & 0xffff0000) >> 16);
 		return (val & 0xffff0000) >> 16;
 	}
 }
