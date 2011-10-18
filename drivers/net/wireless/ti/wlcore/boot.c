@@ -46,12 +46,12 @@ int wlcore_boot(struct wlcore *wl)
 	/* TODO: we don't need this here, we only need to set the partition */
 	ret = wl->ops->get_chip_id(wl);
 	if (ret < 0)
-		goto power_off;
+		goto out_power;
 	wl->chip_id = ret;
 
 	goto out;
 
-power_off:
+out_power:
 	wlcore_io_power_off(wl);
 out:
 	return ret;
