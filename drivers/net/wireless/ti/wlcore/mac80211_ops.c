@@ -22,7 +22,9 @@
 #include <net/mac80211.h>
 
 #include "debug.h"
+#include "wlcore.h"
 #include "mac80211_ops.h"
+#include "boot.h"
 
 void wlcore_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
@@ -31,14 +33,32 @@ void wlcore_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 
 int wlcore_start(struct ieee80211_hw *hw)
 {
+	struct wlcore *wl = hw->priv;
+	int ret;
+
 	wlcore_debug(DEBUG_MAC80211, "wlcore_start");
 
-	return 0;
+	mutex_lock(&wl->mutex);
+
+	ret = wlcore_boot(wl);
+	if (ret < 0)
+		goto out;
+
+out:
+	mutex_unlock(&wl->mutex);
+	return ret;
 }
 
 void wlcore_stop(struct ieee80211_hw *hw)
 {
+	struct wlcore *wl = hw->priv;
+
 	wlcore_debug(DEBUG_MAC80211, "wlcore_stop");
+	mutex_lock(&wl->mutex);
+
+	wlcore_shutdown(wl);
+
+	mutex_unlock(&wl->mutex);
 }
 
 int wlcore_add_interface(struct ieee80211_hw *hw,

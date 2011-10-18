@@ -109,6 +109,12 @@ struct wlcore_if_ops {
 	void (*set_block_size) (struct device *child, unsigned int blksz);
 };
 
+struct wlcore;
+
+struct wlcore_ops {
+	int (*get_chip_id)(struct wlcore *wl);
+};
+
 struct wlcore_partition {
 	u32 size;
 	u32 start;
@@ -129,6 +135,7 @@ struct wlcore {
 	struct mutex mutex;
 
 	struct wlcore_if_ops *if_ops;
+	struct wlcore_ops *ops;
 
 	bool mac80211_registered;
 	unsigned long flags;
@@ -136,6 +143,8 @@ struct wlcore {
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
 
 	struct wlcore_partition_set part;
+
+	u32 chip_id;
 
 	/* TODO: is this really still needed? */
 	__le32 buffer_32;
