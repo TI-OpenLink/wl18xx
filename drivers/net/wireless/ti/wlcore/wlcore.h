@@ -127,6 +127,7 @@ struct wlcore_partition_set {
 	struct wlcore_partition mem3;
 };
 
+/* TODO: separate local stuff from lower-driver accessible parts */
 struct wlcore {
 	struct ieee80211_hw *hw;
 	struct device *dev;
@@ -145,6 +146,14 @@ struct wlcore {
 	struct wlcore_partition_set part;
 
 	u32 chip_id;
+
+	const char *fw_name;
+	u8 *fw;
+	size_t fw_len;
+
+	const char *nvs_name;
+	u8 *nvs;
+	size_t nvs_len;
 
 	/* TODO: is this really still needed? */
 	__le32 buffer_32;

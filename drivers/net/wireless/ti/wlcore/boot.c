@@ -19,10 +19,98 @@
  *
  */
 
+#include <linux/firmware.h>
+#include <linux/vmalloc.h>
+
 #include "wlcore.h"
 #include "io.h"
 #include "boot.h"
 #include "debug.h"
+
+static int wlcore_request_firmware(struct wlcore *wl)
+{
+	const struct firmware *fw;
+	int ret = 0;
+
+	wlcore_debug(DEBUG_BOOT, "requesting firmware %s", wl->fw_name);
+
+	ret = request_firmware(&fw, wl->fw_name, wl->dev);
+	if (ret < 0) {
+		wlcore_error("could not get firmware: %d", ret);
+		goto out;
+	}
+
+	if (fw->size % 4) {
+		wlcore_error("firmware size is not multiple of 32 bits: %zu",
+			     fw->size);
+		ret = -EILSEQ;
+		goto out_release;
+	}
+
+	vfree(wl->fw);
+	wl->fw_len = 0;
+
+	wl->fw = vmalloc(fw->size);
+	if (!wl->fw) {
+		wlcore_error("could not allocate memory for the firmware");
+		ret = -ENOMEM;
+		goto out_release;
+	}
+
+	memcpy(wl->fw, fw->data, fw->size);
+	wl->fw_len = fw->size;
+
+out_release:
+	release_firmware(fw);
+out:
+	return ret;
+}
+
+static void wlcore_release_fw(struct wlcore *wl)
+{
+	vfree(wl->fw);
+	wl->fw = NULL;
+}
+
+/* TODO: should this be combined with wlcore_request_firmware()? */
+static int wlcore_request_nvs(struct wlcore *wl)
+{
+	const struct firmware *nvs;
+	int ret = 0;
+
+	if (wl->nvs)
+		goto out;
+
+	wlcore_debug(DEBUG_BOOT, "requesting NVS %s", wl->nvs_name);
+
+	ret = request_firmware(&nvs, wl->nvs_name, wl->dev);
+	if (ret < 0) {
+		wlcore_error("could not get nvs file: %d", ret);
+		goto out;
+	}
+
+	/* TODO: need to check NVS size alignment as for the FW? */
+
+	wl->nvs = kmemdup(nvs->data, nvs->size, GFP_KERNEL);
+	if (!wl->nvs) {
+		wlcore_error("could not allocate memory for the nvs file");
+		ret = -ENOMEM;
+		goto out_release;
+	}
+
+	wl->nvs_len = nvs->size;
+
+out_release:
+	release_firmware(nvs);
+out:
+	return ret;
+}
+
+static void wlcore_release_nvs(struct wlcore *wl)
+{
+	kfree(wl->nvs);
+	wl->nvs = NULL;
+}
 
 int wlcore_boot(struct wlcore *wl)
 {
@@ -49,8 +137,22 @@ int wlcore_boot(struct wlcore *wl)
 		goto out_power;
 	wl->chip_id = ret;
 
+	/*
+	 * TODO: we probably want to check if the firmware is not
+	 * allocated yet or whether the name has changed
+	 */
+	ret = wlcore_request_firmware(wl);
+	if (ret < 0)
+		goto out_power;
+
+	ret = wlcore_request_nvs(wl);
+	if (ret < 0)
+		goto out_fw;
+
 	goto out;
 
+out_fw:
+	wlcore_release_fw(wl);
 out_power:
 	wlcore_io_power_off(wl);
 out:
@@ -62,4 +164,8 @@ void wlcore_shutdown(struct wlcore *wl)
 	wlcore_debug(DEBUG_BOOT, "wlcore_shutdown");
 
 	wlcore_io_power_off(wl);
+
+	/* TODO: we probably don't want to release the firmware here */
+	wlcore_release_fw(wl);
+	wlcore_release_nvs(wl);
 }
