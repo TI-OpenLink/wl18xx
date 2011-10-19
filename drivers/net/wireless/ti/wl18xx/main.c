@@ -28,6 +28,9 @@
 #include "../wlcore/io.h"
 #include "reg.h"
 
+#define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
+#define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
+
 static int wl18xx_get_chip_id(struct wlcore *wl)
 {
 	struct wlcore_partition_set partition;
@@ -51,6 +54,8 @@ static int wl18xx_get_chip_id(struct wlcore *wl)
 	case CHIP_ID_185x_PG10:
 		printk(KERN_DEBUG "chip id 0x%x (185x PG10)\n", id);
 
+		wl->fw_name  = WL18XX_FW_NAME;
+		wl->nvs_name = WL18XX_NVS_NAME;
 		break;
 	default:
 		printk(KERN_DEBUG "unsupported chip id: 0x%x\n", id);
@@ -144,3 +149,4 @@ module_exit(wl18xx_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
+MODULE_FIRMWARE(WL18XX_FW_NAME);
