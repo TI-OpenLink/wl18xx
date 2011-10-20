@@ -216,15 +216,14 @@ static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
 		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 }
 
-static u32 wlcore_tx_get_hw_spare_blocks(struct wl1271 *wl,
-					 bool is_dummy_packet)
+static u32 wlcore_tx_get_hw_spare_blocks(struct wl1271 *wl, bool is_dummy)
 {
 	if (wl->conf.platform_type == 1) {
 		/* in case of a dummy packet, use default amount of spare mem blocks */
-		if (is_dummy_packet)
-			return  WL12XX_TX_HW_BLOCK_SPARE;
+		if (is_dummy)
+			return WL12XX_TX_HW_BLOCK_SPARE;
 
-		return wl->tx_spare_blocks;
+		return wl->wl12xx_tx_spare_blocks;
 	} else {
 		return WL18XX_TX_HW_BLOCK_SPARE;
 	}

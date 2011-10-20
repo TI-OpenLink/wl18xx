@@ -1953,11 +1953,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	wl->tx_results_count = 0;
 	wl->tx_packets_count = 0;
 	wl->time_offset = 0;
-	if (wl->conf.platform_type == 1)
-		wl->tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
-	else
-		wl->tx_spare_blocks = WL18XX_TX_HW_BLOCK_SPARE;
-
+	wl->wl12xx_tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sched_scanning = false;
@@ -2978,15 +2974,10 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		 */
 		if (key_type == KEY_GEM) {
 			if (action == KEY_ADD_OR_REPLACE)
-				wl->tx_spare_blocks = 2;
-			else if (action == KEY_REMOVE) {
-				if (wl->conf.platform_type == 1)
-					wl->tx_spare_blocks =
+				wl->wl12xx_tx_spare_blocks = 2;
+			else if (action == KEY_REMOVE)
+				wl->wl12xx_tx_spare_blocks =
 						WL12XX_TX_HW_BLOCK_SPARE;
-				else
-					wl->tx_spare_blocks =
-						WL18XX_TX_HW_BLOCK_SPARE;
-			}
 		}
 
 		addr = sta ? sta->addr : bcast_addr;
@@ -5148,12 +5139,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	wl->quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
-	/* 18xxTODO: move to add_interface, to allow change of platform_type
-	   via debugfs */
-	if (wl->conf.platform_type == 1)
-		wl->tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
-	else
-		wl->tx_spare_blocks = WL18XX_TX_HW_BLOCK_SPARE;
+	wl->wl12xx_tx_spare_blocks = WL12XX_TX_HW_BLOCK_SPARE;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;
 	wl->active_sta_count = 0;
 	wl->fwlog_size = 0;
