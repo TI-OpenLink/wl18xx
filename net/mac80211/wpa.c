@@ -197,6 +197,7 @@ static int tkip_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 
 	pos = skb_push(skb, TKIP_IV_LEN);
 	memmove(pos, pos + TKIP_IV_LEN, hdrlen);
+	skb_set_network_header(skb, skb_network_offset(skb) + TKIP_IV_LEN);
 	pos += hdrlen;
 
 	/* Increase IV for the frame */
@@ -411,6 +412,8 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 
 	pos = skb_push(skb, CCMP_HDR_LEN);
 	memmove(pos, pos + CCMP_HDR_LEN, hdrlen);
+	skb_set_network_header(skb, skb_network_offset(skb) + CCMP_HDR_LEN);
+
 	hdr = (struct ieee80211_hdr *) pos;
 	pos += hdrlen;
 
