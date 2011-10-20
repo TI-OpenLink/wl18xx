@@ -1284,11 +1284,12 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	wl12xx_read_fwlog_panic(wl);
 
-	/* 18xxTODO: SCR_PAD4 still shows the PC on recovery? */
+	/* 18xxTODO: seems WL18XX_SCR_PAD4 is out of range in the working
+	   partition. maybe something else shows the PC? */
 	if (wl->conf.platform_type == 1)
 		recovery_pc = wl1271_read32(wl, WL12XX_SCR_PAD4);
 	else
-		recovery_pc = wl1271_read32(wl, WL18XX_SCR_PAD4);
+		recovery_pc = 0;
 
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
 		    wl->chip.fw_ver_str, recovery_pc);
