@@ -377,7 +377,7 @@ static void wlcore_tx_set_desc_data_len(struct wl1271 *wl, struct sk_buff *skb,
 			desc->length = cpu_to_le16(aligned_len >> 2);
 
 			wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
-				     "len: %d life: %d mem: %d extra %d",
+				     "len: %d life: %d mem: %d extra: %d",
 				     desc->hlid,
 				     le16_to_cpu(desc->length),
 				     le16_to_cpu(desc->life_time),
@@ -499,9 +499,8 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 						  control);
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
-	desc->reserved = 0;
 	desc->tx_attr = cpu_to_le16(tx_attr);
-
+	wl1271_debug(DEBUG_TX, "tx_attr: 0x%x", tx_attr);
 	wlcore_tx_set_desc_csum_data(wl, skb, desc);
 	wlcore_tx_set_desc_data_len(wl, skb, desc);
 }
