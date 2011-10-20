@@ -409,6 +409,8 @@ static struct conf_drv_settings default_conf = {
 		.rx_profile = 0x0,
 	},
 
+	.tx_hw_csum_enabled = true,
+
 	.platform_type = 1,
 	.subtype_18xx = BOARD_TYPE_DVP_EVB_18XX,
 };

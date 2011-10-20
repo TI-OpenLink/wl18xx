@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/etherdevice.h>
+#include <linux/ip.h>
 
 #include "wl12xx.h"
 #include "io.h"
@@ -409,6 +410,35 @@ static void wlcore_tx_set_desc_data_len(struct wl1271 *wl, struct sk_buff *skb,
 	}
 }
 
+static void wlcore_tx_set_desc_csum_data(struct wl1271 *wl,
+					 struct sk_buff *skb,
+					 struct wl1271_tx_hw_descr *desc)
+{
+	if (wl->conf.platform_type == 1) {
+		desc->wl12xx_reserved = 0;
+	} else {
+		u32 ip_hdr_offset;
+		struct iphdr *ip_hdr;
+
+		if (skb->ip_summed != CHECKSUM_PARTIAL) {
+			desc->wl18xx_checksum_data = 0;
+			return;
+		}
+
+		ip_hdr_offset = skb_network_header(skb) - skb_mac_header(skb);
+		if (WARN_ON(ip_hdr_offset >= (1<<7))) {
+			desc->wl18xx_checksum_data = 0;
+			return;
+		}
+
+		desc->wl18xx_checksum_data = ip_hdr_offset << 1;
+
+		/* FW is interested only in the LSB of the protocol  TCP=0 UDP=1 */
+		ip_hdr = (void *)skb_network_header(skb);
+		desc->wl18xx_checksum_data |= (ip_hdr->protocol & 0x01);
+	}
+}
+
 static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			       struct sk_buff *skb, u32 extra,
 			       struct ieee80211_tx_info *control, u8 hlid)
@@ -428,6 +458,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		u16 fc = *(u16 *)(framestart + extra);
 		int hdrlen = ieee80211_hdrlen(cpu_to_le16(fc));
 		memmove(framestart, framestart + extra, hdrlen);
+		skb_set_network_header(skb, skb_network_offset(skb) + extra);
 	}
 
 	/* configure packet life time */
@@ -471,6 +502,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	desc->reserved = 0;
 	desc->tx_attr = cpu_to_le16(tx_attr);
 
+	wlcore_tx_set_desc_csum_data(wl, skb, desc);
 	wlcore_tx_set_desc_data_len(wl, skb, desc);
 }
 

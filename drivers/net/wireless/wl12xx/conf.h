@@ -1328,6 +1328,9 @@ struct conf_drv_settings {
 	/* 18xxTODO: merge with some settings we already have in other structs? */
 	struct wl18xx_conf_mac_and_phy_params phy_params;
 
+	/* 18xxTODO: probably in 18xx only settings */
+	bool tx_hw_csum_enabled;
+
 	/* 18xxTODO: this is only temporary. will be in platform data */
 	/* 1 = wl12xx, 2 = wl18xx */
 	u8 platform_type;

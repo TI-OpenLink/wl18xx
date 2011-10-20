@@ -1435,6 +1435,22 @@ struct wl12xx_acx_config_hangover {
 } __packed;
 
 enum {
+	CHECKSUM_OFFLOAD_DISABLED = 0,
+	CHECKSUM_OFFLOAD_ENABLED  = 1,
+	CHECKSUM_OFFLOAD_FAKE_RX  = 2,
+	CHECKSUM_OFFLOAD_INVALID  = 0xFF
+};
+
+struct wl12xx_acx_checksum_state {
+	struct acx_header header;
+
+	 /* enum acx_checksum_state */
+	u8 checksum_state;
+	u8 pad[3];
+} __packed;
+
+
+enum {
 	ACX_WAKE_UP_CONDITIONS      = 0x0002,
 	ACX_MEM_CFG                 = 0x0003,
 	ACX_SLOT                    = 0x0004,
@@ -1503,6 +1519,7 @@ enum {
 	ACX_PM_CONFIG               = 0x1016,
 	ACX_CONFIG_PS               = 0x1017,
 	ACX_CONFIG_HANGOVER         = 0x1018,
+	ACX_CHECKSUM_CONFIG         = 0x1020,
 };
 
 
@@ -1596,5 +1613,6 @@ int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
 int wl1271_acx_fm_coex(struct wl1271 *wl);
 int wl12xx_acx_set_rate_mgmt_params(struct wl1271 *wl);
 int wl12xx_acx_config_hangover(struct wl1271 *wl);
+int wl12xx_acx_set_checksum_state(struct wl1271 *wl);
 
 #endif /* __WL1271_ACX_H__ */

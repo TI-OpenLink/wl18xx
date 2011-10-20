@@ -655,6 +655,11 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 	if (ret < 0)
 		return ret;
 
+	if (wl->conf.platform_type == 2) {
+		if (wl->conf.tx_hw_csum_enabled)
+			ieee80211_set_netdev_features(vif, NETIF_F_IP_CSUM);
+	}
+
 	return 0;
 }
 
@@ -750,6 +755,13 @@ int wl1271_hw_init(struct wl1271 *wl)
 	ret = wl1271_acx_init_mem_config(wl);
 	if (ret < 0)
 		return ret;
+
+	/* 18xxTODO: can we move it earlier to the chip-specific init? */
+	if (wl->conf.platform_type == 2) {
+		ret = wl12xx_acx_set_checksum_state(wl);
+		if (ret < 0)
+			goto out_free_memmap;
+	}
 
 	/* RX config */
 	ret = wl12xx_init_rx_config(wl);
