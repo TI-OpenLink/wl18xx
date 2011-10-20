@@ -2814,6 +2814,11 @@ struct sk_buff *
 ieee80211_get_buffered_bc(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
 
 /**
+ * 18xxTODO: description
+ */
+void ieee80211_set_netdev_features(struct ieee80211_vif *vif, int features);
+
+/**
  * ieee80211_get_tkip_p1k_iv - get a TKIP phase 1 key for IV32
  *
  * This function returns the TKIP phase 1 key for the given IV32.
