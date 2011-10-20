@@ -110,6 +110,16 @@ static void wlcore_trim_skb(struct wl1271 *wl, struct sk_buff *skb,
 		skb_trim(skb, skb->len - desc->pad_len);
 }
 
+static void wlcore_set_rx_checksum(struct wl1271 *wl, struct sk_buff *skb,
+			    struct wl1271_rx_descriptor *desc)
+{
+	if (wl->conf.platform_type == 2) {
+		if (desc->status & WL18XX_RX_CHECKSUM_MASK)
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+	}
+
+}
+
 static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 				 bool unaligned, u8 *hlid)
 {
@@ -187,9 +197,11 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	seq_num = (le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_SEQ) >> 4;
 
 	wlcore_trim_skb(wl, skb, desc);
+	wlcore_set_rx_checksum(wl, skb, desc);
 
-	wl1271_debug(DEBUG_RX, "rx skb 0x%p: %d B %s seq %d hlid %d", skb,
-		     skb->len, beacon ? "beacon" : "", seq_num, *hlid);
+	wl1271_debug(DEBUG_RX, "rx skb 0x%p: %d B %s seq %d hlid %d csum %d",
+		     skb, skb->len, beacon ? "beacon" : "", seq_num, *hlid,
+		     skb->ip_summed);
 
 	skb_queue_tail(&wl->deferred_rx_queue, skb);
 	queue_work(wl->freezable_wq, &wl->netstack_work);

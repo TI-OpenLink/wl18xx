@@ -101,6 +101,7 @@
 #define ALIGNED_RX_BUF_SIZE_MASK     0xFFFF00
 #define ALIGNED_RX_BUF_SIZE_SHIFT    8
 
+#define WL18XX_RX_CHECKSUM_MASK      0x40
 
 /* If set, the start of IP payload is not 4 bytes aligned */
 #define RX_BUF_UNALIGNED_PAYLOAD     BIT(20)
