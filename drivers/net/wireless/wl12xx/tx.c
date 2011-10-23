@@ -888,7 +888,7 @@ static void dump_release_q(const struct fw_status_tx_free_q *tx_desc_release_q)
 }
 
 static void wl1271_tx_complete_packet(struct wl1271 *wl, 
-					  int id, struct wl1271_fw_status *status)
+					  u8 id, struct wl1271_fw_status *status)
 {
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
@@ -897,9 +897,10 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	u8 retries = 0;
 	u8 tx_status = 0;
 
-	id &= FW_STATUS_FREE_DESC_MASK;
 	/* The status of the transmission, indicating success or failure */
 	tx_status = (id & FW_STATUS_TX_STATUS_MASK) >> 7;
+
+	id &= FW_STATUS_FREE_DESC_MASK;
 
 	/* check for id legality */
 	if (unlikely(id >= ACX_TX_DESCRIPTORS || wl->tx_frames[id] == NULL)) {
