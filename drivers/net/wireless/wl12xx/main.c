@@ -1640,7 +1640,87 @@ static struct notifier_block wl1271_dev_notifier = {
 	.notifier_call = wl1271_dev_notify,
 };
 
-static int wl1271_configure_suspend_sta(struct wl1271 *wl)
+/* Count number of 1->0 or 0->1 transitions in a bit mask */
+static int wl1271_count_bit_flips(void *bitmap, int len)
+{
+	int i, flips = 0;
+	int b, bt;
+
+	if (!len)
+		return 0;
+
+	b = test_bit(0, bitmap);
+
+	for (i = 0; i < len; i++) {
+		bt = test_bit(i, bitmap);
+		if (bt != b)
+			flips++;
+		b = bt;
+	}
+
+	return flips;
+}
+
+static int wl1271_configure_wowlan(struct wl1271 *wl,
+				   struct cfg80211_wowlan *wow)
+{
+	int i, ret;
+
+	if (!wow) {
+		wl1271_rx_data_filtering_enable(wl, 0, FILTER_SIGNAL);
+		return 0;
+	}
+
+	WARN_ON(wow->n_patterns > WL1271_MAX_RX_DATA_FILTERS);
+	if (wow->any || !wow->n_patterns)
+		return 0;
+
+	wl1271_rx_data_filters_clear_all(wl);
+
+	/* Translate WoWLAN patterns into filters */
+	for (i = 0; i < wow->n_patterns; i++) {
+		struct cfg80211_wowlan_trig_pkt_pattern *p;
+		struct wl12xx_rx_data_filter *f;
+		int offset, len;
+
+		p = &wow->patterns[i];
+		f = &wl->rx_data_filters[i];
+
+		/* WoWLAN triggers as defined by nl80211 does not match wl12xx's
+		   capabilities 1:1 so it's possible to get a pattern that
+		   FW cannot handle */
+		if (wl1271_count_bit_flips(p->mask, p->pattern_len) > 1) {
+			wl1271_warning("WoWLAN pattern too advanced\n");
+			goto err;
+		}
+		offset = find_first_bit((const unsigned long *) p->mask,
+					p->pattern_len);
+		len = p->pattern_len - offset;
+
+		ret = wl1271_rx_data_filter_set_action(f, FILTER_SIGNAL);
+		if (ret)
+			goto err;
+		ret = wl1271_rx_data_filter_set_offset(f, offset);
+		if (ret)
+			goto err;
+		ret = wl1271_rx_data_filter_set_pattern(f, &p->pattern[offset],
+							len);
+		if (ret)
+			goto err;
+		ret = wl1271_rx_data_filter_enable(wl, f, i, 1);
+		if (ret)
+			goto err;
+	}
+	ret = wl1271_rx_data_filtering_enable(wl, 1, FILTER_DROP);
+	if (ret)
+		goto err;
+	return 0;
+err:
+	return ret;
+}
+
+static int wl1271_configure_suspend_sta(struct wl1271 *wl,
+					struct cfg80211_wowlan *wow)
 {
 	int ret = 0;
 
@@ -1683,6 +1763,10 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl)
 			goto out_unlock;
 	}
 
+	ret = wl1271_configure_wowlan(wl, wow);
+	if (ret < 0)
+		wl1271_error("suspend: Could not configure WoWLAN: %d", ret);
+
 	/* In any case set wake up conditions to suspend values to conserve
 	 *  more power while willing to lose some broadcast traffic
 	 */
@@ -1722,10 +1806,11 @@ out_unlock:
 	return ret;
 }
 
-static int wl1271_configure_suspend(struct wl1271 *wl)
+static int wl1271_configure_suspend(struct wl1271 *wl,
+				    struct cfg80211_wowlan *wow)
 {
 	if (wl->bss_type == BSS_TYPE_STA_BSS)
-		return wl1271_configure_suspend_sta(wl);
+		return wl1271_configure_suspend_sta(wl, wow);
 	if (wl->bss_type == BSS_TYPE_AP_BSS)
 		return wl1271_configure_suspend_ap(wl);
 	return 0;
@@ -1751,6 +1836,9 @@ static void wl1271_configure_resume(struct wl1271 *wl)
 			wl1271_ps_set_mode(wl, STATION_ACTIVE_MODE,
 					   wl->basic_rate, true);
 
+		/* Remove WoWLAN filtering */
+		wl1271_configure_wowlan(wl, NULL);
+
 		/* switch back to normal wake up conditions */
 		ret = wl1271_acx_wake_up_conditions(wl,
 				    wl->conf.conn.wake_up_event,
@@ -1775,10 +1863,10 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 suspend wow=%d", !!wow);
-	WARN_ON(!wow || !wow->any);
+	WARN_ON(!wow);
 
 	wl->wow_enabled = true;
-	ret = wl1271_configure_suspend(wl);
+	ret = wl1271_configure_suspend(wl, wow);
 	if (ret < 0) {
 		wl1271_warning("couldn't prepare device to suspend");
 		return ret;
