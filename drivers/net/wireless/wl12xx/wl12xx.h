@@ -413,6 +413,14 @@ enum rx_data_filter_action {
 	FILTER_FW_HANDLE = 2
 };
 
+struct wl12xx_rx_data_filter {
+	bool enabled;
+	enum rx_data_filter_action action;
+	u8 len;
+	u16 offset;
+	u8 pattern[WL1271_MAX_RX_DATA_FILTER_SIZE];
+};
+
 struct wl1271 {
 	struct platform_device *plat_dev;
 	struct ieee80211_hw *hw;
@@ -693,6 +701,16 @@ struct wl1271 {
 
 	/* AP-mode - work to add stations back on AP reconfig */
 	struct work_struct ap_start_work;
+
+	/* Global on/off switch for rx all rx filters */
+	bool rx_data_filter_enabled;
+
+	/* Default action for packets not matching any rule */
+	enum rx_data_filter_action rx_data_filter_policy;
+
+	/* RX Data filter rule descriptors */
+	struct wl12xx_rx_data_filter
+				rx_data_filters[WL1271_MAX_RX_DATA_FILTERS];
 };
 
 struct wl1271_station {
