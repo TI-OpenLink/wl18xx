@@ -294,6 +294,21 @@ struct wl1271_link {
 	u8 ba_bitmap;
 };
 
+#define WL1271_MAX_RX_DATA_FILTERS 4
+#define WL1271_MAX_RX_DATA_FILTER_SIZE 98
+#define WL1271_RX_DATA_FILTER_MAX_FIELD_PATTERNS 8
+#define WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE 64
+#define WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE 14
+
+#define WL1271_RX_DATA_FILTER_FLAG_IP_HEADER           0
+#define WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER     2
+
+enum rx_data_filter_action {
+	FILTER_DROP = 0,
+	FILTER_SIGNAL = 1,
+	FILTER_FW_HANDLE = 2
+};
+
 struct wl1271 {
 	struct ieee80211_hw *hw;
 	bool mac80211_registered;

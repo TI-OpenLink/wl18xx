@@ -1740,3 +1740,93 @@ out:
 	return ret;
 
 }
+
+int wl1271_acx_toggle_rx_data_filter(struct wl1271 *wl, bool enable,
+				     u8 default_action)
+{
+	struct acx_rx_data_filter_state *acx;
+	int ret;
+
+	wl1271_debug(DEBUG_ACX, "acx toggle rx data filter en: %d act: %d",
+		     enable, default_action);
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->enable = enable ? 1 : 0;
+	acx->default_action = default_action;
+
+	ret = wl1271_cmd_configure(wl, ACX_ENABLE_RX_DATA_FILTER, acx,
+				   sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("toggling rx data filter failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
+
+int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, bool add, u8 index,
+				  u8 action, u8 *pattern, u8 length, u16 offset)
+{
+	struct acx_rx_data_filter_cfg *acx;
+	int ret;
+
+	wl1271_debug(DEBUG_ACX, "acx set rx data filter add: %d idx: %d "
+		     "act: %d pat_len: %d offset: %d", add, index, action,
+		     length, offset);
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (index >= WL1271_MAX_RX_DATA_FILTERS ||
+	    length > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE ||
+	    (add && !pattern)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	acx->add_filter = add ? 1 : 0;
+	acx->index = index;
+	acx->num_fields = 1;
+	acx->action = action;
+
+	if (add) {
+		/* pattern description */
+		acx->length = length;
+		memcpy(acx->pattern, pattern, length);
+
+		if (offset + length <= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
+			acx->flag = WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER;
+			acx->offset = cpu_to_le16(offset);
+		} else if (offset >= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
+			acx->flag = WL1271_RX_DATA_FILTER_FLAG_IP_HEADER;
+			acx->offset = cpu_to_le16(offset -
+				      WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE);
+		} else {
+			wl1271_error("header boundry crossing filters not "
+				     "supported currently");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	ret = wl1271_cmd_configure(wl, ACX_SET_RX_DATA_FILTER, acx,
+				   sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("setting rx data filter failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
