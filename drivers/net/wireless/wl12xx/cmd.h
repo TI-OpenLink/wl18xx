@@ -191,7 +191,9 @@ struct wl1271_cmd_header {
 	u8 data[0];
 } __packed;
 
-#define WL1271_CMD_MAX_PARAMS 572
+#define WL12XX_CMD_MAX_SIZE	740
+#define WL1271_CMD_MAX_PARAMS	(WL12XX_CMD_MAX_SIZE - \
+				 sizeof(struct wl1271_cmd_header))
 
 struct wl1271_command {
 	struct wl1271_cmd_header header;

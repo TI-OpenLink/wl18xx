@@ -64,9 +64,22 @@ int wl1271_cmd_send(struct wl1271 *wl, u16 id, void *buf, size_t len,
 	WARN_ON(len % 4 != 0);
 	WARN_ON(test_bit(WL1271_FLAG_IN_ELP, &wl->flags));
 
-	wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
+	if (wl->quirks & WL12XX_QUIRK_AUTO_EOT) {
+		u8 *padded_buf = kzalloc(WL12XX_CMD_MAX_SIZE, GFP_KERNEL);
+		if (!padded_buf) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+		memcpy(padded_buf, buf, len);
 
-	wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG_H, INTR_TRIG_CMD);
+		wl1271_write(wl, wl->cmd_box_addr, padded_buf,
+			     WL12XX_CMD_MAX_SIZE, false);
+		kfree(padded_buf);
+	} else {
+		wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
+		wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG_H, INTR_TRIG_CMD);
+	}
+
 	timeout = jiffies + msecs_to_jiffies(WL1271_COMMAND_TIMEOUT);
 
 	intr = wl1271_read32(wl, ACX_REG_INTERRUPT_NO_CLEAR);
