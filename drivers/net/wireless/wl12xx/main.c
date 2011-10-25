@@ -1501,6 +1501,7 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 			goto out;
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
+		wl->quirks |= WL12XX_QUIRK_AUTO_EOT;
 		break;
 	case CHIP_ID_1283_PG10:
 	default:
