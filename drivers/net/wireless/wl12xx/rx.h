@@ -101,7 +101,11 @@
 #define WL18XX_RX_BUF_SIZE_SHIFT           8
 
 /* If set, the start of IP payload is not 4 bytes aligned */
-#define RX_BUF_UNALIGNED_PAYLOAD     BIT(20)
+#define RX_BUF_UNALIGNED_PAYLOAD	BIT(20)
+#define RX_BUF_PADDED_PAYLOAD		BIT(30)
+
+#define WL12XX_RX_DESC_UNALIGNED	BIT(0)
+#define WL12XX_RX_DESC_PADDED		BIT(1)
 
 enum {
 	WL12XX_RX_CLASS_UNKNOWN,

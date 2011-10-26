@@ -52,12 +52,19 @@ static u32 wl1271_rx_get_buf_size(struct wl1271 *wl,
 			RX_BUF_SIZE_MASK) >> RX_BUF_SIZE_SHIFT_DIV;
 }
 
-static bool wl1271_rx_get_unaligned(struct wl1271_fw_status *status,
+static int wl1271_rx_get_unaligned(struct wl1271_fw_status *status,
 				    u32 drv_rx_counter)
 {
-	/* Convert the value to bool */
-	return !!(le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
-		RX_BUF_UNALIGNED_PAYLOAD);
+	int aligned = 0;
+	u32 desc = le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]);
+
+	/* Convert the value to some bitmap */
+	if (desc & RX_BUF_UNALIGNED_PAYLOAD)
+		aligned |= WL12XX_RX_DESC_UNALIGNED;
+	if (desc & RX_BUF_PADDED_PAYLOAD)
+		aligned |= WL12XX_RX_DESC_PADDED;
+
+	return aligned;
 }
 
 static void wl1271_rx_status(struct wl1271 *wl,
@@ -104,7 +111,7 @@ static void wl1271_rx_status(struct wl1271 *wl,
 }
 
 static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
-				 bool unaligned)
+				 int unaligned)
 {
 	struct wl1271_rx_descriptor *desc;
 	struct sk_buff *skb;
@@ -112,7 +119,10 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	u8 *buf;
 	u8 beacon;
 	u8 is_data;
-	u8 reserved = unaligned ? NET_IP_ALIGN : 0;
+	u8 reserved = 0;
+
+	if (unaligned & WL12XX_RX_DESC_UNALIGNED)
+		reserved += NET_IP_ALIGN;
 
 	/*
 	 * In PLT mode we seem to get frames and mac80211 warns about them,
@@ -169,6 +179,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	 * payload aligned to 4 bytes.
 	 */
 	memcpy(buf, data + sizeof(*desc), length - sizeof(*desc));
+	if (unaligned & WL12XX_RX_DESC_PADDED)
+		skb_pull(skb, NET_IP_ALIGN);
 
 	hdr = (struct ieee80211_hdr *)skb->data;
 	beacon = ieee80211_is_beacon(hdr->frame_control);
@@ -206,7 +218,7 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 	u32 pkt_offset;
 	bool is_ap = (wl->bss_type == BSS_TYPE_AP_BSS);
 	bool had_data = false;
-	bool unaligned = false;
+	int unaligned;
 
 	while (drv_rx_counter != fw_rx_counter) {
 		buf_size = 0;

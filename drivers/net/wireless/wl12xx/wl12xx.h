@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.12_frag+rx_aggr_size_fixes"
+#define DRIVER_VERSION "WL18XX_A1.12_Rx_Align"
 
 /*
  * FW versions support BA 11n
@@ -796,6 +796,8 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 
 /* auto-EOT support */
 #define WL12XX_QUIRK_AUTO_EOT			BIT(4)
+
+#define WL12XX_QUIRK_RX_QOS_ALIGNMENT	BIT(5)
 
 #define WL12XX_HW_BLOCK_SIZE	256
 
