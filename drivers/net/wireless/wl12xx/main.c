@@ -3323,7 +3323,7 @@ static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl, u32 rates,
 	if (!skb)
 		return -EOPNOTSUPP;
 
-	ret = wl1271_cmd_template_set(wl, wlvif,
+	ret = wl1271_cmd_template_set(wl, wlvif->role_id,
 				      CMD_TEMPL_AP_PROBE_RESPONSE,
 				      skb->data,
 				      skb->len, 0,
@@ -3347,7 +3347,7 @@ static int wl1271_ap_set_probe_resp_tmpl_legacy(struct wl1271 *wl,
 
 	/* no need to change probe response if the SSID is set correctly */
 	if (wlvif->ssid_len > 0)
-		return wl1271_cmd_template_set(wl, wlvif,
+		return wl1271_cmd_template_set(wl, wlvif->role_id,
 					       CMD_TEMPL_AP_PROBE_RESPONSE,
 					       probe_rsp_data,
 					       probe_rsp_len, 0,
@@ -3384,7 +3384,7 @@ static int wl1271_ap_set_probe_resp_tmpl_legacy(struct wl1271 *wl,
 	       ptr, probe_rsp_len - (ptr - probe_rsp_data));
 	templ_len += probe_rsp_len - (ptr - probe_rsp_data);
 
-	return wl1271_cmd_template_set(wl, wlvif,
+	return wl1271_cmd_template_set(wl, wlvif->role_id,
 				       CMD_TEMPL_AP_PROBE_RESPONSE,
 				       probe_rsp_templ,
 				       templ_len, 0,
@@ -3481,7 +3481,7 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 		min_rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
 		tmpl_id = is_ap ? CMD_TEMPL_AP_BEACON :
 				  CMD_TEMPL_BEACON;
-		ret = wl1271_cmd_template_set(wl, wlvif, tmpl_id,
+		ret = wl1271_cmd_template_set(wl, wlvif->role_id, tmpl_id,
 					      beacon->data,
 					      beacon->len, 0,
 					      min_rate);
@@ -3520,7 +3520,7 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 						beacon->len,
 						min_rate);
 		else
-			ret = wl1271_cmd_template_set(wl, wlvif,
+			ret = wl1271_cmd_template_set(wl, wlvif->role_id,
 						CMD_TEMPL_PROBE_RESPONSE,
 						beacon->data,
 						beacon->len, 0,
