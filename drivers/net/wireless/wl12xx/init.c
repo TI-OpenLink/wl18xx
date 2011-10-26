@@ -576,6 +576,9 @@ int wl1271_chip_specific_init(struct wl1271 *wl)
 					HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
 		}
 
+		if (wl->quirks & WL12XX_QUIRK_RX_QOS_ALIGNMENT)
+			host_cfg_bitmap |= HOST_IF_CFG_ADD_RX_ALIGNMENT;
+
 		/* Must be before wl1271_acx_init_mem_config() */
 		ret = wl1271_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap);
 		if (ret < 0)
