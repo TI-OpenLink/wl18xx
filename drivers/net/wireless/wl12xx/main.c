@@ -951,9 +951,6 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	getnstimeofday(&ts);
 	wl->time_offset = (timespec_to_ns(&ts) >> 10) -
 		(s64)le32_to_cpu(status->fw_localtime);
-
-	if (wl->conf.platform_type == 2)
-		wl18xx_tx_complete(wl);
 }
 
 static void wl1271_flush_deferred_work(struct wl1271 *wl)
@@ -977,6 +974,25 @@ static void wl1271_netstack_work(struct work_struct *work)
 	do {
 		wl1271_flush_deferred_work(wl);
 	} while (skb_queue_len(&wl->deferred_rx_queue));
+}
+
+static void wlcore_immediate_tx_complete(struct wl1271 *wl)
+{
+	if (wl->conf.platform_type == 2)
+		wl18xx_tx_complete(wl);
+
+	/* wl12xx doesn't have immediate tx complete */
+}
+
+static void wlcore_tx_complete(struct wl1271 *wl)
+{
+	if (wl->conf.platform_type == 1) {
+		if (wl->fw_status->tx_results_counter !=
+		    (wl->tx_results_count & 0xff))
+			wl1271_tx_complete(wl);
+	}
+
+	/* 18xx doesn't support real Tx completions yet */
 }
 
 /* 18xxTODO: loops was reduced to 64 here for 18xx. is there a reason? */
@@ -1024,6 +1040,9 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		smp_mb__after_clear_bit();
 
 		wl12xx_fw_status(wl, wl->fw_status);
+
+		wlcore_immediate_tx_complete(wl);
+
 		intr = le32_to_cpu(wl->fw_status->intr);
 		intr &= WL1271_INTR_MASK;
 		if (!intr) {
@@ -1060,10 +1079,7 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 			}
 
 			/* check for tx results on wl12xx cards */
-			if (wl->conf.platform_type == 1 &&
-			    wl->fw_status->tx_results_counter !=
-			    (wl->tx_results_count & 0xff))
-				wl1271_tx_complete(wl);
+			wlcore_tx_complete(wl);
 
 			/* Make sure the deferred queues don't get too long */
 			defer_count = skb_queue_len(&wl->deferred_tx_queue) +
