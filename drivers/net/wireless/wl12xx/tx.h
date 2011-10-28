@@ -247,5 +247,8 @@ void wl18xx_tx_complete(struct wl1271 *wl);
 
 /* from main.c */
 void wl1271_free_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 hlid);
+void wlcore_tx_write_data(struct wl1271 *wl, u32 offset);
+int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
+				u32 buf_offset);
 
 #endif

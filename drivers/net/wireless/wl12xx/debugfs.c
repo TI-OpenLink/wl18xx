@@ -1051,6 +1051,122 @@ err:
 	return ret;
 }
 
+static ssize_t raw_access_write(struct file *file,
+				   const char __user *user_buf,
+				   size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	int ret;
+	unsigned long value;
+	struct sk_buff *skb;
+	unsigned frame_size;
+	u32 offset;
+	int i;
+	char *junk_data;
+
+	ret = kstrtoul_from_user(user_buf, count, 10, &value);
+	if (ret < 0) {
+		wl1271_warning("illegal value in raw_access_write!");
+		return -EINVAL;
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (wl->state == WL1271_STATE_OFF)
+		goto out;
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	if (value > 64)
+		value = 64;
+	if (value < 1)
+		value = 1;
+
+	frame_size = WL1271_AGGR_BUFFER_SIZE / value;
+	if (frame_size % WL12XX_BUS_BLOCK_SIZE) {
+		wl1271_warning("please use a block size that is a multiple of 2");
+		frame_size = frame_size - (frame_size % WL12XX_BUS_BLOCK_SIZE);
+	}
+
+	skb = dev_alloc_skb(frame_size);
+	if (!skb)
+		goto out_sleep;
+
+	skb_put(skb, frame_size);
+
+	offset = 0;
+	for (i = 0; i < WL1271_AGGR_BUFFER_SIZE / frame_size; i++) {
+		wlcore_tx_add_buffer(wl, skb, offset);
+		offset += frame_size;
+	}
+
+	junk_data = kmalloc(frame_size, GFP_KERNEL);
+	if (!junk_data)
+		goto out_free;
+
+	memset(junk_data, 0x55, frame_size);
+
+	trace_printk("___start measure___\n");
+
+	/* simulate the memcpy for a single write */
+	if (value == 1) {
+		memcpy(skb->data, junk_data, frame_size);
+		trace_printk("___end memcpy___\n");
+	}
+
+	wlcore_tx_write_data(wl, offset);
+	trace_printk("___end measure___\n");
+
+	kfree(junk_data);
+
+out_free:
+	dev_kfree_skb(skb);
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return count;
+}
+
+static ssize_t raw_access_read(struct file *file,
+				  char __user *userbuf,
+				  size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	int value = 0;
+	int ret;
+
+	mutex_lock(&wl->mutex);
+
+	if (wl->state == WL1271_STATE_OFF)
+		goto out;
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	trace_printk("___start real read___!\n");
+	value = wl1271_read32(wl, WL18XX_ACX_REG_INTERRUPT_TRIG_H);
+	trace_printk("___end real read___!\n");
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return wl1271_format_buffer(userbuf, count, ppos, "%d\n", value);
+}
+
+static const struct file_operations raw_access_ops = {
+	.read = raw_access_read,
+	.write = raw_access_write,
+	.open = wl1271_open_file_generic,
+	.llseek = default_llseek,
+};
+
 static int wl18xx_debugfs_add_fwstats(struct wl1271 *wl,
 				      struct dentry *rootdir)
 {
@@ -1068,6 +1184,8 @@ static int wl18xx_debugfs_add_fwstats(struct wl1271 *wl,
 	}
 
 	wl->stats.fw_stats_update = jiffies;
+
+	DEBUGFS_ADD(raw_access, rootdir);
 
 	/* ring */
 	DEBUGFS_WL18XX_FWSTATS_ADD(ring, prepared_descs);
