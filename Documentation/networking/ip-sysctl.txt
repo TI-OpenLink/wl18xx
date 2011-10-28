@@ -551,6 +551,19 @@ tcp_thin_dupack - BOOLEAN
 	Documentation/networking/tcp-thin.txt
 	Default: 0
 
+tcp_delack_segs: - INTEGER
+	Sets the strict minimal number of full-sized TCP segments
+	received after which an ACK should be sent.
+	Default: 1 (as specified in RFC2582, S4.2)
+
+tcp_delack_min:	- INTEGER
+	Sets the minimum time (in miliseconds) to delay before sending an ACK.
+	Default: 40ms
+
+tcp_delack_max: - INTEGER
+	Sets the maximum time (in miliseconds) to delay before sending an ACK.
+	Default: 200ms
+
 UDP variables:
 
 udp_mem - vector of 3 INTEGERs: min, pressure, max

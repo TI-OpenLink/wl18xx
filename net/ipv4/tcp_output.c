@@ -65,6 +65,11 @@ int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
 int sysctl_tcp_cookie_size __read_mostly = 0; /* TCP_COOKIE_MAX */
 EXPORT_SYMBOL_GPL(sysctl_tcp_cookie_size);
 
+int sysctl_tcp_delack_min __read_mostly = TCP_DELACK_MIN_DEFAULT;
+EXPORT_SYMBOL(sysctl_tcp_delack_min);
+
+int sysctl_tcp_delack_max __read_mostly = TCP_DELACK_MAX_DEFAULT;
+EXPORT_SYMBOL(sysctl_tcp_delack_max);
 
 /* Account for new data that has been sent to the network. */
 static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
@@ -2700,13 +2705,13 @@ void tcp_send_delayed_ack(struct sock *sk)
 	int ato = icsk->icsk_ack.ato;
 	unsigned long timeout;
 
-	if (ato > TCP_DELACK_MIN) {
+	if (ato > sysctl_tcp_delack_min) {
 		const struct tcp_sock *tp = tcp_sk(sk);
 		int max_ato = HZ / 2;
 
 		if (icsk->icsk_ack.pingpong ||
 		    (icsk->icsk_ack.pending & ICSK_ACK_PUSHED))
-			max_ato = TCP_DELACK_MAX;
+			max_ato = sysctl_tcp_delack_max;
 
 		/* Slow path, intersegment interval is "high". */
 
@@ -2715,7 +2720,7 @@ void tcp_send_delayed_ack(struct sock *sk)
 		 * directly.
 		 */
 		if (tp->srtt) {
-			int rtt = max(tp->srtt >> 3, TCP_DELACK_MIN);
+			int rtt = max_t(unsigned, tp->srtt >> 3, sysctl_tcp_delack_min);
 
 			if (rtt < max_ato)
 				max_ato = rtt;
@@ -2764,7 +2769,7 @@ void tcp_send_ack(struct sock *sk)
 		inet_csk_schedule_ack(sk);
 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
-					  TCP_DELACK_MAX, TCP_RTO_MAX);
+					  sysctl_tcp_delack_max, TCP_RTO_MAX);
 		return;
 	}
 
