@@ -528,7 +528,7 @@ static int wlcore_tx_prep_skb(struct wl1271 *wl, struct sk_buff *skb,
 }
 
 /* returns the total length of the added buffer (including padding) */
-static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
+int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 				u32 buf_offset)
 {
 	u32 total_len;
@@ -871,7 +871,7 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	}
 }
 
-static void wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
+void wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
 {
 	if (wl->quirks & WL12XX_QUIRK_SG_DMA) {
 		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
