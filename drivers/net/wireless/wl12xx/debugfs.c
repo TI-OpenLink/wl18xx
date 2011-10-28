@@ -1405,12 +1405,14 @@ err:
 void wlcore_debugfs_exit(struct wl1271 *wl)
 {
 	if (wl->conf.platform_type == 1) {
-		debugfs_remove_recursive(wl->debugfs_rootdir);
+		if (wl->debugfs_rootdir)
+			debugfs_remove_recursive(wl->debugfs_rootdir);
 		wl->debugfs_rootdir = NULL;
 		kfree(wl->stats.wl12xx);
 		wl->stats.wl12xx = NULL;
 	} else {
-		debugfs_remove_recursive(wl->debugfs_rootdir);
+		if (wl->debugfs_rootdir)
+			debugfs_remove_recursive(wl->debugfs_rootdir);
 		wl->debugfs_rootdir = NULL;
 		kfree(wl->stats.wl18xx);
 		wl->stats.wl18xx = NULL;
