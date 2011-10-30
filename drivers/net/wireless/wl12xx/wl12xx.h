@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.12_MIMO_Support"
+#define DRIVER_VERSION "WL18XX_A1.12_frag_fix"
 
 /*
  * FW versions support BA 11n
