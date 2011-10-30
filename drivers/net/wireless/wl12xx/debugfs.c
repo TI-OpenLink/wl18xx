@@ -1157,12 +1157,19 @@ static ssize_t tx_frag_thld_write(struct file *file,
 
         wl->conf.tx.frag_threshold = value;
 
-	mutex_unlock(&wl->mutex);
+		ret = wl1271_ps_elp_wakeup(wl);
+		if (ret < 0)
+			goto out;
 
-	/* Send fragmentation threshold to FW */
-	ret = wl1271_acx_frag_threshold(wl, wl->conf.tx.frag_threshold);
-	if (ret < 0)
-		wl1271_error("Failed to Send fragmentation threshold %d to FW", wl->conf.tx.frag_threshold);
+		/* Send fragmentation threshold to FW */
+		ret = wl1271_acx_frag_threshold(wl, wl->conf.tx.frag_threshold);
+		if (ret < 0)
+			wl1271_error("Failed to Send fragmentation threshold %d to FW", wl->conf.tx.frag_threshold);
+ 
+		wl1271_ps_elp_sleep(wl);
+
+out:
+		mutex_unlock(&wl->mutex);
 
         return count;
 }
