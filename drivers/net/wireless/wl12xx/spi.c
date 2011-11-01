@@ -351,6 +351,7 @@ static int wl1271_spi_set_power(struct wl1271 *wl, bool enable)
 static struct wl1271_if_operations spi_ops = {
 	.read		= wl1271_spi_raw_read,
 	.write		= wl1271_spi_raw_write,
+	.sg_write	= NULL,
 	.reset		= wl1271_spi_reset,
 	.init		= wl1271_spi_init,
 	.power		= wl1271_spi_set_power,
