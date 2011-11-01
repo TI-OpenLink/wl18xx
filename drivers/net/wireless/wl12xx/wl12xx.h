@@ -30,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/bitops.h>
+#include <linux/scatterlist.h>
 #include <net/mac80211.h>
 
 #include "conf.h"
@@ -599,6 +600,11 @@ struct wl1271 {
 	enum nl80211_channel_type channel_type;
 
 	struct dentry *debugfs_rootdir;
+
+	/* SG list for Tx SG DMA */
+	struct scatterlist *sg;
+	unsigned int sg_len;
+	struct scatterlist *cur_sg;
 };
 
 struct wl1271_station {
@@ -793,6 +799,11 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 #define WL12XX_BUS_BLOCK_SIZE min(512u,	\
 	    (1u << (8 * sizeof(((struct wl128x_tx_mem *) 0)->extra_bytes))))
 
+/*
+ * max number of SG elements needed, based on the min transaction being
+ * the length of a SDIO block
+ */
+#define MAX_SG_ENTRIES (WL1271_AGGR_BUFFER_SIZE / WL12XX_BUS_BLOCK_SIZE)
 
 /* Quirks */
 
@@ -807,6 +818,9 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 
 /* Older firmwares did not implement the FW logger over bus feature */
 #define WL12XX_QUIRK_FWLOG_NOT_IMPLEMENTED	BIT(4)
+
+/* Use SG DMA for data Tx. Implies WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT. */
+#define WL12XX_QUIRK_SG_DMA			BIT(5)
 
 #define WL12XX_HW_BLOCK_SIZE	256
 
