@@ -173,12 +173,12 @@ static void wl12xx_sdio_sg_raw_write(struct wl1271 *wl, int addr,
 	struct scatterlist *cur_sg;
 	int i;
 
-	wl1271_debug(DEBUG_SDIO, "raw SG write addr 0x%x blocks %d blksz %d "
+	wl1271_debug(DEBUG_SG, "raw SG write addr 0x%x blocks %d blksz %d "
 		    "sg %p sg_len %d fixed %d", addr, blocks, blksz, sg,
 		    sg_len, fixed);
 
 	for_each_sg(sg, cur_sg, sg_len, i)
-		wl1271_debug(DEBUG_SDIO,"single SG %d offset 0x%x len %d "
+		wl1271_debug(DEBUG_SG, "single SG %d offset 0x%x len %d "
 			    "pg 0x%lx", i, cur_sg->offset, cur_sg->length,
 			    cur_sg->page_link);
 
