@@ -28,6 +28,8 @@
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/sdio.h>
+#include <linux/mmc/core.h>
 #include <linux/gpio.h>
 #include <linux/wl12xx.h>
 #include <linux/pm_runtime.h>
@@ -156,6 +158,89 @@ static void wl1271_sdio_raw_write(struct wl1271 *wl, int addr, void *buf,
 		wl1271_error("sdio write 0x%x failed (%d)", addr, ret);
 }
 
+static void wl12xx_sdio_sg_raw_write(struct wl1271 *wl, int addr,
+				     unsigned blocks, unsigned blksz,
+				     struct scatterlist *sg, size_t sg_len,
+				     bool fixed)
+{
+	struct mmc_request mrq = {0};
+	struct mmc_command cmd = {0};
+	struct mmc_data data = {0};
+
+	struct sdio_func *func = wl_to_func(wl);
+	struct mmc_card *card = func->card;
+
+	struct scatterlist *cur_sg;
+	int i;
+
+	wl1271_debug(DEBUG_SDIO, "raw SG write addr 0x%x blocks %d blksz %d "
+		    "sg %p sg_len %d fixed %d", addr, blocks, blksz, sg,
+		    sg_len, fixed);
+
+	for_each_sg(sg, cur_sg, sg_len, i)
+		wl1271_debug(DEBUG_SDIO,"single SG %d offset 0x%x len %d "
+			    "pg 0x%lx", i, cur_sg->offset, cur_sg->length,
+			    cur_sg->page_link);
+
+	BUG_ON(func->num > 7);
+	BUG_ON(blocks == 1 && blksz > 512);
+	BUG_ON(blocks > 511);
+	WARN_ON(blocks == 0);
+	WARN_ON(blksz == 0);
+
+	/* sanity check */
+	if (addr & ~0x1FFFF) {
+		wl1271_error("invalid addr 0x%x in SG write", addr);
+		return;
+	}
+
+	mrq.cmd = &cmd;
+	mrq.data = &data;
+
+	cmd.opcode = SD_IO_RW_EXTENDED;
+	cmd.arg = 0x80000000; /* write */
+	cmd.arg |= func->num << 28;
+	cmd.arg |= fixed ? 0x00000000 : 0x04000000;
+	cmd.arg |= addr << 9;
+	if (blocks == 1 && blksz <= 512)
+		cmd.arg |= (blksz == 512) ? 0 : blksz;	/* byte mode */
+	else
+		cmd.arg |= 0x08000000 | blocks;		/* block mode */
+	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_ADTC;
+
+	data.blksz = blksz;
+	data.blocks = blocks;
+	data.flags = MMC_DATA_WRITE;
+	data.sg = sg;
+	data.sg_len = sg_len;
+
+	mmc_set_data_timeout(&data, card);
+
+	mmc_wait_for_req(card->host, &mrq);
+
+	if (cmd.error) {
+		wl1271_error("SG write cmd error: 0x%x", cmd.error);
+		return;
+	}
+	if (data.error) {
+		wl1271_error("SG write data error: 0x%x", data.error);
+		return;
+	}
+	if (cmd.resp[0] & R5_ERROR) {
+		wl1271_error("SG write R5 error");
+		return;
+	}
+	if (cmd.resp[0] & R5_FUNCTION_NUMBER) {
+		wl1271_error("SG write invalid func error");
+		return;
+	}
+	if (cmd.resp[0] & R5_OUT_OF_RANGE) {
+		wl1271_error("SG write invalid range error");
+		return;
+	}
+
+}
+
 static int wl1271_sdio_power_on(struct wl1271 *wl)
 {
 	struct sdio_func *func = wl_to_func(wl);
@@ -211,6 +296,7 @@ static int wl1271_sdio_set_power(struct wl1271 *wl, bool enable)
 static struct wl1271_if_operations sdio_ops = {
 	.read		= wl1271_sdio_raw_read,
 	.write		= wl1271_sdio_raw_write,
+	.sg_write	= wl12xx_sdio_sg_raw_write,
 	.power		= wl1271_sdio_set_power,
 	.dev		= wl1271_sdio_wl_to_dev,
 	.enable_irq	= wl1271_sdio_enable_interrupts,

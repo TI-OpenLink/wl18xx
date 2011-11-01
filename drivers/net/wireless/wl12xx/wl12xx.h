@@ -330,6 +330,9 @@ struct wl1271_if_operations {
 		     bool fixed);
 	void (*write)(struct wl1271 *wl, int addr, void *buf, size_t len,
 		     bool fixed);
+	void (*sg_write)(struct wl1271 *wl, int addr, unsigned blocks,
+		     unsigned blksz, struct scatterlist *sg, size_t sg_len,
+		     bool fixed);
 	void (*reset)(struct wl1271 *wl);
 	void (*init)(struct wl1271 *wl);
 	int (*power)(struct wl1271 *wl, bool enable);
