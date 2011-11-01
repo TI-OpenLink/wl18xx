@@ -3924,7 +3924,7 @@ sta_not_found:
 		 * stop device role if started (we might already be in
 		 * STA role). TODO: make it better.
 		 */
-		if (wl->dev_role_id != WL1271_INVALID_ROLE_ID) {
+		if (wl->dev_hlid != WL1271_INVALID_LINK_ID) {
 			ret = wl1271_croc(wl, wl->dev_role_id);
 			if (ret < 0)
 				goto out;
