@@ -26,6 +26,7 @@
 #define __IO_H__
 
 #include <linux/irqreturn.h>
+#include <linux/scatterlist.h>
 #include "reg.h"
 
 #define HW_ACCESS_MEMORY_MAX_RANGE	0x1FFC0
@@ -62,6 +63,16 @@ static inline void wl1271_raw_write(struct wl1271 *wl, int addr, void *buf,
 				    size_t len, bool fixed)
 {
 	wl->if_ops->write(wl, addr, buf, len, fixed);
+}
+
+static inline void wl1271_raw_sg_write(struct wl1271 *wl, int addr,
+				    unsigned blocks, unsigned blksz,
+				    struct scatterlist *sg, size_t sg_len,
+				    bool fixed)
+{
+	if (wl->if_ops->sg_write)
+		wl->if_ops->sg_write(wl, addr, blocks, blksz, sg,
+				     sg_len, fixed);
 }
 
 static inline void wl1271_raw_read(struct wl1271 *wl, int addr, void *buf,
@@ -143,6 +154,28 @@ static inline void wl1271_write(struct wl1271 *wl, int addr, void *buf,
 	((wl->conf.platform_type == 1) ? \
 		wl1271_write(wl, WL12XX_ ## reg_name, buf, len, fixed) : \
 		wl1271_write(wl, WL18XX_ ## reg_name, buf, len, fixed))
+
+
+static inline void wl1271_sg_write(struct wl1271 *wl, int addr,
+				unsigned blocks, unsigned blksz,
+				struct scatterlist *sg, size_t sg_len,
+				bool fixed)
+{
+	int physical;
+
+	physical = wl1271_translate_addr(wl, addr);
+
+	wl1271_raw_sg_write(wl, physical, blocks, blksz, sg, sg_len, fixed);
+}
+
+/* SG write register with a platform dependant prefix */
+#define PLAT_SG_WRITE_REG(wl, reg_name, blocks, blksz, sg, sg_len, fixed) \
+	((wl->conf.platform_type == 1) ? \
+		wl1271_sg_write(wl, WL12XX_ ## reg_name, blocks, blksz, \
+				sg, sg_len, fixed) : \
+		wl1271_sg_write(wl, WL18XX_ ## reg_name, blocks, blksz, \
+				 sg, sg_len, fixed))
+
 
 static inline void wl1271_read_hwaddr(struct wl1271 *wl, int hwaddr,
 				      void *buf, size_t len, bool fixed)

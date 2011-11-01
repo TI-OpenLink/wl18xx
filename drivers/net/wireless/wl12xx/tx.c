@@ -266,11 +266,10 @@ static void wlcore_tx_set_desc_memblocks(struct wl1271 *wl,
 }
 
 static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			      struct sk_buff *skb, u32 extra, u32 buf_offset,
-			      u8 hlid)
+			      struct sk_buff *skb, u32 total_len,
+			      u32 buf_offset, u8 hlid)
 {
 	struct wl1271_tx_hw_descr *desc;
-	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks;
@@ -505,6 +504,72 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	wlcore_tx_set_desc_data_len(wl, skb, desc);
 }
 
+static int wlcore_tx_prep_skb(struct wl1271 *wl, struct sk_buff *skb,
+			      u32 data_len)
+{
+	if (wl->quirks & WL12XX_QUIRK_SG_DMA) {
+		int ret;
+
+		/* pad the skb to SDIO block size for DMA */
+		u32 total_len = wl12xx_calc_packet_alignment(wl, data_len);
+
+		/*
+		 * note dummy packets are already padded, so this doesn't
+		 * change the skb for that case
+		 */
+		if (total_len > data_len) {
+			ret = skb_pad(skb, total_len - skb->len);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+/* returns the total length of the added buffer (including padding) */
+static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
+				u32 buf_offset)
+{
+	u32 total_len;
+
+	/*
+	 * The length of each packet is stored in terms of
+	 * words. Thus, we must pad the skb data to make sure its
+	 * length is aligned.  The number of padding bytes is computed
+	 * and set in wl1271_tx_fill_hdr.
+	 * In special cases, we want to align to a specific block size
+	 * (eg. for wl128x with SDIO we align to 256).
+	 */
+	total_len = wl12xx_calc_packet_alignment(wl, skb->len);
+
+	if (wl->quirks & WL12XX_QUIRK_SG_DMA) {
+		/* DMATODO: remove this copy if/when FW supports padding */
+		if ((int)skb->data & 0x3) {
+			char *data = skb->data;
+			size_t data_len = skb->len;
+			size_t remainder = (int)data & 0x3;
+			char *head = skb_push(skb, remainder);
+			memcpy(head, data, data_len);
+			memset(head + data_len, 0, remainder);
+		}
+
+		/*
+		 * we don't check if cur_sg is not NULL since we allocated the
+		 * maximum possible to put into the aggregation buffer
+		 */
+		sg_set_buf(wl->cur_sg, skb->data, total_len);
+		wl->cur_sg++;
+		wl->sg_len++;
+	} else {
+		memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
+		memset(wl->aggr_buf + buf_offset + skb->len, 0,
+		       total_len - skb->len);
+	}
+
+	return total_len;
+}
+
 /* caller must hold wl->mutex */
 static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				   struct sk_buff *skb, u32 buf_offset)
@@ -512,7 +577,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	struct ieee80211_tx_info *info;
 	u32 extra = 0;
 	int ret = 0;
-	u32 total_len;
+	u32 total_len, data_len;
 	u8 hlid;
 	bool is_dummy;
 
@@ -549,7 +614,13 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		return -EINVAL;
 	}
 
-	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid);
+	data_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
+
+	ret = wlcore_tx_prep_skb(wl, skb, data_len);
+	if (ret < 0)
+		return ret;
+
+	ret = wl1271_tx_allocate(wl, wlvif, skb, data_len, buf_offset, hlid);
 	if (ret < 0)
 		return ret;
 
@@ -560,18 +631,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		wl1271_tx_regulate_link(wl, wlvif, hlid);
 	}
 
-	/*
-	 * The length of each packet is stored in terms of
-	 * words. Thus, we must pad the skb data to make sure its
-	 * length is aligned.  The number of padding bytes is computed
-	 * and set in wl1271_tx_fill_hdr.
-	 * In special cases, we want to align to a specific block size
-	 * (eg. for wl128x with SDIO we align to 256).
-	 */
-	total_len = wl12xx_calc_packet_alignment(wl, skb->len);
-
-	memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
-	memset(wl->aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);
+	total_len = wlcore_tx_add_buffer(wl, skb, buf_offset);
 
 	/* Revert side effects in the dummy packet skb, so it can be reused */
 	if (is_dummy)
@@ -811,6 +871,22 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	}
 }
 
+static void wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
+{
+	if (wl->quirks & WL12XX_QUIRK_SG_DMA) {
+		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
+		unsigned blocks = offset / blksz;
+
+		PLAT_SG_WRITE_REG(wl, SLV_MEM_DATA, blocks, blksz, wl->sg,
+				  wl->sg_len, true);
+
+		wl->cur_sg = wl->sg;
+		wl->sg_len = 0;
+	} else {
+		PLAT_WRITE_REG(wl, SLV_MEM_DATA, wl->aggr_buf, offset, true);
+	}
+}
+
 void wl1271_tx_work_locked(struct wl1271 *wl)
 {
 	struct wl12xx_vif *wlvif;
@@ -845,8 +921,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, wlvif, skb);
-			PLAT_WRITE_REG(wl, SLV_MEM_DATA, wl->aggr_buf,
-				       buf_offset, true);
+			wlcore_tx_write_data(wl, buf_offset);
 			sent_packets = true;
 			buf_offset = 0;
 			continue;
@@ -873,8 +948,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 
 out_ack:
 	if (buf_offset) {
-		PLAT_WRITE_REG(wl, SLV_MEM_DATA, wl->aggr_buf, buf_offset,
-			       true);
+		wlcore_tx_write_data(wl, buf_offset);
 		sent_packets = true;
 	}
 	if (sent_packets) {

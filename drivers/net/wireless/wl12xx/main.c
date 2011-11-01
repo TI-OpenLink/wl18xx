@@ -1454,7 +1454,8 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 			goto out;
 		if (wl1271_set_block_size(wl))
 			wl->quirks |= WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT |
-				      WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT;
+				      WL12XX_QUIRK_RX_BLOCKSIZE_ALIGNMENT |
+				      WL12XX_QUIRK_SG_DMA;
 		break;
 	case CHIP_ID_1283_PG10:
 	default:
@@ -2006,6 +2007,9 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	wl->tx_res_if = NULL;
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
+
+	wl->cur_sg = wl->sg;
+	wl->sg_len = 0;
 
 	mutex_unlock(&wl->mutex);
 }
@@ -4998,9 +5002,10 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 		WL1271_CIPHER_SUITE_GEM,
 	};
 
+	/* DMATODO: we add 4 for alignment requirements */
 	/* The tx descriptor buffer and the TKIP space. */
 	wl->hw->extra_tx_headroom = WL1271_TKIP_IV_SPACE +
-		sizeof(struct wl1271_tx_hw_descr);
+		sizeof(struct wl1271_tx_hw_descr) + 4;
 
 	/* unit us */
 	/* FIXME: find a proper value */
@@ -5292,6 +5297,7 @@ int wl1271_free_hw(struct wl1271 *wl)
 
 	kfree(wl->fw_status);
 	kfree(wl->tx_res_if);
+	kfree(wl->sg);
 	destroy_workqueue(wl->freezable_wq);
 
 	ieee80211_free_hw(wl->hw);
