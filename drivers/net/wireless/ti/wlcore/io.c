@@ -23,6 +23,68 @@
 #include "debug.h"
 #include "io.h"
 
+int wlcore_translate_addr(struct wlcore *wl, int addr)
+{
+	/*
+	 * To translate, first check to which window of addresses the
+	 * particular address belongs. Then subtract the starting address
+	 * of that window from the address. Then, add offset of the
+	 * translated region.
+	 *
+	 * The translated regions occur next to each other in physical device
+	 * memory, so just add the sizes of the preceding address regions to
+	 * get the offset to the new region.
+	 */
+	if ((addr >= wl->curr_part.mem.start) &&
+	    (addr < wl->curr_part.mem.start + wl->curr_part.mem.size))
+		return addr - wl->curr_part.mem.start;
+	else if ((addr >= wl->curr_part.reg.start) &&
+		 (addr < wl->curr_part.reg.start + wl->curr_part.reg.size))
+		return addr - wl->curr_part.reg.start + wl->curr_part.mem.size;
+	else if ((addr >= wl->curr_part.mem2.start) &&
+		 (addr < wl->curr_part.mem2.start + wl->curr_part.mem2.size))
+		return addr - wl->curr_part.mem2.start + wl->curr_part.mem.size +
+			wl->curr_part.reg.size;
+	else if ((addr >= wl->curr_part.mem3.start) &&
+		 (addr < wl->curr_part.mem3.start + wl->curr_part.mem3.size))
+		return addr - wl->curr_part.mem3.start + wl->curr_part.mem.size +
+			wl->curr_part.reg.size + wl->curr_part.mem2.size;
+
+	WARN(1, "HW address 0x%x out of range", addr);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wlcore_translate_addr);
+
+void wlcore_set_partition(struct wlcore *wl,
+			  const struct wlcore_partition_set *p)
+{
+	/* copy partition info */
+	memcpy(&wl->curr_part, p, sizeof(*p));
+
+	wlcore_debug(DEBUG_IO, "mem_start %08X mem_size %08X",
+		     p->mem.start, p->mem.size);
+	wlcore_debug(DEBUG_IO, "reg_start %08X reg_size %08X",
+		     p->reg.start, p->reg.size);
+	wlcore_debug(DEBUG_IO, "mem2_start %08X mem2_size %08X",
+		     p->mem2.start, p->mem2.size);
+	wlcore_debug(DEBUG_IO, "mem3_start %08X mem3_size %08X",
+		     p->mem3.start, p->mem3.size);
+
+	wlcore_raw_write32(wl, HW_PART0_START_ADDR, p->mem.start);
+	wlcore_raw_write32(wl, HW_PART0_SIZE_ADDR, p->mem.size);
+	wlcore_raw_write32(wl, HW_PART1_START_ADDR, p->reg.start);
+	wlcore_raw_write32(wl, HW_PART1_SIZE_ADDR, p->reg.size);
+	wlcore_raw_write32(wl, HW_PART2_START_ADDR, p->mem2.start);
+	wlcore_raw_write32(wl, HW_PART2_SIZE_ADDR, p->mem2.size);
+	/*
+	 * We don't need the size of the last partition, as it is
+	 * automatically calculated based on the total memory size and
+	 * the sizes of the previous partitions.
+	 */
+	wlcore_raw_write32(wl, HW_PART3_START_ADDR, p->mem3.start);
+}
+EXPORT_SYMBOL_GPL(wlcore_set_partition);
+
 /* Set the partitions to access the chip addresses
  *
  * To simplify driver code, a fixed (virtual) memory map is defined for
@@ -57,30 +119,10 @@
  *                                    |    |
  *
  */
-int wlcore_set_partition(struct wlcore *wl,
-			 struct wlcore_partition_set *p)
+void wlcore_select_partition(struct wlcore *wl, u8 part)
 {
-	/* copy partition info */
-	memcpy(&wl->part, p, sizeof(*p));
+	wlcore_debug(DEBUG_IO, "setting partition %d", part);
 
-	wlcore_debug(DEBUG_IO, "mem_start %08X mem_size %08X",
-		     p->mem.start, p->mem.size);
-	wlcore_debug(DEBUG_IO, "reg_start %08X reg_size %08X",
-		     p->reg.start, p->reg.size);
-	wlcore_debug(DEBUG_IO, "mem2_start %08X mem2_size %08X",
-		     p->mem2.start, p->mem2.size);
-	wlcore_debug(DEBUG_IO, "mem3_start %08X mem3_size %08X",
-		     p->mem3.start, p->mem3.size);
-
-	/* write partition info to the chipset */
-	wlcore_raw_write32(wl, HW_PART0_START_ADDR, p->mem.start);
-	wlcore_raw_write32(wl, HW_PART0_SIZE_ADDR, p->mem.size);
-	wlcore_raw_write32(wl, HW_PART1_START_ADDR, p->reg.start);
-	wlcore_raw_write32(wl, HW_PART1_SIZE_ADDR, p->reg.size);
-	wlcore_raw_write32(wl, HW_PART2_START_ADDR, p->mem2.start);
-	wlcore_raw_write32(wl, HW_PART2_SIZE_ADDR, p->mem2.size);
-	wlcore_raw_write32(wl, HW_PART3_START_ADDR, p->mem3.start);
-
-	return 0;
+	wlcore_set_partition(wl, &wl->ptable[part]);
 }
-EXPORT_SYMBOL_GPL(wlcore_set_partition);
+EXPORT_SYMBOL_GPL(wlcore_select_partition);

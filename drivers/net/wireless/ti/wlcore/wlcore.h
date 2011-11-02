@@ -115,6 +115,14 @@ struct wlcore_ops {
 	int (*get_chip_id)(struct wlcore *wl);
 };
 
+enum wlcore_partitions {
+	PART_TOP_PRCM_ELP_SOC,
+	PART_DOWN,
+	PART_BOOT,
+
+	PART_TABLE_LEN,
+};
+
 struct wlcore_partition {
 	u32 size;
 	u32 start;
@@ -143,7 +151,11 @@ struct wlcore {
 
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
 
-	struct wlcore_partition_set part;
+	/* pointer to the lower driver partition table */
+	const struct wlcore_partition_set *ptable;
+
+	/* partition currently in use -- needed for address translation */
+	struct wlcore_partition_set curr_part;
 
 	u32 chip_id;
 
