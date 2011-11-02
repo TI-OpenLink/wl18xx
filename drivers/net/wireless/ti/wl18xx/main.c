@@ -78,8 +78,41 @@ static int wl18xx_get_chip_id(struct wlcore *wl)
 	return id;
 }
 
+static int wl18xx_config_pll(struct wlcore *wl)
+{
+	/*
+	 * TODO: this is all *very* hacky, must define proper regs and
+	 * set them according to the documentation
+	 */
+	u32 board_type = BOARD_TYPE_DVP_EVB;
+
+	printk(KERN_DEBUG "wl18xx_config_pll (board_type = 0x%02x)\n",
+	       board_type);
+
+	wlcore_write32(wl, WL18XX_SCR_PAD2, board_type);
+
+	if (board_type != BOARD_TYPE_FPGA) {
+		wlcore_select_partition(wl, PART_TOP_PRCM_ELP_SOC);
+		wlcore_write32(wl, 0x00A02360, 0xD0078);
+		wlcore_write32(wl, 0x00A0236c, 0x12);
+		wlcore_write32(wl, 0x00A02390, 0x20118);
+	}
+
+	/* lock PLL */
+	wlcore_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
+	udelay(500);
+
+	/* TODO: check if this is really needed for wl18xx */
+	wlcore_write32(wl, WL18XX_RXTX_ENABLE, 0x0);
+	/* disable auto calibration on start*/
+	wlcore_write32(wl, WL18XX_SPARE_A2, 0xffff);
+
+	return 0;
+}
+
 static struct wlcore_ops wl18xx_ops = {
-	.get_chip_id = wl18xx_get_chip_id,
+	.get_chip_id	 = wl18xx_get_chip_id,
+	.config_pll	 = wl18xx_config_pll,
 };
 
 static int __devinit wl18xx_probe(struct platform_device *pdev)
