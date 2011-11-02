@@ -33,6 +33,11 @@
 #define HW_PART2_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 20)
 #define HW_PART3_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 24)
 
+int wlcore_translate_addr(struct wlcore *wl, int addr);
+void wlcore_set_partition(struct wlcore *wl,
+			  const struct wlcore_partition_set *p);
+void wlcore_select_partition(struct wlcore *wl, u8 part);
+
 /* Raw target IO, address is not translated */
 static inline void wlcore_raw_write(struct wlcore *wl, int addr, void *buf,
 				    size_t len, bool fixed)
@@ -59,38 +64,6 @@ static inline u32 wlcore_raw_read32(struct wlcore *wl, int addr)
 			    sizeof(wl->buffer_32), false);
 
 	return le32_to_cpu(wl->buffer_32);
-}
-
-/* Translated target IO */
-static inline int wlcore_translate_addr(struct wlcore *wl, int addr)
-{
-	/*
-	 * To translate, first check to which window of addresses the
-	 * particular address belongs. Then subtract the starting address
-	 * of that window from the address. Then, add offset of the
-	 * translated region.
-	 *
-	 * The translated regions occur next to each other in physical device
-	 * memory, so just add the sizes of the preceding address regions to
-	 * get the offset to the new region.
-	 */
-	if ((addr >= wl->part.mem.start) &&
-	    (addr < wl->part.mem.start + wl->part.mem.size))
-		return addr - wl->part.mem.start;
-	else if ((addr >= wl->part.reg.start) &&
-		 (addr < wl->part.reg.start + wl->part.reg.size))
-		return addr - wl->part.reg.start + wl->part.mem.size;
-	else if ((addr >= wl->part.mem2.start) &&
-		 (addr < wl->part.mem2.start + wl->part.mem2.size))
-		return addr - wl->part.mem2.start + wl->part.mem.size +
-		       wl->part.reg.size;
-	else if ((addr >= wl->part.mem3.start) &&
-		 (addr < wl->part.mem3.start + wl->part.mem3.size))
-		return addr - wl->part.mem3.start + wl->part.mem.size +
-		       wl->part.reg.size + wl->part.mem2.size;
-
-	WARN(1, "HW address 0x%x out of range", addr);
-	return 0;
 }
 
 static inline void wlcore_read(struct wlcore *wl, int addr, void *buf,
@@ -149,8 +122,5 @@ static inline int wlcore_io_power_on(struct wlcore *wl)
 
 	return ret;
 }
-
-int wlcore_set_partition(struct wlcore *wl,
-			 struct wlcore_partition_set *p);
 
 #endif /* __IO_H__ */
