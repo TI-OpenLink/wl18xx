@@ -187,7 +187,7 @@ struct wlcore {
 	struct wlcore_partition_set curr_part;
 
 	/* pointer to the lower driver register table */
-	int *rtable;
+	const int *rtable;
 
 	u32 chip_id;
 

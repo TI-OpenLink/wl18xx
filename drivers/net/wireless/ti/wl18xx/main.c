@@ -52,6 +52,14 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 	},
 };
 
+static const int wl18xx_rtable[REG_TABLE_LEN] = {
+	[REG_ECPU_CONTROL]		= WL18XX_REGISTERS_BASE + 0x02004,
+	[REG_INTERRUPT_NO_CLEAR]	= WL18XX_REGISTERS_BASE + 0x050E8,
+	[REG_INTERRUPT_ACK]		= WL18XX_REGISTERS_BASE + 0x050F0,
+	[REG_COMMAND_MAILBOX_PTR]	= WL18XX_SCR_PAD0,
+	[REG_EVENT_MAILBOX_PTR]		= WL18XX_SCR_PAD1,
+};
+
 static int wl18xx_get_chip_id(struct wlcore *wl)
 {
 	u32 id;
@@ -138,6 +146,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->ops = &wl18xx_ops;
 	wl->dev = &pdev->dev;
 	wl->ptable = &wl18xx_ptable[0];
+	wl->rtable = &wl18xx_rtable[0];
 
 	platform_set_drvdata(pdev, wl);
 
