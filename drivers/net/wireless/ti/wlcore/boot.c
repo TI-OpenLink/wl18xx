@@ -252,6 +252,17 @@ out:
 	return ret;
 }
 
+static void wlcore_prepare_mailbox(struct wlcore *wl)
+{
+	/* get hardware config command mail box */
+	wl->cmd_box_addr = wlcore_read_reg(wl, REG_COMMAND_MAILBOX_PTR);
+	/* get hardware config event mail box */
+	wl->event_box_addr = wlcore_read_reg(wl, REG_EVENT_MAILBOX_PTR);
+
+	wlcore_debug(DEBUG_BOOT, "cmd_box_addr 0x%x event_box_addr 0x%x",
+		     wl->cmd_box_addr, wl->event_box_addr);
+}
+
 bool wlcore_boot(struct wlcore *wl)
 {
 	bool booted = false;
@@ -301,6 +312,8 @@ bool wlcore_boot(struct wlcore *wl)
 	ret = wlcore_boot_fw(wl);
 	if (ret < 0)
 		goto out_nvs;
+
+	wlcore_prepare_mailbox(wl);
 
 	booted = true;
 

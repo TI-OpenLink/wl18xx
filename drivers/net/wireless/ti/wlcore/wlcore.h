@@ -140,6 +140,8 @@ enum wlcore_registers {
 	REG_ECPU_CONTROL,
 	REG_INTERRUPT_NO_CLEAR,
 	REG_INTERRUPT_ACK,
+	REG_COMMAND_MAILBOX_PTR,
+	REG_EVENT_MAILBOX_PTR,
 
 	REG_TABLE_LEN,
 };
@@ -196,6 +198,9 @@ struct wlcore {
 	const char *nvs_name;
 	u8 *nvs;
 	size_t nvs_len;
+
+	int cmd_box_addr;
+	int event_box_addr;
 
 	/* TODO: is this really still needed? */
 	__le32 buffer_32;
