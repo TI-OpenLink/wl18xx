@@ -136,6 +136,32 @@ struct wlcore_partition_set {
 	struct wlcore_partition mem3;
 };
 
+enum wlcore_registers {
+	REG_ECPU_CONTROL,
+	REG_INTERRUPT_NO_CLEAR,
+	REG_INTERRUPT_ACK,
+
+	REG_TABLE_LEN,
+};
+
+/* flag to halt the embedded CPU, used with REG_ECPU_CONTROL */
+#define ECPU_CONTROL_HALT	0x00000101
+
+/* interrupt flags, used with REG_INTERRUPT_* */
+#define INTR_WATCHDOG		BIT(0)
+#define INTR_INIT_COMPLETE	BIT(1)
+#define INTR_EVENT_A		BIT(2)
+#define INTR_EVENT_B		BIT(3)
+#define INTR_CMD_COMPLETE	BIT(4)
+#define INTR_HW_AVAILABLE	BIT(5)
+#define INTR_DATA		BIT(6)
+#define INTR_TRACE_A		BIT(7)
+#define INTR_TRACE_B		BIT(8)
+#define INTR_ALL		0xFFFFFFFF
+
+#define INIT_LOOP	20000
+#define INIT_LOOP_DELAY	50
+
 /* TODO: separate local stuff from lower-driver accessible parts */
 struct wlcore {
 	struct ieee80211_hw *hw;
@@ -157,6 +183,9 @@ struct wlcore {
 
 	/* partition currently in use -- needed for address translation */
 	struct wlcore_partition_set curr_part;
+
+	/* pointer to the lower driver register table */
+	int *rtable;
 
 	u32 chip_id;
 
