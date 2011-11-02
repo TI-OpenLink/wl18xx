@@ -112,6 +112,103 @@ static void wlcore_release_nvs(struct wlcore *wl)
 	wl->nvs = NULL;
 }
 
+/* TODO: refactor this whole thing, we probably don't need 512-byte subchunks */
+#define CHUNK_SIZE 512
+static int wlcore_boot_upload_firmware_chunk(struct wlcore *wl, void *buf,
+					     size_t fw_data_len, u32 dest)
+{
+	struct wlcore_partition_set partition;
+	int addr, chunk_num, partition_limit;
+	u8 *p, *chunk;
+
+	memcpy(&partition, &wl->ptable[PART_DOWN], sizeof(partition));
+
+	wlcore_debug(DEBUG_BOOT, "starting firmware upload");
+
+	wlcore_debug(DEBUG_BOOT, "fw_data_len %zd chunk_size %d",
+		     fw_data_len, CHUNK_SIZE);
+
+	if ((fw_data_len % 4) != 0) {
+		wlcore_error("firmware length not multiple of four");
+		return -EIO;
+	}
+
+	chunk = kmalloc(CHUNK_SIZE, GFP_KERNEL);
+	if (!chunk) {
+		wlcore_error("allocation for firmware upload chunk failed");
+		return -ENOMEM;
+	}
+
+	partition.mem.start = dest;
+	wlcore_set_partition(wl, &partition);
+
+	chunk_num = 0;
+	partition_limit = partition.mem.size;
+
+	while (chunk_num < fw_data_len / CHUNK_SIZE) {
+		addr = dest + (chunk_num + 2) * CHUNK_SIZE;
+		if (addr > partition_limit) {
+			addr = dest + chunk_num * CHUNK_SIZE;
+			partition_limit = chunk_num * CHUNK_SIZE +
+				partition.mem.size;
+			partition.mem.start = addr;
+			wlcore_set_partition(wl, &partition);
+		}
+
+		addr = dest + chunk_num * CHUNK_SIZE;
+		p = buf + chunk_num * CHUNK_SIZE;
+		memcpy(chunk, p, CHUNK_SIZE);
+		wlcore_debug(DEBUG_BOOT, "uploading fw chunk 0x%p to 0x%x",
+			     p, addr);
+		wlcore_write(wl, addr, chunk, CHUNK_SIZE, false);
+
+		chunk_num++;
+	}
+
+	addr = dest + chunk_num * CHUNK_SIZE;
+	p = buf + chunk_num * CHUNK_SIZE;
+	memcpy(chunk, p, fw_data_len % CHUNK_SIZE);
+	wlcore_debug(DEBUG_BOOT, "uploading fw last chunk (%zd B) 0x%p to 0x%x",
+		     fw_data_len % CHUNK_SIZE, p, addr);
+	wlcore_write(wl, addr, chunk, fw_data_len % CHUNK_SIZE, false);
+
+	kfree(chunk);
+	return 0;
+}
+
+static int wlcore_boot_upload_firmware(struct wlcore *wl)
+{
+	u32 chunks, addr, len;
+	int ret = 0;
+	u8 *fw;
+
+	fw = wl->fw;
+	chunks = be32_to_cpup((__be32 *) fw);
+	fw += sizeof(u32);
+
+	wlcore_debug(DEBUG_BOOT, "firmware chunks to be uploaded: %u", chunks);
+
+	while (chunks--) {
+		addr = be32_to_cpup((__be32 *) fw);
+		fw += sizeof(u32);
+		len = be32_to_cpup((__be32 *) fw);
+		fw += sizeof(u32);
+
+		if (len > 300000) {
+			wlcore_info("firmware chunk too long: %u", len);
+			return -EINVAL;
+		}
+		wlcore_debug(DEBUG_BOOT, "chunk %d addr 0x%x len %u",
+			     chunks, addr, len);
+		ret = wlcore_boot_upload_firmware_chunk(wl, fw, len, addr);
+		if (ret != 0)
+			break;
+		fw += len;
+	}
+
+	return ret;
+}
+
 int wlcore_boot(struct wlcore *wl)
 {
 	int ret;
@@ -153,8 +250,14 @@ int wlcore_boot(struct wlcore *wl)
 	if (ret < 0)
 		goto out_fw;
 
+	ret = wlcore_boot_upload_firmware(wl);
+	if (ret < 0)
+		goto out_nvs;
+
 	goto out;
 
+out_nvs:
+	wlcore_release_nvs(wl);
 out_fw:
 	wlcore_release_fw(wl);
 out_power:
