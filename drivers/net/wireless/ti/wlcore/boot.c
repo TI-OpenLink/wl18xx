@@ -209,6 +209,49 @@ static int wlcore_boot_upload_firmware(struct wlcore *wl)
 	return ret;
 }
 
+static int wlcore_boot_fw(struct wlcore *wl)
+{
+	int loop, ret = 0;
+	u32 intr, cpu_ctrl;
+
+	/* 18xxTODO: probably not needed */
+	wlcore_select_partition(wl, PART_BOOT);
+
+	cpu_ctrl = wlcore_read_reg(wl, REG_ECPU_CONTROL);
+	cpu_ctrl |= ECPU_CONTROL_HALT;
+	wlcore_write_reg(wl, REG_ECPU_CONTROL, cpu_ctrl);
+
+	/* wait for init to complete */
+	loop = 0;
+	while (loop++ < INIT_LOOP) {
+		udelay(INIT_LOOP_DELAY);
+		intr = wlcore_read_reg(wl, REG_INTERRUPT_NO_CLEAR);
+
+		if (intr == INTR_ALL) {
+			wlcore_error("error reading hardware complete "
+				     "init indication");
+			ret = -EIO;
+			goto out;
+		}
+		else if (intr & INTR_INIT_COMPLETE) {
+			wlcore_write_reg(wl, REG_INTERRUPT_ACK,
+					 INTR_INIT_COMPLETE);
+			break;
+		}
+	}
+
+	if (loop > INIT_LOOP) {
+		wlcore_error("timeout waiting for the hardware to complete "
+			     "initialization");
+		ret = -EIO;
+		goto out;
+	}
+
+	wlcore_debug(DEBUG_BOOT, "wl18xx_boot_fw init complete");
+out:
+	return ret;
+}
+
 bool wlcore_boot(struct wlcore *wl)
 {
 	bool booted = false;
@@ -252,6 +295,10 @@ bool wlcore_boot(struct wlcore *wl)
 		goto out_fw;
 
 	ret = wlcore_boot_upload_firmware(wl);
+	if (ret < 0)
+		goto out_nvs;
+
+	ret = wlcore_boot_fw(wl);
 	if (ret < 0)
 		goto out_nvs;
 

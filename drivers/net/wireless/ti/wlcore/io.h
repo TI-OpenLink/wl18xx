@@ -96,6 +96,16 @@ static inline void wlcore_write32(struct wlcore *wl, int addr, u32 val)
 	wlcore_raw_write32(wl, wlcore_translate_addr(wl, addr), val);
 }
 
+static inline u32 wlcore_read_reg(struct wlcore *wl, int reg)
+{
+	return wlcore_raw_read32(wl, wlcore_translate_addr(wl, wl->rtable[reg]));
+}
+
+static inline void wlcore_write_reg(struct wlcore *wl, int reg, u32 val)
+{
+	wlcore_raw_write32(wl, wlcore_translate_addr(wl, wl->rtable[reg]), val);
+}
+
 static inline void wlcore_io_reset(struct wlcore *wl)
 {
 	if (wl->if_ops->reset)
