@@ -263,6 +263,39 @@ static void wlcore_prepare_mailbox(struct wlcore *wl)
 		     wl->cmd_box_addr, wl->event_box_addr);
 }
 
+static void wlcore_parse_fw_ver(struct wlcore *wl)
+{
+	int ret;
+
+	ret = sscanf(wl->fw_ver_str + 4, "%u.%u.%u.%u.%u",
+		     &wl->fw_ver[0], &wl->fw_ver[1],
+		     &wl->fw_ver[2], &wl->fw_ver[3],
+		     &wl->fw_ver[4]);
+
+	if (ret != 5) {
+		wlcore_warning("fw version incorrect value '%s'",
+			       wl->fw_ver_str);
+		memset(wl->fw_ver, 0, sizeof(wl->fw_ver));
+		return;
+	}
+}
+
+static void wlcore_get_fw_version(struct wlcore *wl)
+{
+	struct wlcore_static_data static_data;
+
+	wlcore_read(wl, wl->cmd_box_addr, &static_data, sizeof(static_data),
+		    false);
+
+	strncpy(wl->fw_ver_str, static_data.fw_version,
+		sizeof(wl->fw_ver_str));
+
+	/* make sure the string is NULL-terminated */
+	wl->fw_ver_str[sizeof(wl->fw_ver_str) - 1] = '\0';
+
+	wlcore_parse_fw_ver(wl);
+}
+
 bool wlcore_boot(struct wlcore *wl)
 {
 	bool booted = false;
@@ -314,8 +347,10 @@ bool wlcore_boot(struct wlcore *wl)
 		goto out_nvs;
 
 	wlcore_prepare_mailbox(wl);
+	wlcore_get_fw_version(wl);
 
 	booted = true;
+	wlcore_info("firmware booted (%s)", wl->fw_ver_str);
 
 	goto out;
 

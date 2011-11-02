@@ -164,6 +164,29 @@ enum wlcore_registers {
 #define INIT_LOOP	20000
 #define INIT_LOOP_DELAY	50
 
+enum {
+	FW_VER_CHIP,
+	FW_VER_IF_TYPE,
+	FW_VER_MAJOR,
+	FW_VER_SUBTYPE,
+	FW_VER_MINOR,
+
+	NUM_FW_VER
+};
+
+#define WLCORE_FW_VER_MAX_LEN	20
+#define WLCORE_NO_SUBBANDS	8
+#define WLCORE_NO_POWER_LEVELS	4
+
+/* TODO: static data may differ from chip to chip, should move to an op */
+struct wlcore_static_data {
+	u8 mac_address[ETH_ALEN];
+	u8 padding[2];
+	u8 fw_version[WLCORE_FW_VER_MAX_LEN];
+	u32 hw_version;
+	u8 tx_power_table[WLCORE_NO_SUBBANDS][WLCORE_NO_POWER_LEVELS];
+} __packed;
+
 /* TODO: separate local stuff from lower-driver accessible parts */
 struct wlcore {
 	struct ieee80211_hw *hw;
@@ -198,6 +221,9 @@ struct wlcore {
 	const char *nvs_name;
 	u8 *nvs;
 	size_t nvs_len;
+
+	char fw_ver_str[ETHTOOL_BUSINFO_LEN];
+	unsigned int fw_ver[NUM_FW_VER];
 
 	int cmd_box_addr;
 	int event_box_addr;
