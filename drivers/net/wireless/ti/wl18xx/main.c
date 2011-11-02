@@ -58,6 +58,13 @@ static const int wl18xx_rtable[REG_TABLE_LEN] = {
 	[REG_INTERRUPT_ACK]		= WL18XX_REGISTERS_BASE + 0x050F0,
 	[REG_COMMAND_MAILBOX_PTR]	= WL18XX_SCR_PAD0,
 	[REG_EVENT_MAILBOX_PTR]		= WL18XX_SCR_PAD1,
+	[REG_INTERRUPT_TRIG_L]		= WL18XX_REGISTERS_BASE + 0x5074,
+	[REG_INTERRUPT_TRIG_H]		= WL18XX_REGISTERS_BASE + 0x5078,
+};
+
+static const u64 wl18xx_trig_table[TRIG_TABLE_LEN] = {
+	[TRIG_CMD]		= 1ULL << 60,
+	[TRIG_EVENT_ACK]	= 1ULL << 61,
 };
 
 static int wl18xx_get_chip_id(struct wlcore *wl)
@@ -147,6 +154,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->dev = &pdev->dev;
 	wl->ptable = &wl18xx_ptable[0];
 	wl->rtable = &wl18xx_rtable[0];
+	wl->trig_table = &wl18xx_trig_table[0];
 
 	platform_set_drvdata(pdev, wl);
 
