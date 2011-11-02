@@ -34,6 +34,8 @@
 #include "ps.h"
 #include "tx.h"
 
+extern u32 wl18xx_rx_aggr_size;
+
 int wl1271_acx_wake_up_conditions(struct wl1271 *wl)
 {
 	struct acx_wake_up_condition *wake_up;
@@ -1489,7 +1491,7 @@ int wl1271_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
 	acx->hlid = peer_hlid;
 	acx->tid = tid_index;
 	acx->enable = enable;
-	acx->win_size = RX_BA_WIN_SIZE;
+	acx->win_size = wl18xx_rx_aggr_size;
 	acx->ssn = ssn;
 
 	ret = wl1271_cmd_configure(wl, ACX_BA_SESSION_RX_SETUP, acx,
