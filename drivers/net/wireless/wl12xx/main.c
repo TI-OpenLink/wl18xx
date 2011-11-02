@@ -55,6 +55,7 @@
 
 u32 wl18xx_bool_40mhz = true;
 u32 wl18xx_bool_mimo = false;
+u32 wl18xx_rx_aggr_size = 8;
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
@@ -5262,7 +5263,7 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 
 	wl->hw->sta_data_size = sizeof(struct wl1271_station);
 
-	wl->hw->max_rx_aggregation_subframes = 8;
+	wl->hw->max_rx_aggregation_subframes = wl18xx_rx_aggr_size;
     
 	return 0;
 }
@@ -5533,6 +5534,10 @@ MODULE_PARM_DESC(wl18xx_bool_40mhz, "wl18xx 40mhz support");
 EXPORT_SYMBOL_GPL(wl18xx_bool_mimo);
 module_param_named(wl18xx_bool_mimo, wl18xx_bool_mimo, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(wl18xx_bool_mimo, "wl18xx mimo support");
+
+EXPORT_SYMBOL_GPL(wl18xx_rx_aggr_size);
+module_param_named(wl18xx_rx_aggr_size, wl18xx_rx_aggr_size, uint, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(wl18xx_rx_aggr_size, "wl18xx rx aggregation");
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
