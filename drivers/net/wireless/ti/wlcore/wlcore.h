@@ -142,8 +142,17 @@ enum wlcore_registers {
 	REG_INTERRUPT_ACK,
 	REG_COMMAND_MAILBOX_PTR,
 	REG_EVENT_MAILBOX_PTR,
+	REG_INTERRUPT_TRIG_L,
+	REG_INTERRUPT_TRIG_H,
 
 	REG_TABLE_LEN,
+};
+
+enum wlcore_triggers {
+	TRIG_CMD,
+	TRIG_EVENT_ACK,
+
+	TRIG_TABLE_LEN,
 };
 
 /* flag to halt the embedded CPU, used with REG_ECPU_CONTROL */
@@ -211,6 +220,9 @@ struct wlcore {
 
 	/* pointer to the lower driver register table */
 	const int *rtable;
+
+	/* pointer to the lower driver table of interrupt trigger values */
+	const u64 *trig_table;
 
 	u32 chip_id;
 

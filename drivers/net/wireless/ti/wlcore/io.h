@@ -106,6 +106,17 @@ static inline void wlcore_write_reg(struct wlcore *wl, int reg, u32 val)
 	wlcore_raw_write32(wl, wlcore_translate_addr(wl, wl->rtable[reg]), val);
 }
 
+static inline void wlcore_write_trigger(struct wlcore *wl, int trig)
+{
+	u32 low  = wl->trig_table[trig];
+	u32 high = wl->trig_table[trig] >> 32;
+
+	if (low)
+		wlcore_write_reg(wl, REG_INTERRUPT_TRIG_L, low);
+	if (high)
+		wlcore_write_reg(wl, REG_INTERRUPT_TRIG_H, high);
+}
+
 static inline void wlcore_io_reset(struct wlcore *wl)
 {
 	if (wl->if_ops->reset)
