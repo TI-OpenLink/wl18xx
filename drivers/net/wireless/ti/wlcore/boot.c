@@ -137,6 +137,10 @@ int wlcore_boot(struct wlcore *wl)
 		goto out_power;
 	wl->chip_id = ret;
 
+	ret = wl->ops->config_pll(wl);
+	if (ret < 0)
+		goto out_power;
+
 	/*
 	 * TODO: we probably want to check if the firmware is not
 	 * allocated yet or whether the name has changed

@@ -113,6 +113,7 @@ struct wlcore;
 
 struct wlcore_ops {
 	int (*get_chip_id)(struct wlcore *wl);
+	int (*config_pll)(struct wlcore *wl);
 };
 
 enum wlcore_partitions {
