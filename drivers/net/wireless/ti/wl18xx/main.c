@@ -31,22 +31,34 @@
 #define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 #define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
 
+static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
+	[PART_TOP_PRCM_ELP_SOC] = {
+		.mem  = { .start = 0x00A02000, .size  = 0x00010000 },
+		.reg  = { .start = 0x00807000, .size  = 0x00005000 },
+		.mem2 = { .start = 0x00800000, .size  = 0x0000B000 },
+		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+	},
+	[PART_DOWN] = {
+		.mem  = { .start = 0x00000000, .size  = 0x00014000 },
+		.reg  = { .start = 0x00810000, .size  = 0x0000BFFF },
+		.mem2 = { .start = 0x00000000, .size  = 0x00000000 },
+		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+	},
+	[PART_BOOT] = {
+		.mem  = { .start = 0x00700000, .size = 0x0000030c },
+		.reg  = { .start = 0x00802000, .size = 0x00014578 },
+		.mem2 = { .start = 0x00B00404, .size = 0x00001000 },
+		.mem3 = { .start = 0x00C00000, .size = 0x00000400 },
+	},
+};
+
 static int wl18xx_get_chip_id(struct wlcore *wl)
 {
-	struct wlcore_partition_set partition;
 	u32 id;
 
 	printk(KERN_DEBUG "wl18xx_get_chip_id\n");
 
-	/*
-	 * We don't need a real memory partition here, because we only want
-	 * to use the registers at this point.
-	 */
-	memset(&partition, 0, sizeof(partition));
-	partition.reg.start = WL18XX_REG_BOOT_PART_START;
-	partition.reg.size = WL18XX_REG_BOOT_PART_SIZE;
-
-	wlcore_set_partition(wl, &partition);
+	wlcore_select_partition(wl, PART_BOOT);
 
 	id = wlcore_read32(wl, WL18XX_CHIP_ID_B);
 
@@ -92,6 +104,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->if_ops = (struct wlcore_if_ops *) pdata->ops;
 	wl->ops = &wl18xx_ops;
 	wl->dev = &pdev->dev;
+	wl->ptable = &wl18xx_ptable[0];
 
 	platform_set_drvdata(pdev, wl);
 
