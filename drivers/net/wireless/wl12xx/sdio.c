@@ -379,6 +379,10 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 			}
 		}
 		disable_irq(wl->irq);
+	} else {
+		wl->irq_wake_enabled = true;
+		device_init_wakeup(wl1271_sdio_wl_to_dev(wl), 1);
+		hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
 	}
 
 	ret = wl1271_init_ieee80211(wl);
@@ -460,7 +464,6 @@ out:
 static int wl1271_resume(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
-	struct wl1271 *wl = sdio_get_drvdata(func);
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271 resume");
 	return 0;
