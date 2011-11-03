@@ -2535,7 +2535,7 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 
 	/* parse WME attributes if sta is WME capable */
-	if ((params.sta_flags_set & NL80211_STA_FLAG_WME) &&
+	if ((params.sta_flags_set & BIT(NL80211_STA_FLAG_WME)) &&
 	    info->attrs[NL80211_ATTR_STA_WME]) {
 		struct nlattr *tb[NL80211_STA_WME_MAX + 1];
 		struct nlattr *nla;
