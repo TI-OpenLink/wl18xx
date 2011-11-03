@@ -20,9 +20,12 @@
  *
  */
 
+#include <linux/export.h>
+
 #include "wlcore.h"
 #include "io.h"
 #include "cmd.h"
+#include "acx.h"
 
 /*
  * send command to firmware
@@ -31,6 +34,7 @@
  * @id: command id
  * @buf: buffer containing the command, must work with dma
  * @len: length of the buffer
+ * @res_len: length of the response to be read
  */
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len)
@@ -89,3 +93,33 @@ int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 out:
 	return ret;
 }
+
+/**
+ * write acx value to firmware
+ *
+ * @wl: wl struct
+ * @id: acx id
+ * @buf: buffer containing acx, including all headers, must work with dma
+ * @len: length of buf
+ */
+int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len)
+{
+	struct acx_header *acx = buf;
+	int ret;
+
+	wlcore_debug(DEBUG_CMD, "cmd configure (%d)", id);
+
+	acx->id = cpu_to_le16(id);
+
+	/* payload length, does not include any headers */
+	acx->len = cpu_to_le16(len - sizeof(*acx));
+
+	ret = wlcore_cmd_send(wl, CMD_CONFIGURE, acx, len, 0);
+	if (ret < 0) {
+		wlcore_warning("CONFIGURE command failed");
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wlcore_cmd_configure);
