@@ -26,6 +26,7 @@
 #include "io.h"
 #include "boot.h"
 #include "debug.h"
+#include "acx.h"
 
 static int wlcore_request_firmware(struct wlcore *wl)
 {
@@ -348,6 +349,9 @@ bool wlcore_boot(struct wlcore *wl)
 
 	wlcore_prepare_mailbox(wl);
 	wlcore_get_fw_version(wl);
+
+	/* enable default mailbox events */
+	wlcore_acx_event_mbox_mask(wl, WLCORE_DEFAULT_EVENTS);
 
 	booted = true;
 	wlcore_info("firmware booted (%s)", wl->fw_ver_str);

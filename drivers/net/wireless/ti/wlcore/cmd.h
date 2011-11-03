@@ -110,5 +110,6 @@ struct wlcore_cmd_header {
 
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
+int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);
 
 #endif /* __CMD_H__ */
