@@ -206,10 +206,16 @@ static int wl12xx_sdio_set_power(struct device *child, bool enable)
 static void wl12xx_sdio_interrupt(struct sdio_func *func)
 {
 	struct wl12xx_sdio_glue *glue = sdio_get_drvdata(func);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 	irqreturn_t ret;
+
+	dev_dbg(&func->dev, "SDIO IRQ");
 
 	if (WARN_ON(!glue->handler || !glue->thread_fn))
 		return;
+
+	if (test_bit(WL1271_FLAG_SUSPENDED, &wl->flags))
+		sdio_disable_irq(func);
 
 	ret = glue->handler(0, glue->irq_cookie);
 	if (ret == IRQ_WAKE_THREAD) {
@@ -226,7 +232,16 @@ int wl12xx_sdio_request_irq(struct device *child,
 {
 	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 	int ret;
+
+	/* irq is already claimed. we just need to enable it */
+	if (wl->inband_claimed) {
+		sdio_claim_host(func);
+		sdio_enable_irq(func);
+		sdio_release_host(func);
+		return 0;
+	}
 
 	sdio_claim_host(func);
 	glue->handler = handler;
