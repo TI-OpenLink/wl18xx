@@ -5248,20 +5248,23 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 		}
 
 		ret = enable_irq_wake(wl->irq);
-		if (!ret) {
+		if (!ret)
 			wl->irq_wake_enabled = true;
-			device_init_wakeup(wl->dev, 1);
-			if (pdata->pwr_in_suspend) {
-				wl->hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
-				wl->hw->wiphy->wowlan.n_patterns =
-					WL1271_MAX_RX_DATA_FILTERS;
-				wl->hw->wiphy->wowlan.pattern_min_len = 1;
-				wl->hw->wiphy->wowlan.pattern_max_len =
-					WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
-			}
-
-		}
 		disable_irq(wl->irq);
+	} else {
+		wl->irq_wake_enabled = true;
+	}
+
+	if (wl->irq_wake_enabled) {
+		device_init_wakeup(wl->dev, 1);
+		if (pdata->pwr_in_suspend) {
+			wl->hw->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
+			wl->hw->wiphy->wowlan.n_patterns =
+				WL1271_MAX_RX_DATA_FILTERS;
+			wl->hw->wiphy->wowlan.pattern_min_len = 1;
+			wl->hw->wiphy->wowlan.pattern_max_len =
+				WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+		}
 	}
 
 	ret = wl12xx_get_hw_info(wl);
