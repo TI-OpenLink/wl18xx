@@ -112,6 +112,11 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 	struct wl1271 *wl = sdio_get_drvdata(func);
 	irqreturn_t ret;
 
+	wl1271_debug(DEBUG_IRQ, "SDIO IRQ");
+
+	if (test_bit(WL1271_FLAG_SUSPENDED, &wl->flags))
+		sdio_disable_irq(func);
+
 	ret = wl1271_hardirq(0, wl);
 	if (ret == IRQ_WAKE_THREAD) {
 		sdio_release_host(func);
@@ -128,6 +133,7 @@ static void wl12xx_free_sdio_irq(struct wl1271 *wl)
 	sdio_claim_host(func);
 	sdio_release_irq(func);
 	sdio_release_host(func);
+	wl->inband_claimed = false;
 }
 
 static void wl1271_sdio_disable_interrupts(struct wl1271 *wl)
@@ -143,10 +149,20 @@ static void wl12xx_claim_sdio_irq(struct wl1271 *wl)
 	struct sdio_func *func = wl_to_func(wl);
 	int ret;
 
+	if (wl->inband_claimed) {
+		sdio_claim_host(func);
+		sdio_enable_irq(func);
+		sdio_release_host(func);
+		return;
+	}
+
 	sdio_claim_host(func);
 	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
 	sdio_release_host(func);
 	wl1271_info("claiming sdio irq (func=%d). ret=%d", func->num, ret);
+
+	if (!ret)
+		wl->inband_claimed = true;
 }
 
 static void wl1271_sdio_enable_interrupts(struct wl1271 *wl)

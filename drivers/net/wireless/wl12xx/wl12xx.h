@@ -458,6 +458,7 @@ struct wl1271 {
 
 	void (*set_power)(bool enable);
 	bool inband_irq;
+	bool inband_claimed;
 	int irq;
 	int ref_clock;
 
