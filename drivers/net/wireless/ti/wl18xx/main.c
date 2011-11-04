@@ -60,6 +60,7 @@ static const int wl18xx_rtable[REG_TABLE_LEN] = {
 	[REG_EVENT_MAILBOX_PTR]		= WL18XX_SCR_PAD1,
 	[REG_INTERRUPT_TRIG_L]		= WL18XX_REGISTERS_BASE + 0x5074,
 	[REG_INTERRUPT_TRIG_H]		= WL18XX_REGISTERS_BASE + 0x5078,
+	[REG_INTERRUPT_MASK]		= WL18XX_REGISTERS_BASE + 0x50DC,
 };
 
 static const u64 wl18xx_trig_table[TRIG_TABLE_LEN] = {
@@ -117,6 +118,9 @@ static int wl18xx_config_pll(struct wlcore *wl)
 	wlcore_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
 
+	wlcore_select_partition(wl, PART_BOOT);
+	wlcore_write_reg(wl, REG_INTERRUPT_MASK, INTR_ALL);
+
 	/* TODO: check if this is really needed for wl18xx */
 	wlcore_write32(wl, WL18XX_RXTX_ENABLE, 0x0);
 	/* disable auto calibration on start*/
@@ -152,6 +156,9 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->if_ops = (struct wlcore_if_ops *) pdata->ops;
 	wl->ops = &wl18xx_ops;
 	wl->dev = &pdev->dev;
+	wl->irq = platform_get_irq(pdev, 0);
+	wl->devname = pdev->name;
+	wl->platform_quirks = pdata->platform_quirks;
 	wl->ptable = &wl18xx_ptable[0];
 	wl->rtable = &wl18xx_rtable[0];
 	wl->trig_table = &wl18xx_trig_table[0];
