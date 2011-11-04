@@ -20,7 +20,9 @@
  */
 
 #include <linux/module.h>
+#include <linux/interrupt.h>
 #include <net/mac80211.h>
+#include <linux/wl12xx.h>
 
 #include "wlcore.h"
 #include "debug.h"
@@ -198,6 +200,20 @@ static const struct ieee80211_ops wlcore_ops = {
 	.configure_filter = wlcore_configure_filter,
 };
 
+static irqreturn_t wlcore_hardirq(int irq, void *cookie)
+{
+	wlcore_debug(DEBUG_IRQ, "hardirq");
+
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t wlcore_irq_thread(int irq, void *cookie)
+{
+	wlcore_debug(DEBUG_IRQ, "irq thread");
+
+	return IRQ_HANDLED;
+}
+
 static void wlcore_init_ieee80211(struct wlcore *wl, struct device *dev)
 {
 	/*
@@ -258,6 +274,7 @@ EXPORT_SYMBOL_GPL(wlcore_free_hw);
 
 int wlcore_register_hw(struct wlcore *wl)
 {
+	unsigned long irqflags;
 	int ret;
 
 	if (wl->mac80211_registered)
@@ -270,12 +287,32 @@ int wlcore_register_hw(struct wlcore *wl)
 	ret = ieee80211_register_hw(wl->hw);
 	if (ret < 0) {
 		wlcore_error("unable to register mac80211 hw: %d", ret);
-		return ret;
+		goto out;
 	}
 
 	wl->mac80211_registered = true;
 
-	return 0;
+	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
+		irqflags = IRQF_TRIGGER_RISING;
+	else
+		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
+
+	ret = request_threaded_irq(wl->irq, wlcore_hardirq, wlcore_irq_thread,
+				   irqflags, wl->devname, wl);
+	if (ret < 0) {
+		wlcore_error("request_irq() failed: %d", ret);
+		goto out_unregister;
+	}
+
+	disable_irq(wl->irq);
+
+	goto out;
+
+out_unregister:
+	ieee80211_unregister_hw(wl->hw);
+	wl->mac80211_registered = false;
+out:
+	return ret;
 }
 EXPORT_SYMBOL_GPL(wlcore_register_hw);
 

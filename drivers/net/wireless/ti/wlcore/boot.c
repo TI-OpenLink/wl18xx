@@ -21,6 +21,7 @@
 
 #include <linux/firmware.h>
 #include <linux/vmalloc.h>
+#include <linux/interrupt.h>
 
 #include "wlcore.h"
 #include "io.h"
@@ -297,6 +298,18 @@ static void wlcore_get_fw_version(struct wlcore *wl)
 	wlcore_parse_fw_ver(wl);
 }
 
+/*
+ * TODO: for now we only enable the interrupts here.  We may need to
+ * add the polarity write, masking all interrupts out before enabling
+ * them and then using the proper mask.  May have to be turned into an
+ * operation.
+ */
+static void wlcore_enable_interrupts(struct wlcore *wl)
+{
+	enable_irq(wl->irq);
+	wlcore_write_reg(wl, REG_INTERRUPT_MASK, ~INTR_MASK_DEFAULT);
+}
+
 bool wlcore_boot(struct wlcore *wl)
 {
 	bool booted = false;
@@ -352,6 +365,8 @@ bool wlcore_boot(struct wlcore *wl)
 
 	/* enable default mailbox events */
 	wlcore_acx_event_mbox_mask(wl, WLCORE_DEFAULT_EVENTS);
+
+	wlcore_enable_interrupts(wl);
 
 	booted = true;
 	wlcore_info("firmware booted (%s)", wl->fw_ver_str);
