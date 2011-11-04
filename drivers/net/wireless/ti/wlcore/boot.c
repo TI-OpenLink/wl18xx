@@ -356,6 +356,8 @@ bool wlcore_boot(struct wlcore *wl)
 	if (ret < 0)
 		goto out_nvs;
 
+	wl->ops->preboot_conf(wl);
+
 	ret = wlcore_boot_fw(wl);
 	if (ret < 0)
 		goto out_nvs;
