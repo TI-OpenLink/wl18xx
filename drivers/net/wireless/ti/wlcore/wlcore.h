@@ -114,12 +114,14 @@ struct wlcore;
 struct wlcore_ops {
 	int (*get_chip_id)(struct wlcore *wl);
 	int (*config_pll)(struct wlcore *wl);
+	void (*preboot_conf)(struct wlcore *wl);
 };
 
 enum wlcore_partitions {
 	PART_TOP_PRCM_ELP_SOC,
 	PART_DOWN,
 	PART_BOOT,
+	PART_PHY_INIT,
 
 	PART_TABLE_LEN,
 };
@@ -203,6 +205,12 @@ struct wlcore_static_data {
 	u8 tx_power_table[WLCORE_NO_SUBBANDS][WLCORE_NO_POWER_LEVELS];
 } __packed;
 
+struct wlcore_conf {
+
+	/* private data used only by the lower driver */
+	u8 priv_data[0];
+};
+
 /* TODO: separate local stuff from lower-driver accessible parts */
 struct wlcore {
 	struct ieee80211_hw *hw;
@@ -236,6 +244,8 @@ struct wlcore {
 
 	/* pointer to the lower driver table of interrupt trigger values */
 	const u64 *trig_table;
+
+	struct wlcore_conf *conf;
 
 	u32 chip_id;
 
