@@ -27,9 +27,38 @@
 #include "../wlcore/wlcore.h"
 #include "../wlcore/io.h"
 #include "reg.h"
+#include "conf.h"
 
 #define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 #define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
+
+static struct wl18xx_conf wl18xx_default_conf = {
+	.phy = {
+		.phy_standalone			= 0x00,
+		.primary_clock_setting_time	= 0x05,
+		.clock_valid_on_wake_up		= 0x00,
+		.secondary_clock_setting_time	= 0x05,
+		.rdl				= 0x01,
+		.auto_detect			= 0x00,
+		.dedicated_fem			= FEM_NONE,
+		.low_band_component		= COMPONENT_2_WAY_SWITCH,
+		.low_band_component_type	= 0x05,
+		.high_band_component		= COMPONENT_2_WAY_SWITCH,
+		.high_band_component_type	= 0x05,
+		.number_of_assembled_ant2_4	= 0x01,
+		.number_of_assembled_ant5	= 0x01,
+		.external_pa_dc2dc		= 0x00,
+		.tcxo_ldo_voltage		= 0x00,
+		.xtal_itrim_val			= 0x04,
+		.srf_state			= 0x00,
+		.io_configuration		= 0x01,
+		.sdio_configuration		= 0x00,
+		.settings			= 0x00,
+		.enable_clpc			= 0x00,
+		.enable_tx_low_pwr_on_siso_rdl	= 0x00,
+		.rx_profile			= 0x00,
+	},
+};
 
 static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 	[PART_TOP_PRCM_ELP_SOC] = {
@@ -49,6 +78,13 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 		.reg  = { .start = 0x00802000, .size = 0x00014578 },
 		.mem2 = { .start = 0x00B00404, .size = 0x00001000 },
 		.mem3 = { .start = 0x00C00000, .size = 0x00000400 },
+	},
+	[PART_PHY_INIT] = {
+		.mem  = { .start = WL18XX_PHY_INIT_MEM,
+			  .size = sizeof(struct wl18xx_conf) },
+		.reg  = { .start = 0x00000000, .size = 0x00000000 },
+		.mem2 = { .start = 0x00000000, .size = 0x00000000 },
+		.mem3 = { .start = 0x00000000, .size = 0x00000000 },
 	},
 };
 
@@ -129,9 +165,35 @@ static int wl18xx_config_pll(struct wlcore *wl)
 	return 0;
 }
 
+static void wl18xx_preboot_conf(struct wlcore *wl)
+{
+	struct wl18xx_conf_phy *params =
+		&((struct wl18xx_conf *)wl->conf->priv_data)->phy;
+
+	wlcore_select_partition(wl, PART_PHY_INIT);
+	wlcore_write(wl, WL18XX_PHY_INIT_MEM, (u8*) params,
+		     sizeof(*params), false);
+
+	/*
+	 * 18xxTODO: should probably revert the set_partition thing, or
+	 * do all set_partition in a single function. otherwise confusing.
+	 */
+}
+
+static int wl18xx_conf_init(struct wlcore *wl)
+{
+	wl->conf = kmemdup(&wl18xx_default_conf, sizeof(wl18xx_default_conf),
+			   GFP_KERNEL);
+	if (!wl->conf)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.get_chip_id	 = wl18xx_get_chip_id,
 	.config_pll	 = wl18xx_config_pll,
+	.preboot_conf	 = wl18xx_preboot_conf,
 };
 
 static int __devinit wl18xx_probe(struct platform_device *pdev)
@@ -162,15 +224,20 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->ptable = &wl18xx_ptable[0];
 	wl->rtable = &wl18xx_rtable[0];
 	wl->trig_table = &wl18xx_trig_table[0];
+	ret = wl18xx_conf_init(wl);
+	if (ret)
+		goto out_free_hw;
 
 	platform_set_drvdata(pdev, wl);
 
 	ret = wlcore_register_hw(wl);
 	if (ret)
-		goto out_free_hw;
+		goto out_free_conf;
 
 	goto out;
 
+out_free_conf:
+	kfree(wl->conf);
 out_free_hw:
 	wlcore_free_hw(wl);
 out:
@@ -183,6 +250,7 @@ static int __devexit wl18xx_remove(struct platform_device *pdev)
 
 	printk(KERN_DEBUG "wl18xx_remove\n");
 
+	kfree(wl->conf);
 	wlcore_unregister_hw(wl);
 	wlcore_free_hw(wl);
 
