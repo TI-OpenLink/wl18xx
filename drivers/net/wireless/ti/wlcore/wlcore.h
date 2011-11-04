@@ -144,6 +144,7 @@ enum wlcore_registers {
 	REG_EVENT_MAILBOX_PTR,
 	REG_INTERRUPT_TRIG_L,
 	REG_INTERRUPT_TRIG_H,
+	REG_INTERRUPT_MASK,
 
 	REG_TABLE_LEN,
 };
@@ -169,6 +170,12 @@ enum wlcore_triggers {
 #define INTR_TRACE_A		BIT(7)
 #define INTR_TRACE_B		BIT(8)
 #define INTR_ALL		0xFFFFFFFF
+
+#define INTR_MASK_DEFAULT	(INTR_WATCHDOG     | \
+				 INTR_EVENT_A      | \
+				 INTR_EVENT_B      | \
+				 INTR_HW_AVAILABLE | \
+				 INTR_DATA)
 
 #define INIT_LOOP	20000
 #define INIT_LOOP_DELAY	50
@@ -206,6 +213,12 @@ struct wlcore {
 
 	struct wlcore_if_ops *if_ops;
 	struct wlcore_ops *ops;
+
+	/* Platform limitations */
+	unsigned int platform_quirks;
+
+	const char *devname;
+	int irq;
 
 	bool mac80211_registered;
 	unsigned long flags;
