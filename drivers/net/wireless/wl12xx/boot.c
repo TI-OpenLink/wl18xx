@@ -300,7 +300,8 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 		return -ENODEV;
 
 	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10))  {
+		(wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20))  {
 		struct wl128x_nvs_file *nvs = (struct wl128x_nvs_file *)wl->nvs;
 
 		if (wl->nvs_len == sizeof(struct wl128x_nvs_file)) {
@@ -587,7 +588,8 @@ static void wl1271_boot_hw_version(struct wl1271 *wl)
 {
 	u32 fuse;
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
         fuse = wl1271_read32(wl, WL18XX_REG_FUSE_DATA_1_3);
 		wl1271_set_partition(wl, &part_table[PART_BOOT]);
@@ -985,7 +987,8 @@ int wl1271_load_firmware(struct wl1271 *wl)
 
 	wl1271_boot_hw_version(wl);
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
 		ret = wl18xx_boot_clk(wl, &selected_clock);
 		if (ret < 0)
 			goto out;

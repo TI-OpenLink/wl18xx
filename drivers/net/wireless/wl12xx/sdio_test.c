@@ -232,7 +232,8 @@ static int wl1271_fetch_nvs(struct wl1271 *wl)
 	const struct firmware *fw;
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
 		ret = request_firmware(&fw, WL18XX_NVS_NAME, wl1271_wl_to_dev(wl));
 	}
 	else {
