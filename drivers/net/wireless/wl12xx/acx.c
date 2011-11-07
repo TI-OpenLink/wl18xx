@@ -1016,7 +1016,8 @@ int wl1271_acx_mem_cfg(struct wl1271 *wl)
 		goto out;
 	}
 
-	if (wl->chip.id == CHIP_ID_185x_PG10)
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20))
 		mem = &wl->conf.mem_wl18xx;
 	else if (wl->chip.id == CHIP_ID_1283_PG20)
 		mem = &wl->conf.mem_wl128x;

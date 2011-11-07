@@ -239,6 +239,7 @@
 #define CHIP_ID_1283_PG10              (0x05030101)
 #define CHIP_ID_1283_PG20              (0x05030111)
 #define CHIP_ID_185x_PG10		       (0x06030101)
+#define CHIP_ID_185x_PG20		       (0x06030111)
 
 #define ENABLE                         (REGISTERS_BASE + 0x01543C)
 
