@@ -55,7 +55,7 @@
 
 u32 wl18xx_bool_40mhz = true;
 u32 wl18xx_bool_mimo = false;
-u32 wl18xx_rx_aggr_size = 8;
+u32 wl18xx_rx_aggr_size = 10;
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
