@@ -41,7 +41,8 @@ static u32 wl1271_rx_get_buf_size(struct wl1271 *wl,
 				  struct wl1271_fw_status *status,
 				  u32 drv_rx_counter)
 {
-	if ((wl->chip.id == CHIP_ID_185x_PG10) &&
+	if (((wl->chip.id == CHIP_ID_185x_PG10) ||
+		 (wl->chip.id == CHIP_ID_185x_PG20)) &&
 	    (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT))
 		/* Size in bytes */
 		return (le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
@@ -192,7 +193,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 		     skb->len - desc->pad_len,
 		     beacon ? "beacon" : "");
 
-	if (wl->chip.id != CHIP_ID_185x_PG10)
+	if ((wl->chip.id != CHIP_ID_185x_PG10) &&
+		(wl->chip.id == CHIP_ID_185x_PG20))
 		skb_trim(skb, skb->len - desc->pad_len);
 
 	skb_queue_tail(&wl->deferred_rx_queue, skb);
@@ -227,7 +229,8 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 			pkt_length = wl1271_rx_get_buf_size(wl,
 							    status, rx_counter);
 
-			if (wl->chip.id == CHIP_ID_185x_PG10)
+			if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+				(wl->chip.id == CHIP_ID_185x_PG20))
 				pkt_length = wl12xx_calc_packet_alignment(wl,
 						pkt_length);
 
@@ -245,7 +248,8 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 		}
 
 		if ((wl->chip.id != CHIP_ID_1283_PG20) &&
-			(wl->chip.id != CHIP_ID_185x_PG10)) {
+			(wl->chip.id != CHIP_ID_185x_PG10) &&
+			(wl->chip.id == CHIP_ID_185x_PG20)) {
 			/*
 			 * Choose the block we want to read
 			 * For aggregated packets, only the first memory block
@@ -292,7 +296,8 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 			drv_rx_counter++;
 			drv_rx_counter &= NUM_RX_PKT_DESC_MOD_MASK;
 
-			if (wl->chip.id == CHIP_ID_185x_PG10)
+			if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+				(wl->chip.id == CHIP_ID_185x_PG20))
 				pkt_offset += wl12xx_calc_packet_alignment(wl,
 						pkt_length);
 			else

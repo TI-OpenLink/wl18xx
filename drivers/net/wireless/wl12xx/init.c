@@ -563,14 +563,16 @@ int wl1271_chip_specific_init(struct wl1271 *wl)
 	int ret = 0;
 
 	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10)){
+		(wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)){
 		u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
 
 		if (wl->quirks & WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT) {
 			/* Enable TX SDIO padding */
  			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
  
-			if (wl->chip.id == CHIP_ID_185x_PG10)
+			if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+				(wl->chip.id == CHIP_ID_185x_PG20))
 				/* Enable RX SDIO padding */
 				host_cfg_bitmap |=
 					HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
@@ -622,7 +624,8 @@ int wl1271_hw_init(struct wl1271 *wl)
 	int ret, i;
 	bool is_ap = (wl->bss_type == BSS_TYPE_AP_BSS);
 
-	if (wl->chip.id != CHIP_ID_185x_PG10) {
+	if ((wl->chip.id != CHIP_ID_185x_PG10) &&
+		(wl->chip.id != CHIP_ID_185x_PG20)) {
 		ret = wl1271_radio_params_init(wl);
 		if (ret < 0)
 			return ret;

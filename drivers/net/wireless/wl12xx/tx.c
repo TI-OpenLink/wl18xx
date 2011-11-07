@@ -199,7 +199,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 	u32 spare_blocks;
     	int id, ret = -EBUSY, ac;
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
 		spare_blocks = TX_HW_EXTRA_MEM_BLKS_DEF;
 	}
 	else {
@@ -217,7 +218,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 
 	/* approximate the number of blocks required for this packet
 	   in the firmware */
-	if (wl->chip.id == CHIP_ID_185x_PG10)
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20))
 		len = total_len;
 	else
 		len = wl12xx_calc_packet_alignment(wl, total_len);
@@ -235,7 +237,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 
 		/* HW descriptor fields change between wl127x and wl128x & wl18xx*/
 		if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-			(wl->chip.id == CHIP_ID_185x_PG10)) {
+			(wl->chip.id == CHIP_ID_185x_PG10) ||
+			(wl->chip.id == CHIP_ID_185x_PG20)) {
 			desc->wl128x_mem.total_mem_blocks = total_blocks;
 		} else {
 			desc->wl127x_mem.extra_blocks = spare_blocks;
@@ -427,7 +430,8 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 
 	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
 		desc->wl128x_mem.extra_bytes = 0;
 		desc->length = skb->len;
 

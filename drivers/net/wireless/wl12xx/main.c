@@ -757,7 +757,8 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	struct conf_tx_tid *conf_tid;
 	int ret, i;
 
-	if (wl->chip.id != CHIP_ID_185x_PG10) {
+	if ((wl->chip.id != CHIP_ID_185x_PG10) &&
+		(wl->chip.id != CHIP_ID_185x_PG20)) {
 		ret = wl1271_radio_params_init(wl);
 		if (ret < 0)
 			return ret;
@@ -1173,7 +1174,8 @@ static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 		if (wl->fw_type == WL12XX_FW_TYPE_PLT)
 			return 0;
 
-		if (wl->chip.id == CHIP_ID_185x_PG10)
+		if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+			(wl->chip.id == CHIP_ID_185x_PG20))
 			fw_name = WL18XX_PLT_FW_NAME;
 		else if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_PLT_FW_NAME;
@@ -1183,7 +1185,8 @@ static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 		if (wl->fw_type == WL12XX_FW_TYPE_NORMAL)
 			return 0;
 
-		if (wl->chip.id == CHIP_ID_185x_PG10)
+		if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+			(wl->chip.id == CHIP_ID_185x_PG20))
 			fw_name = WL18XX_FW_NAME;
 		else if (wl->chip.id == CHIP_ID_1283_PG20)
 			fw_name = WL128X_FW_NAME;
@@ -1236,7 +1239,8 @@ static int wl1271_fetch_nvs(struct wl1271 *wl)
 	const struct firmware *fw;
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
+		(wl->chip.id == CHIP_ID_185x_PG20)) {
 		ret = request_firmware(&fw, WL18XX_NVS_NAME, wl1271_wl_to_dev(wl));
 	}
 	else {
@@ -1494,6 +1498,19 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		break;
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1283 PG10)",
+			     wl->chip.id);
+
+		ret = wl1271_setup(wl);
+		if (ret < 0)
+			goto out;
+
+		if (wl1271_set_block_size(wl))
+			wl->quirks |= WL12XX_QUIRK_BLOCKSIZE_ALIGNMENT;
+		wl->quirks |= WL12XX_QUIRK_AUTO_EOT;
+		wl->quirks |= WL12XX_QUIRK_RX_QOS_ALIGNMENT;
+		break;
+	case CHIP_ID_185x_PG20:
+		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1283 PG20)",
 			     wl->chip.id);
 
 		ret = wl1271_setup(wl);
