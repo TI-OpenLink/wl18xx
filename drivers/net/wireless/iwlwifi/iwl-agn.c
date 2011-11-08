@@ -2028,6 +2028,7 @@ static int iwlagn_mac_suspend(struct ieee80211_hw *hw,
 		.tkip = &tkip_cmd,
 		.use_tkip = false,
 	};
+	struct iwlagn_d3_config_cmd d3_cfg_cmd = {};
 	int ret, i;
 	u16 seq;
 
@@ -2085,12 +2086,13 @@ static int iwlagn_mac_suspend(struct ieee80211_hw *hw,
 	if (wowlan->four_way_handshake)
 		wakeup_filter_cmd.enabled |=
 			cpu_to_le32(IWLAGN_WOWLAN_WAKEUP_4WAY_HANDSHAKE);
-	if (wowlan->rfkill_release)
-		wakeup_filter_cmd.enabled |=
-			cpu_to_le32(IWLAGN_WOWLAN_WAKEUP_RFKILL);
 	if (wowlan->n_patterns)
 		wakeup_filter_cmd.enabled |=
 			cpu_to_le32(IWLAGN_WOWLAN_WAKEUP_PATTERN_MATCH);
+
+	if (wowlan->rfkill_release)
+		d3_cfg_cmd.wakeup_flags |=
+			cpu_to_le32(IWLAGN_D3_WAKEUP_RFKILL);
 
 	iwl_scan_cancel_timeout(priv, 200);
 
@@ -2178,6 +2180,11 @@ static int iwlagn_mac_suspend(struct ieee80211_hw *hw,
 				goto error;
 		}
 	}
+
+	ret = iwl_trans_send_cmd_pdu(trans(priv), REPLY_D3_CONFIG, CMD_SYNC,
+				     sizeof(d3_cfg_cmd), &d3_cfg_cmd);
+	if (ret)
+		goto error;
 
 	ret = iwl_trans_send_cmd_pdu(trans(priv), REPLY_WOWLAN_WAKEUP_FILTER,
 				 CMD_SYNC, sizeof(wakeup_filter_cmd),
@@ -3171,7 +3178,7 @@ static int iwl_set_hw_params(struct iwl_priv *priv)
 }
 
 /* This function both allocates and initializes hw and priv. */
-static struct ieee80211_hw *iwl_alloc_all(struct iwl_cfg *cfg)
+static struct ieee80211_hw *iwl_alloc_all(void)
 {
 	struct iwl_priv *priv;
 	/* mac80211 allocates memory for this device instance, including
@@ -3179,11 +3186,8 @@ static struct ieee80211_hw *iwl_alloc_all(struct iwl_cfg *cfg)
 	struct ieee80211_hw *hw;
 
 	hw = ieee80211_alloc_hw(sizeof(struct iwl_priv), &iwlagn_hw_ops);
-	if (hw == NULL) {
-		pr_err("%s: Can not allocate network device\n",
-		       cfg->name);
+	if (!hw)
 		goto out;
-	}
 
 	priv = hw->priv;
 	priv->hw = hw;
@@ -3204,8 +3208,9 @@ int iwl_probe(struct iwl_bus *bus, const struct iwl_trans_ops *trans_ops,
 	/************************
 	 * 1. Allocating HW data
 	 ************************/
-	hw = iwl_alloc_all(cfg);
+	hw = iwl_alloc_all();
 	if (!hw) {
+		pr_err("%s: Cannot allocate network device\n", cfg->name);
 		err = -ENOMEM;
 		goto out;
 	}

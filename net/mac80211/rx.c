@@ -2204,13 +2204,8 @@ ieee80211_rx_h_action(struct ieee80211_rx_data *rx)
 
 	switch (mgmt->u.action.category) {
 	case WLAN_CATEGORY_BACK:
-		/*
-		 * The aggregation code is not prepared to handle
-		 * anything but STA/AP due to the BSSID handling;
-		 * IBSS could work in the code but isn't supported
-		 * by drivers or the standard.
-		 */
 		if (sdata->vif.type != NL80211_IFTYPE_STATION &&
+		    sdata->vif.type != NL80211_IFTYPE_MESH_POINT &&
 		    sdata->vif.type != NL80211_IFTYPE_AP_VLAN &&
 		    sdata->vif.type != NL80211_IFTYPE_AP)
 			break;
@@ -2489,6 +2484,10 @@ static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
 	if (rx->flags & IEEE80211_RX_CMNTR)
 		goto out_free_skb;
 	rx->flags |= IEEE80211_RX_CMNTR;
+
+	/* If there are no cooked monitor interfaces, just free the SKB */
+	if (!local->cooked_mntrs)
+		goto out_free_skb;
 
 	if (skb_headroom(skb) < sizeof(*rthdr) &&
 	    pskb_expand_head(skb, sizeof(*rthdr), 0, GFP_ATOMIC))
