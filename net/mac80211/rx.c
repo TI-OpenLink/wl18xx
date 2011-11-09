@@ -748,10 +748,11 @@ static void ieee80211_rx_reorder_ampdu(struct ieee80211_rx_data *rx)
 	struct ieee80211_local *local = rx->local;
 	struct ieee80211_hw *hw = &local->hw;
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	struct sta_info *sta = rx->sta;
 	struct tid_ampdu_rx *tid_agg_rx;
 	u16 sc;
-	int tid;
+	u8 tid, ack_policy;
 
 	if (!ieee80211_is_data_qos(hdr->frame_control))
 		goto dont_reorder;
@@ -764,6 +765,8 @@ static void ieee80211_rx_reorder_ampdu(struct ieee80211_rx_data *rx)
 	if (!sta)
 		goto dont_reorder;
 
+	ack_policy = *ieee80211_get_qos_ctl(hdr) &
+		     IEEE80211_QOS_CTL_ACK_POLICY_MASK;
 	tid = *ieee80211_get_qos_ctl(hdr) & IEEE80211_QOS_CTL_TID_MASK;
 
 	tid_agg_rx = rcu_dereference(sta->ampdu_mlme.tid_rx[tid]);
@@ -772,6 +775,15 @@ static void ieee80211_rx_reorder_ampdu(struct ieee80211_rx_data *rx)
 
 	/* qos null data frames are excluded */
 	if (unlikely(hdr->frame_control & cpu_to_le16(IEEE80211_STYPE_NULLFUNC)))
+		goto dont_reorder;
+
+	/* not part of a BA session */
+	if (ack_policy != IEEE80211_QOS_CTL_ACK_POLICY_BLOCKACK &&
+	    ack_policy != IEEE80211_QOS_CTL_ACK_POLICY_NORMAL)
+		goto dont_reorder;
+
+	/* not actually part of this BA session */
+	if (!(status->rx_flags & IEEE80211_RX_RA_MATCH))
 		goto dont_reorder;
 
 	/* new, potentially un-ordered, ampdu frame - process it */
@@ -858,6 +870,13 @@ ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
 			    rx->sdata->control_port_protocol)
 				return RX_CONTINUE;
 		}
+
+		if (rx->sdata->vif.type == NL80211_IFTYPE_AP &&
+		    cfg80211_rx_spurious_frame(rx->sdata->dev,
+					       hdr->addr2,
+					       GFP_ATOMIC))
+			return RX_DROP_UNUSABLE;
+
 		return RX_DROP_MONITOR;
 	}
 
@@ -1327,15 +1346,20 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
 
 		/*
 		 * If we receive a 4-addr nullfunc frame from a STA
-		 * that was not moved to a 4-addr STA vlan yet, drop
-		 * the frame to the monitor interface, to make sure
-		 * that hostapd sees it
+		 * that was not moved to a 4-addr STA vlan yet send
+		 * the event to userspace and for older hostapd drop
+		 * the frame to the monitor interface.
 		 */
 		if (ieee80211_has_a4(hdr->frame_control) &&
 		    (rx->sdata->vif.type == NL80211_IFTYPE_AP ||
 		     (rx->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
-		      !rx->sdata->u.vlan.sta)))
+		      !rx->sdata->u.vlan.sta))) {
+			if (!test_and_set_sta_flag(sta, WLAN_STA_4ADDR_EVENT))
+				cfg80211_rx_unexpected_4addr_frame(
+					rx->sdata->dev, sta->sta.addr,
+					GFP_ATOMIC);
 			return RX_DROP_MONITOR;
+		}
 		/*
 		 * Update counter and free packet here to avoid
 		 * counting this as a dropped packed.
@@ -1933,6 +1957,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
 	    compare_ether_addr(sdata->vif.addr, hdr->addr3) == 0)
 		return RX_CONTINUE;
 
+	skb_set_queue_mapping(skb, ieee80211_select_queue(sdata, skb));
 	mesh_hdr->ttl--;
 
 	if (status->rx_flags & IEEE80211_RX_RA_MATCH) {
@@ -1957,12 +1982,10 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
 			memset(info, 0, sizeof(*info));
 			info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
 			info->control.vif = &rx->sdata->vif;
+			info->control.jiffies = jiffies;
 			if (is_multicast_ether_addr(fwd_hdr->addr1)) {
 				IEEE80211_IFSTA_MESH_CTR_INC(&sdata->u.mesh,
 								fwded_mcast);
-				skb_set_queue_mapping(fwd_skb,
-					ieee80211_select_queue(sdata, fwd_skb));
-				ieee80211_set_qos_hdr(sdata, fwd_skb);
 			} else {
 				int err;
 				/*
@@ -2014,12 +2037,17 @@ ieee80211_rx_h_data(struct ieee80211_rx_data *rx)
 		return RX_DROP_MONITOR;
 
 	/*
-	 * Allow the cooked monitor interface of an AP to see 4-addr frames so
-	 * that a 4-addr station can be detected and moved into a separate VLAN
+	 * Send unexpected-4addr-frame event to hostapd. For older versions,
+	 * also drop the frame to cooked monitor interfaces.
 	 */
 	if (ieee80211_has_a4(hdr->frame_control) &&
-	    sdata->vif.type == NL80211_IFTYPE_AP)
+	    sdata->vif.type == NL80211_IFTYPE_AP) {
+		if (rx->sta &&
+		    !test_and_set_sta_flag(rx->sta, WLAN_STA_4ADDR_EVENT))
+			cfg80211_rx_unexpected_4addr_frame(
+				rx->sdata->dev, rx->sta->sta.addr, GFP_ATOMIC);
 		return RX_DROP_MONITOR;
+	}
 
 	err = __ieee80211_data_to_8023(rx, &port_control);
 	if (unlikely(err))
@@ -2173,6 +2201,18 @@ ieee80211_rx_h_mgmt_check(struct ieee80211_rx_data *rx)
 
 	if (!ieee80211_is_mgmt(mgmt->frame_control))
 		return RX_DROP_MONITOR;
+
+	if (rx->sdata->vif.type == NL80211_IFTYPE_AP &&
+	    ieee80211_is_beacon(mgmt->frame_control) &&
+	    !(rx->flags & IEEE80211_RX_BEACON_REPORTED)) {
+		struct ieee80211_rx_status *status;
+
+		status = IEEE80211_SKB_RXCB(rx->skb);
+		cfg80211_report_obss_beacon(rx->local->hw.wiphy,
+					    rx->skb->data, rx->skb->len,
+					    status->freq, GFP_ATOMIC);
+		rx->flags |= IEEE80211_RX_BEACON_REPORTED;
+	}
 
 	if (!(status->rx_flags & IEEE80211_RX_RA_MATCH))
 		return RX_DROP_MONITOR;
