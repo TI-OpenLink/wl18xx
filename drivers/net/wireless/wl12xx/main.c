@@ -1668,14 +1668,13 @@ static int wl1271_configure_wowlan(struct wl1271 *wl,
 
 	if (!wow) {
 		wl1271_rx_data_filtering_enable(wl, 0, FILTER_SIGNAL);
+		wl1271_rx_data_filters_clear_all(wl);
 		return 0;
 	}
 
 	WARN_ON(wow->n_patterns > WL1271_MAX_RX_DATA_FILTERS);
 	if (wow->any || !wow->n_patterns)
 		return 0;
-
-	wl1271_rx_data_filters_clear_all(wl);
 
 	/* Translate WoWLAN patterns into filters */
 	for (i = 0; i < wow->n_patterns; i++) {
