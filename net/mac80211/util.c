@@ -1076,7 +1076,8 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 			changed |= BSS_CHANGED_IBSS;
 			/* fall through */
 		case NL80211_IFTYPE_AP:
-			changed |= BSS_CHANGED_SSID;
+			changed |= BSS_CHANGED_SSID |
+				   BSS_CHANGED_AP_PROBE_RESP;
 			/* fall through */
 		case NL80211_IFTYPE_MESH_POINT:
 			changed |= BSS_CHANGED_BEACON |
@@ -1097,6 +1098,8 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 			break;
 		}
 	}
+
+	ieee80211_recalc_ps(local, -1);
 
 	/*
 	 * Clear the WLAN_STA_BLOCK_BA flag so new aggregation
