@@ -130,4 +130,8 @@ bool nl80211_unexpected_frame(struct net_device *dev,
 bool nl80211_unexpected_4addr_frame(struct net_device *dev,
 				    const u8 *addr, gfp_t gfp);
 
+void
+nl80211_send_rx_wme(struct cfg80211_registered_device *rdev,
+		struct net_device *netdev, u8* buf, u8 len, gfp_t gfp);
+
 #endif /* __NET_WIRELESS_NL80211_H */

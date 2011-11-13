@@ -980,3 +980,14 @@ bool cfg80211_rx_unexpected_4addr_frame(struct net_device *dev,
 	return nl80211_unexpected_4addr_frame(dev, addr, gfp);
 }
 EXPORT_SYMBOL(cfg80211_rx_unexpected_4addr_frame);
+
+void cfg80211_send_rx_wme(struct net_device *dev,
+		u8* buf, u8 len)
+{
+	struct wiphy *wiphy = dev->ieee80211_ptr->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wiphy);
+
+	nl80211_send_rx_wme(rdev, dev, buf, len, GFP_KERNEL);
+
+}
+EXPORT_SYMBOL(cfg80211_send_rx_wme);
