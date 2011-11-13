@@ -214,6 +214,9 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL] = { .type = NLA_U32 },
 	[NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS] = { .type = NLA_U8 },
 	[NL80211_ATTR_ROAMING_DISABLED] = { .type = NLA_FLAG },
+	[NL80211_ATTR_TSPEC] = { .type = NLA_NESTED },
+	[NL80211_ATTR_TSPEC_ACTION_CODE] = { .type = NLA_U8 },
+	[NL80211_ATTR_TSPEC_STATUS_CODE] = { .type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -793,6 +796,14 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 	if (nl80211_put_iftypes(msg, NL80211_ATTR_SUPPORTED_IFTYPES,
 				dev->wiphy.interface_modes))
 		goto nla_put_failure;
+
+	if (dev->ops->get_tx_power) {
+		int dbm = 0, res;
+		res = dev->ops->get_tx_power(&dev->wiphy, &dbm);
+		if (!res) {
+			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_TX_POWER_LEVEL, dbm);
+		}
+	}
 
 	nl_bands = nla_nest_start(msg, NL80211_ATTR_WIPHY_BANDS);
 	if (!nl_bands)
@@ -2512,13 +2523,19 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
 
 		nla_nest_end(msg, bss_param);
 	}
+
 	if (sinfo->filled & STATION_INFO_STA_FLAGS)
 		NLA_PUT(msg, NL80211_STA_INFO_STA_FLAGS,
 			sizeof(struct nl80211_sta_flag_update),
 			&sinfo->sta_flags);
+
 	if (sinfo->filled & STATION_INFO_T_OFFSET)
 		NLA_PUT_U64(msg, NL80211_STA_INFO_T_OFFSET,
 			    sinfo->t_offset);
+
+	if (sinfo->filled & STATION_INFO_WMM_ACM) {
+		NLA_PUT_U32(msg, NL80211_STA_INFO_WMM_ACM, sinfo->wmm_acm);
+	}
 	nla_nest_end(msg, sinfoattr);
 
 	if (sinfo->filled & STATION_INFO_ASSOC_REQ_IES)
@@ -6429,6 +6446,183 @@ static int nl80211_pre_doit(struct genl_ops *ops, struct sk_buff *skb,
 
 	return 0;
 }
+static const struct nla_policy
+nl80211_tspec_params_policy[NL80211_ATTR_TSPEC_MAX + 1] = {
+		[NL80211_ATTR_TSPEC_TID]					= { .type = NLA_U8 },
+		[NL80211_ATTR_TSPEC_DIRECTION]				= { .type = NLA_U8 },
+		[NL80211_ATTR_TSPEC_PSB]					= { .type = NLA_U8 },
+		[NL80211_ATTR_TSPEC_USER_PRIO]				= { .type = NLA_U8 },
+		[NL80211_ATTR_TSPEC_NOMINAL_MSDU_SIZE]		= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MAX_MSDU_SIZE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MAX_SERVICE_INT]		= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MIN_SERVICE_INT]		= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_INACTIVITY_INT]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_SUSPENSION_INT]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_START_TIME]				= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MIN_DATA_RATE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MEAN_DATA_RATE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_PEAK_DATA_RATE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MAX_BURST_SIZE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_DELAY_BOUND]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MIN_PHY_RATE]			= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_SURPLUS_BW_ALLOWANCE]	= { .type = NLA_U32 },
+		[NL80211_ATTR_TSPEC_MEDIUM_TIME]			= { .type = NLA_U32 }
+};
+
+static int parse_tspec_params(struct nlattr *tb[],
+	    struct ieee80211_tspec_params *tspec_params) {
+
+	memset(tspec_params, 0, sizeof(*tspec_params));
+	if (!tb[NL80211_ATTR_TSPEC_TID])
+		return -EINVAL;
+	tspec_params->tid = nla_get_u8(tb[NL80211_ATTR_TSPEC_TID]);
+	if (tspec_params->tid > 7)
+		return -EINVAL;
+
+	if (!tb[NL80211_ATTR_TSPEC_DIRECTION])
+		return -EINVAL;
+	tspec_params->direction = nla_get_u8(tb[NL80211_ATTR_TSPEC_DIRECTION]);
+	if (tspec_params->direction > 3 || tspec_params->direction == 2)
+		return -EINVAL;
+
+	if (!tb[NL80211_ATTR_TSPEC_PSB])
+		return -EINVAL;
+	tspec_params->psb = nla_get_u8(tb[NL80211_ATTR_TSPEC_PSB]);
+	if (tspec_params->psb > 1)
+		return -EINVAL;
+
+	if (!tb[NL80211_ATTR_TSPEC_NOMINAL_MSDU_SIZE])
+		return -EINVAL;
+	tspec_params->nominal_msdu_size =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_NOMINAL_MSDU_SIZE]);
+	if (tb[NL80211_ATTR_TSPEC_MAX_MSDU_SIZE]) {
+		tspec_params->maximum_msdu_size =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MAX_MSDU_SIZE]);
+		if ((tspec_params->nominal_msdu_size & ~0x8000) >
+			tspec_params->maximum_msdu_size)
+			return -EINVAL;
+	} else
+		tspec_params->maximum_msdu_size =
+				tspec_params->nominal_msdu_size & ~0x8000;
+
+	if (!tb[NL80211_ATTR_TSPEC_MIN_PHY_RATE])
+			return -EINVAL;
+	tspec_params->minimum_phy_rate =
+				nla_get_u32(tb[NL80211_ATTR_TSPEC_MIN_PHY_RATE]) *
+				1000000;
+
+	if (!tb[NL80211_ATTR_TSPEC_SURPLUS_BW_ALLOWANCE])
+		return -EINVAL;
+	tspec_params->surplus_bandwidth_allowance =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_SURPLUS_BW_ALLOWANCE]);
+	if (tspec_params->surplus_bandwidth_allowance < 0x2001 ||
+		tspec_params->surplus_bandwidth_allowance > 0xffff)
+		return -EINVAL;
+
+	if (tb[NL80211_ATTR_TSPEC_USER_PRIO]) {
+		tspec_params->user_priority =
+				nla_get_u8(tb[NL80211_ATTR_TSPEC_USER_PRIO]);
+		if (tspec_params->user_priority > 7)
+			return -EINVAL;
+	} else
+		tspec_params->user_priority = tspec_params->tid;
+
+
+	if (tb[NL80211_ATTR_TSPEC_MIN_SERVICE_INT])
+		tspec_params->minimum_service_interval =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MIN_SERVICE_INT]);
+
+	if (tb[NL80211_ATTR_TSPEC_MAX_SERVICE_INT])
+		tspec_params->maximum_service_interval =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MAX_SERVICE_INT]);
+
+	if (tb[NL80211_ATTR_TSPEC_INACTIVITY_INT])
+		tspec_params->inactivity_interval =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_INACTIVITY_INT]);
+
+	if (tb[NL80211_ATTR_TSPEC_SUSPENSION_INT])
+		tspec_params->suspension_interval =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_SUSPENSION_INT]);
+
+	if (tb[NL80211_ATTR_TSPEC_START_TIME])
+		tspec_params->service_start_time =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_START_TIME]);
+
+	if (tb[NL80211_ATTR_TSPEC_MEAN_DATA_RATE])
+		tspec_params->mean_data_rate =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MEAN_DATA_RATE]);
+
+	if (tb[NL80211_ATTR_TSPEC_MIN_DATA_RATE])
+		tspec_params->minimum_data_rate =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MIN_DATA_RATE]);
+	else tspec_params->minimum_data_rate = tspec_params->mean_data_rate;
+
+	if (tb[NL80211_ATTR_TSPEC_PEAK_DATA_RATE])
+		tspec_params->peak_data_rate =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_PEAK_DATA_RATE]);
+	else
+		tspec_params->peak_data_rate = tspec_params->mean_data_rate;
+
+	if (tb[NL80211_ATTR_TSPEC_MAX_BURST_SIZE])
+		tspec_params->maximum_burst_size =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_MAX_BURST_SIZE]);
+
+	if (tb[NL80211_ATTR_TSPEC_DELAY_BOUND])
+		tspec_params->delay_bound =
+			nla_get_u32(tb[NL80211_ATTR_TSPEC_DELAY_BOUND]);
+
+	return 0;
+}
+
+static int nl80211_wme_tspec(struct sk_buff *skb, struct genl_info *info) {
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct ieee80211_tspec_params tspec_params;
+	struct nlattr *tb[__NL80211_ATTR_TSPEC_AFTER_LAST];
+	struct wiphy *wiphy;
+	int err = 0;
+	u8 *extra_ies = NULL;
+	u8 extra_ies_len = 0;
+	u8 action_code, status_code = 0;
+
+	wiphy = &rdev->wiphy;
+
+	if (!rdev->ops->wme_tspec)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_TSPEC_ACTION_CODE])
+		return -EINVAL;
+
+	if (!info->attrs[NL80211_ATTR_TSPEC])
+		return -EINVAL;
+
+	action_code = nla_get_u8(info->attrs[NL80211_ATTR_TSPEC_ACTION_CODE]);
+
+	if (info->attrs[NL80211_ATTR_TSPEC_STATUS_CODE])
+		status_code = nla_get_u8(info->attrs[NL80211_ATTR_TSPEC_STATUS_CODE]);
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		extra_ies = nla_data(info->attrs[NL80211_ATTR_IE]);
+		extra_ies_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+	}
+
+	err = nla_parse(tb, NL80211_ATTR_TSPEC_MAX,
+			nla_data(info->attrs[NL80211_ATTR_TSPEC]),
+			nla_len(info->attrs[NL80211_ATTR_TSPEC]),
+			nl80211_tspec_params_policy);
+	if (err) {
+		return err;
+	}
+
+	err = parse_tspec_params(tb, &tspec_params);
+	if (err < 0)
+		return err;
+
+	rdev->ops->wme_tspec(wiphy, dev, action_code, status_code, &tspec_params,
+			extra_ies, extra_ies_len);
+
+	return err;
+}
 
 static void nl80211_post_doit(struct genl_ops *ops, struct sk_buff *skb,
 			      struct genl_info *info)
@@ -6977,7 +7171,14 @@ static struct genl_ops nl80211_ops[] = {
 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
 				  NL80211_FLAG_NEED_RTNL,
 	},
-
+	{
+		.cmd = NL80211_CMD_TSPEC,
+		.doit = nl80211_wme_tspec,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
 };
 
 static struct genl_multicast_group nl80211_mlme_mcgrp = {
@@ -8258,6 +8459,47 @@ void cfg80211_report_obss_beacon(struct wiphy *wiphy,
 	nlmsg_free(msg);
 }
 EXPORT_SYMBOL(cfg80211_report_obss_beacon);
+
+void
+nl80211_send_rx_wme(struct cfg80211_registered_device *rdev,
+		struct net_device *netdev, u8* buf, u8 len, gfp_t gfp)
+{
+	struct sk_buff *msg;
+	struct nlattr *tspec;
+	void *hdr;
+
+	msg = nlmsg_new(NLMSG_GOODSIZE, gfp);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_TSPEC);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+	NLA_PUT(msg, NL80211_ATTR_FRAME, len, buf);
+/*	NLA_PUT_U8(msg, NL80211_ATTR_TSPEC_ACTION_CODE, action_code);
+	NLA_PUT_U8(msg, NL80211_ATTR_TSPEC_STATUS_CODE, status_code);
+
+	tspec = nla_nest_start(msg, NL80211_ATTR_TSPEC);
+	NLA_PUT_U32(msg, NL80211_ATTR_TSPEC_MEDIUM_TIME, tspec_params->medium_time);
+	nla_nest_end(msg, tspec);
+*/	if (genlmsg_end(msg, hdr) < 0) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, gfp);
+	return;
+
+ nla_put_failure:
+	nlmsg_free(msg);
+}
+
 
 static int nl80211_netlink_notify(struct notifier_block * nb,
 				  unsigned long state,
