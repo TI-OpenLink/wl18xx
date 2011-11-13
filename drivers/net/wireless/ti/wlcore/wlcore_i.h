@@ -323,6 +323,14 @@ struct wl1271_station {
 	u8 hlid;
 };
 
+struct wl1271_tx_wme_tokens_calc {
+    __le16	allocated_medium_time;
+    __s32   tokens;
+    ktime_t last_calc_ts;
+    __le32	unused_tokens_reminder;
+};
+
+
 struct wl12xx_vif {
 	struct wl1271 *wl;
 	struct list_head list;
@@ -424,6 +432,9 @@ struct wl12xx_vif {
 	struct work_struct rx_streaming_enable_work;
 	struct work_struct rx_streaming_disable_work;
 	struct timer_list rx_streaming_timer;
+
+	/* wme calculation parameters */
+	struct wl1271_tx_wme_tokens_calc wme_calc_params[IEEE80211_MAX_QUEUES];
 
 	/*
 	 * This struct must be last!
