@@ -550,6 +550,7 @@ enum station_info_flags {
 	STATION_INFO_STA_FLAGS		= 1<<18,
 	STATION_INFO_BEACON_LOSS_COUNT	= 1<<19,
 	STATION_INFO_T_OFFSET		= 1<<20,
+	STATION_INFO_WMM_ACM		= 1<<21,
 };
 
 /**
@@ -672,6 +673,7 @@ struct station_info {
 	u32 rx_dropped_misc;
 	struct sta_bss_parameters bss_param;
 	struct nl80211_sta_flag_update sta_flags;
+	u32 wmm_acm;
 
 	int generation;
 
@@ -877,6 +879,31 @@ struct ieee80211_txq_params {
 	u16 cwmin;
 	u16 cwmax;
 	u8 aifs;
+};
+
+struct ieee80211_tspec_params {
+	u8 tid;
+	enum nl80211_tspec_direction direction;
+	enum nl80211_tspec_psb psb;
+	u8 user_priority;
+	u16 nominal_msdu_size;
+	u16 maximum_msdu_size;
+	u32 minimum_service_interval;
+	u32 maximum_service_interval;
+	u32 inactivity_interval;
+	u32 suspension_interval;
+	u32 service_start_time;
+	u32 minimum_data_rate;
+	u32 mean_data_rate;
+	u32 peak_data_rate;
+	u32 maximum_burst_size;
+	u32 delay_bound;
+	u32 minimum_phy_rate;
+	u16 surplus_bandwidth_allowance;
+	u16 medium_time;
+
+	u8* extra_ies;
+	u8 extra_ies_len;
 };
 
 /* from net/wireless.h */
@@ -1760,6 +1787,10 @@ struct cfg80211_ops {
 				struct ethtool_stats *stats, u64 *data);
 	void	(*get_et_strings)(struct wiphy *wiphy, struct net_device *dev,
 				  u32 sset, u8 *data);
+	int (*wme_tspec)(struct wiphy *wiphy, struct net_device *dev,
+			u8 action_code, u8 status_code,
+			struct ieee80211_tspec_params *tspec_params,
+			u8* extra_ies, u8 extra_ies_len);
 };
 
 /*
@@ -3445,6 +3476,17 @@ void cfg80211_ch_switch_notify(struct net_device *dev, int freq,
  */
 u16 cfg80211_calculate_bitrate(struct rate_info *rate);
 
+/**
+ * cfg80211_send_rx_wme - notification of processed ADDTS
+ * @dev: network device
+ * @tspec_params: ADDTS response tspec params
+ *
+ * This function is called whenever a ADDTS action frame has been
+ * processed in station mode.
+ */
+void cfg80211_send_rx_wme(struct net_device *dev,
+		u8* buf, u8 len);
+
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
 /* wiphy_printk helpers, similar to dev_printk */
@@ -3492,3 +3534,4 @@ u16 cfg80211_calculate_bitrate(struct rate_info *rate);
 	WARN(1, "wiphy: %s\n" format, wiphy_name(wiphy), ##args);
 
 #endif /* __NET_CFG80211_H */
+ 
