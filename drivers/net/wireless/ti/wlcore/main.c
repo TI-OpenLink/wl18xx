@@ -1912,6 +1912,12 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 	wlvif->power_level = wl->power_level;
 	wlvif->channel_type = wl->channel_type;
 
+
+	for (i = 0; i < IEEE80211_MAX_QUEUES; i++) {
+		memset(&wlvif->wme_calc_params[i], 0,
+			sizeof(struct wl1271_tx_wme_tokens_calc));
+	}
+
 	INIT_WORK(&wlvif->rx_streaming_enable_work,
 		  wl1271_rx_streaming_enable_work);
 	INIT_WORK(&wlvif->rx_streaming_disable_work,
@@ -4569,6 +4575,24 @@ out:
 	return ret;
 }
 
+static void wl1271_op_set_wme_medium_time(struct ieee80211_hw *hw,
+		struct ieee80211_vif *vif,
+		u16 medium_time, u32 minimu_phy_rate, int ac)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271_tx_wme_tokens_calc *calc_params =
+			&wlvif->wme_calc_params[ac];
+
+	wl1271_debug(DEBUG_MAC80211,"setting ac %d, medium time %d\n",
+			ac, medium_time);
+	calc_params->last_calc_ts = ktime_get();
+	calc_params->allocated_medium_time = medium_time << 5;
+	calc_params->tokens = medium_time;
+	calc_params->unused_tokens_reminder = 0;
+	return;
+
+}
+
 /* can't be const, mac80211 writes to this */
 static struct ieee80211_rate wl1271_rates[] = {
 	{ .bitrate = 10,
@@ -4742,6 +4766,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_bitrate_mask = wl12xx_set_bitrate_mask,
 	.channel_switch = wl12xx_op_channel_switch,
 	.set_default_key_idx = wl1271_op_set_default_key_idx,
+	.set_wme_medium_time = wl1271_op_set_wme_medium_time,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
