@@ -796,6 +796,87 @@ static u8 wl1271_tx_get_rate_flags(u8 rate_class_index)
 	return flags;
 }
 
+#define TOKENS_DIVISION_ADD_REMINDER_MASK 0xFFFFF /* 2^20 - 1 */
+
+/* Default mapping in classifier to work with default
+ * queue setup.
+ */
+const int ieee802_1d_to_ac[8] = {
+	IEEE80211_AC_BE,
+	IEEE80211_AC_BK,
+	IEEE80211_AC_BK,
+	IEEE80211_AC_BE,
+	IEEE80211_AC_VI,
+	IEEE80211_AC_VI,
+	IEEE80211_AC_VO,
+	IEEE80211_AC_VO
+};
+
+static void wl1271_tx_tokens_calculation(struct wl12xx_vif *wlvif,
+		struct wl1271_tx_hw_res_descr *result, struct sk_buff *skb) {
+	unsigned int time_diff_us;
+	struct wl1271_tx_wme_tokens_calc *calc_params =
+			&wlvif->wme_calc_params[ieee802_1d_to_ac[skb->priority]];
+
+	ktime_t now;
+
+	if (calc_params->allocated_medium_time == 0)
+		return;
+
+	now = ktime_get();
+
+	time_diff_us = ktime_to_us(now) - ktime_to_us(calc_params->last_calc_ts);
+	if (time_diff_us > 1000000) {
+		calc_params->last_calc_ts = ktime_get();
+		calc_params->tokens = calc_params->allocated_medium_time;
+		return;
+	}
+
+	/* Decrease tokens from the bucket by the medium Time used for the current
+	 transmitted packet (and the previous reminder).
+	 Note: Divide by 32 to match the Allocated Medium Time units. */
+	calc_params->tokens -= result->medium_usage;
+
+	/* check if it is time to add tokens to the bucket */
+	if (time_diff_us > 100000) {
+		u32 ratio_calc, t;
+		u32 tokens_to_add;
+		u16 allocated_medium_time = calc_params->allocated_medium_time;
+
+		/*
+		 *  Since we divide by 2^20 instead of 1,000,000 we have an inaccuracy,
+		 * in order to compensate on the inaccuracy we add
+		 * (timediff/32 + timediff/64) to the timediff
+		 */
+		t = time_diff_us * allocated_medium_time;
+		ratio_calc = t + (t >> 5) + (t >> 6);
+
+		/* Add the previous division reminder */
+		ratio_calc += calc_params->unused_tokens_reminder;
+
+		/* Divide by a million and add tokens to the bucket */
+		tokens_to_add = (ratio_calc >> 20);
+		calc_params->tokens += tokens_to_add;
+
+		/* Save the division by 1000000 reminder */
+		calc_params->unused_tokens_reminder = ratio_calc
+				& TOKENS_DIVISION_ADD_REMINDER_MASK;
+
+		/* store the current ts for the next calculation */
+		calc_params->last_calc_ts = ktime_get();
+		if (calc_params->tokens > calc_params->allocated_medium_time)
+			calc_params->tokens = calc_params->allocated_medium_time;
+	}
+
+	/* Check if the bucket thresholds were crossed */
+	if (calc_params->tokens < 0) {
+		struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+		ieee80211_set_wme_medium_time_crossed(vif, skb);
+		calc_params->tokens = 0;
+	}
+}
+
 static void wl1271_tx_complete_packet(struct wl1271 *wl,
 				      struct wl1271_tx_hw_res_descr *result)
 {
@@ -807,7 +888,6 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	int rate = -1;
 	u8 rate_flags = 0;
 	u8 retries = 0;
-
 	/* check for id legality */
 	if (unlikely(id >= wl->num_tx_desc || wl->tx_frames[id] == NULL)) {
 		wl1271_warning("TX result illegal id: %d", id);
@@ -837,6 +917,11 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	} else if (result->status == TX_RETRY_EXCEEDED) {
 		wl->stats.excessive_retries++;
 		retries = result->ack_failures;
+	}
+
+	if (&wlvif->wme_calc_params[ieee802_1d_to_ac[skb->priority]].
+			allocated_medium_time) {
+		wl1271_tx_tokens_calculation(wlvif, result, skb);
 	}
 
 	info->status.rates[0].idx = rate;
