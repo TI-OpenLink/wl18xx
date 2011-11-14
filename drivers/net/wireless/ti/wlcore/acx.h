@@ -166,6 +166,23 @@ struct acx_event_mask {
 	__le32 high_event_mask; /* unused (must be set to 0xFFFFFFFF) */
 } __packed;
 
+struct wlcore_acx_config_memory {
+	struct acx_header header;
+
+	u8 rx_mem_block_num;
+	u8 tx_min_mem_block_num;
+	u8 num_stations;
+	u8 num_ssid_profiles;
+	__le32 total_tx_descriptors;
+	u8 dyn_mem_enable;
+	u8 tx_free_req;
+	u8 rx_free_req;
+	u8 tx_min;
+	u8 fwlog_blocks;
+	u8 padding[3];
+} __packed;
+
 int wlcore_acx_event_mbox_mask(struct wlcore *wl, u32 event_mask);
+int wlcore_acx_mem_cfg(struct wlcore *wl);
 
 #endif /* __ACX_H__ */

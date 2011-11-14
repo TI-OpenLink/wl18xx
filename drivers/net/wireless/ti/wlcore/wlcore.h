@@ -212,11 +212,55 @@ struct wlcore_conf_tx {
 	u8 tmpl_long_retry_limit;
 };
 
+struct wlcore_conf_hw_mem {
+	/* Number of stations supported in IBSS mode */
+	u8 num_stations;
+
+	/* Number of ssid profiles used in IBSS mode */
+	u8 ssid_profiles;
+
+	/* Number of memory buffers allocated to rx pool */
+	u8 rx_block_num;
+
+	/* Minimum number of blocks allocated to tx pool */
+	u8 tx_min_block_num;
+
+	/* Disable/Enable dynamic memory */
+	u8 dynamic_memory;
+
+	/*
+	 * Minimum required free tx memory blocks in order to assure optimum
+	 * performance
+	 *
+	 * Range: 0-120
+	 */
+	u8 min_req_tx_blocks;
+
+	/*
+	 * Minimum required free rx memory blocks in order to assure optimum
+	 * performance
+	 *
+	 * Range: 0-120
+	 */
+	u8 min_req_rx_blocks;
+
+	/*
+	 * Minimum number of mem blocks (free+used) guaranteed for TX
+	 *
+	 * Range: 0-120
+	 */
+	u8 tx_min;
+
+	/* Number of TX descriptors */
+	u8 num_tx_descriptors;
+};
+
 struct wlcore_conf {
 	struct wlcore_conf_tx tx;
+	struct wlcore_conf_hw_mem hw_mem;
 
 	/* private data used only by the lower driver */
-	u8 priv_data[0];
+	u8 priv_data[0] __attribute__((__aligned__(sizeof(void *))));
 };
 
 /* TODO: separate local stuff from lower-driver accessible parts */
