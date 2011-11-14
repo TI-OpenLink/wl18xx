@@ -28,6 +28,7 @@
 #include "../wlcore/io.h"
 #include "reg.h"
 #include "conf.h"
+#include "acx.h"
 
 #define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 #define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
@@ -180,6 +181,27 @@ static void wl18xx_preboot_conf(struct wlcore *wl)
 	 */
 }
 
+/*
+ * TODO: this will probably be defined in wlcore.  Move when
+ * set_block_size stuff is ported
+ */
+#define WL18XX_BUS_BLOCK_SIZE 512
+static int wl18xx_cfg_host_if(struct wlcore *wl)
+{
+	int ret = 0;
+
+	u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE |
+		HOST_IF_CFG_TX_PAD_TO_SDIO_BLK |
+		HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
+	u32 sdio_align_size = WL18XX_BUS_BLOCK_SIZE;
+
+	/* TODO: don't use padding when quirked.  To be ported from wl12xx */
+
+	ret = wl18xx_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap,
+					    sdio_align_size);
+	return ret;
+}
+
 static int wl18xx_conf_init(struct wlcore *wl)
 {
 	wl->conf = kmemdup(&wl18xx_default_conf, sizeof(wl18xx_default_conf),
@@ -194,6 +216,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.get_chip_id	 = wl18xx_get_chip_id,
 	.config_pll	 = wl18xx_config_pll,
 	.preboot_conf	 = wl18xx_preboot_conf,
+	.cfg_host_if	 = wl18xx_cfg_host_if,
 };
 
 static int __devinit wl18xx_probe(struct platform_device *pdev)
