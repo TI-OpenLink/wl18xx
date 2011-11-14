@@ -33,12 +33,26 @@
 #define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 #define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
 
+/* TODO: move me somewhere more generic once we need it for tx structs */
+#define WL18XX_ACX_TX_DESCRIPTORS  32
+
 /* TODO: do we want to initialize the common part in wlcore? */
 static struct wl18xx_conf wl18xx_default_conf = {
 	.conf = {
 		.tx = {
 			.tmpl_short_retry_limit	= 10,
 			.tmpl_long_retry_limit	= 10,
+		},
+		.hw_mem = {
+			.num_stations		= 1,
+			.ssid_profiles		= 1,
+			.rx_block_num		= 40,
+			.tx_min_block_num	= 40,
+			.dynamic_memory		= 1,
+			.min_req_tx_blocks	= 45,
+			.min_req_rx_blocks	= 22,
+			.tx_min			= 27,
+			.num_tx_descriptors	= WL18XX_ACX_TX_DESCRIPTORS,
 		},
 	},
 
