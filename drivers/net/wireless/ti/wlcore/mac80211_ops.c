@@ -25,6 +25,7 @@
 #include "wlcore.h"
 #include "mac80211_ops.h"
 #include "boot.h"
+#include "init.h"
 
 void wlcore_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
@@ -44,6 +45,14 @@ int wlcore_start(struct ieee80211_hw *hw)
 	if (ret < 0)
 		goto out;
 
+	ret = wlcore_hw_init(wl);
+	if (ret < 0)
+		goto out_shutdown;
+
+	goto out;
+
+out_shutdown:
+	wlcore_shutdown(wl);
 out:
 	mutex_unlock(&wl->mutex);
 	return ret;

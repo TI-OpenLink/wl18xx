@@ -114,6 +114,7 @@ struct wlcore;
 struct wlcore_ops {
 	int (*get_chip_id)(struct wlcore *wl);
 	int (*config_pll)(struct wlcore *wl);
+	int (*cfg_host_if)(struct wlcore *wl);
 	void (*preboot_conf)(struct wlcore *wl);
 };
 
