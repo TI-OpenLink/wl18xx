@@ -123,3 +123,43 @@ int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(wlcore_cmd_configure);
+
+int wlcore_cmd_template_set(struct wlcore *wl, u16 template_id, void *buf,
+			    size_t buf_len, int index, u32 rates)
+{
+	struct wlcore_cmd_template_set *cmd;
+	int ret = 0;
+
+	wlcore_debug(DEBUG_CMD, "cmd template_set %d", template_id);
+
+	WARN_ON(buf_len > WLCORE_TEMPL_MAX_SIZE);
+	buf_len = min_t(size_t, buf_len, WLCORE_TEMPL_MAX_SIZE);
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	cmd->len = cpu_to_le16(buf_len);
+	cmd->template_type = template_id;
+	cmd->enabled_rates = cpu_to_le32(rates);
+	cmd->short_retry_limit = wl->conf->tx.tmpl_short_retry_limit;
+	cmd->long_retry_limit = wl->conf->tx.tmpl_long_retry_limit;
+	cmd->index = index;
+
+	if (buf)
+		memcpy(cmd->template_data, buf, buf_len);
+
+	ret = wlcore_cmd_send(wl, CMD_SET_TEMPLATE, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_warning("cmd set_template failed: %d", ret);
+		goto out_free;
+	}
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
