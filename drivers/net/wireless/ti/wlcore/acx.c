@@ -51,3 +51,42 @@ out:
 	kfree(mask);
 	return ret;
 }
+
+int wlcore_acx_mem_cfg(struct wlcore *wl)
+{
+	struct acx_config_memory *mem_conf;
+	struct wlcore_conf_hw_mem *mem = &wl->conf->hw_mem;
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "wlcore mem cfg");
+
+	mem_conf = kzalloc(sizeof(*mem_conf), GFP_KERNEL);
+	if (!mem_conf) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* memory config */
+	mem_conf->num_stations = mem->num_stations;
+	mem_conf->rx_mem_block_num = mem->rx_block_num;
+	mem_conf->tx_min_mem_block_num = mem->tx_min_block_num;
+	mem_conf->num_ssid_profiles = mem->ssid_profiles;
+	mem_conf->total_tx_descriptors =
+		cpu_to_le32(mem->num_tx_descriptors);
+	mem_conf->dyn_mem_enable = mem->dynamic_memory;
+	mem_conf->tx_free_req = mem->min_req_tx_blocks;
+	mem_conf->rx_free_req = mem->min_req_rx_blocks;
+	mem_conf->tx_min = mem->tx_min;
+	/* TODO: add correct number of fwlog mem_blocks */
+	mem_conf->fwlog_blocks = 0;
+
+	ret = wlcore_cmd_configure(wl, ACX_MEM_CFG, mem_conf,
+				   sizeof(*mem_conf));
+	if (ret < 0) {
+		wlcore_warning("wlcore mem config failed: %d", ret);
+		goto out;
+	}
+out:
+	kfree(mem_conf);
+	return ret;
+}

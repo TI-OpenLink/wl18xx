@@ -25,6 +25,7 @@
 #include "wlcore.h"
 #include "init.h"
 #include "cmd.h"
+#include "acx.h"
 
 static int wlcore_init_templates(struct wlcore *wl)
 {
@@ -128,6 +129,10 @@ int wlcore_hw_init(struct wlcore *wl)
 		goto out;
 
 	ret = wlcore_init_templates(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_acx_mem_cfg(wl);
 	if (ret < 0)
 		goto out;
 
