@@ -33,7 +33,16 @@
 #define WL18XX_FW_NAME  "ti-connectivity/wl18xx-fw-multirole-roc.bin"
 #define WL18XX_NVS_NAME "ti-connectivity/wl18xx-nvs.bin"
 
+/* TODO: do we want to initialize the common part in wlcore? */
 static struct wl18xx_conf wl18xx_default_conf = {
+	.conf = {
+		.tx = {
+			.tmpl_short_retry_limit	= 10,
+			.tmpl_long_retry_limit	= 10,
+		},
+	},
+
+	/* private config */
 	.phy = {
 		.phy_standalone			= 0x00,
 		.primary_clock_setting_time	= 0x05,
