@@ -206,7 +206,14 @@ struct wlcore_static_data {
 	u8 tx_power_table[WLCORE_NO_SUBBANDS][WLCORE_NO_POWER_LEVELS];
 } __packed;
 
+struct wlcore_conf_tx {
+	/* TX retry limits for templates */
+	u8 tmpl_short_retry_limit;
+	u8 tmpl_long_retry_limit;
+};
+
 struct wlcore_conf {
+	struct wlcore_conf_tx tx;
 
 	/* private data used only by the lower driver */
 	u8 priv_data[0];

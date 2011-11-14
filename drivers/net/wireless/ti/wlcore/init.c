@@ -24,6 +24,98 @@
 #include "debug.h"
 #include "wlcore.h"
 #include "init.h"
+#include "cmd.h"
+
+static int wlcore_init_templates(struct wlcore *wl)
+{
+	int ret, i;
+
+	/*
+	 * The firmware cannot allocate memory for the templates
+	 * dynamically, so we send empty templates to reserve memory
+	 * during initialization.
+	 */
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_CFG_PROBE_REQ_2_4, NULL,
+				      WLCORE_TEMPL_DFLT_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_CFG_PROBE_REQ_5, NULL,
+				      WLCORE_TEMPL_DFLT_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_NULL_DATA, NULL,
+				      sizeof(struct ieee80211_hdr_3addr),
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_PS_POLL, NULL,
+				      sizeof(struct ieee80211_pspoll),
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_QOS_NULL_DATA, NULL,
+				      sizeof (struct ieee80211_qos_hdr),
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_PROBE_RESPONSE, NULL,
+				      WLCORE_TEMPL_DFLT_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_BEACON, NULL,
+				      WLCORE_TEMPL_DFLT_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_ARP_RSP, NULL,
+				      sizeof (struct wlcore_arp_rsp_tmpl),
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Put very large empty placeholders for all templates. These
+	 * reserve memory for later.
+	 */
+	ret = wlcore_cmd_template_set(wl, TEMPL_AP_PROBE_RESPONSE, NULL,
+				      WLCORE_TEMPL_MAX_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_AP_BEACON, NULL,
+				      WLCORE_TEMPL_MAX_SIZE,
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_cmd_template_set(wl, TEMPL_DEAUTH_AP, NULL,
+				      sizeof (struct wlcore_deauth_tmpl),
+				      0, WLCORE_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < TEMPL_KLV_IDX_MAX; i++) {
+		ret = wlcore_cmd_template_set(wl, TEMPL_KLV, NULL,
+					      WLCORE_TEMPL_DFLT_SIZE,
+					      i, WLCORE_RATE_AUTOMATIC);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
 
 int wlcore_hw_init(struct wlcore *wl)
 {
@@ -32,6 +124,10 @@ int wlcore_hw_init(struct wlcore *wl)
 	/* TODO: do we need an op to set the general/radio parameters? */
 
 	ret = wl->ops->cfg_host_if(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_init_templates(wl);
 	if (ret < 0)
 		goto out;
 

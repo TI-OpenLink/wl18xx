@@ -22,6 +22,9 @@
 #ifndef __CMD_H__
 #define __CMD_H__
 
+#include <linux/ieee80211.h>
+#include <linux/if_arp.h>
+
 enum wlcore_commands {
 	CMD_INTERROGATE			= 1,
 	CMD_CONFIGURE			= 2,
@@ -108,8 +111,82 @@ struct wlcore_cmd_header {
 	u8 data[0];
 } __packed;
 
+#define WLCORE_TEMPL_DFLT_SIZE 252
+#define WLCORE_TEMPL_MAX_SIZE  548
+
+#define WLCORE_RATE_AUTOMATIC  0
+
+/*
+ * We have most structs we need for the templates in
+ * linux/ieee80211.h, but we still need to define a few of our own.
+ */
+struct wlcore_arp_rsp_tmpl {
+	struct ieee80211_hdr_3addr hdr;
+
+	u8 llc_hdr[sizeof(rfc1042_header)];
+	__be16 llc_type;
+
+	struct arphdr arp_hdr;
+	u8 sender_hw[ETH_ALEN];
+	__be32 sender_ip;
+	u8 target_hw[ETH_ALEN];
+	__be32 target_ip;
+} __packed;
+
+/*
+ * TODO: we have this in linux/ieee80211.h, but it's part of a union
+ * and I didn't find any clean way to get the size of it
+ */
+struct wlcore_deauth_tmpl {
+	struct ieee80211_hdr_3addr header;
+	__le16 reason;
+} __packed;
+
+enum {
+	TEMPL_KLV_IDX_NULL_DATA = 0,
+	TEMPL_KLV_IDX_MAX = 4
+};
+
+enum {
+	TEMPL_NULL_DATA = 0,
+	TEMPL_BEACON,
+	TEMPL_CFG_PROBE_REQ_2_4,
+	TEMPL_CFG_PROBE_REQ_5,
+	TEMPL_PROBE_RESPONSE,
+	TEMPL_QOS_NULL_DATA,
+	TEMPL_PS_POLL,
+	TEMPL_KLV,
+	TEMPL_DISCONNECT,
+	TEMPL_PROBE_REQ_2_4, /* for firmware internal use only  */
+	TEMPL_PROBE_REQ_5,   /* for firmware internal use only  */
+	TEMPL_BAR,           /* for firmware internal use only  */
+	TEMPL_CTS,           /* FastCTS for BT/WLAN coexistence */
+	TEMPL_AP_BEACON,
+	TEMPL_AP_PROBE_RESPONSE,
+	TEMPL_ARP_RSP,
+	TEMPL_DEAUTH_AP,
+	TEMPL_TEMPORARY,
+	TEMPL_LINK_MEASUREMENT_REPORT,
+};
+
+struct wlcore_cmd_template_set {
+	struct wlcore_cmd_header header;
+
+	__le16 len;
+	u8 template_type;
+	u8 index;  /* relevant only for KLV_TEMPLATE type */
+	__le32 enabled_rates;
+	u8 short_retry_limit;
+	u8 long_retry_limit;
+	u8 aflags;
+	u8 reserved;
+	u8 template_data[WLCORE_TEMPL_MAX_SIZE];
+} __packed;
+
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
 int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);
+int wlcore_cmd_template_set(struct wlcore *wl, u16 template_id, void *buf,
+			    size_t buf_len, int index, u32 rates);
 
 #endif /* __CMD_H__ */
