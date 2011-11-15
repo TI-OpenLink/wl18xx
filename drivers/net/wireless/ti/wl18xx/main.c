@@ -42,6 +42,18 @@ static struct wl18xx_conf wl18xx_default_conf = {
 		.tx = {
 			.tmpl_short_retry_limit	= 10,
 			.tmpl_long_retry_limit	= 10,
+			.complete_timeout	= 700,
+			.complete_threshold	= 4,
+			.energy_detection	= 0,
+			.basic_rate		= WLCORE_HW_BIT_RATE_1MBPS,
+			.basic_rate_5		= WLCORE_HW_BIT_RATE_6MBPS,
+		},
+		.rx = {
+			.msdu_lifetime		= 512000,
+			.irq_blk_threshold	= 0xFFFF,
+			.irq_pkt_threshold	= 0,
+			.irq_timeout		= 600,
+			.queue_type		= RX_QUEUE_TYPE_LOW_PRIORITY,
 		},
 		.hw_mem = {
 			.num_stations		= 1,
