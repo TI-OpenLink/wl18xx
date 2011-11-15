@@ -194,7 +194,7 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 		     beacon ? "beacon" : "");
 
 	if ((wl->chip.id != CHIP_ID_185x_PG10) &&
-		(wl->chip.id == CHIP_ID_185x_PG20))
+		(wl->chip.id != CHIP_ID_185x_PG20))
 		skb_trim(skb, skb->len - desc->pad_len);
 
 	skb_queue_tail(&wl->deferred_rx_queue, skb);
@@ -249,7 +249,7 @@ void wl1271_rx(struct wl1271 *wl, struct wl1271_fw_status *status)
 
 		if ((wl->chip.id != CHIP_ID_1283_PG20) &&
 			(wl->chip.id != CHIP_ID_185x_PG10) &&
-			(wl->chip.id == CHIP_ID_185x_PG20)) {
+			(wl->chip.id != CHIP_ID_185x_PG20)) {
 			/*
 			 * Choose the block we want to read
 			 * For aggregated packets, only the first memory block
