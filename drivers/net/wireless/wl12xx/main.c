@@ -1443,7 +1443,8 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 			goto out;
 
 		if (wl1271_set_block_size(wl))
-			wl->quirks |= WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT;
+			wl->quirks |= WL12XX_QUIRK_TX_BLOCKSIZE_ALIGNMENT |
+				      WL12XX_QUIRK_SG_DMA;
 		break;
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
