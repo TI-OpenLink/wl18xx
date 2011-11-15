@@ -201,12 +201,31 @@ enum {
 	WLCORE_ROLE_INVALID = 0xFF
 };
 
+struct wlcore_cmd_role_enable {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 role_type;
+	u8 mac_address[ETH_ALEN];
+} __packed;
+
+struct wlcore_cmd_role_disable {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 padding[3];
+} __packed;
+
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
 int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);
+
 int wlcore_cmd_interrogate(struct wlcore *wl, u16 id, void *buf, size_t len);
 int wlcore_cmd_template_set(struct wlcore *wl, u16 template_id, void *buf,
 			    size_t buf_len, int index, u32 rates);
 int wlcore_cmd_enable_rx_tx(struct wlcore *wl);
+int wlcore_cmd_role_enable(struct wlcore *wl, u8 *addr, u8 role_type,
+			   u8 *role_id);
+int wlcore_cmd_role_disable(struct wlcore *wl, u8 *role_id);
 
 #endif /* __CMD_H__ */

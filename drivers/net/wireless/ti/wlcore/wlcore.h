@@ -366,6 +366,7 @@ struct wlcore {
 	bool mac80211_registered;
 	unsigned long flags;
 
+	unsigned long roles_map[BITS_TO_LONGS(WLCORE_MAX_ROLES)];
 	unsigned long rate_policies_map[
 		BITS_TO_LONGS(WLCORE_MAX_RATE_POLICIES)];
 

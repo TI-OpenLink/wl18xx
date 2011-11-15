@@ -223,3 +223,79 @@ out_free:
 out:
 	return ret;
 }
+
+int wlcore_cmd_role_enable(struct wlcore *wl, u8 *addr, u8 role_type,
+			   u8 *role_id)
+{
+	struct wlcore_cmd_role_enable *cmd;
+	int ret;
+
+	wlcore_debug(DEBUG_CMD, "cmd role enable");
+
+	if (WARN_ON(*role_id != WLCORE_INVALID_ROLE_ID))
+		return -EBUSY;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* get role id */
+	cmd->role_id = find_first_zero_bit(wl->roles_map, WLCORE_MAX_ROLES);
+	if (cmd->role_id >= WLCORE_MAX_ROLES) {
+		ret = -EBUSY;
+		goto out_free;
+	}
+
+	memcpy(cmd->mac_address, addr, ETH_ALEN);
+	cmd->role_type = role_type;
+
+	ret = wlcore_cmd_send(wl, CMD_ROLE_ENABLE, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to initiate cmd role enable");
+		goto out_free;
+	}
+
+	__set_bit(cmd->role_id, wl->roles_map);
+	*role_id = cmd->role_id;
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+int wlcore_cmd_role_disable(struct wlcore *wl, u8 *role_id)
+{
+	struct wlcore_cmd_role_disable *cmd;
+	int ret;
+
+	wlcore_debug(DEBUG_CMD, "cmd role disable");
+
+	if (WARN_ON(*role_id == WLCORE_INVALID_ROLE_ID))
+		return -ENOENT;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	cmd->role_id = *role_id;
+
+	ret = wlcore_cmd_send(wl, CMD_ROLE_DISABLE, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to initiate cmd role disable");
+		goto out_free;
+	}
+
+	__clear_bit(*role_id, wl->roles_map);
+	*role_id = WLCORE_INVALID_ROLE_ID;
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}

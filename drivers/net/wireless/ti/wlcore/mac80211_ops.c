@@ -88,6 +88,7 @@ int wlcore_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif)
 {
 	struct wlcore *wl = hw->priv;
+	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
 	u8 role_type;
 	int ret;
 
@@ -104,6 +105,25 @@ int wlcore_add_interface(struct ieee80211_hw *hw,
 		goto out;
 	}
 
+	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
+	    wlvif->bss_type == BSS_TYPE_IBSS) {
+		/*
+		 * The device role is a special role used for
+		 * rx and tx frames prior to association (as
+		 * the STA role can get packets only from
+		 * its associated bssid)
+		 */
+		ret = wlcore_cmd_role_enable(wl, vif->addr,
+					     WLCORE_ROLE_DEVICE,
+					     &wlvif->dev_role_id);
+		if (ret < 0)
+			goto out;
+	}
+
+	ret = wlcore_cmd_role_enable(wl, vif->addr,
+				     role_type, &wlvif->role_id);
+	if (ret < 0)
+		goto out;
 out:
 	mutex_unlock(&wl->mutex);
 	return ret;
@@ -113,12 +133,30 @@ void wlcore_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif)
 {
 	struct wlcore *wl = hw->priv;
+	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
+	int ret;
 
 	wlcore_debug(DEBUG_MAC80211, "wlcore_remove_interface");
 	mutex_lock(&wl->mutex);
 
-	wlcore_vif_remove(wl, vif);
+	/*
+	 * TODO: check if there was any good reason for not disabling
+	 * the device role with IBSS or if it was just a bug in
+	 * wl12xx.
+	 */
+	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
+	    wlvif->bss_type == BSS_TYPE_IBSS) {
+		ret = wlcore_cmd_role_disable(wl, &wlvif->dev_role_id);
+		if (ret < 0)
+			goto deinit;
+	}
 
+	ret = wlcore_cmd_role_disable(wl, &wlvif->role_id);
+	if (ret < 0)
+		goto deinit;
+
+deinit:
+	wlcore_vif_remove(wl, vif);
 	mutex_unlock(&wl->mutex);
 }
 
