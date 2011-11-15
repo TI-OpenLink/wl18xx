@@ -177,7 +177,7 @@ struct omap_hsmmc_host {
 	u32			bytesleft;
 	int			suspended;
 	int			irq;
-	int			use_dma, dma_ch;
+	int			use_dma, dma_ch, cached_dma_ch;
 	int			dma_line_tx, dma_line_rx;
 	int			slot_id;
 	int			got_dbclk;
@@ -1003,8 +1003,9 @@ static void omap_hsmmc_dma_cleanup(struct omap_hsmmc_host *host, int errno)
 	host->data->error = errno;
 
 	spin_lock(&host->irq_lock);
-	dma_ch = host->dma_ch;
 	host->dma_ch = -1;
+	dma_ch = host->cached_dma_ch;
+	host->cached_dma_ch = -1;
 	spin_unlock(&host->irq_lock);
 
 	if (host->use_dma && dma_ch != -1) {
@@ -1404,8 +1405,6 @@ static void omap_hsmmc_dma_cb(int lch, u16 ch_status, void *cb_data)
 	host->dma_ch = -1;
 	spin_unlock(&host->irq_lock);
 
-	omap_free_dma(dma_ch);
-
 	/* If DMA has finished after TC, complete the request */
 	if (!req_in_progress) {
 		struct mmc_request *mrq = host->mrq;
@@ -1479,14 +1478,21 @@ static int omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host,
 
 	BUG_ON(host->dma_ch != -1);
 
-	ret = omap_request_dma(omap_hsmmc_get_dma_sync_dev(host, data),
-			       "MMC/SD", omap_hsmmc_dma_cb, host, &dma_ch);
-	if (ret != 0) {
-		dev_err(mmc_dev(host->mmc),
-			"%s: omap_request_dma() failed with %d\n",
-			mmc_hostname(host->mmc), ret);
-		return ret;
+	if (host->cached_dma_ch == -1) {
+		ret = omap_request_dma(omap_hsmmc_get_dma_sync_dev(host, data),
+				       "MMC/SD", omap_hsmmc_dma_cb, host,
+				       &dma_ch);
+		if (ret != 0) {
+			dev_err(mmc_dev(host->mmc),
+				"%s: omap_request_dma() failed with %d\n",
+				mmc_hostname(host->mmc), ret);
+			return ret;
+		}
+		host->cached_dma_ch = dma_ch;
+	} else {
+		dma_ch = host->cached_dma_ch;
 	}
+
 	ret = omap_hsmmc_pre_dma_transfer(host, data, NULL);
 	if (ret)
 		return ret;
@@ -1909,6 +1915,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->use_dma	= 1;
 	host->dev->dma_mask = &pdata->dma_mask;
 	host->dma_ch	= -1;
+	host->cached_dma_ch = -1;
 	host->irq	= irq;
 	host->id	= pdev->id;
 	host->slot_id	= 0;
@@ -2123,6 +2130,8 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 
 	if (host) {
 		pm_runtime_get_sync(host->dev);
+		if (host->cached_dma_ch != -1)
+			omap_free_dma(host->cached_dma_ch);
 		mmc_remove_host(host->mmc);
 		if (host->use_reg)
 			omap_hsmmc_reg_put(host);
