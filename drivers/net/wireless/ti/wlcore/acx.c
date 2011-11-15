@@ -91,6 +91,112 @@ out:
 	return ret;
 }
 
+int wlcore_acx_get_mem_map(struct wlcore *wl,
+			   struct wlcore_acx_mem_map *map)
+{
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "acx get mem map");
+
+	ret = wlcore_cmd_interrogate(wl, ACX_MEM_MAP, wl->mem_map,
+				     sizeof(*wl->mem_map));
+	if (ret < 0) {
+		wlcore_error("couldn't retrieve firmware memory map");
+		goto out;
+	}
+
+	/* initialize TX block book keeping */
+	wl->tx_blocks_available = le32_to_cpu(wl->mem_map->num_tx_mem_blocks);
+	wlcore_debug(DEBUG_TX, "available tx blocks: %d",
+		     wl->tx_blocks_available);
+
+out:
+	return ret;
+}
+
+int wlcore_acx_tx_config(struct wlcore *wl)
+{
+	struct acx_tx_config_options *acx;
+	int ret = 0;
+
+	wlcore_debug(DEBUG_ACX, "acx tx config");
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->complete_timeout = cpu_to_le16(wl->conf->tx.complete_timeout);
+	acx->complete_threshold = cpu_to_le16(wl->conf->tx.complete_threshold);
+	ret = wlcore_cmd_configure(wl, ACX_TX_CONFIG_OPT, acx, sizeof(*acx));
+	if (ret < 0) {
+		wlcore_warning("failed to set tx config: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
+
+int wlcore_acx_cca_threshold(struct wlcore *wl)
+{
+	struct acx_cca_threshold *acx;
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "acx cca threshold");
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->rx_cca_threshold = 0; /* deprecated? */
+	acx->tx_energy_detection = wl->conf->tx.energy_detection;
+
+	ret = wlcore_cmd_configure(wl, ACX_CCA_THRESHOLD,
+				   acx, sizeof(*acx));
+	if (ret < 0)
+		wlcore_warning("failed to set cca threshold: %d", ret);
+
+out:
+	kfree(acx);
+	return ret;
+}
+
+int wlcore_acx_frag_threshold(struct wlcore *wl, u32 frag_threshold)
+{
+	struct acx_frag_threshold *acx;
+	int ret = 0;
+
+	/* if fragmentation is not configured or out of range, use the max */
+	if (frag_threshold > IEEE80211_MAX_FRAG_THRESHOLD)
+		frag_threshold = IEEE80211_MAX_FRAG_THRESHOLD;
+
+	wlcore_debug(DEBUG_ACX, "acx frag threshold: %d", frag_threshold);
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->frag_threshold = cpu_to_le16((u16)frag_threshold);
+	ret = wlcore_cmd_configure(wl, ACX_FRAG_CFG, acx, sizeof(*acx));
+	if (ret < 0) {
+		wlcore_warning("Setting of frag threshold failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
+
 int wlcore_acx_rx_msdu_lifetime(struct wlcore *wl)
 {
 	struct acx_rx_msdu_lifetime *acx;

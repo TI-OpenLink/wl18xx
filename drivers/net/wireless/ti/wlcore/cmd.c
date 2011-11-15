@@ -124,6 +124,33 @@ int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len)
 }
 EXPORT_SYMBOL_GPL(wlcore_cmd_configure);
 
+/**
+ * read acx from firmware
+ *
+ * @wl: wl struct
+ * @id: acx id
+ * @buf: buffer for the response, including all headers, must work with dma
+ * @len: length of buf
+ */
+int wlcore_cmd_interrogate(struct wlcore *wl, u16 id, void *buf, size_t len)
+{
+	struct acx_header *acx = buf;
+	int ret;
+
+	wlcore_debug(DEBUG_CMD, "cmd interrogate");
+
+	acx->id = cpu_to_le16(id);
+
+	/* payload length, does not include any headers */
+	acx->len = cpu_to_le16(len - sizeof(*acx));
+
+	ret = wlcore_cmd_send(wl, CMD_INTERROGATE, acx, sizeof(*acx), len);
+	if (ret < 0)
+		wlcore_error("INTERROGATE command failed");
+
+	return ret;
+}
+
 int wlcore_cmd_template_set(struct wlcore *wl, u16 template_id, void *buf,
 			    size_t buf_len, int index, u32 rates)
 {
@@ -164,12 +191,12 @@ out:
 	return ret;
 }
 
-int wlcore_cmd_enable_rx(struct wlcore *wl)
+int wlcore_cmd_enable_rx_tx(struct wlcore *wl)
 {
-	struct wlcore_cmd_enable_rx *cmd;
+	struct wlcore_cmd_enable_disable_rx_tx *cmd;
 	int ret;
 
-	wlcore_debug(DEBUG_CMD, "cmd enable rx");
+	wlcore_debug(DEBUG_CMD, "cmd enable rx and tx");
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
@@ -182,6 +209,12 @@ int wlcore_cmd_enable_rx(struct wlcore *wl)
 	ret = wlcore_cmd_send(wl, CMD_ENABLE_RX, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
 		wlcore_warning("cmd enable rx failed: %d", ret);
+		goto out_free;
+	}
+
+	ret = wlcore_cmd_send(wl, CMD_ENABLE_TX, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_warning("cmd enable tx failed: %d", ret);
 		goto out_free;
 	}
 

@@ -210,6 +210,21 @@ struct wlcore_conf_tx {
 	/* TX retry limits for templates */
 	u8 tmpl_short_retry_limit;
 	u8 tmpl_long_retry_limit;
+
+	/*
+	 * Maximum time to wait for the packets threshold to be
+	 * reached before issuing the TX complete interrupt.
+	 */
+	u16 complete_timeout;
+
+	/*
+	 * Number of packets to be completed before issuing the TX
+	 * complete interrupt
+	 */
+	u16 complete_threshold;
+
+	/* enable/disable TX energy detection for TELEC */
+	u8 energy_detection;
 };
 
 enum {
@@ -360,6 +375,10 @@ struct wlcore {
 
 	int cmd_box_addr;
 	int event_box_addr;
+
+	struct wlcore_acx_mem_map *mem_map;
+
+	u32 tx_blocks_available;
 
 	/* TODO: is this really still needed? */
 	__le32 buffer_32;

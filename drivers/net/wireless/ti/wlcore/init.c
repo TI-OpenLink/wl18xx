@@ -118,11 +118,37 @@ static int wlcore_init_templates(struct wlcore *wl)
 	return 0;
 }
 
+static int wlcore_read_mem_map(struct wlcore *wl)
+{
+	int ret;
+
+	wl->mem_map = kzalloc(sizeof(*wl->mem_map),
+				     GFP_KERNEL);
+	if (!wl->mem_map) {
+		wlcore_error("couldn't allocate memory map");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = wlcore_acx_get_mem_map(wl, wl->mem_map);
+	if (ret < 0)
+		goto out_free;
+
+	goto out;
+
+out_free:
+	kfree(wl->mem_map);
+out:
+	return ret;
+}
+
 int wlcore_hw_init(struct wlcore *wl)
 {
 	int ret = 0;
 
 	/* TODO: do we need an op to set the general/radio parameters? */
+
+	/* TODO: can we group the RX init and TX init calls? */
 
 	ret = wl->ops->cfg_host_if(wl);
 	if (ret < 0)
@@ -140,7 +166,9 @@ int wlcore_hw_init(struct wlcore *wl)
 
 	/* TODO: configure BT coexistence */
 
-	/* TODO: add memmap reading (TX and TX and more for wl12xx) */
+	ret = wlcore_read_mem_map(wl);
+	if (ret < 0)
+		goto out;
 
 	/* TODO: add cs config op */
 
@@ -150,17 +178,23 @@ int wlcore_hw_init(struct wlcore *wl)
 
 	/* TODO: add dco_itrim config op */
 
-	/* TODO: add tx config -- can it be after rx_irq_config? */
+	ret = wlcore_acx_tx_config(wl);
+	if (ret < 0)
+		goto out;
 
 	ret = wlcore_acx_rx_irq_config(wl);
 	if (ret < 0)
 		goto out;
 
-	/* TODO: add CCA (part of TX) */
+	ret = wlcore_acx_cca_threshold(wl);
+	if (ret < 0)
+		goto out;
 
-	/* TODO: add fragmentation threshold (part of TX) */
+	ret = wlcore_acx_frag_threshold(wl, wl->hw->wiphy->frag_threshold);
+	if (ret < 0)
+		goto out;
 
-	ret = wlcore_cmd_enable_rx(wl);
+	ret = wlcore_cmd_enable_rx_tx(wl);
 	if (ret < 0)
 		goto out;
 

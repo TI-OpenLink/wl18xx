@@ -202,8 +202,77 @@ struct acx_rx_irq_config {
 	u8 reserved;
 } __packed;
 
+struct wlcore_acx_mem_map {
+	struct acx_header header;
+
+	__le32 code_start;
+	__le32 code_end;
+
+	__le32 wep_defkey_start;
+	__le32 wep_defkey_end;
+
+	__le32 sta_table_start;
+	__le32 sta_table_end;
+
+	__le32 packet_template_start;
+	__le32 packet_template_end;
+
+	/* Address of the TX result interface (control block) */
+	__le32 tx_result;
+	__le32 tx_result_queue_start;
+
+	__le32 queue_memory_start;
+	__le32 queue_memory_end;
+
+	__le32 packet_memory_pool_start;
+	__le32 packet_memory_pool_end;
+
+	__le32 debug_buffer1_start;
+	__le32 debug_buffer1_end;
+
+	__le32 debug_buffer2_start;
+	__le32 debug_buffer2_end;
+
+	/* Number of blocks FW allocated for TX packets */
+	__le32 num_tx_mem_blocks;
+
+	/* Number of blocks FW allocated for RX packets */
+	__le32 num_rx_mem_blocks;
+
+	/* the following 4 fields are valid in SLAVE mode only */
+	__le32 tx_cbuf;
+	__le32 rx_cbuf;
+	__le32 rx_ctrl;
+	__le32 tx_ctrl;
+} __packed;
+
+struct acx_tx_config_options {
+	struct acx_header header;
+	__le16 complete_timeout;	/* msec */
+	__le16 complete_threshold;	/* number of packets */
+} __packed;
+
+struct acx_cca_threshold {
+	struct acx_header header;
+
+	__le16 rx_cca_threshold; /* deprecated? */
+	u8 tx_energy_detection;
+	u8 pad;
+} __packed;
+
+struct acx_frag_threshold {
+	struct acx_header header;
+	__le16 frag_threshold;
+	u8 padding[2];
+} __packed;
+
 int wlcore_acx_event_mbox_mask(struct wlcore *wl, u32 event_mask);
 int wlcore_acx_mem_cfg(struct wlcore *wl);
+int wlcore_acx_get_mem_map(struct wlcore *wl,
+			   struct wlcore_acx_mem_map *map);
+int wlcore_acx_tx_config(struct wlcore *wl);
+int wlcore_acx_cca_threshold(struct wlcore *wl);
+int wlcore_acx_frag_threshold(struct wlcore *wl, u32 frag_threshold);
 int wlcore_acx_rx_msdu_lifetime(struct wlcore *wl);
 int wlcore_acx_rx_irq_config(struct wlcore *wl);
 
