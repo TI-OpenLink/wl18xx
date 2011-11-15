@@ -136,6 +136,34 @@ int wlcore_hw_init(struct wlcore *wl)
 	if (ret < 0)
 		goto out;
 
+	/* TODO: configure the FW logger */
+
+	/* TODO: configure BT coexistence */
+
+	/* TODO: add memmap reading (TX and TX and more for wl12xx) */
+
+	/* TODO: add cs config op */
+
+	ret = wlcore_acx_rx_msdu_lifetime(wl);
+	if (ret < 0)
+		goto out;
+
+	/* TODO: add dco_itrim config op */
+
+	/* TODO: add tx config -- can it be after rx_irq_config? */
+
+	ret = wlcore_acx_rx_irq_config(wl);
+	if (ret < 0)
+		goto out;
+
+	/* TODO: add CCA (part of TX) */
+
+	/* TODO: add fragmentation threshold (part of TX) */
+
+	ret = wlcore_cmd_enable_rx(wl);
+	if (ret < 0)
+		goto out;
+
 out:
 	return ret;
 }

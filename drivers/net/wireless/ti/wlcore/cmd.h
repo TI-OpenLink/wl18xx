@@ -183,10 +183,18 @@ struct wlcore_cmd_template_set {
 	u8 template_data[WLCORE_TEMPL_MAX_SIZE];
 } __packed;
 
+struct wlcore_cmd_enable_rx {
+	struct wlcore_cmd_header header;
+
+	u8 channel; /* deprecated */
+	u8 padding[3];
+} __packed;
+
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
 int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);
 int wlcore_cmd_template_set(struct wlcore *wl, u16 template_id, void *buf,
 			    size_t buf_len, int index, u32 rates);
+int wlcore_cmd_enable_rx(struct wlcore *wl);
 
 #endif /* __CMD_H__ */

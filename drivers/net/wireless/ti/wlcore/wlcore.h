@@ -212,6 +212,51 @@ struct wlcore_conf_tx {
 	u8 tmpl_long_retry_limit;
 };
 
+enum {
+	RX_QUEUE_TYPE_LOW_PRIORITY,	/* All except the high priority */
+	RX_QUEUE_TYPE_HIGH_PRIORITY,	/* Management and voice packets */
+};
+
+struct wlcore_conf_rx {
+	/*
+	 * The maximum amount of time, in TU, before the
+	 * firmware discards the MSDU.
+	 *
+	 * Range: 0 - 0xFFFFFFFF
+	 */
+	u32 msdu_lifetime;
+
+	/*
+	 * Occupied Rx mem-blocks number which requires interrupting the host
+	 * (0 = no buffering, 0xffff = disabled).
+	 *
+	 * Range: u16
+	 */
+	u16 irq_blk_threshold;
+
+	/*
+	 * Rx packets number which requires interrupting the host
+	 * (0 = no buffering).
+	 *
+	 * Range: u16
+	 */
+	u16 irq_pkt_threshold;
+
+	/*
+	 * Max time in msec the FW may delay RX-Complete interrupt.
+	 *
+	 * Range: 1 - 100
+	 */
+	u16 irq_timeout;
+
+	/*
+	 * The RX queue type.
+	 *
+	 * Range: RX_QUEUE_TYPE_LOW_PRIORITY, RX_QUEUE_TYPE_HIGH_PRIORITY
+	 */
+	u8 queue_type;
+};
+
 struct wlcore_conf_hw_mem {
 	/* Number of stations supported in IBSS mode */
 	u8 num_stations;
@@ -257,6 +302,7 @@ struct wlcore_conf_hw_mem {
 
 struct wlcore_conf {
 	struct wlcore_conf_tx tx;
+	struct wlcore_conf_rx rx;
 	struct wlcore_conf_hw_mem hw_mem;
 
 	/* private data used only by the lower driver */

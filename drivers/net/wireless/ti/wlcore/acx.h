@@ -182,7 +182,29 @@ struct acx_config_memory {
 	u8 padding[3];
 } __packed;
 
+struct acx_rx_msdu_lifetime {
+	struct acx_header header;
+
+	/*
+	 * The maximum amount of time, in TU, before the
+	 * firmware discards the MSDU.
+	 */
+	__le32 lifetime;
+} __packed;
+
+struct acx_rx_irq_config {
+	struct acx_header header;
+
+	__le16 mblk_threshold;
+	__le16 threshold;
+	__le16 timeout;
+	u8 queue_type;
+	u8 reserved;
+} __packed;
+
 int wlcore_acx_event_mbox_mask(struct wlcore *wl, u32 event_mask);
 int wlcore_acx_mem_cfg(struct wlcore *wl);
+int wlcore_acx_rx_msdu_lifetime(struct wlcore *wl);
+int wlcore_acx_rx_irq_config(struct wlcore *wl);
 
 #endif /* __ACX_H__ */

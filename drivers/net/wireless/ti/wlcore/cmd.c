@@ -163,3 +163,30 @@ out_free:
 out:
 	return ret;
 }
+
+int wlcore_cmd_enable_rx(struct wlcore *wl)
+{
+	struct wlcore_cmd_enable_rx *cmd;
+	int ret;
+
+	wlcore_debug(DEBUG_CMD, "cmd enable rx");
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	cmd->channel = 0; /* deprecated */
+
+	ret = wlcore_cmd_send(wl, CMD_ENABLE_RX, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_warning("cmd enable rx failed: %d", ret);
+		goto out_free;
+	}
+
+out_free:
+	kfree(cmd);
+out:
+	return ret;
+}

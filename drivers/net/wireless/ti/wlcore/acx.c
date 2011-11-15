@@ -90,3 +90,59 @@ out:
 	kfree(mem_conf);
 	return ret;
 }
+
+int wlcore_acx_rx_msdu_lifetime(struct wlcore *wl)
+{
+	struct acx_rx_msdu_lifetime *acx;
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "acx rx msdu lifetime");
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->lifetime = cpu_to_le32(wl->conf->rx.msdu_lifetime);
+	ret = wlcore_cmd_configure(wl, ACX_DOT11_RX_MSDU_LIFE_TIME,
+				   acx, sizeof(*acx));
+	if (ret < 0) {
+		wlcore_warning("failed to set rx msdu lifetime: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
+
+int wlcore_acx_rx_irq_config(struct wlcore *wl)
+{
+	struct acx_rx_irq_config *rx_conf;
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "wlcore rx irq config");
+
+	rx_conf = kzalloc(sizeof(*rx_conf), GFP_KERNEL);
+	if (!rx_conf) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	rx_conf->threshold = cpu_to_le16(wl->conf->rx.irq_pkt_threshold);
+	rx_conf->timeout = cpu_to_le16(wl->conf->rx.irq_timeout);
+	rx_conf->mblk_threshold = cpu_to_le16(wl->conf->rx.irq_blk_threshold);
+	rx_conf->queue_type = wl->conf->rx.queue_type;
+
+	ret = wlcore_cmd_configure(wl, ACX_RX_CONFIG_OPT, rx_conf,
+				   sizeof(*rx_conf));
+	if (ret < 0) {
+		wlcore_warning("wlcore rx irq config failed: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(rx_conf);
+	return ret;
+}
