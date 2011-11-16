@@ -1064,7 +1064,7 @@ int wl1271_acx_host_if_cfg_bitmap(struct wl1271 *wl, u32 host_cfg_bitmap)
 
 	bitmap_conf->host_cfg_bitmap = cpu_to_le32(host_cfg_bitmap);
 	bitmap_conf->host_sdio_block_size = cpu_to_le32(WL12XX_BUS_BLOCK_SIZE);
-	bitmap_conf->extra_mem_blocks = cpu_to_le32(TX_HW_EXTRA_MEM_BLKS_DEF);
+	bitmap_conf->extra_mem_blocks = cpu_to_le32(wl->conf.hw_tx_extra_mem_blk);
 	bitmap_conf->length_field_size = cpu_to_le32(HOST_IF_CFG_LEN_FIELD_SIZE);
 
 	ret = wl1271_cmd_configure(wl, ACX_HOST_IF_CFG_BITMAP,

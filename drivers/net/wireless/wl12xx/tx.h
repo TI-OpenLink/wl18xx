@@ -25,9 +25,9 @@
 #ifndef __TX_H__
 #define __TX_H__
 
-#define TX_HW_BLOCK_SPARE_DEFAULT        1
 #define TX_HW_BLOCK_SIZE                 268
-#define TX_HW_EXTRA_MEM_BLKS_DEF         2
+#define TX_HW_BLOCK_SPARE_DEFAULT        1
+
 
 #define TX_HW_MGMT_PKT_LIFETIME_TU       2000
 #define TX_HW_AP_MODE_PKT_LIFETIME_TU    8000
