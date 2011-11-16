@@ -190,6 +190,17 @@ struct wlcore_cmd_enable_disable_rx_tx {
 	u8 padding[3];
 } __packed;
 
+enum {
+	WLCORE_ROLE_STA = 0,
+	WLCORE_ROLE_IBSS,
+	WLCORE_ROLE_AP,
+	WLCORE_ROLE_DEVICE,
+	WLCORE_ROLE_P2P_CL,
+	WLCORE_ROLE_P2P_GO,
+
+	WLCORE_ROLE_INVALID = 0xFF
+};
+
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
 int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);

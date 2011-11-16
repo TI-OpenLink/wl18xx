@@ -1,4 +1,5 @@
-wlcore-objs		= main.o mac80211_ops.o io.o boot.o cmd.o acx.o init.o
+wlcore-objs		= main.o mac80211_ops.o io.o boot.o cmd.o acx.o init.o \
+			  vif.o
 
 #wlcore_spi-objs 	= spi.o
 #wlcore_sdio-objs	= sdio.o

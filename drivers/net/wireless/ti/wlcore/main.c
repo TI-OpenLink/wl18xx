@@ -253,6 +253,11 @@ struct wlcore *wlcore_alloc_hw(void)
 
 	wl->hw = hw;
 
+	wl->channel = 0;
+	wl->power_level = 0;
+	wl->channel_type = NL80211_CHAN_NO_HT;
+	wl->band = IEEE80211_BAND_2GHZ;
+
 	spin_lock_init(&wl->wl_lock);
 
 	mutex_init(&wl->mutex);

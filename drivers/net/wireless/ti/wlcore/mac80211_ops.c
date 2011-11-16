@@ -26,6 +26,8 @@
 #include "mac80211_ops.h"
 #include "boot.h"
 #include "init.h"
+#include "cmd.h"
+#include "vif.h"
 
 void wlcore_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
@@ -65,6 +67,18 @@ void wlcore_stop(struct ieee80211_hw *hw)
 	wlcore_debug(DEBUG_MAC80211, "wlcore_stop");
 	mutex_lock(&wl->mutex);
 
+	/*
+	 * TODO: should we memset everything to zero and reinitialize
+	 * everything as in add_interface? as in wlcore_alloc_hw()?
+	 * Maybe even dealloc and alloc_hw again to be sure? Or is
+	 * there some persistent data that must remain?
+	 */
+
+	wl->channel = 0;
+	wl->power_level = 0;
+	wl->channel_type = NL80211_CHAN_NO_HT;
+	wl->band = IEEE80211_BAND_2GHZ;
+
 	wlcore_shutdown(wl);
 
 	mutex_unlock(&wl->mutex);
@@ -73,15 +87,39 @@ void wlcore_stop(struct ieee80211_hw *hw)
 int wlcore_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif)
 {
-	wlcore_debug(DEBUG_MAC80211, "wlcore_add_interface");
+	struct wlcore *wl = hw->priv;
+	u8 role_type;
+	int ret;
 
-	return 0;
+	wlcore_debug(DEBUG_MAC80211, "wlcore_add_interface");
+	mutex_lock(&wl->mutex);
+
+	ret = wlcore_vif_add(wl, vif);
+	if (ret < 0)
+		goto out;
+
+	role_type = wlcore_vif_to_role_type(vif);
+	if (role_type == WLCORE_ROLE_INVALID) {
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+
+out:
+	mutex_unlock(&wl->mutex);
+	return ret;
 }
 
 void wlcore_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif)
 {
+	struct wlcore *wl = hw->priv;
+
 	wlcore_debug(DEBUG_MAC80211, "wlcore_remove_interface");
+	mutex_lock(&wl->mutex);
+
+	wlcore_vif_remove(wl, vif);
+
+	mutex_unlock(&wl->mutex);
 }
 
 int wlcore_config(struct ieee80211_hw *hw, u32 changed)

@@ -51,6 +51,12 @@ enum {
 	WLCORE_HW_BIT_RATE_MCS_7   = BIT(20)
 };
 
+#define WLCORE_TX_RATE_MASK_BASIC	(WLCORE_HW_BIT_RATE_1MBPS  | \
+					 WLCORE_HW_BIT_RATE_2MBPS)
+#define WLCORE_TX_RATE_MASK_BASIC_P2P	(WLCORE_HW_BIT_RATE_6MBPS  | \
+					 WLCORE_HW_BIT_RATE_12MBPS | \
+					 WLCORE_HW_BIT_RATE_24MBPS)
+
 enum {
 	WLCORE_HW_RATE_INDEX_1MBPS   = 0,
 	WLCORE_HW_RATE_INDEX_2MBPS   = 1,
@@ -93,6 +99,9 @@ enum {
 	WLCORE_HW_RXTX_RATE_MAX,
 	WLCORE_HW_RXTX_RATE_UNSUPPORTED = 0xff
 };
+
+#define WLCORE_DEFAULT_BEACON_INT	100
+#define WLCORE_DEFAULT_DTIM_PERIOD	1
 
 enum wlcore_flags {
 	WLCORE_FLAG_GPIO_POWER,
@@ -225,6 +234,12 @@ struct wlcore_conf_tx {
 
 	/* enable/disable TX energy detection for TELEC */
 	u8 energy_detection;
+
+	/* the rate used for control messages and scanning on the 2.4GHz band */
+	u32 basic_rate;
+
+	/* the rate used for control messages and scanning on the 5GHz band */
+	u32 basic_rate_5;
 };
 
 enum {
@@ -324,6 +339,13 @@ struct wlcore_conf {
 	u8 priv_data[0] __attribute__((__aligned__(sizeof(void *))));
 };
 
+#define WLCORE_MAX_ROLES		4
+#define WLCORE_MAX_LINKS		12
+#define WLCORE_MAX_RATE_POLICIES	16
+
+#define WLCORE_INVALID_ROLE_ID	0xFF
+#define WLCORE_INVALID_LINK_ID	0xFF
+
 /* TODO: separate local stuff from lower-driver accessible parts */
 struct wlcore {
 	struct ieee80211_hw *hw;
@@ -343,6 +365,9 @@ struct wlcore {
 
 	bool mac80211_registered;
 	unsigned long flags;
+
+	unsigned long rate_policies_map[
+		BITS_TO_LONGS(WLCORE_MAX_RATE_POLICIES)];
 
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
 
@@ -379,6 +404,11 @@ struct wlcore {
 	struct wlcore_acx_mem_map *mem_map;
 
 	u32 tx_blocks_available;
+
+	int power_level;	/* in dBm */
+	int channel;
+	enum ieee80211_band band;
+	enum nl80211_channel_type channel_type;
 
 	/* TODO: is this really still needed? */
 	__le32 buffer_32;
