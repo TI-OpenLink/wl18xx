@@ -291,7 +291,7 @@ static struct conf_drv_settings default_conf = {
 		},
 	},
 	.ht = {
-		.tx_ba_win_size = 8,
+		.tx_ba_win_size = 10,
 		.inactivity_timeout = 10000,
 		.tx_ba_tid_bitmap = CONF_TX_BA_ENABLED_TID_BITMAP,
 	},
@@ -435,6 +435,7 @@ static struct conf_drv_settings default_conf = {
 			.hw_board_type = BOARD_TYPE_HDK_18XX
 	},
 	.sleep_auth                       = WL1271_PSM_CAM,
+	.hw_tx_extra_mem_blk			  = TX_HW_BLOCK_SPARE_DEFAULT
 };
 
 static char *fwlog_param;

@@ -201,7 +201,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 
 	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
 		(wl->chip.id == CHIP_ID_185x_PG20)) {
-		spare_blocks = TX_HW_EXTRA_MEM_BLKS_DEF;
+		spare_blocks = wl->conf.hw_tx_extra_mem_blk;
 	}
 	else {
 		/* we use 1 spare block */
