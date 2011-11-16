@@ -473,7 +473,6 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	int loop, ret;
 	u32 chip_id, intr;
 
-	/* Orit - added */
 	wl1271_set_partition(wl, &part_table[PART_BOOT]);
 
 	wl1271_boot_set_ecpu_ctrl(wl, ECPU_CONTROL_HALT);
@@ -512,7 +511,7 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 		return -EIO;
 	}
 
-	wl1271_info("Orit WL18xx - Init Complete!!!");
+	wl1271_info("WL18xx - Init Complete!!!");
 
 	/* get hardware config command mail box */
 	wl->cmd_box_addr = wl1271_read32(wl, REG_COMMAND_MAILBOX_PTR);
@@ -761,10 +760,10 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 		}
 
 		/* 2. CLK detection */
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - CLK detection");
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - CLK detection");
 		/* Read CLK type from detection (for PG2) - TCXO/FREF or XTAL */
 		osc_en = wl1271_top_reg_read(wl, OSC_EN);
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - osc_en = 0x%x", osc_en);
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - osc_en = 0x%x", osc_en);
 
 		/* Check the clock source in bit 3 from OSC_EN */
 		if (!(osc_en & PRCM_WLAN_CLK_DETECTION_MASK)) {
@@ -783,10 +782,10 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 
 		/* Read freq from detection */
 		clk_freq = wl1271_top_reg_read(wl, PRIMARY_CLK_DETECT);
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
 
 		/* 3. WCS PLL Config */
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - WCS PLL Config");
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - WCS PLL Config");
 
 		switch (clk_freq) {
 		case CLOCK_CONFIG_16_2_M:
@@ -836,11 +835,11 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 		}
 
 		/* Config N (pre divider) parameters according to the input frequency */
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
 		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
 	
 		/* Config M (divider) parameters according to the input frequency */
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx -  write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
+		wl1271_debug(DEBUG_BOOT, "Wl18xx -  write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
 		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
 	
 		/* Swallowing is only needed for the following CLK frequencies:
@@ -859,17 +858,17 @@ static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
 					((pllsh_wcs_pll_P >> REG_16_SHIFT) & PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK));
 	
 			/* Activate swallowing mechanism if needed */
-			wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
+			wl1271_debug(DEBUG_BOOT, "Wl18xx - Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
 			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
 		}
 		else {
 			/* Activate swallowing mechanism if needed */
-			wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - Activate swallowing mechanism %d in addr 0x%x",
+			wl1271_debug(DEBUG_BOOT, "Wl18xx - Activate swallowing mechanism %d in addr 0x%x",
 					PLLSH_WCS_PLL_SWALLOW_EN_VAL2, PLLSH_WCS_PLL_SWALLOW_EN);
 			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
 		}
 	
-		wl1271_debug(DEBUG_BOOT, "Orit Wl18xx - HW TOP init is done!!!");
+		wl1271_debug(DEBUG_BOOT, "Wl18xx - HW TOP init is done!!!");
 	}
 
 	return 0;
@@ -1004,7 +1003,7 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	}
 
 	/* Continue the ELP wake up sequence */
-    wl1271_info("Orit Wl18xx - write to WELP_ARM_COMMAND 0x%x val 0x%x",
+    wl1271_info("Wl18xx - write to WELP_ARM_COMMAND 0x%x val 0x%x",
     			WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	wl1271_write32(wl, WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);

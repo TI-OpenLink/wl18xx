@@ -33,8 +33,6 @@
 #include "tx.h"
 
 
-
-/* ****** 888 ********** */
 #define DEBUGFS_SINGLE_PARAM_ADD(parent, name, base)					\
 static ssize_t name ##_read(struct file *file, char __user *user_buf, 	\
                                   size_t count, loff_t *ppos)			\
@@ -1181,6 +1179,95 @@ static const struct file_operations tx_frag_thld_ops = {
         .llseek = default_llseek,
 };
 
+static ssize_t tx_ba_win_size_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.ht.tx_ba_win_size);
+}
+
+static ssize_t tx_ba_win_size_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for tx_ba_win_size");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+        wl->conf.ht.tx_ba_win_size = value;
+		mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations tx_ba_win_size_ops = {
+        .read = tx_ba_win_size_read,
+        .write = tx_ba_win_size_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+static ssize_t hw_tx_extra_mem_blk_read(struct file *file, char __user *user_buf,
+                                  size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+
+        return wl1271_format_buffer(user_buf, count, ppos, "%d\n",
+                                    wl->conf.hw_tx_extra_mem_blk);
+}
+
+static ssize_t hw_tx_extra_mem_blk_write(struct file *file,
+                                   const char __user *user_buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct wl1271 *wl = file->private_data;
+        char buf[10];
+        size_t len;
+        unsigned long value;
+        int ret;
+
+        len = min(count, sizeof(buf) - 1);
+        if (copy_from_user(buf, user_buf, len))
+                return -EFAULT;
+        buf[len] = '\0';
+
+        ret = kstrtoul(buf, 0, &value);
+        if (ret < 0) {
+                wl1271_warning("illegal value for hw_tx_extra_mem_blk");
+                return -EINVAL;
+        }
+
+        mutex_lock(&wl->mutex);
+        wl->conf.hw_tx_extra_mem_blk = value;
+		mutex_unlock(&wl->mutex);
+
+        return count;
+}
+
+static const struct file_operations hw_tx_extra_mem_blk_ops = {
+        .read = hw_tx_extra_mem_blk_read,
+        .write = hw_tx_extra_mem_blk_write,
+        .open = wl1271_open_file_generic,
+        .llseek = default_llseek,
+};
+
+
 static ssize_t tx_compl_timeout_read(struct file *file, char __user *user_buf,
                                   size_t count, loff_t *ppos)
 {
@@ -1943,6 +2030,9 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(srf2, phy_mac_params)
 	DEBUGFS_ADD(srf3, phy_mac_params)
 	DEBUGFS_ADD(hw_board_type, phy_mac_params)
+	DEBUGFS_ADD(hw_tx_extra_mem_blk, phy_mac_params)
+	DEBUGFS_ADD(tx_ba_win_size, rootdir);
+
 #endif
 
 

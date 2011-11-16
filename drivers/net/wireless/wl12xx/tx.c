@@ -201,7 +201,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 
 	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
 		(wl->chip.id == CHIP_ID_185x_PG20)) {
-		spare_blocks = TX_HW_EXTRA_MEM_BLKS_DEF;
+		spare_blocks = wl->conf.hw_tx_extra_mem_blk;
 	}
 	else {
 		/* we use 1 spare block */
@@ -224,9 +224,13 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct sk_buff *skb, u32 extra,
 	else
 		len = wl12xx_calc_packet_alignment(wl, total_len);
 
+/* LiorC: ToDo: verify whether the FW can handle the change in the spare blocks during traffic */
+#ifndef TNETW18xx
 	/* in case of a dummy packet, use default amount of spare mem blocks */
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
 		spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
+#endif
+
 
 	total_blocks = (len + TX_HW_BLOCK_SIZE - 1) / TX_HW_BLOCK_SIZE +
 		spare_blocks;

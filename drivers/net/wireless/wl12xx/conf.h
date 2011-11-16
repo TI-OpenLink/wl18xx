@@ -1388,6 +1388,7 @@ struct conf_drv_settings {
 	struct conf_hangover_settings 			hangover;
 	struct conf_hw_checksum 				hw_checksum;
 	u8	   									sleep_auth;
+	u8     									hw_tx_extra_mem_blk;
 	/* the structure is 4-bytes aligned due to sdio mem copy constraint */
     struct conf_mac_and_phy_params mac_and_phy_params __aligned(4);
 };
