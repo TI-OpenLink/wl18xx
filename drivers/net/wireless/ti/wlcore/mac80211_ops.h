@@ -34,5 +34,9 @@ void wlcore_configure_filter(struct ieee80211_hw *hw,
 			     unsigned int changed_flags,
 			     unsigned int *total_flags,
 			     u64 multicast);
+void wlcore_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *bss_conf,
+			     u32 changed);
 
 #endif /* __MAC80211_OPS_H__ */

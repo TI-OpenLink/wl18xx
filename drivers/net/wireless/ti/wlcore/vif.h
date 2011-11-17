@@ -138,6 +138,9 @@ struct wlcore_vif {
 	};
 };
 
+#define wlcore_for_each_wlvif(wl, wlvif) \
+		list_for_each_entry(wlvif, &wl->wlvif_list, list)
+
 static inline
 struct wlcore_vif *wlcore_vif_to_wlvif(struct ieee80211_vif *vif)
 {
@@ -153,5 +156,6 @@ struct ieee80211_vif *wlcore_wlvif_to_vif(struct wlcore_vif *wlvif)
 u8 wlcore_vif_to_role_type(struct ieee80211_vif *vif);
 int wlcore_vif_add(struct wlcore *wl, struct ieee80211_vif *vif);
 void wlcore_vif_remove(struct wlcore *wl, struct ieee80211_vif *vif);
+int wlcore_vif_init(struct wlcore *wl, struct ieee80211_vif *vif);
 
 #endif /* __VIF_H__ */

@@ -124,6 +124,13 @@ int wlcore_add_interface(struct ieee80211_hw *hw,
 				     role_type, &wlvif->role_id);
 	if (ret < 0)
 		goto out;
+
+	ret = wlcore_vif_init(wl, vif);
+	if (ret < 0)
+		goto out;
+
+	/* TODO: if we fail we should remove_vif and disable roles? */
+
 out:
 	mutex_unlock(&wl->mutex);
 	return ret;
@@ -162,9 +169,55 @@ deinit:
 
 int wlcore_config(struct ieee80211_hw *hw, u32 changed)
 {
-	wlcore_debug(DEBUG_MAC80211, "wlcore_config");
+	struct wlcore *wl = hw->priv;
+	struct wlcore_vif *wlvif;
+	struct ieee80211_conf *conf = &hw->conf;
+	int channel, ret = 0;
 
-	return 0;
+	channel = ieee80211_frequency_to_channel(conf->channel->center_freq);
+
+	wlcore_debug(DEBUG_MAC80211, "wlcore_config ch %d psm %s power %d %s"
+		     " changed 0x%x",
+		     channel,
+		     conf->flags & IEEE80211_CONF_PS ? "on" : "off",
+		     conf->power_level,
+		     conf->flags & IEEE80211_CONF_IDLE ? "idle" : "in use",
+		     changed);
+
+	/* TODO: add wait tx_flush() */
+
+	mutex_lock(&wl->mutex);
+
+	/* we support configuring the channel and band even while off */
+	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
+		wl->band = conf->channel->band;
+		wl->channel = channel;
+		wl->channel_type = conf->channel_type;
+	}
+
+	if (changed & IEEE80211_CONF_CHANGE_POWER)
+		wl->power_level = conf->power_level;
+
+	/* TODO: add check if we're off */
+
+	/* TODO: add ELP wake-up */
+
+#if 0
+	/* configure each interface */
+	wlcore_for_each_wlvif(wl, wlvif) {
+		ret = wlcore_config_vif(wl, wlvif, conf, changed);
+		if (ret < 0)
+			goto out_sleep;
+	}
+#endif
+
+out_sleep:
+	/* TODO: add ELP sleep */
+
+out:
+	mutex_unlock(&wl->mutex);
+
+	return ret;
 }
 
 void wlcore_configure_filter(struct ieee80211_hw *hw,
@@ -176,4 +229,82 @@ void wlcore_configure_filter(struct ieee80211_hw *hw,
 
 	/* clear all flags, since we don't pass anything up yet */
 	*total_flags = 0;
+}
+
+static void wlcore_bss_info_changed_ap(struct wlcore *wl,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_bss_conf *bss_conf,
+				       u32 changed)
+{
+	/* TODO: fill me up! */
+}
+
+static int wlcore_sta_handle_idle(struct wlcore *wl, struct wlcore_vif *wlvif,
+				  bool idle)
+{
+	int ret;
+
+	if (idle) {
+		/* no need to croc if we weren't busy (e.g. during boot) */
+		if (wlcore_is_roc(wl)) {
+			ret = wlcore_stop_dev(wl, wlvif);
+			if (ret < 0)
+				goto out;
+		}
+		/* TODO: do more stuff */
+
+	} else {
+		/* TODO: stop sched_scan */
+
+		ret = wlcore_start_dev(wl, wlvif);
+		if (ret < 0)
+			goto out;
+	}
+
+out:
+	return ret;
+}
+
+static void wlcore_bss_info_changed_sta(struct wlcore *wl,
+					struct ieee80211_vif *vif,
+					struct ieee80211_bss_conf *bss_conf,
+					u32 changed)
+{
+	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
+	int ret;
+
+	/* TODO: top me up! */
+
+	if (changed & BSS_CHANGED_IDLE) {
+		ret = wlcore_sta_handle_idle(wl, wlvif, bss_conf->idle);
+		if (ret < 0)
+			wlcore_warning("idle mode change failed %d", ret);
+	}
+}
+
+void wlcore_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *bss_conf,
+			     u32 changed)
+{
+	struct wlcore *wl = hw->priv;
+	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
+
+	wlcore_debug(DEBUG_MAC80211, "mac80211 bss info changed 0x%x",
+		     (int)changed);
+
+	mutex_lock(&wl->mutex);
+
+	/* TODO: check wl->state and wlvif->flags */
+
+	/* TODO: ELP wake-up */
+
+	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
+		wlcore_bss_info_changed_ap(wl, vif, bss_conf, changed);
+	else
+		wlcore_bss_info_changed_sta(wl, vif, bss_conf, changed);
+
+	/* TODO: ELP sleep */
+
+	mutex_unlock(&wl->mutex);
 }

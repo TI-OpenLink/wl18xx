@@ -24,6 +24,7 @@
 #include "wlcore.h"
 #include "vif.h"
 #include "cmd.h"
+#include "acx.h"
 
 static u8 wlcore_vif_to_bss_type(struct ieee80211_vif *vif)
 {
@@ -162,6 +163,8 @@ int wlcore_vif_add(struct wlcore *wl, struct ieee80211_vif *vif)
 
 	wlvif->wl = wl;
 
+	list_add(&wlvif->list, &wl->wlvif_list);
+
 	return 0;
 }
 
@@ -183,4 +186,83 @@ void wlcore_vif_remove(struct wlcore *wl, struct ieee80211_vif *vif)
 
 		/* TODO: add AP */
 	}
+
+	list_del(&wlvif->list);
+}
+
+static int wlcore_vif_init_sta(struct wlcore *wl, struct wlcore_vif *wlvif)
+{
+	/* TODO: add ext radio params op */
+
+	/* TODO: add PS config */
+
+	/* TODO: add FM WLAN coexistence */
+
+	/* TODO: add rate policies config */
+
+	return 0;
+}
+
+int wlcore_vif_init(struct wlcore *wl, struct ieee80211_vif *vif)
+{
+	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
+	/* struct conf_tx_ac_category *conf_ac; */
+	/* struct conf_tx_tid *conf_tid; */
+	int ret, i;
+
+	ret = wlcore_acx_sleep_auth(wl, WLCORE_PSM_CAM);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_vif_init_sta(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+#if 0
+	ret = wlcore_init_sta_role(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	wlcore_init_phy_vif_config(wl, wlvif);
+
+	/* Default TID/AC configuration */
+	BUG_ON(wl->conf.tx.tid_conf_count != wl->conf.tx.ac_conf_count);
+	for (i = 0; i < wl->conf.tx.tid_conf_count; i) {
+		conf_ac = &wl->conf.tx.ac_conf[i];
+		ret = wlcore_acx_ac_cfg(wl, wlvif, conf_ac->ac,
+					conf_ac->cw_min, conf_ac->cw_max,
+					conf_ac->aifsn, conf_ac->tx_op_limit);
+		if (ret < 0)
+			return ret;
+
+		conf_tid = &wl->conf.tx.tid_conf[i];
+		ret = wlcore_acx_tid_cfg(wl, wlvif,
+					 conf_tid->queue_id,
+					 conf_tid->channel_type,
+					 conf_tid->tsid,
+					 conf_tid->ps_scheme,
+					 conf_tid->ack_policy,
+					 conf_tid->apsd_conf[0],
+					 conf_tid->apsd_conf[1]);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Configure HW encryption */
+	ret = wlcore_acx_feature_cfg(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	ret = wlcore_sta_hw_init_post_mem(wl, vif);
+	if (ret < 0)
+		return ret;
+
+	/* Configure initiator BA sessions policies */
+	ret = wlcore_set_ba_policies(wl, wlvif);
+	if (ret < 0)
+		return ret;
+#endif
+	/* TODO: add cs op */
+
+	return 0;
 }

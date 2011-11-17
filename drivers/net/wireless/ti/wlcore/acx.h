@@ -23,6 +23,7 @@
 #define __ACX_H__
 
 #include "cmd.h"
+#include "event.h"
 
 enum {
 	ACX_WAKE_UP_CONDITIONS			= 0x0002,
@@ -96,58 +97,6 @@ enum {
 	ACX_CONFIG_PS				= 0x1017,
 	ACX_CONFIG_HANGOVER			= 0x1018,
 };
-
-
-enum {
-	EVENT_RSSI_SNR_TRIGGER_0		= BIT(0),
-	EVENT_RSSI_SNR_TRIGGER_1		= BIT(1),
-	EVENT_RSSI_SNR_TRIGGER_2		= BIT(2),
-	EVENT_RSSI_SNR_TRIGGER_3		= BIT(3),
-	EVENT_RSSI_SNR_TRIGGER_4		= BIT(4),
-	EVENT_RSSI_SNR_TRIGGER_5		= BIT(5),
-	EVENT_RSSI_SNR_TRIGGER_6		= BIT(6),
-	EVENT_RSSI_SNR_TRIGGER_7		= BIT(7),
-	EVENT_MEASUREMENT_START			= BIT(8),
-	EVENT_MEASUREMENT_COMPLETE		= BIT(9),
-	EVENT_SCAN_COMPLETE			= BIT(10),
-	EVENT_WFD_DISCOVERY_COMPLETE		= BIT(11),
-	EVENT_AP_DISCOVERY_COMPLETE		= BIT(12),
-	EVENT_PS_REPORT				= BIT(13),
-	EVENT_PSPOLL_DELIVERY_FAILURE		= BIT(14),
-	EVENT_DISCONNECT_COMPLETE		= BIT(15),
-	/* BIT(16) is reserved */
-	EVENT_CHANNEL_SWITCH_COMPLETE		= BIT(17),
-	EVENT_BSS_LOSE				= BIT(18),
-	EVENT_REGAINED_BSS			= BIT(19),
-	EVENT_MAX_TX_RETRY			= BIT(20),
-	EVENT_DUMMY_PACKET			= BIT(21),
-	EVENT_SOFT_GEMINI_SENSE			= BIT(22),
-	EVENT_CHANGE_AUTO_MODE_TIMEOUT		= BIT(23),
-	EVENT_SOFT_GEMINI_AVALANCHE		= BIT(24),
-	EVENT_PLT_RX_CALIBRATION_COMPLETE	= BIT(25),
-	EVENT_INACTIVE_STA			= BIT(26),
-	EVENT_PEER_REMOVE_COMPLETE		= BIT(27),
-	EVENT_PERIODIC_SCAN_COMPLETE		= BIT(28),
-	EVENT_PERIODIC_SCAN_REPORT		= BIT(29),
-	EVENT_BA_SESSION_RX_CONSTRAINT		= BIT(30),
-	EVENT_REMAIN_ON_CHANNEL_COMPLETE	= BIT(31),
-};
-
-#define WLCORE_DEFAULT_EVENTS	EVENT_BSS_LOSE				| \
-				EVENT_SCAN_COMPLETE			| \
-				EVENT_PS_REPORT				| \
-				EVENT_DISCONNECT_COMPLETE		| \
-				EVENT_RSSI_SNR_TRIGGER_0		| \
-				EVENT_PSPOLL_DELIVERY_FAILURE		| \
-				EVENT_SOFT_GEMINI_SENSE			| \
-				EVENT_PERIODIC_SCAN_REPORT		| \
-				EVENT_PERIODIC_SCAN_COMPLETE		| \
-				EVENT_DUMMY_PACKET			| \
-				EVENT_PEER_REMOVE_COMPLETE		| \
-				EVENT_BA_SESSION_RX_CONSTRAINT		| \
-				EVENT_REMAIN_ON_CHANNEL_COMPLETE	| \
-				EVENT_INACTIVE_STA			| \
-				EVENT_MAX_TX_RETRY
 
 struct acx_header {
 	struct wlcore_cmd_header cmd;
@@ -266,6 +215,19 @@ struct acx_frag_threshold {
 	u8 padding[2];
 } __packed;
 
+enum {
+	WLCORE_PSM_CAM, /* always active */
+	WLCORE_PSM_PS,  /* power down mode (ligth/fast sleep) */
+	WLCORE_PSM_ELP, /* ELP mode (deep/max sleep) */
+};
+
+struct acx_sleep_auth {
+	struct acx_header header;
+
+	u8  sleep_auth;
+	u8  padding[3];
+} __packed;
+
 int wlcore_acx_event_mbox_mask(struct wlcore *wl, u32 event_mask);
 int wlcore_acx_mem_cfg(struct wlcore *wl);
 int wlcore_acx_get_mem_map(struct wlcore *wl,
@@ -275,5 +237,6 @@ int wlcore_acx_cca_threshold(struct wlcore *wl);
 int wlcore_acx_frag_threshold(struct wlcore *wl, u32 frag_threshold);
 int wlcore_acx_rx_msdu_lifetime(struct wlcore *wl);
 int wlcore_acx_rx_irq_config(struct wlcore *wl);
+int wlcore_acx_sleep_auth(struct wlcore *wl, u8 sleep_auth);
 
 #endif /* __ACX_H__ */

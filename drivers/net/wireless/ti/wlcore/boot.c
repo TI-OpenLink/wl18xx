@@ -373,7 +373,7 @@ int wlcore_boot(struct wlcore *wl)
 	/* enable default mailbox events */
 	wlcore_acx_event_mbox_mask(wl, WLCORE_DEFAULT_EVENTS);
 
-	wlcore_enable_interrupts(wl);
+	/* wlcore_enable_interrupts(wl); */
 
 	wlcore_info("firmware booted (%s)", wl->fw_ver_str);
 

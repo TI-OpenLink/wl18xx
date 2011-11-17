@@ -198,6 +198,7 @@ static const struct ieee80211_ops wlcore_ops = {
 	.add_interface	  = wlcore_add_interface,
 	.remove_interface = wlcore_remove_interface,
 	.configure_filter = wlcore_configure_filter,
+	.bss_info_changed = wlcore_bss_info_changed,
 };
 
 static irqreturn_t wlcore_hardirq(int irq, void *cookie)
@@ -250,6 +251,8 @@ struct wlcore *wlcore_alloc_hw(void)
 
 	wl = hw->priv;
 	memset(wl, 0, sizeof(*wl));
+
+	INIT_LIST_HEAD(&wl->wlvif_list);
 
 	wl->hw = hw;
 

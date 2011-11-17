@@ -252,3 +252,25 @@ out:
 	kfree(rx_conf);
 	return ret;
 }
+
+int wlcore_acx_sleep_auth(struct wlcore *wl, u8 sleep_auth)
+{
+	struct acx_sleep_auth *acx;
+	int ret;
+
+	wlcore_debug(DEBUG_ACX, "acx sleep auth");
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->sleep_auth = sleep_auth;
+
+	ret = wlcore_cmd_configure(wl, ACX_SLEEP_AUTH, acx, sizeof(*acx));
+
+out:
+	kfree(acx);
+	return ret;
+}

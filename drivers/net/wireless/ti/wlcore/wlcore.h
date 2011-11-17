@@ -366,9 +366,13 @@ struct wlcore {
 	bool mac80211_registered;
 	unsigned long flags;
 
+	unsigned long links_map[BITS_TO_LONGS(WLCORE_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WLCORE_MAX_ROLES)];
+	unsigned long roc_map[BITS_TO_LONGS(WLCORE_MAX_ROLES)];
 	unsigned long rate_policies_map[
 		BITS_TO_LONGS(WLCORE_MAX_RATE_POLICIES)];
+
+	struct list_head wlvif_list;
 
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
 

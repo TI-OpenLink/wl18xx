@@ -25,6 +25,8 @@
 #include <linux/ieee80211.h>
 #include <linux/if_arp.h>
 
+#include "vif.h"
+
 enum wlcore_commands {
 	CMD_INTERROGATE			= 1,
 	CMD_CONFIGURE			= 2,
@@ -216,6 +218,140 @@ struct wlcore_cmd_role_disable {
 	u8 padding[3];
 } __packed;
 
+enum wlcore_band {
+	WLCORE_BAND_2_4GHZ		= 0,
+	WLCORE_BAND_5GHZ		= 1,
+	WLCORE_BAND_JAPAN_4_9_GHZ	= 2,
+};
+
+struct wlcore_cmd_role_start {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 band;
+	u8 channel;
+	u8 channel_type;
+
+	union {
+		struct {
+			u8 hlid;
+			u8 session;
+			u8 padding_1[54];
+		} __packed device;
+		/* sta & p2p_cli use the same struct */
+		struct {
+			u8 bssid[ETH_ALEN];
+			u8 hlid; /* data hlid */
+			u8 session;
+			__le32 remote_rates; /* remote supported rates */
+
+			/*
+			 * The target uses this field to determine the rate at
+			 * which to transmit control frame responses (such as
+			 * ACK or CTS frames).
+			 */
+			__le32 basic_rate_set;
+			__le32 local_rates; /* local supported rates */
+
+			u8 ssid_type;
+			u8 ssid_len;
+			u8 ssid[IEEE80211_MAX_SSID_LEN];
+
+			__le16 beacon_interval; /* in TBTTs */
+		} __packed sta;
+		struct {
+			u8 bssid[ETH_ALEN];
+			u8 hlid; /* data hlid */
+			u8 dtim_interval;
+			__le32 remote_rates; /* remote supported rates */
+
+			__le32 basic_rate_set;
+			__le32 local_rates; /* local supported rates */
+
+			u8 ssid_type;
+			u8 ssid_len;
+			u8 ssid[IEEE80211_MAX_SSID_LEN];
+
+			__le16 beacon_interval; /* in TBTTs */
+
+			u8 padding_1[4];
+		} __packed ibss;
+		/* ap & p2p_go use the same struct */
+		struct {
+			__le16 aging_period; /* in secs */
+			u8 beacon_expiry; /* in ms */
+			u8 bss_index;
+			/* The host link id for the AP's global queue */
+			u8 global_hlid;
+			/* The host link id for the AP's broadcast queue */
+			u8 broadcast_hlid;
+
+			__le16 beacon_interval; /* in TBTTs */
+
+			__le32 basic_rate_set;
+			__le32 local_rates; /* local supported rates */
+
+			u8 dtim_interval;
+
+			u8 ssid_type;
+			u8 ssid_len;
+			u8 ssid[IEEE80211_MAX_SSID_LEN];
+
+			u8 padding_1[5];
+		} __packed ap;
+	};
+} __packed;
+
+/*
+ * There are three types of disconnections:
+ *
+ * DISCONNECT_IMMEDIATE: the fw doesn't send any frames
+ * DISCONNECT_DEAUTH:    the fw generates a DEAUTH request with the reason
+ *                       we have passed
+ * DISCONNECT_DISASSOC:  the fw generates a DESASSOC request with the reason
+ *                       we have passed
+ */
+enum {
+	DISCONNECT_IMMEDIATE,
+	DISCONNECT_DEAUTH,
+	DISCONNECT_DISASSOC
+};
+
+struct wlcore_cmd_role_stop {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 disc_type; /* only STA and P2P_CLI */
+	__le16 reason; /* only STA and P2P_CLI */
+} __packed;
+
+struct wlcore_cmd_roc {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 channel;
+	u8 band;
+	u8 padding;
+};
+
+struct wlcore_cmd_croc {
+	struct wlcore_cmd_header header;
+
+	u8 role_id;
+	u8 padding[3];
+};
+
+static inline bool wlcore_is_roc(struct wlcore *wl)
+{
+	u8 role_id;
+
+	role_id = find_first_bit(wl->roc_map, WLCORE_MAX_ROLES);
+	if (role_id >= WLCORE_MAX_ROLES)
+		return false;
+
+	return true;
+}
+
 int wlcore_cmd_send(struct wlcore *wl, u16 id, void *buf, size_t len,
 		    size_t res_len);
 int wlcore_cmd_configure(struct wlcore *wl, u16 id, void *buf, size_t len);
@@ -227,5 +363,9 @@ int wlcore_cmd_enable_rx_tx(struct wlcore *wl);
 int wlcore_cmd_role_enable(struct wlcore *wl, u8 *addr, u8 role_type,
 			   u8 *role_id);
 int wlcore_cmd_role_disable(struct wlcore *wl, u8 *role_id);
+int wlcore_roc(struct wlcore *wl, struct wlcore_vif *wlvif, u8 role_id);
+int wlcore_croc(struct wlcore *wl, u8 role_id);
+int wlcore_start_dev(struct wlcore *wl, struct wlcore_vif *wlvif);
+int wlcore_stop_dev(struct wlcore *wl, struct wlcore_vif *wlvif);
 
 #endif /* __CMD_H__ */

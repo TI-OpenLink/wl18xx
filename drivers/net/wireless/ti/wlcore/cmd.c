@@ -299,3 +299,264 @@ out_free:
 out:
 	return ret;
 }
+
+int wlcore_allocate_link(struct wlcore *wl, struct wlcore_vif *wlvif, u8 *hlid)
+{
+	u8 link = find_first_zero_bit(wl->links_map, WLCORE_MAX_LINKS);
+	if (link >= WLCORE_MAX_LINKS)
+		return -EBUSY;
+
+	__set_bit(link, wl->links_map);
+	__set_bit(link, wlvif->links_map);
+	*hlid = link;
+	return 0;
+}
+
+void wlcore_free_link(struct wlcore *wl, struct wlcore_vif *wlvif, u8 *hlid)
+{
+	if (*hlid == WLCORE_INVALID_LINK_ID)
+		return;
+
+	__clear_bit(*hlid, wl->links_map);
+	__clear_bit(*hlid, wlvif->links_map);
+	*hlid = WLCORE_INVALID_LINK_ID;
+}
+
+static int wlcore_cmd_role_start_dev(struct wlcore *wl,
+				     struct wlcore_vif *wlvif)
+{
+	struct wlcore_cmd_role_start *cmd;
+	int ret;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wlcore_debug(DEBUG_CMD, "cmd role start dev %d", wlvif->dev_role_id);
+
+	cmd->role_id = wlvif->dev_role_id;
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
+		cmd->band = WLCORE_BAND_5GHZ;
+	cmd->channel = wlvif->channel;
+
+	if (wlvif->dev_hlid == WLCORE_INVALID_LINK_ID) {
+		ret = wlcore_allocate_link(wl, wlvif, &wlvif->dev_hlid);
+		if (ret)
+			goto out_free;
+	}
+	cmd->device.hlid = wlvif->dev_hlid;
+	cmd->device.session = wlvif->session_counter;
+
+	wlcore_debug(DEBUG_CMD, "role start: roleid=%d, hlid=%d, session=%d",
+		     cmd->role_id, cmd->device.hlid, cmd->device.session);
+
+	ret = wlcore_cmd_send(wl, CMD_ROLE_START, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to initiate cmd role enable");
+		goto err_hlid;
+	}
+
+	goto out_free;
+
+err_hlid:
+	/* clear links on error */
+	wlcore_free_link(wl, wlvif, &wlvif->dev_hlid);
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+static int wlcore_cmd_role_stop_dev(struct wlcore *wl,
+				    struct wlcore_vif *wlvif)
+{
+	struct wlcore_cmd_role_stop *cmd;
+	int ret;
+
+	if (WARN_ON(wlvif->dev_hlid == WLCORE_INVALID_LINK_ID))
+		return -EINVAL;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wlcore_debug(DEBUG_CMD, "cmd role stop dev");
+
+	cmd->role_id = wlvif->dev_role_id;
+	cmd->disc_type = DISCONNECT_IMMEDIATE;
+	cmd->reason = cpu_to_le16(WLAN_REASON_UNSPECIFIED);
+
+	ret = wlcore_cmd_send(wl, CMD_ROLE_STOP, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to initiate cmd role stop");
+		goto out_free;
+	}
+
+	ret = wlcore_event_wait(wl, EVENT_DISCONNECT_COMPLETE);
+	if (ret < 0) {
+		wlcore_error("cmd role stop dev event completion error");
+		goto out_free;
+	}
+
+	wlcore_free_link(wl, wlvif, &wlvif->dev_hlid);
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+static int wlcore_cmd_roc(struct wlcore *wl, struct wlcore_vif *wlvif,
+			  u8 role_id)
+{
+	struct wlcore_cmd_roc *cmd;
+	int ret = 0;
+
+	wlcore_debug(DEBUG_CMD, "cmd roc %d (%d)", wlvif->channel, role_id);
+
+	if (WARN_ON(role_id == WLCORE_INVALID_ROLE_ID))
+		return -EINVAL;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	cmd->role_id = role_id;
+	cmd->channel = wlvif->channel;
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
+		cmd->band = WLCORE_BAND_5GHZ;
+
+	ret = wlcore_cmd_send(wl, CMD_REMAIN_ON_CHANNEL, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to send ROC command");
+		goto out_free;
+	}
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+static int wlcore_cmd_croc(struct wlcore *wl, u8 role_id)
+{
+	struct wlcore_cmd_croc *cmd;
+	int ret = 0;
+
+	wlcore_debug(DEBUG_CMD, "cmd croc (%d)", role_id);
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	cmd->role_id = role_id;
+
+	ret = wlcore_cmd_send(wl, CMD_CANCEL_REMAIN_ON_CHANNEL, cmd,
+			      sizeof(*cmd), 0);
+	if (ret < 0) {
+		wlcore_error("failed to send ROC command");
+		goto out_free;
+	}
+
+out_free:
+	kfree(cmd);
+
+out:
+	return ret;
+}
+
+int wlcore_roc(struct wlcore *wl, struct wlcore_vif *wlvif, u8 role_id)
+{
+	int ret = 0;
+
+	if (WARN_ON(test_bit(role_id, wl->roc_map)))
+		return 0;
+
+	ret = wlcore_cmd_roc(wl, wlvif, role_id);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_event_wait(wl, EVENT_REMAIN_ON_CHANNEL_COMPLETE);
+	if (ret < 0) {
+		wlcore_error("cmd roc event completion error");
+		goto out;
+	}
+
+	__set_bit(role_id, wl->roc_map);
+out:
+	return ret;
+}
+
+int wlcore_croc(struct wlcore *wl, u8 role_id)
+{
+	int ret = 0;
+
+	if (WARN_ON(!test_bit(role_id, wl->roc_map)))
+		return 0;
+
+	ret = wlcore_cmd_croc(wl, role_id);
+	if (ret < 0)
+		goto out;
+
+	__clear_bit(role_id, wl->roc_map);
+out:
+	return ret;
+}
+
+/* start dev role and roc on its channel */
+int wlcore_start_dev(struct wlcore *wl, struct wlcore_vif *wlvif)
+{
+	int ret;
+
+	if (WARN_ON(!(wlvif->bss_type == BSS_TYPE_STA_BSS ||
+		      wlvif->bss_type == BSS_TYPE_IBSS)))
+		return -EINVAL;
+
+	ret = wlcore_cmd_role_start_dev(wl, wlvif);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_roc(wl, wlvif, wlvif->dev_role_id);
+	if (ret < 0)
+		goto out_stop;
+
+	return 0;
+
+out_stop:
+	wlcore_cmd_role_stop_dev(wl, wlvif);
+out:
+	return ret;
+}
+
+/* croc dev hlid, and stop the role */
+int wlcore_stop_dev(struct wlcore *wl, struct wlcore_vif *wlvif)
+{
+	int ret;
+
+	if (WARN_ON(!(wlvif->bss_type == BSS_TYPE_STA_BSS ||
+		      wlvif->bss_type == BSS_TYPE_IBSS)))
+		return -EINVAL;
+
+	if (test_bit(wlvif->dev_role_id, wl->roc_map)) {
+		ret = wlcore_croc(wl, wlvif->dev_role_id);
+		if (ret < 0)
+			goto out;
+	}
+
+	ret = wlcore_cmd_role_stop_dev(wl, wlvif);
+	if (ret < 0)
+		goto out;
+out:
+	return ret;
+}
