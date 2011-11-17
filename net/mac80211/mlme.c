@@ -1359,9 +1359,6 @@ static void __ieee80211_connection_loss(struct ieee80211_sub_if_data *sdata)
 	ieee80211_set_disassoc(sdata, true, true);
 	mutex_unlock(&ifmgd->mtx);
 
-	mutex_lock(&local->mtx);
-	ieee80211_recalc_idle(local);
-	mutex_unlock(&local->mtx);
 	/*
 	 * must be outside lock due to cfg80211,
 	 * but that's not a problem.
@@ -1370,6 +1367,10 @@ static void __ieee80211_connection_loss(struct ieee80211_sub_if_data *sdata)
 				       IEEE80211_STYPE_DEAUTH,
 				       WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY,
 				       NULL, true);
+
+	mutex_lock(&local->mtx);
+	ieee80211_recalc_idle(local);
+	mutex_unlock(&local->mtx);
 }
 
 void ieee80211_beacon_connection_loss_work(struct work_struct *work)
@@ -2136,9 +2137,6 @@ static void ieee80211_sta_connection_lost(struct ieee80211_sub_if_data *sdata,
 
 	ieee80211_set_disassoc(sdata, true, true);
 	mutex_unlock(&ifmgd->mtx);
-	mutex_lock(&local->mtx);
-	ieee80211_recalc_idle(local);
-	mutex_unlock(&local->mtx);
 	/*
 	 * must be outside lock due to cfg80211,
 	 * but that's not a problem.
@@ -2146,6 +2144,11 @@ static void ieee80211_sta_connection_lost(struct ieee80211_sub_if_data *sdata,
 	ieee80211_send_deauth_disassoc(sdata, bssid,
 			IEEE80211_STYPE_DEAUTH, reason,
 			NULL, true);
+
+	mutex_lock(&local->mtx);
+	ieee80211_recalc_idle(local);
+	mutex_unlock(&local->mtx);
+
 	mutex_lock(&ifmgd->mtx);
 }
 
