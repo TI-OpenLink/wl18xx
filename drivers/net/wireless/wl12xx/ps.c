@@ -167,6 +167,7 @@ int wl1271_ps_set_mode(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	switch (mode) {
 	case STATION_AUTO_PS_MODE:
+	case STATION_POWER_SAVE_MODE:
 		wl1271_debug(DEBUG_PSM, "entering psm (mode=%d,timeout=%u)",
 			     mode, timeout);
 
@@ -207,7 +208,6 @@ int wl1271_ps_set_mode(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 		clear_bit(WLVIF_FLAG_IN_AUTO_PS, &wlvif->flags);
 		break;
-	case STATION_POWER_SAVE_MODE:
 	default:
 		wl1271_warning("trying to set ps to unsupported mode %d", mode);
 		ret = -EINVAL;
