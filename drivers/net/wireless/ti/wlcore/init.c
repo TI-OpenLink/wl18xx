@@ -174,30 +174,51 @@ int wlcore_hw_init(struct wlcore *wl)
 
 	ret = wlcore_acx_rx_msdu_lifetime(wl);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
 	/* TODO: add dco_itrim config op */
 
 	ret = wlcore_acx_tx_config(wl);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
 	ret = wlcore_acx_rx_irq_config(wl);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
 	ret = wlcore_acx_cca_threshold(wl);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
 	ret = wlcore_acx_frag_threshold(wl, wl->hw->wiphy->frag_threshold);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
 	ret = wlcore_cmd_enable_rx_tx(wl);
 	if (ret < 0)
-		goto out;
+		goto out_free_memmap;
 
+	/* configure PM */
+	ret = wlcore_acx_pm_config(wl);
+	if (ret < 0)
+		goto out_free_memmap;
+
+	ret = wlcore_acx_set_rate_mgmt_params(wl);
+	if (ret < 0)
+		goto out_free_memmap;
+
+	/* configure hangover */
+	ret = wlcore_acx_config_hangover(wl);
+	if (ret < 0)
+		goto out_free_memmap;
+
+out_free_memmap:
+	kfree(wl->mem_map);
 out:
 	return ret;
+}
+
+void wlcore_hw_deinit(struct wlcore *wl)
+{
+	kfree(wl->mem_map);
 }

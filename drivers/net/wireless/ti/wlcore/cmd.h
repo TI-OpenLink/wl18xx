@@ -367,5 +367,7 @@ int wlcore_roc(struct wlcore *wl, struct wlcore_vif *wlvif, u8 role_id);
 int wlcore_croc(struct wlcore *wl, u8 role_id);
 int wlcore_start_dev(struct wlcore *wl, struct wlcore_vif *wlvif);
 int wlcore_stop_dev(struct wlcore *wl, struct wlcore_vif *wlvif);
+int wlcore_allocate_link(struct wlcore *wl, struct wlcore_vif *wlvif, u8 *hlid);
+void wlcore_free_link(struct wlcore *wl, struct wlcore_vif *wlvif, u8 *hlid);
 
 #endif /* __CMD_H__ */

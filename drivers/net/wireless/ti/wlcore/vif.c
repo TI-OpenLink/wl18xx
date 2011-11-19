@@ -192,13 +192,49 @@ void wlcore_vif_remove(struct wlcore *wl, struct ieee80211_vif *vif)
 
 static int wlcore_vif_init_sta(struct wlcore *wl, struct wlcore_vif *wlvif)
 {
+	int ret;
+
 	/* TODO: add ext radio params op */
 
-	/* TODO: add PS config */
+	ret = wlcore_acx_config_ps(wl, wlvif);
+	if (ret < 0)
+		return ret;
 
 	/* TODO: add FM WLAN coexistence */
 
-	/* TODO: add rate policies config */
+	ret = wlcore_acx_sta_rate_policies(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	/* initiailize group multicast address table */
+	ret = wlcore_acx_group_address_tbl(wl, wlvif, true, NULL, 0);
+	if (ret < 0)
+		return ret;
+
+	/* initialize connection monitoring thresholds */
+	ret = wlcore_acx_conn_monit_params(wl, wlvif, false);
+	if (ret < 0)
+		return ret;
+
+	/* initialize beacon filtering table */
+	ret = wlcore_acx_beacon_filter_table(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	/* enable beacon filtering */
+	ret = wlcore_acx_beacon_filter_opt(wl, wlvif, true);
+	if (ret < 0)
+		return ret;
+
+	/* beacons and broadcast settings */
+	ret = wlcore_acx_bcn_dtim_options(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	/* configure rssi/snr averaging weights */
+	ret = wlcore_acx_rssi_snr_avg_weights(wl, wlvif);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -208,7 +244,7 @@ int wlcore_vif_init(struct wlcore *wl, struct ieee80211_vif *vif)
 	struct wlcore_vif *wlvif = wlcore_vif_to_wlvif(vif);
 	/* struct conf_tx_ac_category *conf_ac; */
 	/* struct conf_tx_tid *conf_tid; */
-	int ret, i;
+	int ret;
 
 	ret = wlcore_acx_sleep_auth(wl, WLCORE_PSM_CAM);
 	if (ret < 0)
@@ -219,10 +255,6 @@ int wlcore_vif_init(struct wlcore *wl, struct ieee80211_vif *vif)
 		return ret;
 
 #if 0
-	ret = wlcore_init_sta_role(wl, wlvif);
-	if (ret < 0)
-		return ret;
-
 	wlcore_init_phy_vif_config(wl, wlvif);
 
 	/* Default TID/AC configuration */

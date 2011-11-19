@@ -215,6 +215,48 @@ struct wlcore_static_data {
 	u8 tx_power_table[WLCORE_NO_SUBBANDS][WLCORE_NO_POWER_LEVELS];
 } __packed;
 
+struct wlcore_conf_tx_rate_class {
+
+	/*
+	 * The rates enabled for this rate class.
+	 *
+	 * Range: CONF_HW_BIT_RATE_* bit mask
+	 */
+	u32 enabled_rates;
+
+	/*
+	 * The dot11 short retry limit used for TX retries.
+	 *
+	 * Range: u8
+	 */
+	u8 short_retry_limit;
+
+	/*
+	 * The dot11 long retry limit used for TX retries.
+	 *
+	 * Range: u8
+	 */
+	u8 long_retry_limit;
+
+	/*
+	 * Flags controlling the attributes of TX transmission.
+	 *
+	 * Range: bit 0: Truncate - when set, FW attempts to send a frame stop
+	 *               when the total valid per-rate attempts have
+	 *               been exhausted; otherwise transmissions
+	 *               will continue at the lowest available rate
+	 *               until the appropriate one of the
+	 *               short_retry_limit, long_retry_limit,
+	 *               dot11_max_transmit_msdu_life_time, or
+	 *               max_tx_life_time, is exhausted.
+	 *            1: Preamble Override - indicates if the preamble type
+	 *               should be used in TX.
+	 *            2: Preamble Type - the type of the preamble to be used by
+	 *               the policy (0 - long preamble, 1 - short preamble.
+	 */
+	u8 aflags;
+};
+
 struct wlcore_conf_tx {
 	/* TX retry limits for templates */
 	u8 tmpl_short_retry_limit;
@@ -240,6 +282,8 @@ struct wlcore_conf_tx {
 
 	/* the rate used for control messages and scanning on the 5GHz band */
 	u32 basic_rate_5;
+
+	struct wlcore_conf_tx_rate_class sta_rc;
 };
 
 enum {
@@ -330,10 +374,142 @@ struct wlcore_conf_hw_mem {
 	u8 num_tx_descriptors;
 };
 
+#define CONF_BCN_IE_OUI_LEN		3
+#define CONF_BCN_IE_VER_LEN		2
+
+/* 32 normal IEs plus 6 vendor-specific ones */
+#define CONF_MAX_BCN_FILT_IE_COUNT	38
+
+struct wlcore_conf_bcn_filter {
+	/* IE type to let through */
+	u8 ie;
+
+	/* pass-through rule (ACX_BCN_RUL_PASS_ON_*) */
+	u8 rule;
+
+	/* vendor specific OUI */
+	u8 oui[CONF_BCN_IE_OUI_LEN];
+
+	/* vendor specific type */
+	u8 type;
+
+	/* vendor specific version */
+	u8 version[CONF_BCN_IE_VER_LEN];
+};
+
+struct wlcore_conf_conn_settings {
+	/*
+	 * enable or disable the beacon filtering */
+	bool enable_bcn_filter;
+
+	/* configure beacon filter pass-thru rules */
+	u8 bcn_filter_count;
+	struct wlcore_conf_bcn_filter bcn_filter[CONF_MAX_BCN_FILT_IE_COUNT];
+
+	/*
+	 * The number of consecutive beacons to lose, before the firmware
+	 * becomes out of sync.
+	 */
+	u32 sync_fail_threshold;
+
+	/*
+	 * After out-of-synch, the number of TU's to wait without a further
+	 * received beacon (or probe response) before issuing the BSS_EVENT_LOSE
+	 * event.
+	 */
+	u32 bss_lose_timeout;
+
+	/* beacon receive timeout */
+	u32 beacon_rx_timeout;
+
+	/* broadcast receive timeout */
+	u32 broadcast_timeout;
+
+	/* enable/disable reception of broadcast packets in power save mode */
+	bool rx_broadcast_in_ps;
+
+	/* consecutive PS Poll failures before sending event to driver */
+	u8 ps_poll_threshold;
+
+	/*
+	 * Specifies the maximum number of times to try PSM entry if it fails
+	 * (if sending the appropriate null-func message fails.)
+	 */
+	u8 psm_entry_retries;
+
+	/*
+	 * Specifies the maximum number of times to try PSM exit if it fails
+	 * (if sending the appropriate null-func message fails.)
+	 */
+	u8 psm_exit_retries;
+};
+
+struct wlcore_conf_pm {
+	u32 host_clk_settling_time;	/* range: 0 - 30000 us */
+	bool host_fast_wakeup_support;
+};
+
+/* this should be defined in acx.h, but it would cause circular deps */
+#define ACX_RATE_MGMT_NUM_OF_RATES	13
+
+struct wlcore_conf_rate_policy {
+	u16 rate_retry_score;
+	u16 per_add;
+	u16 per_th1;
+	u16 per_th2;
+	u16 max_per;
+	u8 inverse_curiosity_factor;
+	u8 tx_fail_low_th;
+	u8 tx_fail_high_th;
+	u8 per_alpha_shift;
+	u8 per_add_shift;
+	u8 per_beta1_shift;
+	u8 per_beta2_shift;
+	u8 rate_check_up;
+	u8 rate_check_down;
+	u8 rate_retry_policy[ACX_RATE_MGMT_NUM_OF_RATES];
+};
+
+struct wlcore_conf_hangover {
+	u32 recover_time;
+	u8 hangover_period;
+	u8 dynamic_mode;
+	u8 early_termination_mode;
+	u8 max_period;
+	u8 min_period;
+	u8 increase_delta;
+	u8 decrease_delta;
+	u8 quiet_time;
+	u8 increase_time;
+	u8 window_size;
+};
+
+struct wlcore_conf_roam_trigger {
+	/* the minimum interval between two trigger events (0 - 60000 ms) */
+	u16 trigger_pacing;
+
+	/* the weight for rssi/beacon average calculation */
+	u8 avg_weight_rssi_beacon;
+
+	/* the weight for rssi/data frame average calculation */
+	u8 avg_weight_rssi_data;
+
+	/* the weight for snr/beacon average calculation */
+	u8 avg_weight_snr_beacon;
+
+	/* the weight for snr/data frame average calculation */
+	u8 avg_weight_snr_data;
+};
+
 struct wlcore_conf {
 	struct wlcore_conf_tx tx;
 	struct wlcore_conf_rx rx;
 	struct wlcore_conf_hw_mem hw_mem;
+	struct wlcore_conf_conn_settings conn;
+	struct wlcore_conf_pm pm_config;
+	struct wlcore_conf_rate_policy rate;
+	struct wlcore_conf_hangover hangover;
+	struct wlcore_conf_roam_trigger roam_trigger;
 
 	/* private data used only by the lower driver */
 	u8 priv_data[0] __attribute__((__aligned__(sizeof(void *))));

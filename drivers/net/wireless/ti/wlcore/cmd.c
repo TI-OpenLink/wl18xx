@@ -339,14 +339,14 @@ static int wlcore_cmd_role_start_dev(struct wlcore *wl,
 	cmd->role_id = wlvif->dev_role_id;
 	if (wlvif->band == IEEE80211_BAND_5GHZ)
 		cmd->band = WLCORE_BAND_5GHZ;
-	cmd->channel = wlvif->channel;
+	cmd->channel = 1; /* wlvif->channel; */
 
 	if (wlvif->dev_hlid == WLCORE_INVALID_LINK_ID) {
 		ret = wlcore_allocate_link(wl, wlvif, &wlvif->dev_hlid);
 		if (ret)
 			goto out_free;
 	}
-	cmd->device.hlid = wlvif->dev_hlid;
+	cmd->device.hlid = 1; /* wlvif->dev_hlid; */
 	cmd->device.session = wlvif->session_counter;
 
 	wlcore_debug(DEBUG_CMD, "role start: roleid=%d, hlid=%d, session=%d",

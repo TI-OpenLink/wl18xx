@@ -79,6 +79,8 @@ void wlcore_stop(struct ieee80211_hw *hw)
 	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->band = IEEE80211_BAND_2GHZ;
 
+	wlcore_hw_deinit(wl);
+
 	wlcore_shutdown(wl);
 
 	mutex_unlock(&wl->mutex);

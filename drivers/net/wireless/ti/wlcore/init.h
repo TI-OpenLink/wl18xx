@@ -23,5 +23,6 @@
 #define __INIT_H__
 
 int wlcore_hw_init(struct wlcore *wl);
+void wlcore_hw_deinit(struct wlcore *wl);
 
 #endif /* __INIT_H__ */
