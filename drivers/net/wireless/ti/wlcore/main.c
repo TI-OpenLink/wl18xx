@@ -34,7 +34,7 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 
-#include "wl12xx.h"
+#include "wlcore.h"
 #include "debug.h"
 #include "wl12xx_80211.h"
 #include "reg.h"
@@ -5173,6 +5173,9 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	struct wl12xx_platform_data *pdata = pdev->dev.platform_data;
 	unsigned long irqflags;
 	int ret;
+
+	if (!wl->ops)
+		return -EINVAL;
 
 	wl->irq = platform_get_irq(pdev, 0);
 	wl->ref_clock = pdata->board_ref_clock;
