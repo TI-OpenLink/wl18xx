@@ -226,7 +226,11 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	/* Tell PM core that we don't need the card to be powered now */
 	pm_runtime_put_noidle(&func->dev);
 
-	glue->core = platform_device_alloc("wl12xx", -1);
+	/* TODO: move the version handling to a separate function */
+	if (wlan_data->magic != WLCORE_PLATDATA_MAGIC)
+		wlan_data->chip_family = WLCORE_DEFAULT_CHIP_FAMILY;
+
+	glue->core = platform_device_alloc(wlan_data->chip_family, -1);
 	if (!glue->core) {
 		dev_err(glue->dev, "can't allocate platform_device");
 		ret = -ENOMEM;
