@@ -45,6 +45,8 @@
 #define WL127X_FW_NAME "ti-connectivity/wl127x-fw-3.bin"
 #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-3.bin"
 
+#define WLCORE_DEFAULT_CHIP_FAMILY "wl12xx"
+
 /*
  * wl127x and wl128x are using the same NVS file name. However, the
  * ini parameters between them are different.  The driver validates

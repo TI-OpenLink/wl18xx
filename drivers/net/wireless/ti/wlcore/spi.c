@@ -351,7 +351,11 @@ static int __devinit wl1271_probe(struct spi_device *spi)
 		goto out_free_glue;
 	}
 
-	glue->core = platform_device_alloc("wl12xx", -1);
+	/* TODO: move the version handling to a separate function */
+	if (pdata->magic != WLCORE_PLATDATA_MAGIC)
+		pdata->chip_family = WLCORE_DEFAULT_CHIP_FAMILY;
+
+	glue->core = platform_device_alloc(pdata->chip_family, -1);
 	if (!glue->core) {
 		dev_err(glue->dev, "can't allocate platform_device\n");
 		ret = -ENOMEM;
