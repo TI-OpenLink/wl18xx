@@ -25,7 +25,37 @@
 #include "../wlcore/wlcore.h"
 #include "../wlcore/debug.h"
 
+#include "reg.h"
+
 static struct wlcore_ops wl18xx_ops = {
+};
+
+static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
+	[PART_TOP_PRCM_ELP_SOC] = {
+		.mem  = { .start = 0x00A02000, .size  = 0x00010000 },
+		.reg  = { .start = 0x00807000, .size  = 0x00005000 },
+		.mem2 = { .start = 0x00800000, .size  = 0x0000B000 },
+		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+	},
+	[PART_DOWN] = {
+		.mem  = { .start = 0x00000000, .size  = 0x00014000 },
+		.reg  = { .start = 0x00810000, .size  = 0x0000BFFF },
+		.mem2 = { .start = 0x00000000, .size  = 0x00000000 },
+		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+	},
+	[PART_BOOT] = {
+		.mem  = { .start = 0x00700000, .size = 0x0000030c },
+		.reg  = { .start = 0x00802000, .size = 0x00014578 },
+		.mem2 = { .start = 0x00B00404, .size = 0x00001000 },
+		.mem3 = { .start = 0x00C00000, .size = 0x00000400 },
+	},
+	[PART_PHY_INIT] = {
+		/* TODO: use the phy_conf struct size here */
+		.mem  = { .start = WL18XX_PHY_INIT_MEM, .size = 252 },
+		.reg  = { .start = 0x00000000, .size = 0x00000000 },
+		.mem2 = { .start = 0x00000000, .size = 0x00000000 },
+		.mem3 = { .start = 0x00000000, .size = 0x00000000 },
+	},
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
@@ -41,6 +71,7 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 
 	wl = hw->priv;
 	wl->ops = &wl18xx_ops;
+	wl->ptable = wl18xx_ptable;
 
 	return wlcore_probe(wl, pdev);
 }
