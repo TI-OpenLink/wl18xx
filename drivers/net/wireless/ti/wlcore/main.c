@@ -1287,7 +1287,7 @@ static int wl1271_setup(struct wl1271 *wl)
 
 static int wl1271_chip_wakeup(struct wl1271 *wl)
 {
-	struct wl1271_partition_set partition;
+	struct wlcore_partition_set partition;
 	int ret = 0;
 
 	msleep(WL1271_PRE_POWER_ON_SLEEP);
@@ -1303,7 +1303,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	memset(&partition, 0, sizeof(partition));
 	partition.reg.start = REGISTERS_BASE;
 	partition.reg.size = REGISTERS_DOWN_SIZE;
-	wl1271_set_partition(wl, &partition);
+	wlcore_set_partition(wl, &partition);
 
 	/* ELP module wake up */
 	wl1271_fw_wakeup(wl);
@@ -5174,7 +5174,7 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	unsigned long irqflags;
 	int ret;
 
-	if (!wl->ops)
+	if (!wl->ops || !wl->ptable)
 		return -EINVAL;
 
 	wl->irq = platform_get_irq(pdev, 0);

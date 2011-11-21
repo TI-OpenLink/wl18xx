@@ -65,7 +65,39 @@ void wl1271_enable_interrupts(struct wl1271 *wl)
 	enable_irq(wl->irq);
 }
 
-/* Set the SPI partitions to access the chip addresses
+int wlcore_translate_addr(struct wl1271 *wl, int addr)
+{
+	/*
+	 * To translate, first check to which window of addresses the
+	 * particular address belongs. Then subtract the starting address
+	 * of that window from the address. Then, add offset of the
+	 * translated region.
+	 *
+	 * The translated regions occur next to each other in physical device
+	 * memory, so just add the sizes of the preceding address regions to
+	 * get the offset to the new region.
+	 */
+	if ((addr >= wl->curr_part.mem.start) &&
+	    (addr < wl->curr_part.mem.start + wl->curr_part.mem.size))
+		return addr - wl->curr_part.mem.start;
+	else if ((addr >= wl->curr_part.reg.start) &&
+		 (addr < wl->curr_part.reg.start + wl->curr_part.reg.size))
+		return addr - wl->curr_part.reg.start + wl->curr_part.mem.size;
+	else if ((addr >= wl->curr_part.mem2.start) &&
+		 (addr < wl->curr_part.mem2.start + wl->curr_part.mem2.size))
+		return addr - wl->curr_part.mem2.start + wl->curr_part.mem.size +
+			wl->curr_part.reg.size;
+	else if ((addr >= wl->curr_part.mem3.start) &&
+		 (addr < wl->curr_part.mem3.start + wl->curr_part.mem3.size))
+		return addr - wl->curr_part.mem3.start + wl->curr_part.mem.size +
+			wl->curr_part.reg.size + wl->curr_part.mem2.size;
+
+	WARN(1, "HW address 0x%x out of range", addr);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wlcore_translate_addr);
+
+/* Set the partitions to access the chip addresses
  *
  * To simplify driver code, a fixed (virtual) memory map is defined for
  * register and memory addresses. Because in the chipset, in different stages
@@ -99,33 +131,43 @@ void wl1271_enable_interrupts(struct wl1271 *wl)
  *                                    |    |
  *
  */
-int wl1271_set_partition(struct wl1271 *wl,
-			 struct wl1271_partition_set *p)
+void wlcore_set_partition(struct wl1271 *wl,
+			  const struct wlcore_partition_set *p)
 {
 	/* copy partition info */
-	memcpy(&wl->part, p, sizeof(*p));
+	memcpy(&wl->curr_part, p, sizeof(*p));
 
-	wl1271_debug(DEBUG_SPI, "mem_start %08X mem_size %08X",
+	wl1271_debug(DEBUG_IO, "mem_start %08X mem_size %08X",
 		     p->mem.start, p->mem.size);
-	wl1271_debug(DEBUG_SPI, "reg_start %08X reg_size %08X",
+	wl1271_debug(DEBUG_IO, "reg_start %08X reg_size %08X",
 		     p->reg.start, p->reg.size);
-	wl1271_debug(DEBUG_SPI, "mem2_start %08X mem2_size %08X",
+	wl1271_debug(DEBUG_IO, "mem2_start %08X mem2_size %08X",
 		     p->mem2.start, p->mem2.size);
-	wl1271_debug(DEBUG_SPI, "mem3_start %08X mem3_size %08X",
+	wl1271_debug(DEBUG_IO, "mem3_start %08X mem3_size %08X",
 		     p->mem3.start, p->mem3.size);
 
-	/* write partition info to the chipset */
 	wl1271_raw_write32(wl, HW_PART0_START_ADDR, p->mem.start);
 	wl1271_raw_write32(wl, HW_PART0_SIZE_ADDR, p->mem.size);
 	wl1271_raw_write32(wl, HW_PART1_START_ADDR, p->reg.start);
 	wl1271_raw_write32(wl, HW_PART1_SIZE_ADDR, p->reg.size);
 	wl1271_raw_write32(wl, HW_PART2_START_ADDR, p->mem2.start);
 	wl1271_raw_write32(wl, HW_PART2_SIZE_ADDR, p->mem2.size);
+	/*
+	 * We don't need the size of the last partition, as it is
+	 * automatically calculated based on the total memory size and
+	 * the sizes of the previous partitions.
+	 */
 	wl1271_raw_write32(wl, HW_PART3_START_ADDR, p->mem3.start);
-
-	return 0;
 }
-EXPORT_SYMBOL_GPL(wl1271_set_partition);
+EXPORT_SYMBOL_GPL(wlcore_set_partition);
+
+void wlcore_select_partition(struct wl1271 *wl, u8 part)
+{
+	wl1271_debug(DEBUG_IO, "setting partition %d", part);
+
+	wlcore_set_partition(wl, &wl->ptable[part]);
+}
+EXPORT_SYMBOL_GPL(wlcore_select_partition);
 
 void wl1271_io_reset(struct wl1271 *wl)
 {
@@ -182,4 +224,3 @@ u16 wl1271_top_reg_read(struct wl1271 *wl, int addr)
 		return 0xffff;
 	}
 }
-
