@@ -434,8 +434,18 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct sk_buff *skb,
 
 	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
 
-	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
-		(wl->chip.id == CHIP_ID_185x_PG20)) {
+	if (wl->chip.id == CHIP_ID_185x_PG20) {
+		desc->wl128x_mem.extra_bytes = 0;
+        desc->length = skb->len;
+        (*(u32*)desc) = (*(u32*)desc) | WL18xx_TX_PG20_SDIO_AGG_LAST_FRAME;
+
+		wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
+					 "tx_attr: 0x%x len: %d life: %d mem: %d",
+					 desc->hlid, tx_attr,
+					 le16_to_cpu(desc->length),
+					 le16_to_cpu(desc->life_time),
+					 desc->wl128x_mem.total_mem_blocks);
+	} else if (wl->chip.id == CHIP_ID_185x_PG10) {
 		desc->wl128x_mem.extra_bytes = 0;
 		desc->length = skb->len;
 
@@ -582,7 +592,12 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct sk_buff *skb,
 	 * In special cases, we want to align to a specific block size
 	 * (eg. for wl128x with SDIO we align to 256).
 	 */
-	total_len = wl12xx_calc_packet_alignment(wl, skb->len);
+	if (wl->chip.id == CHIP_ID_185x_PG20) {
+		total_len = ALIGN(skb->len, WL1271_TX_ALIGN_TO);
+	} 
+	else {
+		total_len = wl12xx_calc_packet_alignment(wl, skb->len);
+	}
 
 	memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
 	memset(wl->aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);
@@ -786,8 +801,12 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 	bool sent_packets = false;
 	bool had_data = false;
 	bool is_ap = (wl->bss_type == BSS_TYPE_AP_BSS);
-	int ret;
-
+	int ret = 0;
+	u32 previous_buf_offset = 0;
+	u32 previous_skb_len = 0;
+	u32 new_total_len = 0;
+	struct wl1271_tx_hw_descr *desc;
+    
 	if (unlikely(wl->state == WL1271_STATE_OFF))
 		return;
 
@@ -796,12 +815,21 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			had_data = true;
 
 		ret = wl1271_prepare_tx_frame(wl, skb, buf_offset);
+
 		if (ret == -EAGAIN) {
 			/*
 			 * Aggregation buffer is full.
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, skb);
+
+			if (wl->chip.id == CHIP_ID_185x_PG20) {
+				desc = (struct wl1271_tx_hw_descr *) (wl->aggr_buf + previous_buf_offset);
+				desc->wl128x_mem.extra_bytes = 0;
+				new_total_len = wl12xx_calc_packet_alignment(wl, previous_buf_offset + previous_skb_len);
+				buf_offset = new_total_len;
+			}
+
 			wl1271_write(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
 				     buf_offset, true);
 			sent_packets = true;
@@ -820,12 +848,22 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			dev_kfree_skb(skb);
 			goto out_ack;
 		}
+		previous_buf_offset = buf_offset;
+		previous_skb_len = skb->len;
 		buf_offset += ret;
 		wl->tx_packets_count++;
 	}
 
 out_ack:
 	if (buf_offset) {
+
+		if (wl->chip.id == CHIP_ID_185x_PG20) {
+			desc = (struct wl1271_tx_hw_descr *) (wl->aggr_buf + previous_buf_offset);
+			desc->wl128x_mem.extra_bytes = 0;
+			new_total_len = wl12xx_calc_packet_alignment(wl, previous_buf_offset + previous_skb_len);
+			buf_offset = new_total_len;
+		}
+
 		wl1271_write(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
 				buf_offset, true);
 		sent_packets = true;
