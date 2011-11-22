@@ -1082,7 +1082,17 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		}
 
 		if (unlikely(intr & WL1271_ACX_INTR_WATCHDOG)) {
-			wl1271_error("watchdog interrupt received! "
+			wl1271_error("HW watchdog interrupt received! "
+				     "starting recovery.");
+			/* Orit - Temp Disable recovery */
+			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
+
+			/* restarting the chip. ignore any other interrupt. */
+			goto out;
+		}
+
+		if (unlikely(intr & WL1271_ACX_SW_INTR_WATCHDOG)) {
+			wl1271_error("SW watchdog interrupt received! "
 				     "starting recovery.");
 			/* Orit - Temp Disable recovery */
 			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
