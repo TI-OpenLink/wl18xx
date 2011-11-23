@@ -30,6 +30,8 @@
 #include "reg.h"
 #include "conf.h"
 
+#define WL18XX_TX_HW_BLOCK_SPARE        1
+
 static struct wl18xx_conf wl18xx_default_conf = {
 	.phy = {
 		.phy_standalone			= 0x00,
@@ -272,6 +274,16 @@ static void wl18xx_ack_event(struct wl1271 *wl)
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL18XX_INTR_TRIG_EVENT_ACK);
 }
 
+struct wl18xx_priv {
+};
+
+static u32
+wl18xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
+			   bool dummy_packet)
+{
+	return WL18XX_TX_HW_BLOCK_SPARE;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -280,9 +292,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.post_boot	= wl18xx_post_boot,
 	.trigger_cmd	= wl18xx_trigger_cmd,
 	.ack_event	= wl18xx_ack_event,
-};
-
-struct wl18xx_priv {
+	.get_tx_spare_blocks = wl18xx_get_tx_spare_blocks,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)

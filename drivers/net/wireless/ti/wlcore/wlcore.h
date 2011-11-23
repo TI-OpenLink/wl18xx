@@ -37,6 +37,9 @@ struct wlcore_ops {
 	void (*post_boot)(struct wl1271 *wl);
 	void (*trigger_cmd)(struct wl1271 *wl);
 	void (*ack_event)(struct wl1271 *wl);
+	u32 (*get_tx_spare_blocks)(struct wl1271* wl,
+				   struct wl12xx_vif *wlvif,
+				   bool dummy_packet);
 };
 
 enum wlcore_partitions {
@@ -141,9 +144,6 @@ struct wl1271 {
 	u32 tx_blocks_available;
 	u32 tx_allocated_blocks;
 	u32 tx_results_count;
-
-	/* amount of spare TX blocks to use */
-	u32 tx_spare_blocks;
 
 	/* Accounting for allocated / available Tx packets in HW */
 	u32 tx_pkts_freed[NUM_TX_QUEUES];
