@@ -204,14 +204,15 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		return wlvif->dev_hlid;
 }
 
-static unsigned int wl12xx_calc_packet_alignment(struct wl1271 *wl,
-						unsigned int packet_length)
+unsigned int wlcore_calc_packet_alignment(struct wl1271 *wl,
+					  unsigned int packet_length)
 {
 	if (wl->quirks & WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT)
 		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 	else
 		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
 }
+EXPORT_SYMBOL(wlcore_calc_packet_alignment);
 
 static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			      struct sk_buff *skb, u32 extra, u32 buf_offset,
@@ -219,7 +220,6 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 {
 	struct wl1271_tx_hw_descr *desc;
 	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
-	u32 len;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks;
@@ -233,17 +233,11 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (id < 0)
 		return id;
 
-	/* approximate the number of blocks required for this packet
-	   in the firmware */
-	len = wl12xx_calc_packet_alignment(wl, total_len);
-
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
 		is_dummy = true;
 
 	spare_blocks = wlcore_hw_get_tx_spare_blocks(wl, wlvif, is_dummy);
-
-	total_blocks = (len + TX_HW_BLOCK_SIZE - 1) / TX_HW_BLOCK_SIZE +
-		spare_blocks;
+	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
@@ -359,7 +353,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
 	desc->reserved = 0;
 
-	aligned_len = wl12xx_calc_packet_alignment(wl, skb->len);
+	aligned_len = wlcore_calc_packet_alignment(wl, skb->len);
 
 	if (wl->chip.id == CHIP_ID_1283_PG20) {
 		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
@@ -463,7 +457,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	 * In special cases, we want to align to a specific block size
 	 * (eg. for wl128x with SDIO we align to 256).
 	 */
-	total_len = wl12xx_calc_packet_alignment(wl, skb->len);
+	total_len = wlcore_calc_packet_alignment(wl, skb->len);
 
 	memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
 	memset(wl->aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);

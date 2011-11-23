@@ -31,6 +31,7 @@
 #include "conf.h"
 
 #define WL18XX_TX_HW_BLOCK_SPARE        1
+#define WL18XX_TX_HW_BLOCK_SIZE         268
 
 static struct wl18xx_conf wl18xx_default_conf = {
 	.phy = {
@@ -284,6 +285,12 @@ wl18xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
 	return WL18XX_TX_HW_BLOCK_SPARE;
 }
 
+static u32 wl18xx_calc_tx_blocks(struct wl1271* wl, u32 len, u32 spare_blks)
+{
+	u32 blk_size = WL18XX_TX_HW_BLOCK_SIZE;
+	return (len + blk_size - 1) / blk_size + spare_blks;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -293,6 +300,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.trigger_cmd	= wl18xx_trigger_cmd,
 	.ack_event	= wl18xx_ack_event,
 	.get_tx_spare_blocks = wl18xx_get_tx_spare_blocks,
+	.calc_tx_blocks = wl18xx_calc_tx_blocks,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)

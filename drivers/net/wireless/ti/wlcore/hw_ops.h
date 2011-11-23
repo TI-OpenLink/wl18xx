@@ -34,5 +34,14 @@ wlcore_hw_get_tx_spare_blocks(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	return wl->ops->get_tx_spare_blocks(wl, wlvif, dummy_packet);
 }
 
+static inline u32
+wlcore_hw_calc_tx_blocks(struct wl1271 *wl, u32 len, u32 spare_blks)
+{
+	if (!wl->ops->calc_tx_blocks)
+		BUG_ON(1);
+
+	return wl->ops->calc_tx_blocks(wl, len, spare_blks);
+}
+
 #endif
 
