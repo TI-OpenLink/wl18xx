@@ -37,6 +37,94 @@
 #define WL12XX_TX_HW_BLOCK_SPARE_DEFAULT        1
 #define WL12XX_TX_HW_BLOCK_SIZE                 252
 
+static const u8 wl12xx_rate_to_idx_2ghz[] = {
+	/* MCS rates are used only with 11n */
+	7,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS7 */
+	6,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS6 */
+	5,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS5 */
+	4,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS4 */
+	3,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS3 */
+	2,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS2 */
+	1,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS1 */
+	0,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS0 */
+
+	11,                            /* WL12XX_CONF_HW_RXTX_RATE_54   */
+	10,                            /* WL12XX_CONF_HW_RXTX_RATE_48   */
+	9,                             /* WL12XX_CONF_HW_RXTX_RATE_36   */
+	8,                             /* WL12XX_CONF_HW_RXTX_RATE_24   */
+
+	/* TI-specific rate */
+	CONF_HW_RXTX_RATE_UNSUPPORTED, /* WL12XX_CONF_HW_RXTX_RATE_22   */
+
+	7,                             /* WL12XX_CONF_HW_RXTX_RATE_18   */
+	6,                             /* WL12XX_CONF_HW_RXTX_RATE_12   */
+	3,                             /* WL12XX_CONF_HW_RXTX_RATE_11   */
+	5,                             /* WL12XX_CONF_HW_RXTX_RATE_9    */
+	4,                             /* WL12XX_CONF_HW_RXTX_RATE_6    */
+	2,                             /* WL12XX_CONF_HW_RXTX_RATE_5_5  */
+	1,                             /* WL12XX_CONF_HW_RXTX_RATE_2    */
+	0                              /* WL12XX_CONF_HW_RXTX_RATE_1    */
+};
+
+static const u8 wl12xx_rate_to_idx_5ghz[] = {
+	/* MCS rates are used only with 11n */
+	7,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS7 */
+	6,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS6 */
+	5,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS5 */
+	4,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS4 */
+	3,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS3 */
+	2,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS2 */
+	1,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS1 */
+	0,                             /* WL12XX_CONF_HW_RXTX_RATE_MCS0 */
+
+	7,                             /* WL12XX_CONF_HW_RXTX_RATE_54   */
+	6,                             /* WL12XX_CONF_HW_RXTX_RATE_48   */
+	5,                             /* WL12XX_CONF_HW_RXTX_RATE_36   */
+	4,                             /* WL12XX_CONF_HW_RXTX_RATE_24   */
+
+	/* TI-specific rate */
+	CONF_HW_RXTX_RATE_UNSUPPORTED, /* WL12XX_CONF_HW_RXTX_RATE_22   */
+
+	3,                             /* WL12XX_CONF_HW_RXTX_RATE_18   */
+	2,                             /* WL12XX_CONF_HW_RXTX_RATE_12   */
+	CONF_HW_RXTX_RATE_UNSUPPORTED, /* WL12XX_CONF_HW_RXTX_RATE_11   */
+	1,                             /* WL12XX_CONF_HW_RXTX_RATE_9    */
+	0,                             /* WL12XX_CONF_HW_RXTX_RATE_6    */
+	CONF_HW_RXTX_RATE_UNSUPPORTED, /* WL12XX_CONF_HW_RXTX_RATE_5_5  */
+	CONF_HW_RXTX_RATE_UNSUPPORTED, /* WL12XX_CONF_HW_RXTX_RATE_2    */
+	CONF_HW_RXTX_RATE_UNSUPPORTED  /* WL12XX_CONF_HW_RXTX_RATE_1    */
+};
+
+static const u8 *wl12xx_band_rate_to_idx[] = {
+	[IEEE80211_BAND_2GHZ] = wl12xx_rate_to_idx_2ghz,
+	[IEEE80211_BAND_5GHZ] = wl12xx_rate_to_idx_5ghz
+};
+
+enum wl12xx_hw_rates {
+	WL12XX_CONF_HW_RXTX_RATE_MCS7 = 0,
+	WL12XX_CONF_HW_RXTX_RATE_MCS6,
+	WL12XX_CONF_HW_RXTX_RATE_MCS5,
+	WL12XX_CONF_HW_RXTX_RATE_MCS4,
+	WL12XX_CONF_HW_RXTX_RATE_MCS3,
+	WL12XX_CONF_HW_RXTX_RATE_MCS2,
+	WL12XX_CONF_HW_RXTX_RATE_MCS1,
+	WL12XX_CONF_HW_RXTX_RATE_MCS0,
+	WL12XX_CONF_HW_RXTX_RATE_54,
+	WL12XX_CONF_HW_RXTX_RATE_48,
+	WL12XX_CONF_HW_RXTX_RATE_36,
+	WL12XX_CONF_HW_RXTX_RATE_24,
+	WL12XX_CONF_HW_RXTX_RATE_22,
+	WL12XX_CONF_HW_RXTX_RATE_18,
+	WL12XX_CONF_HW_RXTX_RATE_12,
+	WL12XX_CONF_HW_RXTX_RATE_11,
+	WL12XX_CONF_HW_RXTX_RATE_9,
+	WL12XX_CONF_HW_RXTX_RATE_6,
+	WL12XX_CONF_HW_RXTX_RATE_5_5,
+	WL12XX_CONF_HW_RXTX_RATE_2,
+	WL12XX_CONF_HW_RXTX_RATE_1,
+	WL12XX_CONF_HW_RXTX_RATE_MAX,
+};
+
 static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 	[PART_DOWN] = {
 		.mem = {
@@ -635,6 +723,32 @@ wl12xx_set_tx_desc_data_len(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 	}
 }
 
+static u8
+wl12xx_rate_to_idx(struct wl1271 *wl, enum ieee80211_band band, int rate)
+{
+	u8 idx;
+
+	BUG_ON(band >= sizeof(wl12xx_band_rate_to_idx)/sizeof(u8 *));
+
+	if (unlikely(rate >= WL12XX_CONF_HW_RXTX_RATE_MAX)) {
+		wl1271_error("Illegal RX rate from HW: %d", rate);
+		return 0;
+	}
+
+	idx = wl12xx_band_rate_to_idx[band][rate];
+	if (unlikely(idx == CONF_HW_RXTX_RATE_UNSUPPORTED)) {
+		wl1271_error("Unsupported RX rate from HW: %d", rate);
+		return 0;
+	}
+
+	return idx;
+}
+
+static bool wl12xx_is_ht_rate(struct wl1271 *wl, int hw_rate)
+{
+	return (hw_rate <= WL12XX_CONF_HW_RXTX_RATE_MCS0);
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -647,6 +761,8 @@ static struct wlcore_ops wl12xx_ops = {
 	.calc_tx_blocks = wl12xx_calc_tx_blocks,
 	.set_tx_desc_blocks = wl12xx_set_tx_desc_blocks,
 	.set_tx_desc_data_len = wl12xx_set_tx_desc_data_len,
+	.rate_to_idx = wl12xx_rate_to_idx,
+	.is_ht_rate = wl12xx_is_ht_rate,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
