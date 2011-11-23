@@ -126,6 +126,6 @@ struct wl1271_rx_descriptor {
 	u8  reserved;
 } __packed;
 
-void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status);
+void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status);
 
 #endif
