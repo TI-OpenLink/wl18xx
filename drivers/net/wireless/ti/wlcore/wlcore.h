@@ -52,6 +52,11 @@ struct wlcore_ops {
 				     struct sk_buff *skb);
 };
 
+enum wlcore_chip_family {
+	WL12XX_CHIP = 0,
+	WL18XX_CHIP,
+};
+
 enum wlcore_partitions {
 	PART_DOWN,
 	PART_WORK,
@@ -307,6 +312,9 @@ struct wl1271 {
 
 	/* number of TX descriptors the HW supports. */
 	u32 num_tx_desc;
+
+	/* the family (type) of the current chip */
+	enum wlcore_chip_family chip_family;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
