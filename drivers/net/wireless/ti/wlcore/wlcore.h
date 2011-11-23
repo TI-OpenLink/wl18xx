@@ -47,6 +47,9 @@ struct wlcore_ops {
 	void (*set_tx_desc_blocks)(struct wl1271 *wl,
 				   struct wl1271_tx_hw_descr *desc,
 				   u32 blks, u32 spare_blks);
+	void (*set_tx_desc_data_len)(struct wl1271 *wl,
+				     struct wl1271_tx_hw_descr *desc,
+				     struct sk_buff *skb);
 };
 
 enum wlcore_partitions {
