@@ -30,11 +30,13 @@
 #include "../wlcore/debug.h"
 #include "../wlcore/io.h"
 #include "../wlcore/acx.h"
+#include "../wlcore/tx.h"
 
 #include "reg.h"
 
 #define WL12XX_TX_HW_BLOCK_SPARE_DEFAULT        1
 #define WL12XX_TX_HW_BLOCK_GEM_SPARE            2
+#define WL12XX_TX_HW_BLOCK_SIZE                 252
 
 
 static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
@@ -563,6 +565,18 @@ static void wl12xx_ack_event(struct wl1271 *wl)
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_EVENT_ACK);
 }
 
+struct wl12xx_priv {
+};
+
+static u32 wl12xx_calc_tx_blocks(struct wl1271* wl, u32 len, u32 spare_blks)
+{
+	u32 blk_size = WL12XX_TX_HW_BLOCK_SIZE;
+	u32 align_len = wlcore_calc_packet_alignment(wl, len);
+
+	return (align_len + blk_size - 1) / blk_size + spare_blks;
+}
+
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -570,9 +584,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.post_boot	= wl12xx_post_boot,
 	.trigger_cmd	= wl12xx_trigger_cmd,
 	.ack_event	= wl12xx_ack_event,
-};
-
-struct wl12xx_priv {
+	.calc_tx_blocks = wl12xx_calc_tx_blocks,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
