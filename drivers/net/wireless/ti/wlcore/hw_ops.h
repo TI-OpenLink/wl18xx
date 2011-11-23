@@ -64,5 +64,24 @@ wlcore_hw_set_tx_desc_data_len(struct wl1271 *wl,
 	wl->ops->set_tx_desc_data_len(wl, desc, skb);
 }
 
+static inline u8
+wlcore_hw_rate_to_idx(struct wl1271 *wl, enum ieee80211_band band, int rate)
+{
+	if (!wl->ops->rate_to_idx)
+		BUG_ON(1);
+
+	return wl->ops->rate_to_idx(wl, band, rate);
+}
+
+static inline bool
+wlcore_hw_is_ht_rate(struct wl1271 *wl, int hw_rate)
+{
+
+	if (!wl->ops->is_ht_rate)
+		BUG_ON(1);
+
+	return wl->ops->is_ht_rate(wl, hw_rate);
+}
+
 #endif
 

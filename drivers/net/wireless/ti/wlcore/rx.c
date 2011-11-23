@@ -30,6 +30,7 @@
 #include "rx.h"
 #include "tx.h"
 #include "io.h"
+#include "hw_ops.h"
 
 /*
  * TODO: this is here just for now, it must be removed when the data
@@ -71,10 +72,10 @@ static void wl1271_rx_status(struct wl1271 *wl,
 	else
 		status->band = IEEE80211_BAND_5GHZ;
 
-	status->rate_idx = wl1271_rate_to_idx(desc->rate, status->band);
+	status->rate_idx = wlcore_hw_rate_to_idx(wl, status->band, desc->rate);
 
 	/* 11n support */
-	if (desc->rate <= CONF_HW_RXTX_RATE_MCS0)
+	if (wlcore_hw_is_ht_rate(wl, desc->rate))
 		status->flag |= RX_FLAG_HT;
 
 	status->signal = desc->rssi;
