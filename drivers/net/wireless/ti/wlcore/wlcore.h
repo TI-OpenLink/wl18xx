@@ -50,6 +50,9 @@ struct wlcore_ops {
 	void (*set_tx_desc_data_len)(struct wl1271 *wl,
 				     struct wl1271_tx_hw_descr *desc,
 				     struct sk_buff *skb);
+	u8 (*rate_to_idx)(struct wl1271 *wl, enum ieee80211_band band,
+			  int rate);
+	bool (*is_ht_rate)(struct wl1271 *wl, int hw_rate);
 };
 
 enum wlcore_chip_family {
