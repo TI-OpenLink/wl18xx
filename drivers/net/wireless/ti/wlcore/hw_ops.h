@@ -1,0 +1,38 @@
+/*
+ * This file is part of wlcore
+ *
+ * Copyright (C) 2011 Texas Instruments Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ *
+ */
+
+#ifndef __WLCORE_HW_OPS_H__
+#define __WLCORE_HW_OPS_H__
+
+#include "wlcore.h"
+
+static inline u32
+wlcore_hw_get_tx_spare_blocks(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			      bool dummy_packet)
+{
+	if (!wl->ops->get_tx_spare_blocks)
+		BUG_ON(1);
+
+	return wl->ops->get_tx_spare_blocks(wl, wlvif, dummy_packet);
+}
+
+#endif
+
