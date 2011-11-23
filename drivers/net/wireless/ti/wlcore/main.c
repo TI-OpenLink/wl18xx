@@ -1828,7 +1828,6 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	wl->tx_results_count = 0;
 	wl->tx_packets_count = 0;
 	wl->time_offset = 0;
-	wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sched_scanning = false;
@@ -2845,17 +2844,6 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		static const u8 bcast_addr[ETH_ALEN] = {
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 		};
-
-		/*
-		 * A STA set to GEM cipher requires 2 tx spare blocks.
-		 * Return to default value when GEM cipher key is removed
-		 */
-		if (key_type == KEY_GEM) {
-			if (action == KEY_ADD_OR_REPLACE)
-				wl->tx_spare_blocks = 2;
-			else if (action == KEY_REMOVE)
-				wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
-		}
 
 		addr = sta ? sta->addr : bcast_addr;
 
@@ -5008,7 +4996,6 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
-	wl->tx_spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;
 	wl->active_sta_count = 0;
 	wl->fwlog_size = 0;

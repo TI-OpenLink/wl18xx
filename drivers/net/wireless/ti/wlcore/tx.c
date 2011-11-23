@@ -31,6 +31,7 @@
 #include "ps.h"
 #include "tx.h"
 #include "event.h"
+#include "hw_ops.h"
 
 /*
  * TODO: this is here just for now, it must be removed when the data
@@ -221,7 +222,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	u32 len;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
-	u32 spare_blocks = wl->tx_spare_blocks;
+	u32 spare_blocks;
 	bool is_dummy = false;
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
@@ -236,11 +237,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	   in the firmware */
 	len = wl12xx_calc_packet_alignment(wl, total_len);
 
-	/* in case of a dummy packet, use default amount of spare mem blocks */
-	if (unlikely(wl12xx_is_dummy_packet(wl, skb))) {
+	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
 		is_dummy = true;
-		spare_blocks = TX_HW_BLOCK_SPARE_DEFAULT;
-	}
+
+	spare_blocks = wlcore_hw_get_tx_spare_blocks(wl, wlvif, is_dummy);
 
 	total_blocks = (len + TX_HW_BLOCK_SIZE - 1) / TX_HW_BLOCK_SIZE +
 		spare_blocks;

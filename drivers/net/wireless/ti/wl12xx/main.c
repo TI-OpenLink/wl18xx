@@ -33,6 +33,8 @@
 
 #include "reg.h"
 
+#define WL12XX_TX_HW_BLOCK_SPARE_DEFAULT        1
+
 static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 	[PART_DOWN] = {
 		.mem = {
@@ -559,6 +561,25 @@ static void wl12xx_ack_event(struct wl1271 *wl)
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_EVENT_ACK);
 }
 
+struct wl12xx_priv {
+};
+
+static u32
+wl12xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
+			   bool dummy_packet)
+{
+	if (dummy_packet)
+		return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+
+	/*
+	 * TODO: to support GEM we must have per vif tracking of the number
+	 * of spare blocks. This should be changed on add/remove interface,
+	 * as well as on set_key().
+	 * For now return a hard-coded value that works for everything else.
+	 */
+	return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -566,9 +587,8 @@ static struct wlcore_ops wl12xx_ops = {
 	.post_boot	= wl12xx_post_boot,
 	.trigger_cmd	= wl12xx_trigger_cmd,
 	.ack_event	= wl12xx_ack_event,
-};
-
-struct wl12xx_priv {
+	.get_tx_spare_blocks = wl12xx_get_tx_spare_blocks,
+	.get_tx_spare_blocks = wl12xx_get_tx_spare_blocks,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
