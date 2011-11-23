@@ -40,6 +40,7 @@ struct wlcore_ops {
 	u32 (*get_tx_spare_blocks)(struct wl1271* wl,
 				   struct wl12xx_vif *wlvif,
 				   bool dummy_packet);
+	u32 (*calc_tx_blocks)(struct wl1271* wl, u32 len, u32 spare_blks);
 };
 
 enum wlcore_partitions {
