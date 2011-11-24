@@ -1721,3 +1721,11 @@ int ieee80211_get_open_count(struct ieee80211_hw *hw,
 	return count;
 }
 EXPORT_SYMBOL(ieee80211_get_open_count);
+
+bool ieee80211_suspending(struct ieee80211_hw *hw)
+{
+	struct ieee80211_local *local = hw_to_local(hw);
+
+	return local->quiescing;
+}
+EXPORT_SYMBOL(ieee80211_suspending);
