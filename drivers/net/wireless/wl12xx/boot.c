@@ -824,6 +824,8 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	if (ret < 0)
 		goto out;
 
+	/* update loaded fw type */
+	wl->fw_type = wl->saved_fw_type;
 out:
 	return ret;
 }

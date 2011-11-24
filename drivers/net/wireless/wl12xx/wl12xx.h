@@ -335,6 +335,7 @@ struct wl1271 {
 
 	enum wl1271_state state;
 	enum wl12xx_fw_type fw_type;
+	enum wl12xx_fw_type saved_fw_type;
 	struct mutex mutex;
 
 	unsigned long flags;
