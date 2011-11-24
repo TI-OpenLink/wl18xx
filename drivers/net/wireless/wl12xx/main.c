@@ -2603,6 +2603,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 			if (test_bit(WLVIF_FLAG_STA_ASSOCIATED,
 				     &wlvif->flags)) {
+#if 0
 				if (wl12xx_dev_role_started(wlvif)) {
 					/* roaming */
 					ret = wl12xx_croc(wl,
@@ -2614,6 +2615,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				if (ret < 0)
 					wl1271_warning("cmd join on channel "
 						       "failed %d", ret);
+#endif
 			} else {
 				/*
 				 * change the ROC channel. do it only if we are
