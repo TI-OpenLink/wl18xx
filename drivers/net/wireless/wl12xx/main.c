@@ -3432,8 +3432,12 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 
 	if ((changed & BSS_CHANGED_AP_PROBE_RESP) && is_ap) {
 		ret = wl1271_ap_set_probe_resp_tmpl(wl,
-			wl1271_tx_min_rate_get(wl, wl->basic_rate_set));
-		if (ret < 0)
+			      wl1271_tx_min_rate_get(wl, wl->basic_rate_set));
+
+		/* if BSS_CHANGED_BEACON is also marked then fall through
+		 * and the probe response will be set from the beacon */
+		if ((ret < 0) &&
+		    !(changed & BSS_CHANGED_BEACON))
 			goto out;
 	}
 
