@@ -479,6 +479,11 @@ static u32 wl18xx_get_rx_packet_len(struct wl1271 *wl, void *rx_data,
 	return data_len - sizeof(*desc);
 }
 
+static void wl18xx_tx_immediate_completion(struct wl1271 *wl)
+{
+	wl18xx_tx_immediate_complete(wl);
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -496,6 +501,8 @@ static struct wlcore_ops wl18xx_ops = {
 	.get_rx_buf_align = wl18xx_get_rx_buf_align,
 	.read_data = wl18xx_read_data,
 	.get_rx_packet_len = wl18xx_get_rx_packet_len,
+	.tx_immediate_completion = wl18xx_tx_immediate_completion,
+	.tx_delayed_completion = NULL,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)

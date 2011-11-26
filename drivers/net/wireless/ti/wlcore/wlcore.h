@@ -59,6 +59,8 @@ struct wlcore_ops {
 	void (*read_data)(struct wl1271 *wl, u32 rx_desc, u32 len);
 	u32 (*get_rx_packet_len)(struct wl1271 *wl, void *rx_data,
 				 u32 data_len);
+	void (*tx_delayed_completion)(struct wl1271 *wl);
+	void (*tx_immediate_completion)(struct wl1271 *wl);
 };
 
 enum wlcore_chip_family {
@@ -324,6 +326,10 @@ struct wl1271 {
 
 	/* the family (type) of the current chip */
 	enum wlcore_chip_family chip_family;
+
+	/* TODO: put in 18xx priv struct, along with clearing function. */
+	/* Index of last released Tx desc in 18xx FW */
+	u8 last_fw_rls_idx;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
