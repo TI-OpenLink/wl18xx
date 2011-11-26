@@ -63,14 +63,6 @@ static u32 wlcore_rx_get_align_buf_size(struct wl1271 *wl, u32 pkt_len)
 	return pkt_len;
 }
 
-static bool wl12xx_rx_get_unaligned(struct wl_fw_status *status,
-				    u32 drv_rx_counter)
-{
-	/* Convert the value to bool */
-	return !!(le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]) &
-		RX_BUF_UNALIGNED_PAYLOAD);
-}
-
 static void wl1271_rx_status(struct wl1271 *wl,
 			     struct wl1271_rx_descriptor *desc,
 			     struct ieee80211_rx_status *status,
@@ -115,7 +107,7 @@ static void wl1271_rx_status(struct wl1271 *wl,
 }
 
 static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
-				 bool unaligned, u8 *hlid)
+				 enum wl_rx_buf_align rx_align, u8 *hlid)
 {
 	struct wl1271_rx_descriptor *desc;
 	struct sk_buff *skb;
@@ -123,7 +115,7 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	u8 *buf;
 	u8 beacon = 0;
 	u8 is_data = 0;
-	u8 reserved = unaligned ? NET_IP_ALIGN : 0;
+	u8 reserved = 0;
 	u16 seq_num;
 
 	/*
@@ -132,6 +124,9 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	 */
 	if (unlikely(wl->state == WL1271_STATE_PLT))
 		return -EINVAL;
+
+	if (rx_align == WLCORE_RX_BUF_UNALIGNED)
+		reserved = NET_IP_ALIGN;
 
 	/* the data read starts with the descriptor */
 	desc = (struct wl1271_rx_descriptor *) data;
@@ -178,6 +173,9 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	 * payload aligned to 4 bytes.
 	 */
 	memcpy(buf, data + sizeof(*desc), length - sizeof(*desc));
+	if (rx_align == WLCORE_RX_BUF_PADDED)
+		skb_pull(skb, NET_IP_ALIGN);
+
 	*hlid = desc->hlid;
 
 	hdr = (struct ieee80211_hdr *)skb->data;
@@ -214,7 +212,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 	u32 pkt_len, align_pkt_len;
 	u32 pkt_offset, desc;
 	u8 hlid;
-	bool unaligned = false;
+	enum wl_rx_buf_align rx_align;
 
 	while (drv_rx_counter != fw_rx_counter) {
 		buf_size = 0;
@@ -265,8 +263,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 		while (pkt_offset < buf_size) {
 			desc = le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]);
 			pkt_len = wlcore_rx_get_buf_size(wl, desc);
-			unaligned = wl12xx_rx_get_unaligned(status,
-					drv_rx_counter);
+			rx_align = wlcore_hw_get_rx_buf_align(wl, desc);
 
 			/*
 			 * the handle data call can only fail in memory-outage
@@ -275,7 +272,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 			 */
 			if (wl1271_rx_handle_data(wl,
 						  wl->aggr_buf + pkt_offset,
-						  pkt_len, unaligned,
+						  pkt_len, rx_align,
 						  &hlid) == 1) {
 				WARN_ON(hlid >= WL12XX_MAX_LINKS);
 				__set_bit(hlid, active_hlids);

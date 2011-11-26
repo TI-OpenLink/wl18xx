@@ -27,6 +27,7 @@
 #include "../wlcore/io.h"
 #include "../wlcore/acx.h"
 #include "../wlcore/tx.h"
+#include "../wlcore/rx.h"
 
 #include "reg.h"
 #include "conf.h"
@@ -451,6 +452,16 @@ static bool wl18xx_is_ht_rate(struct wl1271 *wl, int hw_rate)
 	return (hw_rate <= WL18XX_CONF_HW_RXTX_RATE_MCS0);
 }
 
+static enum wl_rx_buf_align
+wl18xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
+{
+	if (rx_desc & RX_BUF_PADDED_PAYLOAD)
+		return WLCORE_RX_BUF_PADDED;
+
+	return WLCORE_RX_BUF_ALIGNED;
+}
+
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -465,6 +476,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.set_tx_desc_data_len = wl18xx_set_tx_desc_data_len,
 	.rate_to_idx = wl18xx_rate_to_idx,
 	.is_ht_rate = wl18xx_is_ht_rate,
+	.get_rx_buf_align = wl18xx_get_rx_buf_align,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)

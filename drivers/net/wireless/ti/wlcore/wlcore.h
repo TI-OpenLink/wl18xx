@@ -26,12 +26,12 @@
 
 #include "wl12xx.h"
 
-/* forward declaration */
-struct wl1271_tx_hw_descr;
-
 /* The maximum number of Tx descriptors in all chip families */
 #define MAX_ACX_TX_DESCRIPTORS 32
 
+/* forward declaration */
+struct wl1271_tx_hw_descr;
+enum wl_rx_buf_align;
 struct wlcore_ops {
 	int (*identify_chip)(struct wl1271 *wl);
 	int (*pre_boot)(struct wl1271 *wl);
@@ -53,6 +53,8 @@ struct wlcore_ops {
 	u8 (*rate_to_idx)(struct wl1271 *wl, enum ieee80211_band band,
 			  int rate);
 	bool (*is_ht_rate)(struct wl1271 *wl, int hw_rate);
+	enum wl_rx_buf_align (*get_rx_buf_align)(struct wl1271 *wl,
+						 u32 rx_desc);
 };
 
 enum wlcore_chip_family {
