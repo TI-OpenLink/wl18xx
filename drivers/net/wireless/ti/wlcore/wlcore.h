@@ -55,6 +55,7 @@ struct wlcore_ops {
 	bool (*is_ht_rate)(struct wl1271 *wl, int hw_rate);
 	enum wl_rx_buf_align (*get_rx_buf_align)(struct wl1271 *wl,
 						 u32 rx_desc);
+	void (*read_data)(struct wl1271 *wl, u32 rx_desc, u32 len);
 };
 
 enum wlcore_chip_family {
