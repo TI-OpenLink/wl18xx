@@ -94,5 +94,14 @@ wlcore_hw_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 	return wl->ops->get_rx_buf_align(wl, rx_desc);
 }
 
+static inline void
+wlcore_hw_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
+{
+	if (!wl->ops->read_data)
+		BUG_ON(1);
+
+	wl->ops->read_data(wl, rx_desc, len);
+}
+
 #endif
 
