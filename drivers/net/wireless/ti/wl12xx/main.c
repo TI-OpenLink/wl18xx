@@ -800,6 +800,14 @@ static u32 wl12xx_get_rx_packet_len(struct wl1271 *wl, void *rx_data,
 	return data_len - sizeof(*desc) - desc->pad_len;
 }
 
+static void wl12xx_tx_delayed_completion(struct wl1271 *wl)
+{
+	if (wl->fw_status->tx_results_counter == (wl->tx_results_count & 0xff))
+		return;
+
+	wl1271_tx_complete(wl);
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -817,6 +825,8 @@ static struct wlcore_ops wl12xx_ops = {
 	.get_rx_buf_align = wl12xx_get_rx_buf_align,
 	.read_data = wl12xx_read_data,
 	.get_rx_packet_len = wl12xx_get_rx_packet_len,
+	.tx_immediate_completion = NULL,
+	.tx_delayed_completion = wl12xx_tx_delayed_completion,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
