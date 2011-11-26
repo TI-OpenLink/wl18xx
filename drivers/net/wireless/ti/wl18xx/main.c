@@ -467,6 +467,18 @@ static void wl18xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
 	wl1271_read(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf, len, true);
 }
 
+static u32 wl18xx_get_rx_packet_len(struct wl1271 *wl, void *rx_data,
+				    u32 data_len)
+{
+	struct wl1271_rx_descriptor *desc = rx_data;
+
+	/* invalid packet */
+	if (data_len < sizeof(*desc))
+		return 0;
+
+	return data_len - sizeof(*desc);
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -483,6 +495,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.is_ht_rate = wl18xx_is_ht_rate,
 	.get_rx_buf_align = wl18xx_get_rx_buf_align,
 	.read_data = wl18xx_read_data,
+	.get_rx_packet_len = wl18xx_get_rx_packet_len,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
