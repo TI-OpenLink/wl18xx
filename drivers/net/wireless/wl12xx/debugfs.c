@@ -693,6 +693,9 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_STR(chip.fw_ver_str);
 	DRIVER_STATE_PRINT_STR(chip.phy_fw_ver_str);
 	DRIVER_STATE_PRINT_INT(sched_scanning);
+	DRIVER_STATE_PRINT_INT(last_fw_release_index);
+	DRIVER_STATE_PRINT_INT(free_tx_desc_counter);
+
 
 #undef DRIVER_STATE_PRINT_INT
 #undef DRIVER_STATE_PRINT_LONG
