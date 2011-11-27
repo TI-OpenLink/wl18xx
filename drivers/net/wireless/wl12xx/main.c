@@ -2442,6 +2442,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
 	wl->last_fw_release_index = 0;
+	wl->free_tx_desc_counter = 0;
 }
 
 static void wl1271_op_remove_interface(struct ieee80211_hw *hw,

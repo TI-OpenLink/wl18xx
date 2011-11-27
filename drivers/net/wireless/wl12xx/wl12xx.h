@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.14"
+#define DRIVER_VERSION "WL18XX_A1.15"
 
 /*
  * FW versions support BA 11n
@@ -549,6 +549,7 @@ struct wl1271 {
 	struct sk_buff *tx_frames[ACX_TX_DESCRIPTORS];
 	int tx_frames_cnt;
 	u8 last_fw_release_index;
+	u32 free_tx_desc_counter;
   
 	/*
 	 * Security sequence number
