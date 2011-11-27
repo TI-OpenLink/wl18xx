@@ -4788,9 +4788,8 @@ static const u8 wl1271_rate_to_idx_2ghz[] = {
 #define HW_RX_HIGHEST_RATE_20MHZ_MIMO	144
 #define HW_RX_HIGHEST_RATE_40MHZ_SISO	150
 
+#define CAP_INFO IEEE80211_HT_CAP_SGI_20
 
-#define CAP_INFO (IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 | \
-					(1 << IEEE80211_HT_CAP_RX_STBC_SHIFT))
 #define RX_MASK { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 #define WL12XX_HT_CAP { \
