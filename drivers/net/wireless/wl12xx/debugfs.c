@@ -450,7 +450,6 @@ DEBUGFS_READONLY_FILE(excessive_retries, "%u",
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, primary_clock_setting_time, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, secondary_clock_setting_time, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, external_pa_dc2dc, 0)
-DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, srf_state, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, io_configuration, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, sdio_configuration, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, settings, 0)
@@ -479,6 +478,7 @@ DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, number_of_assembled_ant5, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, tcxo_ldo_voltage, 0)
 DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, hw_board_type, 0)
 DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, pin_muxing_platform_options, 16, PIN_MUXING_SIZE)
+DEBUGFS_SINGLE_PARAM_ADD(mac_and_phy_params, srf_state, 0)
 DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf1, 16, SRF_TABLE_LEN)
 DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf2, 16, SRF_TABLE_LEN)
 DEBUGFS_ARRAY_PARAM_ADD(mac_and_phy_params, srf3, 16, SRF_TABLE_LEN)
@@ -1987,7 +1987,6 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(fwlog_enable, rootdir);
 	DEBUGFS_ADD(beacon_filtering, rootdir);
 	DEBUGFS_ADD(tx_frag_thld, rootdir);
-	DEBUGFS_ADD(tx_ba_tid_bitmap, rootdir);
 	DEBUGFS_ADD(hw_checksum, rootdir);
 	DEBUGFS_ADD(min_req_rx_blocks, rootdir);
 	DEBUGFS_ADD(dynamic_memory, rootdir);
@@ -2026,20 +2025,20 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(external_pa_dc2dc, phy_mac_params)
 	DEBUGFS_ADD(tcxo_ldo_voltage, phy_mac_params)
 	DEBUGFS_ADD(pin_muxing_platform_options, phy_mac_params)
+	DEBUGFS_ADD(srf_state, phy_mac_params)
 	DEBUGFS_ADD(srf1, phy_mac_params)
 	DEBUGFS_ADD(srf2, phy_mac_params)
 	DEBUGFS_ADD(srf3, phy_mac_params)
 	DEBUGFS_ADD(hw_board_type, phy_mac_params)
 	DEBUGFS_ADD(hw_tx_extra_mem_blk, phy_mac_params)
 	DEBUGFS_ADD(tx_ba_win_size, rootdir);
-
+	DEBUGFS_ADD(tx_ba_tid_bitmap, rootdir);
 #endif
 
 
 	DEBUGFS_ADD(primary_clock_setting_time, phy_mac_params)
 	DEBUGFS_ADD(secondary_clock_setting_time, phy_mac_params)
 	DEBUGFS_ADD(xtal_itrim_val, phy_mac_params)
-	DEBUGFS_ADD(srf_state, phy_mac_params)
 	DEBUGFS_ADD(io_configuration, phy_mac_params)
 	DEBUGFS_ADD(sdio_configuration, phy_mac_params)
 	DEBUGFS_ADD(settings, phy_mac_params)
