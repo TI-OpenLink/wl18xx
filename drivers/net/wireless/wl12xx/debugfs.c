@@ -442,6 +442,13 @@ DEBUGFS_FWSTATS_FILE(new_pipe_line, dec_packet_out, "%u");
 DEBUGFS_FWSTATS_FILE(new_pipe_line, cs_rx_packet_in, "%u");
 DEBUGFS_FWSTATS_FILE(new_pipe_line, cs_rx_packet_out, "%u");
 
+/* memory */
+DEBUGFS_FWSTATS_FILE(mem, rx_free_mem_blks, "%u");
+DEBUGFS_FWSTATS_FILE(mem, tx_free_mem_blks, "%u");
+DEBUGFS_FWSTATS_FILE(mem, fw_log_free_mem_blks, "%u");
+DEBUGFS_FWSTATS_FILE(mem, fw_gen_free_mem_blks, "%u");
+
+
 DEBUGFS_READONLY_FILE(retry_count, "%u", wl->stats.retry_count);
 DEBUGFS_READONLY_FILE(excessive_retries, "%u",
 		      wl->stats.excessive_retries);
@@ -1972,6 +1979,12 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_FWSTATS_ADD(new_pipe_line, dec_packet_out);
 	DEBUGFS_FWSTATS_ADD(new_pipe_line, cs_rx_packet_in);
 	DEBUGFS_FWSTATS_ADD(new_pipe_line, cs_rx_packet_out);
+
+	/* memory */
+	DEBUGFS_FWSTATS_ADD(mem, rx_free_mem_blks);
+	DEBUGFS_FWSTATS_ADD(mem, tx_free_mem_blks);
+	DEBUGFS_FWSTATS_ADD(mem, fw_log_free_mem_blks);
+	DEBUGFS_FWSTATS_ADD(mem, fw_gen_free_mem_blks);
 
 
 	DEBUGFS_ADD(tx_queue_len, rootdir);
