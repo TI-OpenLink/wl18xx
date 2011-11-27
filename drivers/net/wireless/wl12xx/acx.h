@@ -724,6 +724,16 @@ struct acx_calibration_fail_statistics
     __le32 cal_state_fail;
 } __packed;
 
+
+struct acx_mem_statistics
+{
+	__le32 rx_free_mem_blks;
+	__le32 tx_free_mem_blks;
+	__le32 fw_log_free_mem_blks;
+	__le32 fw_gen_free_mem_blks;
+};
+
+
 struct acx_statistics {
 	struct acx_header header;
 
@@ -741,6 +751,7 @@ struct acx_statistics {
 	struct acx_rx_rates_statistics rx_rates;
 	struct acx_aggregation_size_statistics agg;
     struct acx_new_pipeline_statistics new_pipe_line;
+    struct acx_mem_statistics mem;
 } __packed;
 
 struct acx_rate_class {
