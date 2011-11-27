@@ -1042,7 +1042,8 @@ void wl1271_tx_complete(struct wl1271 *wl,
 	while (index != status->tx_desc_release_q.fw_release_index) {
 		wl1271_tx_complete_packet(wl, status->tx_desc_release_q.released_desc_ind_vec[index], status);
 		index++;
-
+		wl->free_tx_desc_counter++;
+        
 		if (index == ACX_TX_DESCRIPTORS) {
 			index = 0;
 		}
