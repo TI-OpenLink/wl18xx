@@ -35,6 +35,9 @@
 #include "tx.h"
 #include "io.h"
 
+extern u32 wl18xx_bool_40mhz;
+extern u32 wl18xx_bool_mimo;
+
 int wl1271_sta_init_templates_config(struct wl1271 *wl)
 {
 	int ret, i;
@@ -200,9 +203,23 @@ static int wl1271_ap_init_templates_config(struct wl1271 *wl)
 	 * Put very large empty placeholders for all templates. These
 	 * reserve memory for later.
 	 */
+	if (wl18xx_bool_40mhz) {
+		ret = wl1271_cmd_template_set(wl, CMD_TEMPL_CFG_PROBE_REQ_2_4, NULL,
+									  WL1271_CMD_TEMPL_MAX_SIZE,
+									  0, WL1271_RATE_AUTOMATIC);
+		if (ret < 0)
+			return ret;
+
+		ret = wl1271_cmd_template_set(wl, CMD_TEMPL_CFG_PROBE_REQ_5, NULL,
+									  WL1271_CMD_TEMPL_MAX_SIZE,
+									  0, WL1271_RATE_AUTOMATIC);
+		if (ret < 0)
+			return ret;
+	}
+
 	ret = wl1271_cmd_template_set(wl, CMD_TEMPL_AP_PROBE_RESPONSE, NULL,
-				      WL1271_CMD_TEMPL_MAX_SIZE,
-				      0, WL1271_RATE_AUTOMATIC);
+						      WL1271_CMD_TEMPL_MAX_SIZE,
+						      0, WL1271_RATE_AUTOMATIC);
 	if (ret < 0)
 		return ret;
 
@@ -522,6 +539,11 @@ int wl1271_init_ap_rates(struct wl1271 *wl)
 		supported_rates = CONF_TX_AP_ENABLED_RATES;
 
 	/* unconditionally enable HT rates */
+	if (wl18xx_bool_40mhz)
+		supported_rates |= CONF_TX_RATE_MASK_SISO_40_MHZ;
+	else if (wl18xx_bool_mimo)
+		supported_rates |= CONF_TX_RATE_MASK_MIMO_20MHZ;
+	else
 	supported_rates |= CONF_TX_MCS_RATES;
 
 	/* configure unicast TX rate classes */

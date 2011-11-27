@@ -732,6 +732,7 @@ int wl1271_cmd_role_start_ap(struct wl1271 *wl)
 	cmd->ap.dtim_interval = bss_conf->dtim_period;
 	cmd->ap.beacon_expiry = WL1271_AP_DEF_BEACON_EXP;
 	cmd->channel = wl->channel;
+	cmd->channel_type = (u8)wl->channel_type;
 
 	/* We use a visible SSID if the beacon SSID is non-zero */
 	if (wl->ssid_len > 0) {
