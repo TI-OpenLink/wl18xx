@@ -115,5 +115,14 @@ wlcore_hw_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	return 0;
 }
 
+static inline void
+wlcore_hw_set_rx_csum(struct wl1271 *wl,
+		      struct wl1271_rx_descriptor *desc,
+		      struct sk_buff *skb)
+{
+	if (wl->ops->set_rx_csum)
+		wl->ops->set_rx_csum(wl, desc, skb);
+}
+
 #endif
 
