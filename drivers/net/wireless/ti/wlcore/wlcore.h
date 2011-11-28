@@ -56,6 +56,9 @@ struct wlcore_ops {
 	void (*tx_delayed_completion)(struct wl1271 *wl);
 	void (*tx_immediate_completion)(struct wl1271 *wl);
 	int (*hw_init)(struct wl1271 *wl);
+	void (*set_tx_desc_csum)(struct wl1271 *wl,
+				 struct wl1271_tx_hw_descr *desc,
+				 struct sk_buff *skb);
 };
 
 enum wlcore_chip_family {
