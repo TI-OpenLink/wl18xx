@@ -60,6 +60,9 @@ struct wlcore_ops {
 	int (*init_vif)(struct wl1271* wl, struct wl12xx_vif *wlvif);
 	u32 (*sta_get_ap_rate_mask)(struct wl1271 *wl,
 				    struct wl12xx_vif *wlvif);
+	void (*set_tx_desc_csum)(struct wl1271 *wl,
+				 struct wl1271_tx_hw_descr *desc,
+				 struct sk_buff *skb);
 };
 
 enum wlcore_chip_family {

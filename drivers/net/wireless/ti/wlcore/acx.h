@@ -1223,6 +1223,7 @@ enum {
 	ACX_PM_CONFIG               = 0x1016,
 	ACX_CONFIG_PS               = 0x1017,
 	ACX_CONFIG_HANGOVER         = 0x1018,
+	ACX_CHECKSUM_CONFIG         = 0x1020,
 };
 
 
