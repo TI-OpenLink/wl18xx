@@ -989,7 +989,7 @@ void wl1271_tx_complete(struct wl1271 *wl,
 
 	index = wl->last_fw_release_index;
 
-	if (status->tx_desc_release_q.fw_release_index >= ACX_TX_DESCRIPTORS) {
+	if (status->tx_desc_release_q.fw_release_index >= FW_STATUS_TX_DESC_FREE_QLEN) {
 		wl1271_error("Bad FW TX desc release index %d", status->tx_desc_release_q.fw_release_index);
 		dump_release_q(& status->tx_desc_release_q);
         return;
@@ -1006,7 +1006,7 @@ void wl1271_tx_complete(struct wl1271 *wl,
 		index++;
 		wl->free_tx_desc_counter++;
         
-		if (index == ACX_TX_DESCRIPTORS) {
+		if (index == FW_STATUS_TX_DESC_FREE_QLEN) {
 			index = 0;
 		}
 	}

@@ -40,7 +40,7 @@
 
 #define DRIVER_NAME "wl18xx"
 #define DRIVER_PREFIX DRIVER_NAME ": "
-#define DRIVER_VERSION "WL18XX_A1.15"
+#define DRIVER_VERSION "WL18XX_A1.16"
 
 /*
  * FW versions support BA 11n
@@ -194,6 +194,7 @@ extern u32 wl12xx_debug_level;
 #define WL1271_AP_DEF_BEACON_EXP   20
 
 #define ACX_TX_DESCRIPTORS         32
+#define FW_STATUS_TX_DESC_FREE_QLEN (ACX_TX_DESCRIPTORS + 1)
 
 #define WL1271_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
 
@@ -293,7 +294,7 @@ struct fw_status_tx_free_q {
 
 	/* Vector queue of each host desc index of the frame which has finished processing */
 	/* The driver/host should use it to infer released host descriptors.                 */
-    u8 released_desc_ind_vec[ACX_TX_DESCRIPTORS];                                  
+    u8 released_desc_ind_vec[FW_STATUS_TX_DESC_FREE_QLEN];
 };
 
 /* FW status registers */
@@ -335,7 +336,7 @@ struct wl1271_fw_status {
 
 	/* Cumulative counter of released Voice memory blocks */
 	u8 tx_voice_released_blks;
-	u8 padding_1[6];
+	u8 padding_1[5];
 	__le32 log_start_addr;
 } __packed;
 

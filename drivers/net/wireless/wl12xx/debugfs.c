@@ -625,7 +625,7 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 {
 	struct wl1271 *wl = file->private_data;
 	int res = 0;
-	char buf[1024];
+	char buf[2048];
 
 	mutex_lock(&wl->mutex);
 
@@ -639,6 +639,8 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 #define DRIVER_STATE_PRINT_LHEX(x) DRIVER_STATE_PRINT(x, "0x%lx")
 #define DRIVER_STATE_PRINT_HEX(x)  DRIVER_STATE_PRINT(x, "0x%x")
 
+	DRIVER_STATE_PRINT_INT(last_fw_release_index);
+	DRIVER_STATE_PRINT_INT(free_tx_desc_counter);
 	DRIVER_STATE_PRINT_INT(tx_blocks_available);
 	DRIVER_STATE_PRINT_INT(tx_allocated_blocks);
 	DRIVER_STATE_PRINT_INT(tx_allocated_pkts[0]);
@@ -690,12 +692,9 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_HEX(hw_pg_ver);
 	DRIVER_STATE_PRINT_HEX(platform_quirks);
 	DRIVER_STATE_PRINT_HEX(chip.id);
+	DRIVER_STATE_PRINT_INT(sched_scanning);
 	DRIVER_STATE_PRINT_STR(chip.fw_ver_str);
 	DRIVER_STATE_PRINT_STR(chip.phy_fw_ver_str);
-	DRIVER_STATE_PRINT_INT(sched_scanning);
-	DRIVER_STATE_PRINT_INT(last_fw_release_index);
-	DRIVER_STATE_PRINT_INT(free_tx_desc_counter);
-
 
 #undef DRIVER_STATE_PRINT_INT
 #undef DRIVER_STATE_PRINT_LONG
