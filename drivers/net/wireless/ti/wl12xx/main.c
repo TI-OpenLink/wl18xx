@@ -1228,6 +1228,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.init_vif = NULL,
 	.sta_get_ap_rate_mask = wl12xx_sta_get_ap_rate_mask,
 	.set_tx_desc_csum = wl12xx_set_tx_desc_csum,
+	.set_rx_csum = NULL,
 };
 
 struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
