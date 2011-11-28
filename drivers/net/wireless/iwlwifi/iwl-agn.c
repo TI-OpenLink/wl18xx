@@ -1575,6 +1575,8 @@ static int iwl_init_drv(struct iwl_priv *priv)
 
 	mutex_init(&priv->shrd->mutex);
 
+	INIT_LIST_HEAD(&priv->calib_results);
+
 	priv->ieee_channels = NULL;
 	priv->ieee_rates = NULL;
 	priv->band = IEEE80211_BAND_2GHZ;
@@ -1680,6 +1682,35 @@ static int iwl_set_hw_params(struct iwl_priv *priv)
 
 
 
+static void iwl_debug_config(struct iwl_priv *priv)
+{
+	dev_printk(KERN_INFO, bus(priv)->dev, "CONFIG_IWLWIFI_DEBUG "
+#ifdef CONFIG_IWLWIFI_DEBUG
+		"enabled\n");
+#else
+		"disabled\n");
+#endif
+	dev_printk(KERN_INFO, bus(priv)->dev, "CONFIG_IWLWIFI_DEBUGFS "
+#ifdef CONFIG_IWLWIFI_DEBUGFS
+		"enabled\n");
+#else
+		"disabled\n");
+#endif
+	dev_printk(KERN_INFO, bus(priv)->dev, "CONFIG_IWLWIFI_DEVICE_TRACING "
+#ifdef CONFIG_IWLWIFI_DEVICE_TRACING
+		"enabled\n");
+#else
+		"disabled\n");
+#endif
+
+	dev_printk(KERN_INFO, bus(priv)->dev, "CONFIG_IWLWIFI_DEVICE_SVTOOL "
+#ifdef CONFIG_IWLWIFI_DEVICE_SVTOOL
+		"enabled\n");
+#else
+		"disabled\n");
+#endif
+}
+
 int iwl_probe(struct iwl_bus *bus, const struct iwl_trans_ops *trans_ops,
 		struct iwl_cfg *cfg)
 {
@@ -1714,6 +1745,9 @@ int iwl_probe(struct iwl_bus *bus, const struct iwl_trans_ops *trans_ops,
 	/* At this point both hw and priv are allocated. */
 
 	SET_IEEE80211_DEV(hw, bus(priv)->dev);
+
+	/* what debugging capabilities we have */
+	iwl_debug_config(priv);
 
 	IWL_DEBUG_INFO(priv, "*** LOAD DRIVER ***\n");
 	priv->cfg = cfg;
