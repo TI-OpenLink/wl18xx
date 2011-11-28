@@ -1203,6 +1203,13 @@ static void wl12xx_conf_init(struct wl1271 *wl)
 	memcpy(&priv->conf, &wl12xx_default_priv_conf, sizeof(priv->conf));
 }
 
+static void wl12xx_set_tx_desc_csum(struct wl1271 *wl,
+				    struct wl1271_tx_hw_descr *desc,
+				    struct sk_buff *skb)
+{
+	desc->wl12xx_reserved = 0;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.identify_fw	= wl12xx_identify_fw,
@@ -1220,6 +1227,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.hw_init	= wl12xx_hw_init,
 	.init_vif = NULL,
 	.sta_get_ap_rate_mask = wl12xx_sta_get_ap_rate_mask,
+	.set_tx_desc_csum = wl12xx_set_tx_desc_csum,
 };
 
 struct ieee80211_sta_ht_cap wl12xx_ht_cap = {

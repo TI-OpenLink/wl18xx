@@ -293,6 +293,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		u16 fc = *(u16 *)(framestart + extra);
 		int hdrlen = ieee80211_hdrlen(cpu_to_le16(fc));
 		memmove(framestart, framestart + extra, hdrlen);
+		skb_set_network_header(skb, skb_network_offset(skb) + extra);
 	}
 
 	/* configure packet life time */
@@ -349,9 +350,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 
 	tx_attr |= rate_idx << TX_HW_ATTR_OFST_RATE_POLICY;
-	desc->reserved = 0;
 	desc->tx_attr = cpu_to_le16(tx_attr);
 
+	wlcore_hw_set_tx_desc_csum(wl, desc, skb);
 	wlcore_hw_set_tx_desc_data_len(wl, desc, skb);
 }
 
