@@ -34,6 +34,7 @@
 #include "conf.h"
 
 #define WL18XX_TX_HW_BLOCK_SPARE        1
+#define WL18XX_TX_HW_GEM_BLOCK_SPARE    2
 #define WL18XX_TX_HW_BLOCK_SIZE         268
 
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
@@ -398,6 +399,9 @@ static u32
 wl18xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
 			   bool dummy_packet)
 {
+	if (!dummy_packet && wlvif->is_gem)
+		return WL18XX_TX_HW_GEM_BLOCK_SPARE;
+
 	return WL18XX_TX_HW_BLOCK_SPARE;
 }
 
