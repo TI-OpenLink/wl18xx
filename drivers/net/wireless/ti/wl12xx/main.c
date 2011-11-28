@@ -38,6 +38,7 @@
 #include "reg.h"
 
 #define WL12XX_TX_HW_BLOCK_SPARE_DEFAULT        1
+#define WL12XX_TX_HW_BLOCK_GEM_SPARE            2
 #define WL12XX_TX_HW_BLOCK_SIZE                 252
 
 static const u8 wl12xx_rate_to_idx_2ghz[] = {
@@ -661,15 +662,9 @@ static u32
 wl12xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
 			   bool dummy_packet)
 {
-	if (dummy_packet)
-		return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+	if (!dummy_packet && wlvif->is_gem)
+		return WL12XX_TX_HW_BLOCK_GEM_SPARE;
 
-	/*
-	 * TODO: to support GEM we must have per vif tracking of the number
-	 * of spare blocks. This should be changed on add/remove interface,
-	 * as well as on set_key().
-	 * For now return a hard-coded value that works for everything else.
-	 */
 	return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
 }
 
