@@ -850,6 +850,13 @@ out:
 	return ret;
 }
 
+static void wl12xx_set_tx_desc_csum(struct wl1271 *wl,
+				    struct wl1271_tx_hw_descr *desc,
+				    struct sk_buff *skb)
+{
+	desc->wl12xx_reserved = 0;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -870,6 +877,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.tx_immediate_completion = NULL,
 	.tx_delayed_completion = wl12xx_tx_delayed_completion,
 	.hw_init	= wl12xx_hw_init,
+	.set_tx_desc_csum = wl12xx_set_tx_desc_csum,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)

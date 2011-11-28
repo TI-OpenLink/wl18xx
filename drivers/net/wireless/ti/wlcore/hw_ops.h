@@ -124,5 +124,16 @@ static inline void wlcore_hw_tx_immediate_completion(struct wl1271 *wl)
 		wl->ops->tx_immediate_completion(wl);
 }
 
+static inline void
+wlcore_hw_set_tx_desc_csum(struct wl1271 *wl,
+			   struct wl1271_tx_hw_descr *desc,
+			   struct sk_buff *skb)
+{
+	if (!wl->ops->set_tx_desc_csum)
+		BUG_ON(1);
+
+	wl->ops->set_tx_desc_csum(wl, desc, skb);
+}
+
 #endif
 
