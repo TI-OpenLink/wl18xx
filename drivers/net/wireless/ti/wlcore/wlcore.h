@@ -28,6 +28,9 @@
 
 struct wlcore_ops {
 	int (*identify_chip)(struct wl1271 *wl);
+	int (*pre_boot)(struct wl1271 *wl);
+	void (*pre_upload)(struct wl1271 *wl);
+	int (*post_boot)(struct wl1271 *wl);
 };
 
 enum wlcore_partitions {
