@@ -73,8 +73,9 @@ static void wl12xx_sdio_raw_read(struct device *child, int addr, void *buf,
 	int ret;
 	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 
-	if (unlikely(addr == HW_ACCESS_ELP_CTRL_REG_ADDR)) {
+	if (unlikely(addr == wl->rtable[REG_RAW_HW_ACCESS_ELP_CTRL])) {
 		((u8 *)buf)[0] = sdio_f0_readb(func, addr, &ret);
 		dev_dbg(child->parent, "sdio read 52 addr 0x%x, byte 0x%02x\n",
 			addr, ((u8 *)buf)[0]);
@@ -98,8 +99,9 @@ static void wl12xx_sdio_raw_write(struct device *child, int addr, void *buf,
 	int ret;
 	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 
-	if (unlikely(addr == HW_ACCESS_ELP_CTRL_REG_ADDR)) {
+	if (unlikely(addr == wl->rtable[REG_RAW_HW_ACCESS_ELP_CTRL])) {
 		sdio_f0_writeb(func, ((u8 *)buf)[0], addr, &ret);
 		dev_dbg(child->parent, "sdio write 52 addr 0x%x, byte 0x%02x\n",
 			addr, ((u8 *)buf)[0]);

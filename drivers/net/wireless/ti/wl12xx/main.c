@@ -27,13 +27,32 @@
 #include "../wlcore/wlcore.h"
 #include "../wlcore/debug.h"
 
-#include "../wlcore/reg.h"
+#include "reg.h"
 
 static struct wlcore_ops wl12xx_ops = {
 };
 
 static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 	[PART_DOWN] = {
+		.mem = {
+			.start = 0x00000000,
+			.size  = 0x000177c0
+		},
+		.reg = {
+			.start = REGISTERS_BASE,
+			.size  = 0x00008800
+		},
+		.mem2 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+		.mem3 = {
+			.start = 0x00000000,
+			.size  = 0x00000000
+		},
+	},
+
+	[PART_BOOT] = { /* in wl12xx we can use the down partition here */
 		.mem = {
 			.start = 0x00000000,
 			.size  = 0x000177c0
@@ -91,6 +110,47 @@ static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 	}
 };
 
+static const int wl12xx_rtable[REG_TABLE_LEN] = {
+	[REG_ECPU_CONTROL]		= WL12XX_REG_ECPU_CONTROL,
+	[REG_INTERRUPT_NO_CLEAR]	= WL12XX_REG_INTERRUPT_NO_CLEAR,
+	[REG_INTERRUPT_ACK]		= WL12XX_REG_INTERRUPT_ACK,
+	[REG_COMMAND_MAILBOX_PTR]	= WL12XX_REG_COMMAND_MAILBOX_PTR,
+	[REG_EVENT_MAILBOX_PTR]		= WL12XX_REG_EVENT_MAILBOX_PTR,
+	[REG_INTERRUPT_TRIG_L]		= WL12XX_REG_INTERRUPT_TRIG,
+	[REG_INTERRUPT_TRIG_H]		= WL12XX_REG_INTERRUPT_TRIG_H,
+	[REG_INTERRUPT_MASK]		= WL12XX_REG_INTERRUPT_MASK,
+	[REG_PC_ON_RECOVERY]		= SCR_PAD4,
+
+	[REG_OCP_POR_CTR]		= OCP_POR_CTR,
+	[REG_OCP_DATA_WRITE]		= OCP_DATA_WRITE,
+	[REG_OCP_DATA_READ]		= OCP_DATA_READ,
+	[REG_OCP_CMD]			= OCP_CMD,
+	[REG_PC_ON_RECOVERY]		= SCR_PAD4,
+	[REG_CHIP_ID_B]			= CHIP_ID_B,
+	[REG_HOST_WR_ACCESS]		= WL1271_HOST_WR_ACCESS,
+	[REG_RX_DRIVER_COUNTER_ADDRESS]	= RX_DRIVER_COUNTER_ADDRESS,
+	[REG_HI_CFG]			= HI_CFG,
+	[REG_SLV_SOFT_RESET]		= ACX_REG_SLV_SOFT_RESET,
+	[REG_ENABLE]			= ENABLE,
+	[REG_SPARE_A2]			= SPARE_A2,
+	[REG_PLL_PARAMETERS]		= PLL_PARAMETERS,
+	[REG_WU_COUNTER_PAUSE]		= WU_COUNTER_PAUSE,
+	[REG_WELP_ARM_COMMAND]		= WELP_ARM_COMMAND,
+	[REG_DRPW_SCRATCH_START]	= DRPW_SCRATCH_START,
+	[REG_EEPROMLESS_IND]		= ACX_EEPROMLESS_IND_REG,
+	[REG_SCR_PAD2]			= SCR_PAD2,
+
+	/* data access memory addresses, used with partition translation */
+	[REG_SLV_MEM_DATA]		= WL1271_SLV_MEM_DATA,
+	[REG_SLV_REG_DATA]		= WL1271_SLV_REG_DATA,
+
+	/* raw register addresses, used without partition translation */
+	[REG_RAW_HW_ACCESS_ELP_CTRL]	= HW_ACCESS_ELP_CTRL_REG_ADDR,
+
+	/* raw data access memory addresses */
+	[REG_RAW_FW_STATUS_ADDR]	= FW_STATUS_ADDR,
+};
+
 int __devinit wl12xx_probe(struct platform_device *pdev)
 {
 	struct wl1271 *wl;
@@ -105,6 +165,7 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl = hw->priv;
 	wl->ops = &wl12xx_ops;
 	wl->ptable = wl12xx_ptable;
+	wl->rtable = wl12xx_rtable;
 
 	return wlcore_probe(wl, pdev);
 }

@@ -27,7 +27,6 @@
 #include "wlcore.h"
 #include "debug.h"
 #include "acx.h"
-#include "reg.h"
 #include "rx.h"
 #include "tx.h"
 #include "io.h"
@@ -231,14 +230,14 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 			wl->rx_mem_pool_addr.addr_extra =
 				wl->rx_mem_pool_addr.addr + 4;
 
-			wl1271_write(wl, WL1271_SLV_REG_DATA,
-				     &wl->rx_mem_pool_addr,
-				     sizeof(wl->rx_mem_pool_addr), false);
+			wlcore_write_data(wl, REG_SLV_REG_DATA,
+					  &wl->rx_mem_pool_addr,
+					  sizeof(wl->rx_mem_pool_addr), false);
 		}
 
 		/* Read all available packets at once */
-		wl1271_read(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf,
-				buf_size, true);
+		wlcore_read_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
+				 buf_size, true);
 
 		/* Split data into separate packets */
 		pkt_offset = 0;
@@ -274,7 +273,8 @@ void wl12xx_rx(struct wl1271 *wl, struct wl12xx_fw_status *status)
 	 * for older hardware revisions
 	 */
 	if (wl->quirks & WL12XX_QUIRK_END_OF_TRANSACTION)
-		wl1271_write32(wl, RX_DRIVER_COUNTER_ADDRESS, wl->rx_counter);
+		wlcore_write_reg(wl, REG_RX_DRIVER_COUNTER_ADDRESS,
+				 wl->rx_counter);
 
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
 }
