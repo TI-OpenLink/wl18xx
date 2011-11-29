@@ -1412,7 +1412,7 @@ int wl1271_plt_start(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl1271_boot(wl);
+		ret = wl->ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
@@ -1440,7 +1440,7 @@ irq_disable:
 		   work function will not do anything.) Also, any other
 		   possible concurrent operations will fail due to the
 		   current state, hence the wl1271 struct should be safe. */
-		wl1271_disable_interrupts(wl);
+		wlcore_disable_interrupts(wl);
 		wl1271_flush_deferred_work(wl);
 		cancel_work_sync(&wl->netstack_work);
 		mutex_lock(&wl->mutex);
@@ -1467,7 +1467,7 @@ int wl1271_plt_stop(struct wl1271 *wl)
 	 * Otherwise, the interrupt handler might be called and exit without
 	 * reading the interrupt status.
 	 */
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 	mutex_lock(&wl->mutex);
 	if (wl->state != WL1271_STATE_PLT) {
 		mutex_unlock(&wl->mutex);
@@ -1477,7 +1477,7 @@ int wl1271_plt_stop(struct wl1271 *wl)
 		 * may have been disabled when op_stop was called. It will,
 		 * however, balance the above call to disable_interrupts().
 		 */
-		wl1271_enable_interrupts(wl);
+		wlcore_enable_interrupts(wl);
 
 		wl1271_error("cannot power down because not in PLT "
 			     "state: %d", wl->state);
@@ -1937,7 +1937,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	 * disable and re-enable interrupts in order to flush
 	 * the threaded_irq
 	 */
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 
 	/*
 	 * set suspended flag to avoid triggering a new threaded_irq
@@ -1945,7 +1945,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	 */
 	set_bit(WL1271_FLAG_SUSPENDED, &wl->flags);
 
-	wl1271_enable_interrupts(wl);
+	wlcore_enable_interrupts(wl);
 	flush_work(&wl->tx_work);
 	flush_delayed_work(&wl->elp_work);
 
@@ -1977,7 +1977,7 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 		wl1271_debug(DEBUG_MAC80211,
 			     "run postponed irq_work directly");
 		wl1271_irq(0, wl);
-		wl1271_enable_interrupts(wl);
+		wlcore_enable_interrupts(wl);
 	}
 	wl12xx_for_each_wlvif(wl, wlvif) {
 		wl1271_configure_resume(wl, wlvif);
@@ -2018,7 +2018,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	 * Otherwise, the interrupt handler might be called and exit without
 	 * reading the interrupt status.
 	 */
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 	mutex_lock(&wl->mutex);
 	if (wl->state == WL1271_STATE_OFF) {
 		mutex_unlock(&wl->mutex);
@@ -2028,7 +2028,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 		 * may have been disabled when op_stop was called. It will,
 		 * however, balance the above call to disable_interrupts().
 		 */
-		wl1271_enable_interrupts(wl);
+		wlcore_enable_interrupts(wl);
 		return;
 	}
 
@@ -2239,7 +2239,7 @@ static bool wl12xx_init_fw(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl1271_boot(wl);
+		ret = wl->ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
@@ -2259,7 +2259,7 @@ irq_disable:
 		   work function will not do anything.) Also, any other
 		   possible concurrent operations will fail due to the
 		   current state, hence the wl1271 struct should be safe. */
-		wl1271_disable_interrupts(wl);
+		wlcore_disable_interrupts(wl);
 		wl1271_flush_deferred_work(wl);
 		cancel_work_sync(&wl->netstack_work);
 		mutex_lock(&wl->mutex);
@@ -5198,6 +5198,8 @@ static struct bin_attribute fwlog_attr = {
 	.read = wl1271_sysfs_read_fwlog,
 };
 
+/* LUCATODO */
+#if 0
 static bool wl12xx_mac_in_fuse(struct wl1271 *wl)
 {
 	bool supported = false;
@@ -5225,6 +5227,7 @@ static bool wl12xx_mac_in_fuse(struct wl1271 *wl)
 
 	return supported;
 }
+#endif
 
 static void wl12xx_derive_mac_addresses(struct wl1271 *wl,
 					u32 oui, u32 nic, int n)
@@ -5251,6 +5254,8 @@ static void wl12xx_derive_mac_addresses(struct wl1271 *wl,
 	wl->hw->wiphy->addresses = wl->addresses;
 }
 
+/* LUCATODO */
+#if 0
 static void wl12xx_get_fuse_mac(struct wl1271 *wl)
 {
 	u32 mac1, mac2;
@@ -5267,12 +5272,15 @@ static void wl12xx_get_fuse_mac(struct wl1271 *wl)
 
 	wlcore_set_partition(wl, &wl->ptable[PART_DOWN]);
 }
+#endif
 
 static int wl12xx_get_hw_info(struct wl1271 *wl)
 {
 	int ret;
+/* LUCATODO */
+#if 0
 	u32 die_info;
-
+#endif
 	ret = wl12xx_set_power_on(wl);
 	if (ret < 0)
 		goto out;
@@ -5282,7 +5290,10 @@ static int wl12xx_get_hw_info(struct wl1271 *wl)
 	wl->fuse_oui_addr = 0;
 	wl->fuse_nic_addr = 0;
 
-	/* LUCATODO: properly detect PG ver and read MAC addr in other families */
+	/* LUCATODO: properly detect PG ver and read MAC addr. Probably should
+	 * an op. remove the wl12xx function wl12xx_boot_hw_version once this is
+	 * working here (on probe) */
+#if 0
 	if (wl->chip.id == CHIP_ID_1283_PG20)
 		die_info = wl1271_top_reg_read(wl, WL128X_REG_FUSE_DATA_2_1);
 	else if (wl->chip.id < CHIP_ID_1283_PG20)
@@ -5296,6 +5307,8 @@ static int wl12xx_get_hw_info(struct wl1271 *wl)
 		wl12xx_get_fuse_mac(wl);
 
 skip_mac:
+
+#endif
 	wl1271_power_off(wl);
 out:
 	return ret;
