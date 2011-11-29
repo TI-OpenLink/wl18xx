@@ -1329,7 +1329,7 @@ irq_disable:
 		   work function will not do anything.) Also, any other
 		   possible concurrent operations will fail due to the
 		   current state, hence the wl1271 struct should be safe. */
-		wl1271_disable_interrupts(wl);
+		wlcore_disable_interrupts(wl);
 		wl1271_flush_deferred_work(wl);
 		cancel_work_sync(&wl->netstack_work);
 		mutex_lock(&wl->mutex);
@@ -1364,7 +1364,7 @@ static int __wl1271_plt_stop(struct wl1271 *wl)
 	wl->rx_counter = 0;
 
 	mutex_unlock(&wl->mutex);
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 	wl1271_flush_deferred_work(wl);
 	cancel_work_sync(&wl->netstack_work);
 	cancel_work_sync(&wl->recovery_work);
@@ -1653,7 +1653,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	 * disable and re-enable interrupts in order to flush
 	 * the threaded_irq
 	 */
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 
 	/*
 	 * set suspended flag to avoid triggering a new threaded_irq
@@ -1661,7 +1661,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	 */
 	set_bit(WL1271_FLAG_SUSPENDED, &wl->flags);
 
-	wl1271_enable_interrupts(wl);
+	wlcore_enable_interrupts(wl);
 	flush_work(&wl->tx_work);
 	wl12xx_for_each_wlvif(wl, wlvif) {
 		flush_delayed_work(&wlvif->pspoll_work);
@@ -1696,7 +1696,7 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 		wl1271_debug(DEBUG_MAC80211,
 			     "run postponed irq_work directly");
 		wl1271_irq(0, wl);
-		wl1271_enable_interrupts(wl);
+		wlcore_enable_interrupts(wl);
 	}
 	wl12xx_for_each_wlvif(wl, wlvif) {
 		wl1271_configure_resume(wl, wlvif);
@@ -1748,7 +1748,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	list_del(&wl->list);
 	mutex_unlock(&wl_list_mutex);
 
-	wl1271_disable_interrupts(wl);
+	wlcore_disable_interrupts(wl);
 	wl1271_flush_deferred_work(wl);
 	cancel_delayed_work_sync(&wl->scan_complete_work);
 	cancel_work_sync(&wl->netstack_work);
@@ -1964,7 +1964,7 @@ irq_disable:
 		   work function will not do anything.) Also, any other
 		   possible concurrent operations will fail due to the
 		   current state, hence the wl1271 struct should be safe. */
-		wl1271_disable_interrupts(wl);
+		wlcore_disable_interrupts(wl);
 		wl1271_flush_deferred_work(wl);
 		cancel_work_sync(&wl->netstack_work);
 		mutex_lock(&wl->mutex);
