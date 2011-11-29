@@ -25,6 +25,8 @@
 #include "../wlcore/wlcore.h"
 #include "../wlcore/debug.h"
 
+#include "reg.h"
+
 static struct wlcore_ops wl18xx_ops = {
 };
 
@@ -62,6 +64,35 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 	},
 };
 
+static const int wl18xx_rtable[REG_TABLE_LEN] = {
+	[REG_ECPU_CONTROL]		= WL18XX_REG_ECPU_CONTROL,
+	[REG_INTERRUPT_NO_CLEAR]	= WL18XX_REG_INTERRUPT_NO_CLEAR,
+	[REG_INTERRUPT_ACK]		= WL18XX_REG_INTERRUPT_ACK,
+	[REG_COMMAND_MAILBOX_PTR]	= WL18XX_REG_COMMAND_MAILBOX_PTR,
+	[REG_EVENT_MAILBOX_PTR]		= WL18XX_REG_EVENT_MAILBOX_PTR,
+	[REG_INTERRUPT_TRIG_L]		= WL18XX_REG_INTERRUPT_TRIG,
+	[REG_INTERRUPT_TRIG_H]		= WL18XX_REG_INTERRUPT_TRIG_H,
+	[REG_INTERRUPT_MASK]		= WL18XX_REG_INTERRUPT_MASK,
+	[REG_PC_ON_RECOVERY]		= 0, /* TODO: where is the PC? */
+
+	[REG_CHIP_ID_B]			= WL18XX_REG_CHIP_ID_B,
+#if 0
+	[REG_HOST_WR_ACCESS]		= WL1271_HOST_WR_ACCESS,
+	[REG_RX_DRIVER_COUNTER_ADDRESS]	= RX_DRIVER_COUNTER_ADDRESS,
+	[REG_HI_CFG]			= HI_CFG,
+
+	/* data access memory addresses, used with partition translation */
+	[REG_SLV_MEM_DATA]		= WL1271_SLV_MEM_DATA,
+	[REG_SLV_REG_DATA]		= WL1271_SLV_REG_DATA,
+
+	/* raw register addresses, used without partition translation */
+	[REG_RAW_HW_ACCESS_ELP_CTRL]	= HW_ACCESS_ELP_CTRL_REG_ADDR,
+
+	/* raw data access memory addresses */
+	[REG_RAW_FW_STATUS_ADDR]	= FW_STATUS_ADDR,
+#endif
+};
+
 int __devinit wl18xx_probe(struct platform_device *pdev)
 {
 	struct wl1271 *wl;
@@ -76,6 +107,7 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl = hw->priv;
 	wl->ops = &wl18xx_ops;
 	wl->ptable = wl18xx_ptable;
+	wl->rtable = wl18xx_rtable;
 
 	return wlcore_probe(wl, pdev);
 }
