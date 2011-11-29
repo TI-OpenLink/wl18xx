@@ -27,6 +27,7 @@
 #include "wl12xx.h"
 
 struct wlcore_ops {
+	int (*identify_chip)(struct wl1271 *wl);
 };
 
 enum wlcore_partitions {
@@ -286,6 +287,8 @@ struct wl1271 {
 	const struct wlcore_partition_set *ptable;
 	/* pointer to the lower driver register table */
 	const int *rtable;
+	/* name of the firmware to load */
+	const char *fw_name;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

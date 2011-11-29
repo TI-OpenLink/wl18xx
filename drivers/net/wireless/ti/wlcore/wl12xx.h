@@ -42,9 +42,6 @@
 #define WL12XX_BA_SUPPORT_FW_COST_VER2_START    50
 #define WL12XX_BA_SUPPORT_FW_COST_VER2_END      60
 
-#define WL127X_FW_NAME "ti-connectivity/wl127x-fw-3.bin"
-#define WL128X_FW_NAME "ti-connectivity/wl128x-fw-3.bin"
-
 #define WLCORE_DEFAULT_CHIP_FAMILY "wl12xx"
 
 /*
