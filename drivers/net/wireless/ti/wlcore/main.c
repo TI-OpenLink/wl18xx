@@ -37,7 +37,6 @@
 #include "wlcore.h"
 #include "debug.h"
 #include "wl12xx_80211.h"
-#include "reg.h"
 #include "io.h"
 #include "event.h"
 #include "tx.h"
@@ -338,7 +337,6 @@ static struct conf_drv_settings default_conf = {
 		.output                       = WL12XX_FWLOG_OUTPUT_HOST,
 		.threshold                    = 0,
 	},
-	.hci_io_ds = HCI_IO_DS_6MA,
 	.rate = {
 		.rate_retry_score = 32000,
 		.per_add = 8192,
@@ -832,7 +830,8 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	int avail, freed_blocks;
 	int i;
 
-	wl1271_raw_read(wl, FW_STATUS_ADDR, status, sizeof(*status), false);
+	wlcore_raw_read_data(wl, REG_RAW_FW_STATUS_ADDR, status,
+			     sizeof(*status), false);
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
 		     "drv_rx_counter = %d, tx_results_counter = %d)",
@@ -1214,7 +1213,8 @@ static void wl1271_recovery_work(struct work_struct *work)
 	wl12xx_read_fwlog_panic(wl);
 
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
-		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
+		    wl->chip.fw_ver_str,
+		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY));
 
 	BUG_ON(bug_on_recovery);
 
@@ -1264,10 +1264,7 @@ out_unlock:
 
 static void wl1271_fw_wakeup(struct wl1271 *wl)
 {
-	u32 elp_reg;
-
-	elp_reg = ELPCTRL_WAKE_UP;
-	wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG_ADDR, elp_reg);
+	wl1271_raw_write32(wl, HW_ACCESS_ELP_CTRL_REG, ELPCTRL_WAKE_UP);
 }
 
 static int wl1271_setup(struct wl1271 *wl)
@@ -1287,7 +1284,6 @@ static int wl1271_setup(struct wl1271 *wl)
 
 static int wl1271_chip_wakeup(struct wl1271 *wl)
 {
-	struct wlcore_partition_set partition;
 	int ret = 0;
 
 	msleep(WL1271_PRE_POWER_ON_SLEEP);
@@ -1298,12 +1294,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	wl1271_io_reset(wl);
 	wl1271_io_init(wl);
 
-	/* We don't need a real memory partition here, because we only want
-	 * to use the registers at this point. */
-	memset(&partition, 0, sizeof(partition));
-	partition.reg.start = REGISTERS_BASE;
-	partition.reg.size = REGISTERS_DOWN_SIZE;
-	wlcore_set_partition(wl, &partition);
+	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
 
 	/* ELP module wake up */
 	wl1271_fw_wakeup(wl);
@@ -1311,7 +1302,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	/* whal_FwCtrl_BootSm() */
 
 	/* 0. read chip id from CHIP_ID */
-	wl->chip.id = wl1271_read32(wl, CHIP_ID_B);
+	wl->chip.id = wlcore_read_reg(wl, REG_CHIP_ID_B);
 
 	/*
 	 * For wl127x based devices we could use the default block
