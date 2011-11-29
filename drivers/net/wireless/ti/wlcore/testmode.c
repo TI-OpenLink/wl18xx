@@ -28,7 +28,6 @@
 #include "wlcore.h"
 #include "debug.h"
 #include "acx.h"
-#include "reg.h"
 #include "ps.h"
 
 #define WL1271_TM_MAX_DATA_LENGTH 1024
