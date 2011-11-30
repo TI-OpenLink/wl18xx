@@ -262,12 +262,24 @@ static void wl18xx_post_boot(struct wl1271 *wl)
 			 WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
 }
 
+static void wl18xx_trigger_cmd(struct wl1271 *wl)
+{
+	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL18XX_INTR_TRIG_CMD);
+}
+
+static void wl18xx_ack_event(struct wl1271 *wl)
+{
+	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL18XX_INTR_TRIG_EVENT_ACK);
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
 	.pre_upload	= wl18xx_pre_upload,
 	.pre_run	= wl18xx_pre_run,
 	.post_boot	= wl18xx_post_boot,
+	.trigger_cmd	= wl18xx_trigger_cmd,
+	.ack_event	= wl18xx_ack_event,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
