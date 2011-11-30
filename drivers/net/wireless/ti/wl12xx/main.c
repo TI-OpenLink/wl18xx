@@ -146,7 +146,8 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl1271_warning("chip id 0x%x (1271 PG10) support is obsolete",
 			       wl->chip.id);
 
-		wl->quirks |= WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT;
+		wl->quirks |= WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT |
+			WLCORE_QUIRK_LEGACY_NVS;
 		wl->fw_name = WL127X_FW_NAME;
 		break;
 
@@ -154,7 +155,8 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
 			     wl->chip.id);
 
-		wl->quirks |= WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT;
+		wl->quirks |= WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT |
+			WLCORE_QUIRK_LEGACY_NVS;
 		wl->fw_name = WL127X_FW_NAME;
 		break;
 
