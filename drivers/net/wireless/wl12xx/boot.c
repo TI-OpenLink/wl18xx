@@ -126,7 +126,25 @@ static struct wl1271_partition_set part_table[PART_TABLE_LEN] = {
 				.start = 0x00000000,
 				.size  = 0x00000000
 					}
-		}
+	},
+	[PART_PHY_PDSP_WA] = {
+			.mem = {
+				.start = 0x00953000,
+				.size  = 0x00012000
+			},
+			.reg = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+			},
+			.mem2 = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+			},
+			.mem3 = {
+				.start = 0x00000000,
+				.size  = 0x00000000
+					}
+	}
 };
 
 static void wl1271_boot_set_ecpu_ctrl(struct wl1271 *wl, u32 flag)
@@ -689,7 +707,7 @@ static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
 	return 0;
 }
 
-static int wl18xx_boot_clk(struct wl1271 *wl, int *selected_clock)
+static int wl18xx_boot_clk(struct wl1271 *wl)
 {
 	u32 platform_type;
 	u32 osc_en;
@@ -977,6 +995,51 @@ static int wl127x_boot_clk(struct wl1271 *wl)
 	return 0;
 }
 
+/* Summarizing yield issue:
+Bug description: Some PDSP Regs wake up value is such that OCP bridge is stuck, this happened randomly
+WA: toggle BT and PHY reset till OCP is free, PDSP registers value is valid */
+static void wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
+{
+	int i;
+	u32 ocp_state;
+	u32 val;
+
+	for (i = 0; i < 10; i++) {
+
+        wl1271_set_partition(wl, &part_table[PART_PHY_PDSP_WA]);
+
+		ocp_state = wl1271_read32(wl, PHY_HRAM_RD_EN_PER_RAM);
+
+		/* Check OCP state */
+		if (ocp_state == 0x3F) {
+			goto toggle_pdsp_reset;
+		}
+
+		wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
+		val = wl1271_top_reg_read(wl, PRCM_BT_PWR_RST);
+
+		/* check if BT is disabled */
+		if (val == 0) {
+			wl1271_top_reg_write(wl, 0xA021FE, 0x400);  /* WL PHY off*/
+			wl1271_top_reg_write(wl, 0xA021FC, 0x7800); /* BT enable */
+			wl1271_top_reg_write(wl, 0xA021FE, 0x7C00); /* BT enable */
+			wl1271_top_reg_write(wl, 0xA021FC, 0x7C00); /* PHY on */
+			wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
+			wl1271_top_reg_write(wl, 0xA021FE, 0);      /* remove override - turn off BT */
+		}
+	}
+
+	wl1271_set_partition(wl, &part_table[PART_PHY_PDSP_WA]);
+
+toggle_pdsp_reset:
+	/* toggle PDSP reset*/
+	wl1271_write32(wl, PDSP_CONTROL_REG, 0x00000007);
+	wl1271_write32(wl, PDSP_CONTROL_REG, 0x00000000);
+	wl1271_write32(wl, PDSP_CONTROL_REG, 0x00000007);
+	wl1271_write32(wl, PDSP_CONTROL_REG, 0x00000000);
+	wl1271_set_partition(wl, &part_table[PART_BOOT]);
+}
+
 /* uploads NVS and firmware */
 int wl1271_load_firmware(struct wl1271 *wl)
 {
@@ -988,9 +1051,14 @@ int wl1271_load_firmware(struct wl1271 *wl)
 
 	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
 		(wl->chip.id == CHIP_ID_185x_PG20)) {
-		ret = wl18xx_boot_clk(wl, &selected_clock);
+		ret = wl18xx_boot_clk(wl);
 		if (ret < 0)
 			goto out;
+
+		/* PDSP work around sequence for Yield issue */
+		if (wl->chip.id == CHIP_ID_185x_PG10) {
+			wl18xx_pdsp_wa_sequence(wl);
+		}
 	}
 	else if (wl->chip.id == CHIP_ID_1283_PG20) {
 		ret = wl128x_boot_clk(wl, &selected_clock);
