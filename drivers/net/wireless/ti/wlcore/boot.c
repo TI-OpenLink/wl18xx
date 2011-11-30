@@ -333,6 +333,9 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	int loop, ret;
 	u32 chip_id, intr;
 
+	/* Make sure we have the boot partition */
+	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+
 	wl1271_boot_set_ecpu_ctrl(wl, ECPU_CONTROL_HALT);
 
 	chip_id = wlcore_read_reg(wl, REG_CHIP_ID_B);
@@ -456,6 +459,9 @@ int wl1271_boot(struct wl1271 *wl)
 	ret = wl1271_load_firmware(wl);
 	if (ret)
 		return ret;
+
+	if (wl->ops->pre_run)
+		wl->ops->pre_run(wl);
 
 	/* 10.5 start firmware */
 	ret = wl1271_boot_run_firmware(wl);
