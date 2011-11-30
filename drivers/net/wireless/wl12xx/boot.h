@@ -174,6 +174,10 @@ enum {
 };
 /* end PLL configuration algorithm for wl18xx */
 
+/* wl18xx PDSP work around sequence */
+#define PHY_HRAM_RD_EN_PER_RAM  (0x0095380C)
+#define PDSP_CONTROL_REG        (0x00964400)
+#define PRCM_BT_PWR_RST         (0xA0240A)
 
 enum
 {
