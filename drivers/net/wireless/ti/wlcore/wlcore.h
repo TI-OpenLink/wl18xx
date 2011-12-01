@@ -55,6 +55,7 @@ struct wlcore_ops {
 				 u32 data_len);
 	void (*tx_delayed_completion)(struct wl1271 *wl);
 	void (*tx_immediate_completion)(struct wl1271 *wl);
+	int (*hw_init)(struct wl1271 *wl);
 };
 
 enum wlcore_chip_family {
