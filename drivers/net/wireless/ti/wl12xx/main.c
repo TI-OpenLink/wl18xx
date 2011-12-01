@@ -149,10 +149,11 @@ static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 		},
 	},
 
-	[PART_BOOT] = { /* in wl12xx we can use the down partition here */
+	[PART_BOOT] = { /* in wl12xx we can use a mix of work and down
+			 * partition here */
 		.mem = {
-			.start = 0x00000000,
-			.size  = 0x000177c0
+			.start = 0x00040000,
+			.size  = 0x00014fc0
 		},
 		.reg = {
 			.start = REGISTERS_BASE,
