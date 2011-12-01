@@ -32,6 +32,8 @@
 #include "../wlcore/acx.h"
 
 #include "reg.h"
+#include "cmd.h"
+#include "acx.h"
 
 static struct wlcore_partition_set wl12xx_ptable[PART_TABLE_LEN] = {
 	[PART_DOWN] = {
@@ -560,6 +562,42 @@ static void wl12xx_ack_event(struct wl1271 *wl)
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_EVENT_ACK);
 }
 
+static int wl12xx_hw_init(struct wl1271 *wl)
+{
+	int ret;
+
+	if (wl->chip.id == CHIP_ID_1283_PG20) {
+		u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
+
+		ret = wl128x_cmd_general_parms(wl);
+		if (ret < 0)
+			goto out;
+
+		ret = wl128x_cmd_radio_parms(wl);
+		if (ret < 0)
+			goto out;
+
+		if (!(wl->quirks & WLCORE_QUIRK_NO_BLOCKSIZE_ALIGNMENT))
+			/* Enable SDIO padding */
+			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
+
+		/* Must be before wl1271_acx_init_mem_config() */
+		ret = wl1271_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap);
+		if (ret < 0)
+			goto out;
+	} else {
+		ret = wl1271_cmd_general_parms(wl);
+		if (ret < 0)
+			goto out;
+
+		ret = wl1271_cmd_radio_parms(wl);
+		if (ret < 0)
+			goto out;
+	}
+out:
+	return ret;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -567,6 +605,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.post_boot	= wl12xx_post_boot,
 	.trigger_cmd	= wl12xx_trigger_cmd,
 	.ack_event	= wl12xx_ack_event,
+	.hw_init	= wl12xx_hw_init,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
