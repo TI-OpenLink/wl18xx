@@ -45,6 +45,8 @@
 #define SDIO_DEVICE_ID_TI_WL1271	0x4076
 #endif
 
+static char *chip_family_param;
+
 struct wl12xx_sdio_glue {
 	struct device *dev;
 	struct platform_device *core;
@@ -186,6 +188,7 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	struct resource res[1];
 	mmc_pm_flag_t mmcflags;
 	int ret = -ENOMEM;
+	const char *chip_family;
 
 	/* We are only able to handle the wlan function */
 	if (func->num != 0x02)
@@ -230,7 +233,15 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	if (wlan_data->magic != WLCORE_PLATDATA_MAGIC)
 		wlan_data->chip_family = WLCORE_DEFAULT_CHIP_FAMILY;
 
-	glue->core = platform_device_alloc(wlan_data->chip_family, -1);
+	chip_family = wlan_data->chip_family;
+
+	/* Adjust settings according to the optional module param */
+	if (chip_family_param) {
+		if (!strcmp(chip_family_param, "wl12xx"))
+			chip_family = chip_family_param;
+	}
+
+	glue->core = platform_device_alloc(chip_family, -1);
 	if (!glue->core) {
 		dev_err(glue->dev, "can't allocate platform_device");
 		ret = -ENOMEM;
@@ -371,6 +382,9 @@ static void __exit wl1271_exit(void)
 
 module_init(wl1271_init);
 module_exit(wl1271_exit);
+
+module_param_named(chip_family, chip_family_param, charp, 0);
+MODULE_PARM_DESC(chip_family, "Force the load of a chip family: wl12xx or wl18xx");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
