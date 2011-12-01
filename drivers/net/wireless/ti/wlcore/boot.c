@@ -84,6 +84,9 @@ static void wl1271_boot_fw_version(struct wl1271 *wl)
 {
 	struct wl1271_static_data static_data;
 
+	if (wl->chip.id != 0x06030101)
+		wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
+
 	wl1271_read(wl, wl->cmd_box_addr, &static_data, sizeof(static_data),
 		    false);
 
