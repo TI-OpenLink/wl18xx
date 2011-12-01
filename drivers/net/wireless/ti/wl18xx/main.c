@@ -242,6 +242,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 			     wl->chip.id);
 		wl->fw_name = WL18XX_FW_NAME;
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
+			      WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
 
 		/* TODO: need to blocksize alignment for RX/TX separately? */
