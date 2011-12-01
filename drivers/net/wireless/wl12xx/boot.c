@@ -1019,6 +1019,7 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 		wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
 		wl1271_top_reg_write(wl, 0xA021FE, 0x400);  /* WL PHY off*/
 		wl1271_top_reg_write(wl, 0xA021FC, 0x400);  /* PHY on */
+		wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
 		wl1271_top_reg_write(wl, 0xA021FE, 0);      /* remove override - turn off BT */
 	}
 
