@@ -56,6 +56,7 @@
 u32 wl18xx_bool_40mhz = true;
 u32 wl18xx_bool_mimo = false;
 u32 wl18xx_rx_aggr_size = 10;
+u32 wl18xx_recovery_enable = false;
 
 static struct conf_drv_settings default_conf = {
 	.sg = {
@@ -1084,9 +1085,8 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (unlikely(intr & WL1271_ACX_INTR_WATCHDOG)) {
 			wl1271_error("HW watchdog interrupt received! "
 				     "starting recovery.");
-			/* Orit - Temp Disable recovery */
-			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
-
+			if (wl18xx_recovery_enable)
+				ieee80211_queue_work(wl->hw, &wl->recovery_work);
 			/* restarting the chip. ignore any other interrupt. */
 			goto out;
 		}
@@ -1094,9 +1094,8 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (unlikely(intr & WL1271_ACX_SW_INTR_WATCHDOG)) {
 			wl1271_error("SW watchdog interrupt received! "
 				     "starting recovery.");
-			/* Orit - Temp Disable recovery */
-			//ieee80211_queue_work(wl->hw, &wl->recovery_work);
-
+			if (wl18xx_recovery_enable)
+				ieee80211_queue_work(wl->hw, &wl->recovery_work);
 			/* restarting the chip. ignore any other interrupt. */
 			goto out;
 		}
@@ -1375,12 +1374,14 @@ static void wl1271_recovery_work(struct work_struct *work)
 	/* Avoid a recursive recovery */
 	set_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 
-	wl12xx_read_fwlog_panic(wl);
 
-	/* Orit - Temp Disable recovery */
 #if 0
-	wl1271_info("Hardware recovery in progress. MAC FW ver: %s PHY FW ver: %s pc: 0x%x",
-		    wl->chip.fw_ver_str, wl->chip.phy_fw_ver_str, wl1271_read32(wl, SCR_PAD4));
+	/* LiorC: Disabled - to handle later */
+	wl12xx_read_fwlog_panic(wl);
+#endif
+
+	wl1271_info("Hardware recovery in progress. MAC FW ver: %s PHY FW ver: %s ",
+				    wl->chip.fw_ver_str, wl->chip.phy_fw_ver_str);
 
 	BUG_ON(bug_on_recovery);
 
@@ -1413,7 +1414,7 @@ static void wl1271_recovery_work(struct work_struct *work)
 	 * to restart the HW.
 	 */
 	ieee80211_wake_queues(wl->hw);
-#endif
+
 out:
 	mutex_unlock(&wl->mutex);
 }
@@ -5571,6 +5572,14 @@ MODULE_PARM_DESC(wl18xx_bool_mimo, "wl18xx mimo support");
 EXPORT_SYMBOL_GPL(wl18xx_rx_aggr_size);
 module_param_named(wl18xx_rx_aggr_size, wl18xx_rx_aggr_size, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(wl18xx_rx_aggr_size, "wl18xx rx aggregation");
+
+
+EXPORT_SYMBOL_GPL(wl18xx_recovery_enable);
+module_param_named(wl18xx_recovery_enable, wl18xx_recovery_enable, uint, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(wl18xx_recovery_enable, "wl18xx recovery enabled");
+
+
+
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
