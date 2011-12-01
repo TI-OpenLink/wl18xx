@@ -482,7 +482,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	cfg->snr_threshold  = c->snr_threshold;
 	cfg->n_probe_reqs = c->num_probe_reqs;
 	/* cycles set to 0 it means infinite (until manually stopped) */
-	cfg->cycles = 0;
+	cfg->cycles = 20;
 	/* report APs when at least 1 is found */
 	cfg->report_after = 1;
 	/* don't stop scanning automatically when something is found */
