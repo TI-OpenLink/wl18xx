@@ -378,6 +378,14 @@ struct sta_info {
 
 	bool supports_40mhz;
 
+	struct traffic_stream_metrics {
+		unsigned int packet_queue_delay;
+		unsigned int packet_transmit_delay;
+		unsigned int packet_lost;
+		unsigned int packet_count;
+		u16 packet_delay_histogram[4];
+	} traffic_stream_metrics[8];
+
 	/* keep last! */
 	struct ieee80211_sta sta;
 };

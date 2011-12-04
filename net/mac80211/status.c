@@ -457,6 +457,32 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 			ieee80211_frame_acked(sta, skb);
 
 		if ((sta->sdata->vif.type == NL80211_IFTYPE_STATION) &&
+				(ieee80211_is_data_qos(fc))) {
+			u16 tid;
+			u8 *qc = ieee80211_get_qos_ctl(hdr);
+			struct traffic_stream_metrics *tsm;
+
+			tid = qc[0] & 0xf;
+			tsm = &sta->traffic_stream_metrics[tid];
+
+			if (info->flags & IEEE80211_TX_STAT_ACK) {
+				int i;
+				static const unsigned long histogram_ranges[3] = {10, 20, 40};
+				tsm->packet_queue_delay +=
+						(info->control.ts_metric_queue_delay / 1000);
+				tsm->packet_transmit_delay +=
+						info->control.ts_metric_transmit_delay;
+				for (i=0; i < 3; i++) {
+					if (info->control.ts_metric_queue_delay/1000000 < histogram_ranges[i])
+						break;
+				}
+				tsm->packet_delay_histogram[i]++;
+				tsm->packet_count++;
+			} else
+				tsm->packet_lost++;
+		}
+
+		if ((sta->sdata->vif.type == NL80211_IFTYPE_STATION) &&
 		    (local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS))
 			ieee80211_sta_tx_notify(sta->sdata, (void *) skb->data, acked);
 

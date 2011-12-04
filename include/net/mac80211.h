@@ -560,6 +560,9 @@ struct ieee80211_tx_info {
 			struct ieee80211_vif *vif;
 			struct ieee80211_key_conf *hw_key;
 			struct ieee80211_sta *sta;
+			/* if status size changes you will need to move the following */
+			unsigned long ts_metric_queue_delay;
+			u32 ts_metric_transmit_delay;
 		} control;
 		struct {
 			struct ieee80211_tx_rate rates[IEEE80211_TX_MAX_RATES];
