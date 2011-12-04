@@ -217,6 +217,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_TSPEC] = { .type = NLA_NESTED },
 	[NL80211_ATTR_TSPEC_ACTION_CODE] = { .type = NLA_U8 },
 	[NL80211_ATTR_TSPEC_STATUS_CODE] = { .type = NLA_U8 },
+	[NL80211_ATTR_TID] = {.type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -2536,6 +2537,7 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
 	if (sinfo->filled & STATION_INFO_WMM_ACM) {
 		NLA_PUT_U32(msg, NL80211_STA_INFO_WMM_ACM, sinfo->wmm_acm);
 	}
+
 	nla_nest_end(msg, sinfoattr);
 
 	if (sinfo->filled & STATION_INFO_ASSOC_REQ_IES)
@@ -2633,6 +2635,82 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
 	return genlmsg_reply(msg, info);
 }
 
+static int nl80211_send_ts_metrics(struct sk_buff *msg, u32 pid, u32 seq,
+				int flags, struct net_device *dev,
+				const u8 *mac_addr, u8 tid, struct ts_metrics *tsm)
+{
+	void *hdr;
+	struct nlattr *sinfoattr;
+
+	hdr = nl80211hdr_put(msg, pid, seq, flags, NL80211_CMD_NEW_STATION);
+	if (!hdr)
+		return -1;
+
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr);
+
+	sinfoattr = nla_nest_start(msg, NL80211_ATTR_STA_INFO);
+	if (!sinfoattr)
+		goto nla_put_failure;
+
+	NLA_PUT_U32(msg, NL80211_STA_INFO_PACKET_COUNT, tsm->packet_count);
+	NLA_PUT_U32(msg, NL80211_STA_INFO_PACKET_LOST, tsm->packet_lost);
+	NLA_PUT_U32(msg, NL80211_STA_INFO_QUEUE_DELAY, tsm->packet_queue_delay);
+	NLA_PUT_U32(msg, NL80211_STA_INFO_TRANSMIT_DELAY, tsm->packet_transmit_delay);
+	NLA_PUT(msg, NL80211_STA_INFO_QUEUE_DELAY_HIST,
+			8,
+			tsm->packet_delay_histogram);
+
+	nla_nest_end(msg, sinfoattr);
+	return genlmsg_end(msg, hdr);
+
+ nla_put_failure:
+	genlmsg_cancel(msg, hdr);
+	return -EMSGSIZE;
+}
+
+static int nl80211_get_ts_metrics(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct station_info sinfo;
+	struct sk_buff *msg;
+	u8 tid;
+
+	u8 *mac_addr = NULL;
+	int err;
+
+	memset(&sinfo, 0, sizeof(sinfo));
+
+	if (!info->attrs[NL80211_ATTR_MAC])
+		return -EINVAL;
+
+	if (!info->attrs[NL80211_ATTR_TID])
+		return -EINVAL;
+
+	mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+	tid = nla_get_u8(info->attrs[NL80211_ATTR_TID]);
+
+	if (!rdev->ops->get_station)
+		return -EOPNOTSUPP;
+
+	err = rdev->ops->get_station(&rdev->wiphy, dev, mac_addr, &sinfo);
+	if (err)
+		return err;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	if (nl80211_send_ts_metrics(msg, info->snd_pid, info->snd_seq, 0,
+			dev, mac_addr, tid, &sinfo.tsm[tid]) < 0) {
+		nlmsg_free(msg);
+		return -ENOBUFS;
+	}
+
+	return genlmsg_reply(msg, info);
+
+}
 /*
  * Get vlan interface making sure it is running and on the right wiphy.
  */
@@ -7179,6 +7257,15 @@ static struct genl_ops nl80211_ops[] = {
 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
 				  NL80211_FLAG_NEED_RTNL,
 	},
+
+	{
+		.cmd = NL80211_CMD_GET_TS_METRICS,
+		.doit = nl80211_get_ts_metrics,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
 };
 
 static struct genl_multicast_group nl80211_mlme_mcgrp = {
@@ -8465,7 +8552,6 @@ nl80211_send_rx_wme(struct cfg80211_registered_device *rdev,
 		struct net_device *netdev, u8* buf, u8 len, gfp_t gfp)
 {
 	struct sk_buff *msg;
-	struct nlattr *tspec;
 	void *hdr;
 
 	msg = nlmsg_new(NLMSG_GOODSIZE, gfp);
