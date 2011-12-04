@@ -2385,8 +2385,6 @@ ieee80211_rx_h_action(struct ieee80211_rx_data *rx)
 	case WLAN_CATEGORY_WMM:
 		if (sdata->vif.type != NL80211_IFTYPE_STATION)
 			break;
-		printk("!!!!!%s\n", __FUNCTION__);
-		/*wme_rx_action(sdata, mgmt);*/
 		goto queue;
 		break;
 	}

@@ -349,10 +349,30 @@ void sta_set_rate_info_tx(struct sta_info *sta,
 	rate_idx_to_bitrate(rinfo, sta, rate->idx);
 }
 
+static void sta_set_ts_metrics(struct sta_info *sta,
+		u8 tid, struct ts_metrics *tsm) {
+
+	tsm->packet_count = sta->traffic_stream_metrics[tid].packet_count;
+	tsm->packet_lost = sta->traffic_stream_metrics[tid].packet_lost;
+	tsm->packet_queue_delay = sta->traffic_stream_metrics[tid].packet_queue_delay;
+	tsm->packet_transmit_delay =
+			sta->traffic_stream_metrics[tid].packet_transmit_delay;
+	memcpy(tsm->packet_delay_histogram,
+			sta->traffic_stream_metrics[tid].packet_delay_histogram,
+			sizeof(sta->traffic_stream_metrics[tid].packet_delay_histogram));
+	sta->traffic_stream_metrics[tid].packet_count = 0;
+	sta->traffic_stream_metrics[tid].packet_lost = 0;
+	sta->traffic_stream_metrics[tid].packet_queue_delay = 0;
+	sta->traffic_stream_metrics[tid].packet_transmit_delay = 0;
+	memset(sta->traffic_stream_metrics[tid].packet_delay_histogram, 0,
+			sizeof(sta->traffic_stream_metrics[tid].packet_delay_histogram));
+}
+
 static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct timespec uptime;
+	int tid;
 
 	sinfo->generation = sdata->local->sta_generation;
 
@@ -385,6 +405,10 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 	sinfo->rx_dropped_misc = sta->rx_dropped;
 	sinfo->beacon_loss_count = sta->beacon_loss_count;
 	sinfo->wmm_acm = sdata->local->wmm_acm;
+
+	for (tid = 0; tid < 8; tid++) {
+		sta_set_ts_metrics(sta, tid, &sinfo->tsm[tid]);
+	}
 
 	if ((sta->local->hw.flags & IEEE80211_HW_SIGNAL_DBM) ||
 	    (sta->local->hw.flags & IEEE80211_HW_SIGNAL_UNSPEC)) {

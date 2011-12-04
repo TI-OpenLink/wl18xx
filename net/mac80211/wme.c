@@ -307,6 +307,7 @@ void ieee80211_tspec_done(struct ieee80211_sub_if_data *sdata,
 {
 	if (!buf || !len)
 		return;
+
 	cfg80211_send_rx_wme(sdata->dev, buf, len);
 }
 
