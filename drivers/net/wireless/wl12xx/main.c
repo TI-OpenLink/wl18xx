@@ -1273,8 +1273,15 @@ out:
 
 void wl1271_queue_recovery_work(struct wl1271 *wl)
 {
-	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags))
-		ieee80211_queue_work(wl->hw, &wl->recovery_work);
+	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags)) {
+		if (wl18xx_recovery_enable) {
+			ieee80211_queue_work(wl->hw, &wl->recovery_work);
+		}
+		else {
+			wl1271_info("Hardware recovery is disabled!!! MAC FW ver: %s PHY FW ver: %s ",
+						wl->chip.fw_ver_str, wl->chip.phy_fw_ver_str);
+		}
+	}
 }
 
 size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen)
