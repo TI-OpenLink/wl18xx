@@ -615,6 +615,14 @@ struct sta_bss_parameters {
 	u16 beacon_interval;
 };
 
+struct ts_metrics {
+	unsigned int packet_queue_delay;
+	unsigned int packet_transmit_delay;
+	unsigned int packet_lost;
+	unsigned int packet_count;
+	u16 packet_delay_histogram[4];
+};
+
 /**
  * struct station_info - station information
  *
@@ -674,6 +682,7 @@ struct station_info {
 	struct sta_bss_parameters bss_param;
 	struct nl80211_sta_flag_update sta_flags;
 	u32 wmm_acm;
+	struct ts_metrics tsm[8];
 
 	int generation;
 
