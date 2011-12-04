@@ -683,6 +683,12 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 
 		has_data = wlvif && wl1271_tx_is_data_present(skb);
 		ret = wl1271_prepare_tx_frame(wl, wlvif, skb, buf_offset);
+		{
+			struct timespec ts;
+			getnstimeofday(&ts);
+			info->control.ts_metric_queue_delay =
+					timespec_to_ns(&ts) - info->control.ts_metric_queue_delay;
+		}
 		if (ret == -EAGAIN) {
 			/*
 			 * Aggregation buffer is full.
@@ -864,9 +870,6 @@ static void wl1271_tx_tokens_calculation(struct wl12xx_vif *wlvif,
 			calc_params->tokens = calc_params->allocated_medium_time;
 	}
 
-	trace_printk("%d %lu\n",
-			calc_params->tokens, jiffies);
-
 	/* Check if the bucket thresholds were crossed */
 	if (calc_params->tokens < 0) {
 		ieee80211_set_wme_medium_time_crossed(wlvif->wl->hw, skb);
@@ -911,6 +914,7 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 					  wlvif->band);
 		rate_flags = wl1271_tx_get_rate_flags(result->rate_class_index);
 		retries = result->ack_failures;
+		info->control.ts_metric_transmit_delay = result->fw_handling_time << 10;
 	} else if (result->status == TX_RETRY_EXCEEDED) {
 		wl->stats.excessive_retries++;
 		retries = result->ack_failures;
