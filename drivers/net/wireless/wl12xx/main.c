@@ -214,7 +214,7 @@ static struct conf_drv_settings default_conf = {
 		},
 		.frag_threshold              = IEEE80211_MAX_FRAG_THRESHOLD,
 		.tx_compl_timeout            = 350,
-		.tx_compl_threshold          = 8,
+		.tx_compl_threshold          = 10,
 		.basic_rate                  = CONF_HW_BIT_RATE_1MBPS,
 		.basic_rate_5                = CONF_HW_BIT_RATE_6MBPS,
 		.tmpl_short_retry_limit      = 10,
