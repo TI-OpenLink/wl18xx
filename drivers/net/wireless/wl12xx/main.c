@@ -2167,7 +2167,7 @@ out:
 		list_add(&wl->list, &wl_list);
 	mutex_unlock(&wl_list_mutex);
 
-	wl1271_info("mac address is %pM .", vif->addr);
+	wl1271_info("mac address is %pM.", vif->addr);
 
 	return ret;
 }
