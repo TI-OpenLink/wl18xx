@@ -255,7 +255,7 @@ struct wl1271 {
 	struct ieee80211_vif *vif;
 
 	/* Current chipset configuration */
-	struct conf_drv_settings conf;
+	struct wlcore_conf conf;
 
 	bool sg_enabled;
 
