@@ -647,8 +647,9 @@ static void wl12xx_post_boot(struct wl1271 *wl)
 	wl1271_write32(wl, WL12XX_HI_CFG, HI_CFG_DEF_VAL);
 }
 
-static void wl12xx_trigger_cmd(struct wl1271 *wl)
+static void wl12xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
 {
+	wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_CMD);
 }
 

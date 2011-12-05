@@ -41,6 +41,13 @@
 
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
+#define WL18XX_CMD_MAX_SIZE          740
+
+struct wl18xx_priv {
+	/* buffer for sending commands to FW */
+	u8 cmd_buf[WL18XX_CMD_MAX_SIZE];
+};
+
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
 	15,                            /* WL18XX_CONF_HW_RXTX_RATE_MCS15 */
@@ -387,18 +394,21 @@ static void wl18xx_post_boot(struct wl1271 *wl)
 			 WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
 }
 
-static void wl18xx_trigger_cmd(struct wl1271 *wl)
+static void wl18xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
 {
-	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL18XX_INTR_TRIG_CMD);
+	struct wl18xx_priv *priv = wl->priv;
+
+	memcpy(priv->cmd_buf, buf, len);
+	memset(priv->cmd_buf + len, 0, WL18XX_CMD_MAX_SIZE - len);
+
+	wl1271_write(wl, wl->cmd_box_addr, priv->cmd_buf, WL18XX_CMD_MAX_SIZE,
+		     false);
 }
 
 static void wl18xx_ack_event(struct wl1271 *wl)
 {
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL18XX_INTR_TRIG_EVENT_ACK);
 }
-
-struct wl18xx_priv {
-};
 
 static u32
 wl18xx_get_tx_spare_blocks(struct wl1271* wl, struct wl12xx_vif *wlvif,
