@@ -516,6 +516,16 @@ static void wl18xx_set_tx_desc_csum(struct wl1271 *wl,
 	desc->wl18xx_checksum_data |= (ip_hdr->protocol & 0x01);
 }
 
+static int wl18xx_init_vif(struct wl1271* wl, struct wl12xx_vif *wlvif)
+{
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+	if (vif)
+		ieee80211_set_netdev_features(vif, NETIF_F_IP_CSUM);
+
+	return 0;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.pre_boot	= wl18xx_pre_boot,
@@ -534,6 +544,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.tx_delayed_completion = NULL,
 	.hw_init	= wl18xx_hw_init,
 	.set_tx_desc_csum = wl18xx_set_tx_desc_csum,
+	.init_vif = wl18xx_init_vif,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
