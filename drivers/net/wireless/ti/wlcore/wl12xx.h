@@ -137,6 +137,8 @@ struct wl1271_stats {
 
 #define AP_MAX_STATIONS            8
 
+#define WL18XX_FW_MAX_TX_STATUS_DESC 33
+
 struct wl_fw_packet_counters {
 	/* Cumulative counter of released packets per AC */
 	u8 tx_released_pkts[NUM_TX_QUEUES];
@@ -195,10 +197,10 @@ struct wl_fw_status {
 			 * Array of host Tx descriptors, where fw_release_idx
 			 * indicated the first released idx.
 			 */
-			u8 released_tx_desc[32];
+			u8 released_tx_desc[WL18XX_FW_MAX_TX_STATUS_DESC];
 
 			struct wl_fw_packet_counters counters;
-			u8 padding_1[6];
+			u8 padding_1[5];
 		} wl18xx;
 	} __packed;
 
