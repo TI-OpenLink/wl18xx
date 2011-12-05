@@ -270,17 +270,7 @@ static struct wlcore_conf wl12xx_conf = {
 		.inactivity_timeout = 10000,
 		.tx_ba_tid_bitmap = CONF_TX_BA_ENABLED_TID_BITMAP,
 	},
-	.mem_wl127x = {
-		.num_stations                 = 1,
-		.ssid_profiles                = 1,
-		.rx_block_num                 = 70,
-		.tx_min_block_num             = 40,
-		.dynamic_memory               = 1,
-		.min_req_tx_blocks            = 100,
-		.min_req_rx_blocks            = 22,
-		.tx_min                       = 27,
-	},
-	.mem_wl128x = {
+	.mem = {
 		.num_stations                 = 1,
 		.ssid_profiles                = 1,
 		.rx_block_num                 = 40,
@@ -363,6 +353,17 @@ static struct wl12xx_priv_conf wl12xx_default_priv_conf = {
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		},
 	},
+	.mem_wl127x = {
+		.num_stations                 = 1,
+		.ssid_profiles                = 1,
+		.rx_block_num                 = 70,
+		.tx_min_block_num             = 40,
+		.dynamic_memory               = 1,
+		.min_req_tx_blocks            = 100,
+		.min_req_rx_blocks            = 22,
+		.tx_min                       = 27,
+	},
+
 };
 
 #define WL12XX_TX_HW_BLOCK_SPARE_DEFAULT        1
@@ -571,6 +572,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 
 		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
 		wl->fw_name = WL127X_FW_NAME;
+		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
+		       sizeof(wl->conf.mem));
+
 		break;
 
 	case CHIP_ID_1271_PG20:
@@ -579,6 +583,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 
 		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
 		wl->fw_name = WL127X_FW_NAME;
+		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
+		       sizeof(wl->conf.mem));
+
 		break;
 
 	case CHIP_ID_1283_PG20:
