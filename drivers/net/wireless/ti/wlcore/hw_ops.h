@@ -124,5 +124,14 @@ wlcore_hw_set_rx_csum(struct wl1271 *wl,
 		wl->ops->set_rx_csum(wl, desc, skb);
 }
 
+static inline u32
+wlcore_hw_sta_get_ap_rate_mask(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	if (!wl->ops->sta_get_ap_rate_mask)
+		BUG_ON(1);
+
+	return wl->ops->sta_get_ap_rate_mask(wl, wlvif);
+}
+
 #endif
 
