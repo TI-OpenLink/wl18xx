@@ -529,7 +529,7 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 		return -EIO;
 	}
 
-	wl1271_info("WL18xx - Init Complete!!!");
+	wl1271_info("Init Completed");
 
 	/* get hardware config command mail box */
 	wl->cmd_box_addr = wl1271_read32(wl, REG_COMMAND_MAILBOX_PTR);
@@ -722,19 +722,19 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 	{
 	case BOARD_TYPE_FPGA_18XX:
 		{
-			wl1271_info("Wl18XX FPGA BOARD (skipping top init)!!!");
+			wl1271_info("FPGA board configured (skipping top init)");
 			wl1271_write32(wl, SCR_PAD2, 0xB1);
 			break;
 		}
 	case BOARD_TYPE_HDK_18XX:
 		{
-			wl1271_info("Wl18XX HDK BOARD!!!");
+			wl1271_info("HDK board configured");
 			wl1271_write32(wl, SCR_PAD2,0xB2);
 			break;
 		}
 	case BOARD_TYPE_DVP_EVB_18XX:
 		{
-			wl1271_info("Wl18xx DVP/EVB BOARD!!!");
+			wl1271_info("DVP/EVB board configured");
 			wl1271_write32(wl, SCR_PAD2, 0xB3);
 			break;
 		}
@@ -742,7 +742,7 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 
     if (wl->conf.mac_and_phy_params.hw_board_type != BOARD_TYPE_FPGA_18XX)
     {
-        wl1271_info("Wl18xx - Starting HW TOP init process - Real Chip!!!");
+        wl1271_info("Starting Init");
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
 
 		/* 1. Platform detection */
@@ -753,35 +753,35 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 		/* Platform detection */
 		switch (platform_type) {
 		case 0:
-			wl1271_info("ORCA (6450) platform Detected!");
+			wl1271_info("ORCA (6450) chipset Detected");
 			break;
 		case 1:
-			wl1271_info("TRIO (1273)  platform Detected!");
+			wl1271_info("TRIO (1273) chipset Detected");
 			break;
 		case 2:
-			wl1271_info("NL5500 platform Detected!");
+			wl1271_info("NL5500 chipset Detected");
 			break;
 		case 3:
-			wl1271_info("NAPOLEON platform Detected!");
+			wl1271_info("NAPOLEON chipset Detected");
 			break;
 		case 4:
-			wl1271_info("QUATTRO (1283) platform Detected!");
+			wl1271_info("QUATTRO (1283) chipset Detected");
 			break;
 		case 5:
-			wl1271_info("185X platform Detected!");
+			wl1271_info("185X chipset Detected");
 			break;
 		case 6:
-			wl1271_info("189X platform Detected!");
+			wl1271_info("189X chipset Detected");
 			break;
 		default:
-			wl1271_error("Unknown platform Detected!!!");
+			wl1271_error("Unknown chipset Detected");
 		}
 
 		/* 2. CLK detection */
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - CLK detection");
+		wl1271_debug(DEBUG_BOOT, "CLK detection");
 		/* Read CLK type from detection (for PG2) - TCXO/FREF or XTAL */
 		osc_en = wl1271_top_reg_read(wl, OSC_EN);
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - osc_en = 0x%x", osc_en);
+		wl1271_debug(DEBUG_BOOT, "osc_en = 0x%x", osc_en);
 
 		/* Check the clock source in bit 3 from OSC_EN */
 		if (!(osc_en & PRCM_WLAN_CLK_DETECTION_MASK)) {
@@ -800,10 +800,10 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 
 		/* Read freq from detection */
 		clk_freq = wl1271_top_reg_read(wl, PRIMARY_CLK_DETECT);
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
+		wl1271_debug(DEBUG_BOOT, "Read from addr 0x%x clock freq %d", PRIMARY_CLK_DETECT, clk_freq);
 
 		/* 3. WCS PLL Config */
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - WCS PLL Config");
+		wl1271_debug(DEBUG_BOOT, "WCS PLL Config");
 
 		switch (clk_freq) {
 		case CLOCK_CONFIG_16_2_M:
@@ -849,15 +849,15 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 			pllsh_wcs_pll_M = 120;
 			break;
 		default:
-			wl1271_error("Unknown clock frequency 0x%x!!!", clk_freq);
+			wl1271_error("Unknown clock frequency 0x%x", clk_freq);
 		}
 
 		/* Config N (pre divider) parameters according to the input frequency */
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
+		wl1271_debug(DEBUG_BOOT, "write to addr 0x%x Config N %d", PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
 		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_N, pllsh_wcs_pll_N);
 	
 		/* Config M (divider) parameters according to the input frequency */
-		wl1271_debug(DEBUG_BOOT, "Wl18xx -  write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
+		wl1271_debug(DEBUG_BOOT, "write to addr 0x%x Config M %d", PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
 		wl1271_top_reg_write(wl, PLLSH_WCS_PLL_M, pllsh_wcs_pll_M);
 	
 		/* Swallowing is only needed for the following CLK frequencies:
@@ -876,17 +876,17 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 					((pllsh_wcs_pll_P >> REG_16_SHIFT) & PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK));
 	
 			/* Activate swallowing mechanism if needed */
-			wl1271_debug(DEBUG_BOOT, "Wl18xx - Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
+			wl1271_debug(DEBUG_BOOT, "Activate swallowing mechanism %d", PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
 			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL1);
 		}
 		else {
 			/* Activate swallowing mechanism if needed */
-			wl1271_debug(DEBUG_BOOT, "Wl18xx - Activate swallowing mechanism %d in addr 0x%x",
+			wl1271_debug(DEBUG_BOOT, "Activate swallowing mechanism %d in addr 0x%x",
 					PLLSH_WCS_PLL_SWALLOW_EN_VAL2, PLLSH_WCS_PLL_SWALLOW_EN);
 			wl1271_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN, PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
 		}
 	
-		wl1271_debug(DEBUG_BOOT, "Wl18xx - HW TOP init is done!!!");
+		wl1271_debug(DEBUG_BOOT, "HW TOP init is done!!!");
 	}
 
 	return 0;
@@ -1117,8 +1117,6 @@ int wl1271_load_firmware(struct wl1271 *wl)
 	}
 
 	/* Continue the ELP wake up sequence */
-    wl1271_info("Wl18xx - write to WELP_ARM_COMMAND 0x%x val 0x%x",
-    			WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	wl1271_write32(wl, WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
 	wl1271_set_partition(wl, &part_table[PART_BOOT]);
