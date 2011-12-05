@@ -466,6 +466,7 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 /* Macros to handle wl1271.sta_rate_set */
 #define HW_BG_RATES_MASK	0xffff
 #define HW_HT_RATES_OFFSET	16
+#define HW_MIMO_RATES_OFFSET	24
 
 #define WL12XX_HW_BLOCK_SIZE	256
 
