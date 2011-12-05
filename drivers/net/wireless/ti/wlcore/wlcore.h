@@ -342,6 +342,9 @@ struct wl1271 {
 
 	/* this HW rate and below are considered HT rates for this chip */
 	u8 hw_min_ht_rate;
+
+	/* the current channel type */
+	enum nl80211_channel_type channel_type;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
