@@ -352,6 +352,9 @@ struct wl1271 {
 
 	/* HW HT (11n) capabilities */
 	struct ieee80211_sta_ht_cap ht_cap;
+
+	/* maximum number of A-MPDU RX sub-frames the HW supports */
+	u8 max_rx_aggregation_subframes;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
