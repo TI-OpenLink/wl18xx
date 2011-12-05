@@ -878,6 +878,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.tx_delayed_completion = wl12xx_tx_delayed_completion,
 	.hw_init	= wl12xx_hw_init,
 	.set_tx_desc_csum = wl12xx_set_tx_desc_csum,
+	.init_vif = NULL,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)

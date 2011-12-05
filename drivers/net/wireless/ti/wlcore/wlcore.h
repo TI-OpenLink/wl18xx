@@ -65,6 +65,7 @@ struct wlcore_ops {
 	void (*set_tx_desc_csum)(struct wl1271 *wl,
 				 struct wl1271_tx_hw_descr *desc,
 				 struct sk_buff *skb);
+	int (*init_vif)(struct wl1271* wl, struct wl12xx_vif *wlvif);
 };
 
 enum wlcore_chip_family {
