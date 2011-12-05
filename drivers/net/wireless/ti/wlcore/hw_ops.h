@@ -106,5 +106,14 @@ wlcore_hw_set_tx_desc_csum(struct wl1271 *wl,
 	wl->ops->set_tx_desc_csum(wl, desc, skb);
 }
 
+static inline int
+wlcore_hw_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	if (wl->ops->init_vif)
+		return wl->ops->init_vif(wl, wlvif);
+
+	return 0;
+}
+
 #endif
 
