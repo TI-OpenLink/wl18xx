@@ -47,9 +47,6 @@
 #define TX_HW_RESULT_QUEUE_LEN           16
 #define TX_HW_RESULT_QUEUE_LEN_MASK      0xf
 
-#define WL18XX_TX_STATUS_DESC_ID_MASK    0x7F
-#define WL18XX_TX_STATUS_STAT_BIT_IDX    7
-
 #define WL1271_TX_ALIGN_TO 4
 #define WL1271_TKIP_IV_SPACE 4
 
@@ -229,7 +226,6 @@ static inline int wl1271_tx_total_queue_count(struct wl1271 *wl)
 void wl1271_tx_work(struct work_struct *work);
 void wl1271_tx_work_locked(struct wl1271 *wl);
 void wl1271_tx_complete(struct wl1271 *wl);
-void wl18xx_tx_immediate_complete(struct wl1271 *wl);
 void wl12xx_tx_reset_wlvif(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 void wl12xx_tx_reset(struct wl1271 *wl, bool reset_tx_queues);
 void wl1271_tx_flush(struct wl1271 *wl);
@@ -247,6 +243,7 @@ bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb);
 void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids);
 unsigned int wlcore_calc_packet_alignment(struct wl1271 *wl,
 					  unsigned int packet_length);
+void wl1271_free_tx_id(struct wl1271 *wl, int id);
 
 /* from main.c */
 void wl1271_free_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 hlid);

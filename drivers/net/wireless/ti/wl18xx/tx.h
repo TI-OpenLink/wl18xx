@@ -1,7 +1,7 @@
 /*
  * This file is part of wl18xx
  *
- * Copyright (C) 2011 Texas Instruments Inc.
+ * Copyright (C) 2011 Texas Instruments. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,21 +19,18 @@
  *
  */
 
-#ifndef __WL18XX_PRIV_H__
-#define __WL18XX_PRIV_H__
+#ifndef __WL18XX_TX_H__
+#define __WL18XX_TX_H__
 
-#include "conf.h"
+#include "../wlcore/wlcore.h"
 
-#define WL18XX_CMD_MAX_SIZE          740
+#define WL18XX_TX_HW_BLOCK_SPARE        1
+#define WL18XX_TX_HW_GEM_BLOCK_SPARE    2
+#define WL18XX_TX_HW_BLOCK_SIZE         268
 
-struct wl18xx_priv {
-	/* buffer for sending commands to FW */
-	u8 cmd_buf[WL18XX_CMD_MAX_SIZE];
+#define WL18XX_TX_STATUS_DESC_ID_MASK    0x7F
+#define WL18XX_TX_STATUS_STAT_BIT_IDX    7
 
-	struct wl18xx_priv_conf conf;
+void wl18xx_tx_immediate_complete(struct wl1271 *wl);
 
-	/* Index of last released Tx desc in FW */
-	u8 last_fw_rls_idx;
-};
-
-#endif /* __WL18XX_PRIV_H__ */
+#endif /* __WL12XX_TX_H__ */

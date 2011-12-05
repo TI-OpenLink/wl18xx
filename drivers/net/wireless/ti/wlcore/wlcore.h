@@ -342,10 +342,6 @@ struct wl1271 {
 
 	/* this HW rate and below are considered HT rates for this chip */
 	u8 hw_min_ht_rate;
-
-	/* TODO: put in 18xx priv struct, along with clearing function. */
-	/* Index of last released Tx desc in 18xx FW */
-	u8 last_fw_rls_idx;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

@@ -35,10 +35,7 @@
 #include "reg.h"
 #include "conf.h"
 #include "acx.h"
-
-#define WL18XX_TX_HW_BLOCK_SPARE        1
-#define WL18XX_TX_HW_GEM_BLOCK_SPARE    2
-#define WL18XX_TX_HW_BLOCK_SIZE         268
+#include "tx.h"
 
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
@@ -769,6 +766,7 @@ static void wl18xx_tx_immediate_completion(struct wl1271 *wl)
 static int wl18xx_hw_init(struct wl1271 *wl)
 {
 	int ret;
+	struct wl18xx_priv *priv = wl->priv;
 	u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE |
 		HOST_IF_CFG_ADD_RX_ALIGNMENT;
 
@@ -797,6 +795,8 @@ static int wl18xx_hw_init(struct wl1271 *wl)
 	ret = wl18xx_acx_set_checksum_state(wl);
 	if (ret != 0)
 		return ret;
+
+	priv->last_fw_rls_idx = 0;
 
 	return ret;
 }
