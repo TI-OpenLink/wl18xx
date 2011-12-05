@@ -129,7 +129,7 @@ static void wl12xx_free_sdio_irq(struct wl1271 *wl)
 {
 	struct sdio_func *func = wl_to_func(wl);
 
-	wl1271_info("releasing sdio irq");
+	wl1271_debug(DEBUG_SDIO, "releasing sdio irq");
 	sdio_claim_host(func);
 	sdio_release_irq(func);
 	sdio_release_host(func);
@@ -159,7 +159,7 @@ static void wl12xx_claim_sdio_irq(struct wl1271 *wl)
 	sdio_claim_host(func);
 	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
 	sdio_release_host(func);
-	wl1271_info("claiming sdio irq (func=%d). ret=%d", func->num, ret);
+	wl1271_debug(DEBUG_SDIO, "claiming sdio irq (func=%d). ret=%d", func->num, ret);
 
 	if (!ret)
 		wl->inband_claimed = true;
