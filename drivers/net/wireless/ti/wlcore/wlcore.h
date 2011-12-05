@@ -64,6 +64,8 @@ struct wlcore_ops {
 	void (*set_rx_csum)(struct wl1271 *wl,
 			    struct wl1271_rx_descriptor *desc,
 			    struct sk_buff *skb);
+	u32 (*ap_get_mimo_wide_rate_mask)(struct wl1271 *wl,
+					  struct wl12xx_vif *wlvif);
 };
 
 enum wlcore_chip_family {
