@@ -35,6 +35,7 @@
 #include "../wlcore/io.h"
 #include "../wlcore/acx.h"
 
+#include "wl12xx.h"
 #include "reg.h"
 #include "cmd.h"
 #include "acx.h"
@@ -263,16 +264,6 @@ static struct wlcore_conf wl12xx_conf = {
 		.rssi_threshold        = -90,
 		.snr_threshold         = 0,
 	},
-	.rf = {
-		.tx_per_channel_power_compensation_2 = {
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		},
-		.tx_per_channel_power_compensation_5 = {
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		},
-	},
 	.ht = {
 		.rx_ba_win_size = 8,
 		.tx_ba_win_size = 64,
@@ -358,6 +349,19 @@ static struct wlcore_conf wl12xx_conf = {
 		.quiet_time                 = 4,
 		.increase_time              = 1,
 		.window_size                = 16,
+	},
+};
+
+static struct wl12xx_priv_conf wl12xx_default_priv_conf = {
+	.rf = {
+		.tx_per_channel_power_compensation_2 = {
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		},
+		.tx_per_channel_power_compensation_5 = {
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		},
 	},
 };
 
@@ -980,9 +984,6 @@ static void wl12xx_ack_event(struct wl1271 *wl)
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_EVENT_ACK);
 }
 
-struct wl12xx_priv {
-};
-
 static u32 wl12xx_calc_tx_blocks(struct wl1271* wl, u32 len, u32 spare_blks)
 {
 	u32 blk_size = WL12XX_TX_HW_BLOCK_SIZE;
@@ -1139,8 +1140,13 @@ out:
 
 static void wl12xx_conf_init(struct wl1271 *wl)
 {
+	struct wl12xx_priv *priv = wl->priv;
+
 	/* apply driver default configuration */
 	memcpy(&wl->conf, &wl12xx_conf, sizeof(wl12xx_conf));
+
+	/* apply default private configuration */
+	memcpy(&priv->conf, &wl12xx_default_priv_conf, sizeof(priv->conf));
 }
 
 static struct wlcore_ops wl12xx_ops = {
