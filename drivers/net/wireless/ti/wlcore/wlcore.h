@@ -349,6 +349,9 @@ struct wl1271 {
 
 	/* the current channel type */
 	enum nl80211_channel_type channel_type;
+
+	/* HW HT (11n) capabilities */
+	struct ieee80211_sta_ht_cap ht_cap;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
