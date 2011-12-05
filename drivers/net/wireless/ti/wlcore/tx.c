@@ -963,17 +963,18 @@ void wl18xx_tx_immediate_complete(struct wl1271 *wl)
 	wl1271_debug(DEBUG_TX, "last released desc = %d, current idx = %d",
 		     wl->last_fw_rls_idx, status->wl18xx.fw_release_idx);
 
-	if (status->wl18xx.fw_release_idx >= wl->num_tx_desc) {
+	if (status->wl18xx.fw_release_idx >= WL18XX_FW_MAX_TX_STATUS_DESC) {
 		wl1271_error("invalid desc release index %d",
 			     status->wl18xx.fw_release_idx);
 		WARN_ON(1);
 		return;
 	}
 
-	for (i = wl->last_fw_rls_idx; i != status->wl18xx.fw_release_idx;
-	     i = (i + 1) % wl->num_tx_desc) {
+	for (i = wl->last_fw_rls_idx;
+	     i != status->wl18xx.fw_release_idx;
+	     i = (i + 1) % WL18XX_FW_MAX_TX_STATUS_DESC) {
 		wl18xx_tx_complete_packet(wl,
-					  status->wl18xx.released_tx_desc[i]);
+			status->wl18xx.released_tx_desc[i]);
 
 		wl->tx_results_count++;
 	}
