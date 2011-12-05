@@ -133,5 +133,15 @@ wlcore_hw_sta_get_ap_rate_mask(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	return wl->ops->sta_get_ap_rate_mask(wl, wlvif);
 }
 
+static inline u32
+wlcore_hw_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
+				     struct wl12xx_vif *wlvif)
+{
+	if (wl->ops->ap_get_mimo_wide_rate_mask)
+		return wl->ops->ap_get_mimo_wide_rate_mask(wl, wlvif);
+
+	return 0;
+}
+
 #endif
 
