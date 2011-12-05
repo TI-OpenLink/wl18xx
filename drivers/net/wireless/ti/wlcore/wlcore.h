@@ -359,6 +359,9 @@ struct wl1271 {
 
 	/* size of the private FW status data */
 	size_t fw_status_priv_len;
+
+	/* the current channel type */
+	enum nl80211_channel_type channel_type;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
