@@ -1189,6 +1189,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.init_vif = NULL,
 	.set_rx_csum = NULL,
 	.sta_get_ap_rate_mask = wl12xx_sta_get_ap_rate_mask,
+	.ap_get_mimo_wide_rate_mask = NULL,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)

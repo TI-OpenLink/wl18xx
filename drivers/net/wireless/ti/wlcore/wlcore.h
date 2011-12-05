@@ -66,6 +66,8 @@ struct wlcore_ops {
 			    struct sk_buff *skb);
 	u32 (*sta_get_ap_rate_mask)(struct wl1271 *wl,
 				    struct wl12xx_vif *wlvif);
+	u32 (*ap_get_mimo_wide_rate_mask)(struct wl1271 *wl,
+					  struct wl12xx_vif *wlvif);
 };
 
 enum wlcore_chip_family {

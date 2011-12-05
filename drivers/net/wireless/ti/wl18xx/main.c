@@ -861,6 +861,19 @@ static u32 wl18xx_sta_get_ap_rate_mask(struct wl1271 *wl,
 	return hw_rate_set;
 }
 
+static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
+					     struct wl12xx_vif *wlvif)
+{
+	if (wlvif->channel_type == NL80211_CHAN_HT40MINUS ||
+	    wlvif->channel_type == NL80211_CHAN_HT40PLUS) {
+		wl1271_debug(DEBUG_ACX, "using wide channel rate mask");
+		return CONF_TX_RATE_USE_WIDE_CHAN;
+	} else {
+		wl1271_debug(DEBUG_ACX, "using MIMO rate mask");
+		return CONF_TX_MIMO_RATES;
+	}
+}
+
 static void wl18xx_conf_init(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
@@ -893,6 +906,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.init_vif = wl18xx_init_vif,
 	.set_rx_csum = wl18xx_set_rx_csum,
 	.sta_get_ap_rate_mask = wl18xx_sta_get_ap_rate_mask,
+	.ap_get_mimo_wide_rate_mask = wl18xx_ap_get_mimo_wide_rate_mask,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
