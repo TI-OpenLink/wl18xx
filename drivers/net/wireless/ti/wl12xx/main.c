@@ -1152,6 +1152,12 @@ static void wl12xx_set_tx_desc_csum(struct wl1271 *wl,
 	desc->wl12xx_reserved = 0;
 }
 
+static u32 wl12xx_sta_get_ap_rate_mask(struct wl1271 *wl,
+				       struct wl12xx_vif *wlvif)
+{
+	return wlvif->rate_set;
+}
+
 static void wl12xx_conf_init(struct wl1271 *wl)
 {
 	struct wl12xx_priv *priv = wl->priv;
@@ -1182,6 +1188,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.set_tx_desc_csum = wl12xx_set_tx_desc_csum,
 	.init_vif = NULL,
 	.set_rx_csum = NULL,
+	.sta_get_ap_rate_mask = wl12xx_sta_get_ap_rate_mask,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
