@@ -143,5 +143,13 @@ wlcore_hw_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 	return 0;
 }
 
+static inline int wlcore_identify_fw(struct wl1271 *wl)
+{
+	if (wl->ops->identify_fw)
+		return wl->ops->identify_fw(wl);
+
+	return 0;
+}
+
 #endif
 
