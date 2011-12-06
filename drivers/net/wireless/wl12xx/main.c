@@ -5268,8 +5268,12 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
 
 	/* currently, the mimo & 40mhz are currently mutually exclusive supported */
 	if (wl18xx_bool_40mhz) {
-		wl1271_band_2ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40);
-		wl1271_band_5ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_SUP_WIDTH_20_40);
+		wl1271_band_2ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 |
+										IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
+										IEEE80211_HT_CAP_DSSSCCK40);
+		wl1271_band_5ghz.ht_cap.cap |= (IEEE80211_HT_CAP_SGI_40 |
+										IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
+										IEEE80211_HT_CAP_DSSSCCK40);
 		wl1271_band_2ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_40MHZ_SISO;
 		wl1271_band_5ghz.ht_cap.mcs.rx_highest = HW_RX_HIGHEST_RATE_40MHZ_SISO;
 	}
