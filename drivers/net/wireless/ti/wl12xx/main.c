@@ -1151,6 +1151,22 @@ static u32 wl12xx_sta_get_ap_rate_mask(struct wl1271 *wl,
 	return wlvif->rate_set;
 }
 
+static int wl12xx_identify_fw(struct wl1271 *wl)
+{
+	unsigned int *fw_ver = wl->chip.fw_ver;
+
+	/* Only new station firmwares support routing fw logs to the host */
+	if ((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_STA) &&
+	    (fw_ver[FW_VER_MINOR] < FW_VER_MINOR_FWLOG_STA_MIN))
+		wl->quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
+
+	/* This feature is not yet supported for AP mode */
+	if (fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_AP)
+		wl->quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
+
+	return 0;
+}
+
 static void wl12xx_conf_init(struct wl1271 *wl)
 {
 	struct wl12xx_priv *priv = wl->priv;
@@ -1164,6 +1180,7 @@ static void wl12xx_conf_init(struct wl1271 *wl)
 
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
+	.identify_fw	= wl12xx_identify_fw,
 	.pre_boot	= wl12xx_pre_boot,
 	.pre_upload	= wl12xx_pre_upload,
 	.post_boot	= wl12xx_post_boot,
