@@ -1019,12 +1019,12 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 		wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
 		wl1271_top_reg_write(wl, 0xA021FE, 0x400);  /* WL PHY off*/
 		wl1271_top_reg_write(wl, 0xA021FC, 0x400);  /* PHY on */
-		wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
 		wl1271_top_reg_write(wl, 0xA021FE, 0);      /* remove override - turn off BT */
+		wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
 	}
 
 	/* BT Reset */
-	for (i = 0; i < 10; i++) {
+	for (i = 10; i < 20; i++) {
 
 		wl1271_set_partition(wl, &part_table[PART_PHY_PDSP_WA]);
 
@@ -1044,8 +1044,8 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 			wl1271_top_reg_write(wl, 0xA021FC, 0x7800); /* BT enable */
 			wl1271_top_reg_write(wl, 0xA021FE, 0x7C00); /* BT enable */
 			wl1271_top_reg_write(wl, 0xA021FC, 0x7C00); /* PHY on */
-			wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
 			wl1271_top_reg_write(wl, 0xA021FE, 0);      /* remove override - turn off BT */
+			wl1271_top_reg_write(wl, 0xA021FC, 0);      /* remove override - turn off BT */
 		}
 	}
 
@@ -1054,7 +1054,13 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 
 	/* Check OCP state */
 	if (ocp_state != 0x3F) {
-		wl1271_error("F/PDSP OCP is not accessible - please reset device");
+		if (val == 0) {
+			wl1271_error("Init error #2 - Please reset device");
+		}
+		else
+		{
+			wl1271_error("Init error #1 - Please reset device");
+		}
 		return -1;
 	}
 
@@ -1066,16 +1072,13 @@ toggle_pdsp_reset:
 	wl1271_write32(wl, PDSP_CONTROL_REG, 0x00000000);
 
 	/* Validate PDSP Reset */
-	for (i = 0; i < 3; i++) {
-
-		wl1271_write32(wl, FDSP_RAM, 0xA5A5A5A5);
-		val = wl1271_read32(wl, FDSP_RAM);
-		if (val == 0xA5A5A5A5) {
-			goto out;
-		}
+	wl1271_write32(wl, FDSP_RAM, 0xA5A5A5A5);
+	val = wl1271_read32(wl, FDSP_RAM);
+	if (val == 0xA5A5A5A5) {
+		goto out;
 	}
 
-	wl1271_error("Validate PDSP Reset failed - please reset device");
+	wl1271_error("Init error #3 - Please reset device");
 	return -1;
 
 out:
