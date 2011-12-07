@@ -34,6 +34,8 @@ struct wl18xx_priv {
 
 	/* Index of last released Tx desc in FW */
 	u8 last_fw_rls_idx;
+
+	u8 board_type;
 };
 
 #endif /* __WL18XX_PRIV_H__ */
