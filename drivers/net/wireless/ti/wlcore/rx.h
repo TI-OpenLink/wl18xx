@@ -136,4 +136,6 @@ int wl1271_rx_data_filter_enable(struct wl1271 *wl,
 				 bool enable,
 				 struct wl12xx_rx_data_filter *filter);
 void wl1271_rx_data_filters_clear_all(struct wl1271 *wl);
+u8 wlcore_rate_to_idx(struct wl1271 *wl, u8 rate, enum ieee80211_band band);
+
 #endif
