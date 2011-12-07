@@ -239,6 +239,8 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	if (chip_family_param) {
 		if (!strcmp(chip_family_param, "wl12xx"))
 			chip_family = chip_family_param;
+		else if (!strcmp(chip_family_param, "wl18xx"))
+			chip_family = chip_family_param;
 	}
 
 	glue->core = platform_device_alloc(chip_family, -1);
