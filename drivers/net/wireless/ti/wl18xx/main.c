@@ -30,6 +30,9 @@
 #include "reg.h"
 #include "conf.h"
 
+#define WL18XX_TX_HW_BLOCK_SPARE        1
+#define WL18XX_TX_HW_GEM_BLOCK_SPARE    2
+
 static struct wl18xx_conf wl18xx_default_conf = {
 	.phy = {
 		.phy_standalone			= 0x00,
@@ -302,6 +305,8 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->ptable = wl18xx_ptable;
 	wl->rtable = wl18xx_rtable;
 	wl->num_tx_desc = 32;
+	wl->normal_tx_spare = WL18XX_TX_HW_BLOCK_SPARE;
+	wl->gem_tx_spare = WL18XX_TX_HW_GEM_BLOCK_SPARE;
 
 	return wlcore_probe(wl, pdev);
 }
