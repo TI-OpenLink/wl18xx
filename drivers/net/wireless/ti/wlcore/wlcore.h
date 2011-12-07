@@ -316,6 +316,15 @@ struct wl1271 {
 
 	/* the family (type) of the current chip */
 	enum wlcore_chip_family chip_family;
+
+	/* translate HW Tx rates to standard rate-indices */
+	const u8 **band_rate_to_idx;
+
+	/* size of table for HW rates that can be received from chip */
+	u8 hw_tx_rate_tbl_size;
+
+	/* this HW rate and below are considered HT rates for this chip */
+	u8 hw_min_ht_rate;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
