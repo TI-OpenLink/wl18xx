@@ -1596,6 +1596,7 @@ enum nl80211_iftype {
  *	attempts to change it will silently be ignored (rather than rejected
  *	as errors.)
  * @NL80211_STA_FLAG_MAX: highest station flag number currently defined
+ * @NL80211_STA_FLAG_PRE_ASSOC: station is pre-associated
  * @__NL80211_STA_FLAG_AFTER_LAST: internal use
  */
 enum nl80211_sta_flags {
@@ -1606,6 +1607,7 @@ enum nl80211_sta_flags {
 	NL80211_STA_FLAG_MFP,
 	NL80211_STA_FLAG_AUTHENTICATED,
 	NL80211_STA_FLAG_TDLS_PEER,
+	NL80211_STA_FLAG_PRE_ASSOC,
 
 	/* keep last */
 	__NL80211_STA_FLAG_AFTER_LAST,
