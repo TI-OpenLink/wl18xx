@@ -4692,7 +4692,6 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 
 	wl->hw->flags = IEEE80211_HW_SIGNAL_DBM |
 		IEEE80211_HW_BEACON_FILTER |
-		IEEE80211_HW_SUPPORTS_PS |
 		IEEE80211_HW_SUPPORTS_DYNAMIC_PS |
 		IEEE80211_HW_SUPPORTS_UAPSD |
 		IEEE80211_HW_HAS_RATE_CONTROL |
@@ -4704,6 +4703,9 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_AMPDU_AGGREGATION |
 		IEEE80211_HW_TX_AMPDU_SETUP_IN_HW |
 		IEEE80211_HW_SCAN_WHILE_IDLE;
+
+	if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+		wl->hw->flags |= IEEE80211_HW_SUPPORTS_PS;
 
 	wl->hw->wiphy->cipher_suites = cipher_suites;
 	wl->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
