@@ -956,6 +956,7 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	}
 
 	wl = hw->priv;
+	wl->quirks |= WLCORE_QUIRK_NO_PSM;
 	priv = wl->priv;
 	wl->ops = &wl18xx_ops;
 	wl->ptable = wl18xx_ptable;
