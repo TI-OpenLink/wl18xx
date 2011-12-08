@@ -373,6 +373,9 @@ int wlcore_free_hw(struct wl1271 *wl);
 /* Some firmwares may not support ELP */
 #define WLCORE_QUIRK_NO_ELP			BIT(6)
 
+/* Some firmwares may not support PSM */
+#define WLCORE_QUIRK_NO_PSM			BIT(7)
+
 /* TODO: move to the lower drivers when all usages are abstracted */
 #define CHIP_ID_1271_PG10              (0x4030101)
 #define CHIP_ID_1271_PG20              (0x4030111)
