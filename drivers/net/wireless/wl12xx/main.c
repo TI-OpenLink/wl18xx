@@ -641,9 +641,7 @@ static void wl1271_conf_init(struct wl1271 *wl)
 
 static int wl1271_plt_init(struct wl1271 *wl)
 {
-	struct conf_tx_ac_category *conf_ac;
-	struct conf_tx_tid *conf_tid;
-	int ret, i;
+	int ret;
 
 	if (wl->chip.id == CHIP_ID_1283_PG20)
 		ret = wl128x_cmd_general_parms(wl);
@@ -672,10 +670,6 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
-	ret = wl1271_init_templates_config(wl);
-	if (ret < 0)
-		return ret;
-
 	ret = wl1271_acx_init_mem_config(wl);
 	if (ret < 0)
 		return ret;
@@ -685,62 +679,9 @@ static int wl1271_plt_init(struct wl1271 *wl)
 	if (ret < 0)
 		goto out_free_memmap;
 
-	ret = wl1271_acx_dco_itrim_params(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Initialize connection monitoring thresholds */
-	ret = wl1271_acx_conn_monit_params(wl, NULL, false); /* TODO: fix */
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Bluetooth WLAN coexistence */
-	ret = wl1271_init_pta(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* FM WLAN coexistence */
-	ret = wl1271_acx_fm_coex(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Energy detection */
-	ret = wl1271_init_energy_detection(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
 	ret = wl12xx_acx_mem_cfg(wl);
 	if (ret < 0)
 		goto out_free_memmap;
-
-	/* Default fragmentation threshold */
-	ret = wl1271_acx_frag_threshold(wl, wl->conf.tx.frag_threshold);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Default TID/AC configuration */
-	BUG_ON(wl->conf.tx.tid_conf_count != wl->conf.tx.ac_conf_count);
-	for (i = 0; i < wl->conf.tx.tid_conf_count; i++) {
-		conf_ac = &wl->conf.tx.ac_conf[i];
-		/* TODO: fix */
-		ret = wl1271_acx_ac_cfg(wl, NULL, conf_ac->ac, conf_ac->cw_min,
-					conf_ac->cw_max, conf_ac->aifsn,
-					conf_ac->tx_op_limit);
-		if (ret < 0)
-			goto out_free_memmap;
-
-		conf_tid = &wl->conf.tx.tid_conf[i];
-		/* TODO: fix */
-		ret = wl1271_acx_tid_cfg(wl, NULL, conf_tid->queue_id,
-					 conf_tid->channel_type,
-					 conf_tid->tsid,
-					 conf_tid->ps_scheme,
-					 conf_tid->ack_policy,
-					 conf_tid->apsd_conf[0],
-					 conf_tid->apsd_conf[1]);
-		if (ret < 0)
-			goto out_free_memmap;
-	}
 
 	/* Enable data path */
 	ret = wl1271_cmd_data_path(wl, 1);
@@ -1055,7 +996,7 @@ static int wl1271_fetch_firmware(struct wl1271 *wl)
 	ret = request_firmware(&fw, fw_name, wl->dev);
 
 	if (ret < 0) {
-		wl1271_error("could not get firmware: %d", ret);
+		wl1271_error("could not get firmware %s: %d", fw_name, ret);
 		return ret;
 	}
 
@@ -1093,7 +1034,8 @@ static int wl1271_fetch_nvs(struct wl1271 *wl)
 	ret = request_firmware(&fw, WL12XX_NVS_NAME, wl->dev);
 
 	if (ret < 0) {
-		wl1271_error("could not get nvs file: %d", ret);
+		wl1271_error("could not get nvs file %s: %d", WL12XX_NVS_NAME,
+			     ret);
 		return ret;
 	}
 
@@ -2985,7 +2927,7 @@ static int wl1271_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	case WLAN_CIPHER_SUITE_CCMP:
 		key_type = KEY_AES;
 
-		key_conf->flags |= IEEE80211_KEY_FLAG_GENERATE_IV;
+		key_conf->flags |= IEEE80211_KEY_FLAG_PUT_IV_SPACE;
 		tx_seq_32 = WL1271_TX_SECURITY_HI32(wlvif->tx_security_seq);
 		tx_seq_16 = WL1271_TX_SECURITY_LO16(wlvif->tx_security_seq);
 		break;
@@ -3299,11 +3241,31 @@ static void wl12xx_remove_vendor_ie(struct sk_buff *skb,
 	skb_trim(skb, skb->len - len);
 }
 
-static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl,
-					 struct ieee80211_vif *vif,
-					 u8 *probe_rsp_data,
-					 size_t probe_rsp_len,
-					 u32 rates)
+static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl, u32 rates,
+					 struct ieee80211_vif *vif)
+{
+	struct sk_buff *skb;
+	int ret;
+
+	skb = ieee80211_proberesp_get(wl->hw, vif);
+	if (!skb)
+		return -EOPNOTSUPP;
+
+	ret = wl1271_cmd_template_set(wl,
+				      CMD_TEMPL_AP_PROBE_RESPONSE,
+				      skb->data,
+				      skb->len, 0,
+				      rates);
+
+	dev_kfree_skb(skb);
+	return ret;
+}
+
+static int wl1271_ap_set_probe_resp_tmpl_legacy(struct wl1271 *wl,
+					     struct ieee80211_vif *vif,
+					     u8 *probe_rsp_data,
+					     size_t probe_rsp_len,
+					     u32 rates)
 {
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
@@ -3416,6 +3378,14 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 		wlvif->beacon_int = bss_conf->beacon_int;
 	}
 
+	if ((changed & BSS_CHANGED_AP_PROBE_RESP) && is_ap) {
+		u32 rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
+		if (!wl1271_ap_set_probe_resp_tmpl(wl, rate, vif)) {
+			wl1271_debug(DEBUG_AP, "probe response updated");
+			set_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags);
+		}
+	}
+
 	if ((changed & BSS_CHANGED_BEACON)) {
 		struct ieee80211_hdr *hdr;
 		u32 min_rate;
@@ -3424,8 +3394,10 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 		struct sk_buff *beacon = ieee80211_beacon_get(wl->hw, vif);
 		u16 tmpl_id;
 
-		if (!beacon)
+		if (!beacon) {
+			ret = -EINVAL;
 			goto out;
+		}
 
 		wl1271_debug(DEBUG_MASTER, "beacon updated");
 
@@ -3446,6 +3418,13 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 			goto out;
 		}
 
+		/*
+		 * In case we already have a probe-resp beacon set explicitly
+		 * by usermode, don't use the beacon data.
+		 */
+		if (test_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags))
+			goto end_bcn;
+
 		/* remove TIM ie from probe response */
 		wl12xx_remove_ie(beacon, WLAN_EID_TIM, ieoffset);
 
@@ -3464,7 +3443,7 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 		hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
 						 IEEE80211_STYPE_PROBE_RESP);
 		if (is_ap)
-			ret = wl1271_ap_set_probe_resp_tmpl(wl, vif,
+			ret = wl1271_ap_set_probe_resp_tmpl_legacy(wl, vif,
 						beacon->data,
 						beacon->len,
 						min_rate);
@@ -3474,12 +3453,15 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 						beacon->data,
 						beacon->len, 0,
 						min_rate);
+end_bcn:
 		dev_kfree_skb(beacon);
 		if (ret < 0)
 			goto out;
 	}
 
 out:
+	if (ret != 0)
+		wl1271_error("beacon info change failed: %d", ret);
 	return ret;
 }
 
@@ -3536,6 +3518,8 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 					goto out;
 
 				clear_bit(WLVIF_FLAG_AP_STARTED, &wlvif->flags);
+				clear_bit(WLVIF_FLAG_AP_PROBE_RESP_SET,
+					  &wlvif->flags);
 				wl1271_debug(DEBUG_AP, "stopped AP");
 			}
 		}
@@ -4973,6 +4957,13 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	wl->hw->max_rates = 1;
 
 	wl->hw->wiphy->reg_notifier = wl1271_reg_notify;
+
+	/* the FW answers probe-requests in AP-mode */
+	wl->hw->wiphy->flags |= WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD;
+	wl->hw->wiphy->probe_resp_offload =
+		NL80211_PROBE_RESP_OFFLOAD_SUPPORT_WPS |
+		NL80211_PROBE_RESP_OFFLOAD_SUPPORT_WPS2 |
+		NL80211_PROBE_RESP_OFFLOAD_SUPPORT_P2P;
 
 	SET_IEEE80211_DEV(wl->hw, wl->dev);
 
