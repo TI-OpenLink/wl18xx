@@ -207,6 +207,9 @@ static void wl12xx_event_soft_gemini_sense(struct wl1271 *wl,
 	struct ieee80211_vif *vif;
 	struct wl12xx_vif *wlvif;
 
+	if (wl->quirks & WLCORE_QUIRK_NO_PSM)
+		return;
+
 	if (enable) {
 		/* disable dynamic PS when requested by the firmware */
 		wl12xx_for_each_wlvif_sta(wl, wlvif) {
