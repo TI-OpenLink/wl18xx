@@ -1775,7 +1775,8 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 	wl1271_info("down");
 
 	/* enable dyn ps just in case (if left on due to fw crash etc) */
-	if (wlvif->bss_type == BSS_TYPE_STA_BSS)
+	if (wlvif->bss_type == BSS_TYPE_STA_BSS &&
+	    !(wl->quirks & WLCORE_QUIRK_NO_PSM))
 		ieee80211_enable_dyn_ps(vif);
 
 	if (wl->scan.state != WL1271_SCAN_STATE_IDLE &&
@@ -3317,7 +3318,8 @@ sta_not_found:
 			wlvif->probereq = NULL;
 
 			/* re-enable dynamic ps - just in case */
-			ieee80211_enable_dyn_ps(vif);
+			if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+				ieee80211_enable_dyn_ps(vif);
 
 			/* revert back to minimum rates for the current band */
 			wl1271_set_band_rate(wl, wlvif);
@@ -4423,7 +4425,6 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 
 	wl->hw->flags = IEEE80211_HW_SIGNAL_DBM |
 		IEEE80211_HW_BEACON_FILTER |
-		IEEE80211_HW_SUPPORTS_PS |
 		IEEE80211_HW_SUPPORTS_UAPSD |
 		IEEE80211_HW_HAS_RATE_CONTROL |
 		IEEE80211_HW_CONNECTION_MONITOR |
@@ -4433,6 +4434,9 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_AP_LINK_PS |
 		IEEE80211_HW_AMPDU_AGGREGATION |
 		IEEE80211_HW_TX_AMPDU_SETUP_IN_HW;
+
+	if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+		wl->hw->flags |= IEEE80211_HW_SUPPORTS_PS;
 
 	wl->hw->wiphy->cipher_suites = cipher_suites;
 	wl->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
