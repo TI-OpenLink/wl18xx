@@ -44,8 +44,6 @@
 /* transmit buffer max headroom for protocol headers */
 #define TXOFF (D11_TXH_LEN + D11_PHY_HDR_LEN)
 
-#define AC_COUNT		4
-
 /* Macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):
  *    #define <NAME>_M	BITFIELD_MASK(3)
@@ -436,7 +434,7 @@ struct brcms_txq_info {
  * bcn_li_dtim: beacon listen interval in # dtims.
  * WDarmed: watchdog timer is armed.
  * WDlast: last time wlc_watchdog() was called.
- * edcf_txop[AC_COUNT]: current txop for each ac.
+ * edcf_txop[IEEE80211_NUM_ACS]: current txop for each ac.
  * wme_retries: per-AC retry limits.
  * tx_prec_map: Precedence map based on HW FIFO space.
  * fifo2prec_map[NFIFO]: pointer to fifo2_prec map based on WME.
@@ -521,8 +519,7 @@ struct brcms_c_info {
 	struct brcms_timer *radio_timer;
 
 	/* promiscuous */
-	bool monitor;
-	bool bcnmisc_monitor;
+	uint filter_flags;
 
 	/* driver feature */
 	bool _rifs;
@@ -535,9 +532,9 @@ struct brcms_c_info {
 	u32 WDlast;
 
 	/* WME */
-	u16 edcf_txop[AC_COUNT];
+	u16 edcf_txop[IEEE80211_NUM_ACS];
 
-	u16 wme_retries[AC_COUNT];
+	u16 wme_retries[IEEE80211_NUM_ACS];
 	u16 tx_prec_map;
 	u16 fifo2prec_map[NFIFO];
 
@@ -660,8 +657,7 @@ extern void brcms_c_print_txdesc(struct d11txh *txh);
 #endif
 
 extern int brcms_c_set_gmode(struct brcms_c_info *wlc, u8 gmode, bool config);
-extern void brcms_c_mac_bcn_promisc_change(struct brcms_c_info *wlc,
-					   bool promisc);
+extern void brcms_c_mac_promisc(struct brcms_c_info *wlc, uint filter_flags);
 extern void brcms_c_send_q(struct brcms_c_info *wlc);
 extern int brcms_c_prep_pdu(struct brcms_c_info *wlc, struct sk_buff *pdu,
 			    uint *fifo);

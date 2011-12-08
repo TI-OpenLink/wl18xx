@@ -109,11 +109,6 @@
 #define BPHY_PLCP_TIME			192
 #define RIFS_11N_TIME			2
 
-#define AC_BE				0
-#define AC_BK				1
-#define AC_VI				2
-#define AC_VO				3
-
 /* length of the BCN template area */
 #define BCN_TMPL_LEN			512
 
@@ -305,10 +300,22 @@ uint brcm_msg_level =
 #endif				/* BCMDBG */
 
 /* TX FIFO number to WME/802.1E Access Category */
-static const u8 wme_fifo2ac[] = { AC_BK, AC_BE, AC_VI, AC_VO, AC_BE, AC_BE };
+static const u8 wme_fifo2ac[] = {
+	IEEE80211_AC_BK,
+	IEEE80211_AC_BE,
+	IEEE80211_AC_VI,
+	IEEE80211_AC_VO,
+	IEEE80211_AC_BE,
+	IEEE80211_AC_BE
+};
 
-/* WME/802.1E Access Category to TX FIFO number */
-static const u8 wme_ac2fifo[] = { 1, 0, 2, 3 };
+/* ieee80211 Access Category to TX FIFO number */
+static const u8 wme_ac2fifo[] = {
+	TX_AC_VO_FIFO,
+	TX_AC_VI_FIFO,
+	TX_AC_BE_FIFO,
+	TX_AC_BK_FIFO
+};
 
 /* 802.1D Priority to precedence queue mapping */
 const u8 wlc_prio2prec_map[] = {
@@ -893,7 +900,7 @@ brcms_c_dotxstatus(struct brcms_c_info *wlc, struct tx_status *txs)
 		    lfbl,	/* Long Frame Rate Fallback Limit */
 		    fbl;
 
-		if (queue < AC_COUNT) {
+		if (queue < IEEE80211_NUM_ACS) {
 			sfbl = GFIELD(wlc->wme_retries[wme_fifo2ac[queue]],
 				      EDCF_SFB);
 			lfbl = GFIELD(wlc->wme_retries[wme_fifo2ac[queue]],
@@ -942,14 +949,12 @@ brcms_c_dotxstatus(struct brcms_c_info *wlc, struct tx_status *txs)
 			tx_info->flags |= IEEE80211_TX_STAT_ACK;
 	}
 
-	totlen = brcmu_pkttotlen(p);
+	totlen = p->len;
 	free_pdu = true;
 
 	brcms_c_txfifo_complete(wlc, queue, 1);
 
 	if (lastframe) {
-		p->next = NULL;
-		p->prev = NULL;
 		/* remove PLCP & Broadcom tx descriptor header */
 		skb_pull(p, D11_PHY_HDR_LEN);
 		skb_pull(p, D11_TXH_LEN);
@@ -3057,7 +3062,7 @@ static bool brcms_c_ps_allowed(struct brcms_c_info *wlc)
 		return false;
 
 	/* disallow PS when one of these meets when not scanning */
-	if (wlc->monitor)
+	if (wlc->filter_flags & FIF_PROMISC_IN_BSS)
 		return false;
 
 	if (cfg->associated) {
@@ -3576,42 +3581,32 @@ static void brcms_c_bandinit_ordered(struct brcms_c_info *wlc,
 	brcms_c_set_phy_chanspec(wlc, chanspec);
 }
 
-static void brcms_c_mac_bcn_promisc(struct brcms_c_info *wlc)
-{
-	if (wlc->bcnmisc_monitor)
-		brcms_b_mctrl(wlc->hw, MCTL_BCNS_PROMISC, MCTL_BCNS_PROMISC);
-	else
-		brcms_b_mctrl(wlc->hw, MCTL_BCNS_PROMISC, 0);
-}
-
-void brcms_c_mac_bcn_promisc_change(struct brcms_c_info *wlc, bool promisc)
-{
-	wlc->bcnmisc_monitor = promisc;
-	brcms_c_mac_bcn_promisc(wlc);
-}
-
-/* set or clear maccontrol bits MCTL_PROMISC and MCTL_KEEPCONTROL */
-static void brcms_c_mac_promisc(struct brcms_c_info *wlc)
+/*
+ * Set or clear filtering related maccontrol bits based on
+ * specified filter flags
+ */
+void brcms_c_mac_promisc(struct brcms_c_info *wlc, uint filter_flags)
 {
 	u32 promisc_bits = 0;
 
-	/*
-	 * promiscuous mode just sets MCTL_PROMISC
-	 * Note: APs get all BSS traffic without the need to set
-	 * the MCTL_PROMISC bit since all BSS data traffic is
-	 * directed at the AP
-	 */
-	if (wlc->pub->promisc)
+	wlc->filter_flags = filter_flags;
+
+	if (filter_flags & (FIF_PROMISC_IN_BSS | FIF_OTHER_BSS))
 		promisc_bits |= MCTL_PROMISC;
 
-	/* monitor mode needs both MCTL_PROMISC and MCTL_KEEPCONTROL
-	 * Note: monitor mode also needs MCTL_BCNS_PROMISC, but that is
-	 * handled in brcms_c_mac_bcn_promisc()
-	 */
-	if (wlc->monitor)
-		promisc_bits |= MCTL_PROMISC | MCTL_KEEPCONTROL;
+	if (filter_flags & FIF_BCN_PRBRESP_PROMISC)
+		promisc_bits |= MCTL_BCNS_PROMISC;
 
-	brcms_b_mctrl(wlc->hw, MCTL_PROMISC | MCTL_KEEPCONTROL, promisc_bits);
+	if (filter_flags & FIF_FCSFAIL)
+		promisc_bits |= MCTL_KEEPBADFCS;
+
+	if (filter_flags & (FIF_CONTROL | FIF_PSPOLL))
+		promisc_bits |= MCTL_KEEPCONTROL;
+
+	brcms_b_mctrl(wlc->hw,
+		MCTL_PROMISC | MCTL_BCNS_PROMISC |
+		MCTL_KEEPCONTROL | MCTL_KEEPBADFCS,
+		promisc_bits);
 }
 
 /*
@@ -3641,10 +3636,6 @@ static void brcms_c_ucode_mac_upd(struct brcms_c_info *wlc)
 	} else {
 		/* disable an active IBSS if we are not on the home channel */
 	}
-
-	/* update the various promisc bits */
-	brcms_c_mac_bcn_promisc(wlc);
-	brcms_c_mac_promisc(wlc);
 }
 
 static void brcms_c_write_rate_shm(struct brcms_c_info *wlc, u8 rate,
@@ -4125,7 +4116,7 @@ void brcms_c_wme_setparams(struct brcms_c_info *wlc, u16 aci,
 	    EDCF_TXOP2USEC(acp_shm.txop);
 	acp_shm.aifs = (params->aifs & EDCF_AIFSN_MASK);
 
-	if (aci == AC_VI && acp_shm.txop == 0
+	if (aci == IEEE80211_AC_VI && acp_shm.txop == 0
 	    && acp_shm.aifs < EDCF_AIFSN_MAX)
 		acp_shm.aifs++;
 
@@ -4175,7 +4166,7 @@ static void brcms_c_edcf_setparams(struct brcms_c_info *wlc, bool suspend)
 	}; /* ucode needs these parameters during its initialization */
 	const struct edcf_acparam *edcf_acp = &default_edcf_acparams[0];
 
-	for (i_ac = 0; i_ac < AC_COUNT; i_ac++, edcf_acp++) {
+	for (i_ac = 0; i_ac < IEEE80211_NUM_ACS; i_ac++, edcf_acp++) {
 		/* find out which ac this set of params applies to */
 		aci = (edcf_acp->ACI & EDCF_ACI_MASK) >> EDCF_ACI_SHIFT;
 
@@ -5172,7 +5163,7 @@ static void brcms_c_wme_retries_write(struct brcms_c_info *wlc)
 	if (!wlc->clk)
 		return;
 
-	for (ac = 0; ac < AC_COUNT; ac++)
+	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
 		brcms_b_write_shm(wlc->hw, M_AC_TXLMT_ADDR(ac),
 				  wlc->wme_retries[ac]);
 }
@@ -5647,7 +5638,7 @@ int brcms_c_set_rate_limit(struct brcms_c_info *wlc, u16 srl, u16 lrl)
 
 	brcms_b_retrylimit_upd(wlc->hw, wlc->SRL, wlc->LRL);
 
-	for (ac = 0; ac < AC_COUNT; ac++) {
+	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
 		wlc->wme_retries[ac] =	SFIELD(wlc->wme_retries[ac],
 					       EDCF_SHORT,  wlc->SRL);
 		wlc->wme_retries[ac] =	SFIELD(wlc->wme_retries[ac],
@@ -6709,7 +6700,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
 	qos = ieee80211_is_data_qos(h->frame_control);
 
 	/* compute length of frame in bytes for use in PLCP computations */
-	len = brcmu_pkttotlen(p);
+	len = p->len;
 	phylen = len + FCS_LEN;
 
 	/* Get tx_info */
@@ -8080,14 +8071,8 @@ static void brcms_c_recv(struct brcms_c_info *wlc, struct sk_buff *p)
 	len = p->len;
 
 	if (rxh->RxStatus1 & RXS_FCSERR) {
-		if (wlc->pub->mac80211_state & MAC80211_PROMISC_BCNS) {
-			wiphy_err(wlc->wiphy, "FCSERR while scanning******* -"
-				  " tossing\n");
+		if (!(wlc->filter_flags & FIF_FCSFAIL))
 			goto toss;
-		} else {
-			wiphy_err(wlc->wiphy, "RCSERR!!!\n");
-			goto toss;
-		}
 	}
 
 	/* check received pkt has at least frame control field */
@@ -8358,7 +8343,7 @@ void brcms_c_init(struct brcms_c_info *wlc, bool mute_tx)
 		/* Uninitialized; read from HW */
 		int ac;
 
-		for (ac = 0; ac < AC_COUNT; ac++)
+		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
 			wlc->wme_retries[ac] =
 			    brcms_b_read_shm(wlc->hw, M_AC_TXLMT_ADDR(ac));
 	}

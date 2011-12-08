@@ -475,7 +475,6 @@ u32 ath_calcrxfilter(struct ath_softc *sc)
 
 	return rfilt;
 
-#undef RX_FILTER_PRESERVE
 }
 
 int ath_startrecv(struct ath_softc *sc)
@@ -1838,11 +1837,6 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (sc->sc_flags & SC_OP_RXFLUSH)
 			goto requeue_drop_frag;
 
-		retval = ath9k_rx_skb_preprocess(common, hw, hdr, &rs,
-						 rxs, &decrypt_error);
-		if (retval)
-			goto requeue_drop_frag;
-
 		rxs->mactime = (tsf & ~0xffffffffULL) | rs.rs_tstamp;
 		if (rs.rs_tstamp > tsf_lower &&
 		    unlikely(rs.rs_tstamp - tsf_lower > 0x10000000))
@@ -1851,6 +1845,11 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (rs.rs_tstamp < tsf_lower &&
 		    unlikely(tsf_lower - rs.rs_tstamp > 0x10000000))
 			rxs->mactime += 0x100000000ULL;
+
+		retval = ath9k_rx_skb_preprocess(common, hw, hdr, &rs,
+						 rxs, &decrypt_error);
+		if (retval)
+			goto requeue_drop_frag;
 
 		/* Ensure we always have an skb to requeue once we are done
 		 * processing the current buffer's skb */
@@ -1923,15 +1922,20 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 			skb = hdr_skb;
 		}
 
-		/*
-		 * change the default rx antenna if rx diversity chooses the
-		 * other antenna 3 times in a row.
-		 */
-		if (sc->rx.defant != rs.rs_antenna) {
-			if (++sc->rx.rxotherant >= 3)
-				ath_setdefantenna(sc, rs.rs_antenna);
-		} else {
-			sc->rx.rxotherant = 0;
+
+		if (ah->caps.hw_caps & ATH9K_HW_CAP_ANT_DIV_COMB) {
+
+			/*
+			 * change the default rx antenna if rx diversity
+			 * chooses the other antenna 3 times in a row.
+			 */
+			if (sc->rx.defant != rs.rs_antenna) {
+				if (++sc->rx.rxotherant >= 3)
+					ath_setdefantenna(sc, rs.rs_antenna);
+			} else {
+				sc->rx.rxotherant = 0;
+			}
+
 		}
 
 		if (rxs->flag & RX_FLAG_MMIC_STRIPPED)

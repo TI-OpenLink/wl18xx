@@ -780,6 +780,7 @@ static irqreturn_t _rtl_pci_interrupt(int irq, void *dev_id)
 	unsigned long flags;
 	u32 inta = 0;
 	u32 intb = 0;
+	irqreturn_t ret = IRQ_HANDLED;
 
 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
 
@@ -787,8 +788,10 @@ static irqreturn_t _rtl_pci_interrupt(int irq, void *dev_id)
 	rtlpriv->cfg->ops->interrupt_recognized(hw, &inta, &intb);
 
 	/*Shared IRQ or HW disappared */
-	if (!inta || inta == 0xffff)
+	if (!inta || inta == 0xffff) {
+		ret = IRQ_NONE;
 		goto done;
+	}
 
 	/*<1> beacon related */
 	if (inta & rtlpriv->cfg->maps[RTL_IMR_TBDOK]) {
@@ -890,12 +893,9 @@ static irqreturn_t _rtl_pci_interrupt(int irq, void *dev_id)
 	if (rtlpriv->rtlhal.earlymode_enable)
 		tasklet_schedule(&rtlpriv->works.irq_tasklet);
 
-	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
-	return IRQ_HANDLED;
-
 done:
 	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
-	return IRQ_HANDLED;
+	return ret;
 }
 
 static void _rtl_pci_irq_tasklet(struct ieee80211_hw *hw)

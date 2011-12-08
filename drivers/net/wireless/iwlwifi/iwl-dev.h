@@ -230,17 +230,6 @@ struct iwl_vif_priv {
 	u8 ibss_bssid_sta_id;
 };
 
-/* one for each uCode image (inst/data, boot/init/runtime) */
-struct fw_desc {
-	void *v_addr;		/* access by driver */
-	dma_addr_t p_addr;	/* access by card's busmaster DMA */
-	u32 len;		/* bytes */
-};
-
-struct fw_img {
-	struct fw_desc code, data;
-};
-
 /* v1/v2 uCode file layout */
 struct iwl_ucode_header {
 	__le32 ver;	/* major/minor/API/serial */
@@ -453,26 +442,12 @@ enum iwlagn_chain_noise_state {
 };
 
 
-/*
- * enum iwl_calib
- * defines the order in which results of initial calibrations
- * should be sent to the runtime uCode
- */
-enum iwl_calib {
-	IWL_CALIB_XTAL,
-	IWL_CALIB_DC,
-	IWL_CALIB_LO,
-	IWL_CALIB_TX_IQ,
-	IWL_CALIB_TX_IQ_PERD,
-	IWL_CALIB_BASE_BAND,
-	IWL_CALIB_TEMP_OFFSET,
-	IWL_CALIB_MAX
-};
-
 /* Opaque calibration results */
 struct iwl_calib_result {
-	void *buf;
-	size_t buf_len;
+	struct list_head list;
+	size_t cmd_len;
+	struct iwl_calib_hdr hdr;
+	/* data follows */
 };
 
 /* Sensitivity calib data */
@@ -714,35 +689,6 @@ struct iwl_force_reset {
  */
 #define IWLAGN_EXT_BEACON_TIME_POS	22
 
-/**
- * struct iwl_notification_wait - notification wait entry
- * @list: list head for global list
- * @fn: function called with the notification
- * @cmd: command ID
- *
- * This structure is not used directly, to wait for a
- * notification declare it on the stack, and call
- * iwlagn_init_notification_wait() with appropriate
- * parameters. Then do whatever will cause the ucode
- * to notify the driver, and to wait for that then
- * call iwlagn_wait_notification().
- *
- * Each notification is one-shot. If at some point we
- * need to support multi-shot notifications (which
- * can't be allocated on the stack) we need to modify
- * the code for them.
- */
-struct iwl_notification_wait {
-	struct list_head list;
-
-	void (*fn)(struct iwl_priv *priv, struct iwl_rx_packet *pkt,
-		   void *data);
-	void *fn_data;
-
-	u8 cmd;
-	bool triggered, aborted;
-};
-
 struct iwl_rxon_context {
 	struct ieee80211_vif *vif;
 
@@ -805,13 +751,6 @@ enum iwl_scan_type {
 	IWL_SCAN_ROC,
 };
 
-enum iwlagn_ucode_type {
-	IWL_UCODE_NONE,
-	IWL_UCODE_REGULAR,
-	IWL_UCODE_INIT,
-	IWL_UCODE_WOWLAN,
-};
-
 #ifdef CONFIG_IWLWIFI_DEVICE_SVTOOL
 struct iwl_testmode_trace {
 	u32 buff_size;
@@ -822,7 +761,19 @@ struct iwl_testmode_trace {
 	dma_addr_t dma_addr;
 	bool trace_enabled;
 };
+struct iwl_testmode_sram {
+	u32 buff_size;
+	u32 num_chunks;
+	u8 *buff_addr;
+	bool sram_readed;
+};
 #endif
+
+struct iwl_wipan_noa_data {
+	struct rcu_head rcu_head;
+	u32 length;
+	u8 data[];
+};
 
 struct iwl_priv {
 
@@ -881,7 +832,9 @@ struct iwl_priv {
 	s32 last_temperature;
 
 	/* init calibration results */
-	struct iwl_calib_result calib_results[IWL_CALIB_MAX];
+	struct list_head calib_results;
+
+	struct iwl_wipan_noa_data __rcu *noa_data;
 
 	/* Scan related variables */
 	unsigned long scan_start;
@@ -907,12 +860,6 @@ struct iwl_priv {
 	u32 ucode_ver;			/* version of ucode, copy of
 					   iwl_ucode.ver */
 
-	struct fw_img ucode_rt;
-	struct fw_img ucode_init;
-	struct fw_img ucode_wowlan;
-
-	enum iwlagn_ucode_type ucode_type;
-	u8 ucode_write_complete;	/* the image write is complete */
 	char firmware_name[25];
 
 	struct iwl_rxon_context contexts[NUM_IWL_RXON_CTX];
@@ -959,7 +906,6 @@ struct iwl_priv {
 
 	/* eeprom -- this is in the card's little endian byte order */
 	u8 *eeprom;
-	int    nvm_device_type;
 	struct iwl_eeprom_calib_info *calib_info;
 
 	enum nl80211_iftype iw_mode;
@@ -1017,10 +963,6 @@ struct iwl_priv {
 	/* counts reply_tx error */
 	struct reply_tx_error_statistics reply_tx_stats;
 	struct reply_agg_tx_error_statistics reply_agg_tx_stats;
-	/* notification wait support */
-	struct list_head notif_waits;
-	spinlock_t notif_wait_lock;
-	wait_queue_head_t notif_waitq;
 
 	/* remain-on-channel offload support */
 	struct ieee80211_channel *hw_roc_channel;
@@ -1100,6 +1042,7 @@ struct iwl_priv {
 	bool led_registered;
 #ifdef CONFIG_IWLWIFI_DEVICE_SVTOOL
 	struct iwl_testmode_trace testmode_trace;
+	struct iwl_testmode_sram testmode_sram;
 	u32 tm_fixed_rate;
 #endif
 

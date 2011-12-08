@@ -179,6 +179,11 @@ static void ath_tx_flush_tid(struct ath_softc *sc, struct ath_atx_tid *tid)
 		spin_lock_bh(&txq->axq_lock);
 	}
 
+	if (tid->baw_head == tid->baw_tail) {
+		tid->state &= ~AGGR_ADDBA_COMPLETE;
+		tid->state &= ~AGGR_CLEANUP;
+	}
+
 	spin_unlock_bh(&txq->axq_lock);
 }
 
@@ -556,14 +561,8 @@ static void ath_tx_complete_aggr(struct ath_softc *sc, struct ath_txq *txq,
 		spin_unlock_bh(&txq->axq_lock);
 	}
 
-	if (tid->state & AGGR_CLEANUP) {
+	if (tid->state & AGGR_CLEANUP)
 		ath_tx_flush_tid(sc, tid);
-
-		if (tid->baw_head == tid->baw_tail) {
-			tid->state &= ~AGGR_ADDBA_COMPLETE;
-			tid->state &= ~AGGR_CLEANUP;
-		}
-	}
 
 	rcu_read_unlock();
 
@@ -1955,7 +1954,7 @@ static void ath_tx_complete(struct ath_softc *sc, struct sk_buff *skb,
 		skb_pull(skb, padsize);
 	}
 
-	if (sc->ps_flags & PS_WAIT_FOR_TX_ACK) {
+	if ((sc->ps_flags & PS_WAIT_FOR_TX_ACK) && !txq->axq_depth) {
 		sc->ps_flags &= ~PS_WAIT_FOR_TX_ACK;
 		ath_dbg(common, ATH_DBG_PS,
 			"Going back to sleep after having received TX status (0x%lx)\n",

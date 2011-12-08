@@ -166,6 +166,7 @@ struct ieee80211_low_level_stats {
  *	that it is only ever disabled for station mode.
  * @BSS_CHANGED_IDLE: Idle changed for this BSS/interface.
  * @BSS_CHANGED_SSID: SSID changed for this BSS (AP mode)
+ * @BSS_CHANGED_AP_PROBE_RESP: Probe Response changed for this BSS (AP mode)
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
@@ -184,6 +185,7 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_QOS			= 1<<13,
 	BSS_CHANGED_IDLE		= 1<<14,
 	BSS_CHANGED_SSID		= 1<<15,
+	BSS_CHANGED_AP_PROBE_RESP	= 1<<16,
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -1758,11 +1760,21 @@ enum ieee80211_frame_release_type {
  *	skb contains the buffer starting from the IEEE 802.11 header.
  *	The low-level driver should send the frame out based on
  *	configuration in the TX control data. This handler should,
- *	preferably, never fail and stop queues appropriately, more
- *	importantly, however, it must never fail for A-MPDU-queues.
- *	This function should return NETDEV_TX_OK except in very
- *	limited cases.
- *	Must be implemented and atomic.
+ *	preferably, never fail and stop queues appropriately.
+ *	This must be implemented if @tx_frags is not.
+ *	Must be atomic.
+ *
+ * @tx_frags: Called to transmit multiple fragments of a single MSDU.
+ *	This handler must consume all fragments, sending out some of
+ *	them only is useless and it can't ask for some of them to be
+ *	queued again. If the frame is not fragmented the queue has a
+ *	single SKB only. To avoid issues with the networking stack
+ *	when TX status is reported the frames should be removed from
+ *	the skb queue.
+ *	If this is used, the tx_info @vif and @sta pointers will be
+ *	invalid -- you must not use them in that case.
+ *	This must be implemented if @tx isn't.
+ *	Must be atomic.
  *
  * @start: Called before the first netdevice attached to the hardware
  *	is enabled. This should turn on the hardware and must turn on
@@ -2099,6 +2111,8 @@ enum ieee80211_frame_release_type {
  */
 struct ieee80211_ops {
 	void (*tx)(struct ieee80211_hw *hw, struct sk_buff *skb);
+	void (*tx_frags)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta, struct sk_buff_head *skbs);
 	int (*start)(struct ieee80211_hw *hw);
 	void (*stop)(struct ieee80211_hw *hw);
 #ifdef CONFIG_PM
@@ -2673,6 +2687,19 @@ static inline struct sk_buff *ieee80211_beacon_get(struct ieee80211_hw *hw,
 {
 	return ieee80211_beacon_get_tim(hw, vif, NULL, NULL);
 }
+
+/**
+ * ieee80211_proberesp_get - retrieve a Probe Response template
+ * @hw: pointer obtained from ieee80211_alloc_hw().
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ *
+ * Creates a Probe Response template which can, for example, be uploaded to
+ * hardware. The destination address should be set by the caller.
+ *
+ * Can only be called in AP mode.
+ */
+struct sk_buff *ieee80211_proberesp_get(struct ieee80211_hw *hw,
+					struct ieee80211_vif *vif);
 
 /**
  * ieee80211_pspoll_get - retrieve a PS Poll template

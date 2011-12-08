@@ -57,8 +57,17 @@
 #define REG_DBG_PRINT(args...)
 #endif
 
+static struct regulatory_request core_request_world = {
+	.initiator = NL80211_REGDOM_SET_BY_CORE,
+	.alpha2[0] = '0',
+	.alpha2[1] = '0',
+	.intersect = false,
+	.processed = true,
+	.country_ie_env = ENVIRON_ANY,
+};
+
 /* Receipt of information from last regulatory request */
-static struct regulatory_request *last_request;
+static struct regulatory_request *last_request = &core_request_world;
 
 /* To trigger userspace events */
 static struct platform_device *reg_pdev;
@@ -150,7 +159,7 @@ static char user_alpha2[2];
 module_param(ieee80211_regdom, charp, 0444);
 MODULE_PARM_DESC(ieee80211_regdom, "IEEE 802.11 regulatory domain code");
 
-static void reset_regdomains(void)
+static void reset_regdomains(bool full_reset)
 {
 	/* avoid freeing static information or freeing something twice */
 	if (cfg80211_regdomain == cfg80211_world_regdom)
@@ -165,6 +174,13 @@ static void reset_regdomains(void)
 
 	cfg80211_world_regdom = &world_regdom;
 	cfg80211_regdomain = NULL;
+
+	if (!full_reset)
+		return;
+
+	if (last_request != &core_request_world)
+		kfree(last_request);
+	last_request = &core_request_world;
 }
 
 /*
@@ -175,7 +191,7 @@ static void update_world_regdomain(const struct ieee80211_regdomain *rd)
 {
 	BUG_ON(!last_request);
 
-	reset_regdomains();
+	reset_regdomains(false);
 
 	cfg80211_world_regdom = rd;
 	cfg80211_regdomain = rd;
@@ -1123,6 +1139,8 @@ static void wiphy_update_regulatory(struct wiphy *wiphy,
 	if (ignore_reg_update(wiphy, initiator))
 		return;
 
+	last_request->dfs_region = cfg80211_regdomain->dfs_region;
+
 	for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
 		if (wiphy->bands[band])
 			handle_band(wiphy, band, initiator);
@@ -1407,7 +1425,8 @@ static int __regulatory_hint(struct wiphy *wiphy,
 	}
 
 new_request:
-	kfree(last_request);
+	if (last_request != &core_request_world)
+		kfree(last_request);
 
 	last_request = pending_request;
 	last_request->intersect = intersect;
@@ -1576,9 +1595,6 @@ static void queue_regulatory_request(struct regulatory_request *request)
 static int regulatory_hint_core(const char *alpha2)
 {
 	struct regulatory_request *request;
-
-	kfree(last_request);
-	last_request = NULL;
 
 	request = kzalloc(sizeof(struct regulatory_request),
 			  GFP_KERNEL);
@@ -1777,7 +1793,7 @@ static void restore_regulatory_settings(bool reset_user)
 	mutex_lock(&cfg80211_mutex);
 	mutex_lock(&reg_mutex);
 
-	reset_regdomains();
+	reset_regdomains(true);
 	restore_alpha2(alpha2, reset_user);
 
 	/*
@@ -1948,6 +1964,42 @@ static void print_rd_rules(const struct ieee80211_regdomain *rd)
 	}
 }
 
+bool reg_supported_dfs_region(u8 dfs_region)
+{
+	switch (dfs_region) {
+	case NL80211_DFS_UNSET:
+	case NL80211_DFS_FCC:
+	case NL80211_DFS_ETSI:
+	case NL80211_DFS_JP:
+		return true;
+	default:
+		REG_DBG_PRINT("Ignoring uknown DFS master region: %d\n",
+			      dfs_region);
+		return false;
+	}
+}
+
+static void print_dfs_region(u8 dfs_region)
+{
+	if (!dfs_region)
+		return;
+
+	switch (dfs_region) {
+	case NL80211_DFS_FCC:
+		pr_info(" DFS Master region FCC");
+		break;
+	case NL80211_DFS_ETSI:
+		pr_info(" DFS Master region ETSI");
+		break;
+	case NL80211_DFS_JP:
+		pr_info(" DFS Master region JP");
+		break;
+	default:
+		pr_info(" DFS Master region Uknown");
+		break;
+	}
+}
+
 static void print_regdomain(const struct ieee80211_regdomain *rd)
 {
 
@@ -1975,6 +2027,7 @@ static void print_regdomain(const struct ieee80211_regdomain *rd)
 			pr_info("Regulatory domain changed to country: %c%c\n",
 				rd->alpha2[0], rd->alpha2[1]);
 	}
+	print_dfs_region(rd->dfs_region);
 	print_rd_rules(rd);
 }
 
@@ -2037,12 +2090,18 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
 	}
 
 	request_wiphy = wiphy_idx_to_wiphy(last_request->wiphy_idx);
+	if (!request_wiphy &&
+	    (last_request->initiator == NL80211_REGDOM_SET_BY_DRIVER ||
+	     last_request->initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE)) {
+		schedule_delayed_work(&reg_timeout, 0);
+		return -ENODEV;
+	}
 
 	if (!last_request->intersect) {
 		int r;
 
 		if (last_request->initiator != NL80211_REGDOM_SET_BY_DRIVER) {
-			reset_regdomains();
+			reset_regdomains(false);
 			cfg80211_regdomain = rd;
 			return 0;
 		}
@@ -2063,7 +2122,7 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
 		if (r)
 			return r;
 
-		reset_regdomains();
+		reset_regdomains(false);
 		cfg80211_regdomain = rd;
 		return 0;
 	}
@@ -2088,7 +2147,7 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
 
 		rd = NULL;
 
-		reset_regdomains();
+		reset_regdomains(false);
 		cfg80211_regdomain = intersected_rd;
 
 		return 0;
@@ -2108,7 +2167,7 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
 	kfree(rd);
 	rd = NULL;
 
-	reset_regdomains();
+	reset_regdomains(false);
 	cfg80211_regdomain = intersected_rd;
 
 	return 0;
@@ -2261,11 +2320,8 @@ void /* __init_or_exit */ regulatory_exit(void)
 	mutex_lock(&cfg80211_mutex);
 	mutex_lock(&reg_mutex);
 
-	reset_regdomains();
+	reset_regdomains(true);
 
-	kfree(last_request);
-
-	last_request = NULL;
 	dev_set_uevent_suppress(&reg_pdev->dev, true);
 
 	platform_device_unregister(reg_pdev);

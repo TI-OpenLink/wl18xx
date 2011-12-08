@@ -40,10 +40,10 @@
 #define MAC_FILTERS (FIF_PROMISC_IN_BSS | \
 	FIF_ALLMULTI | \
 	FIF_FCSFAIL | \
-	FIF_PLCPFAIL | \
 	FIF_CONTROL | \
 	FIF_OTHER_BSS | \
-	FIF_BCN_PRBRESP_PROMISC)
+	FIF_BCN_PRBRESP_PROMISC | \
+	FIF_PSPOLL)
 
 #define CHAN2GHZ(channel, freqency, chflags)  { \
 	.band = IEEE80211_BAND_2GHZ, \
@@ -373,7 +373,7 @@ static int brcms_ops_config(struct ieee80211_hw *hw, u32 changed)
 						   conf->listen_interval);
 	}
 	if (changed & IEEE80211_CONF_CHANGE_MONITOR)
-		wiphy_err(wiphy, "%s: change monitor mode: %s (implement)\n",
+		wiphy_dbg(wiphy, "%s: change monitor mode: %s\n",
 			  __func__, conf->flags & IEEE80211_CONF_MONITOR ?
 			  "true" : "false");
 	if (changed & IEEE80211_CONF_CHANGE_PS)
@@ -550,29 +550,25 @@ brcms_ops_configure_filter(struct ieee80211_hw *hw,
 
 	changed_flags &= MAC_FILTERS;
 	*total_flags &= MAC_FILTERS;
+
 	if (changed_flags & FIF_PROMISC_IN_BSS)
-		wiphy_err(wiphy, "FIF_PROMISC_IN_BSS\n");
+		wiphy_dbg(wiphy, "FIF_PROMISC_IN_BSS\n");
 	if (changed_flags & FIF_ALLMULTI)
-		wiphy_err(wiphy, "FIF_ALLMULTI\n");
+		wiphy_dbg(wiphy, "FIF_ALLMULTI\n");
 	if (changed_flags & FIF_FCSFAIL)
-		wiphy_err(wiphy, "FIF_FCSFAIL\n");
-	if (changed_flags & FIF_PLCPFAIL)
-		wiphy_err(wiphy, "FIF_PLCPFAIL\n");
+		wiphy_dbg(wiphy, "FIF_FCSFAIL\n");
 	if (changed_flags & FIF_CONTROL)
-		wiphy_err(wiphy, "FIF_CONTROL\n");
+		wiphy_dbg(wiphy, "FIF_CONTROL\n");
 	if (changed_flags & FIF_OTHER_BSS)
-		wiphy_err(wiphy, "FIF_OTHER_BSS\n");
-	if (changed_flags & FIF_BCN_PRBRESP_PROMISC) {
-		spin_lock_bh(&wl->lock);
-		if (*total_flags & FIF_BCN_PRBRESP_PROMISC) {
-			wl->pub->mac80211_state |= MAC80211_PROMISC_BCNS;
-			brcms_c_mac_bcn_promisc_change(wl->wlc, 1);
-		} else {
-			brcms_c_mac_bcn_promisc_change(wl->wlc, 0);
-			wl->pub->mac80211_state &= ~MAC80211_PROMISC_BCNS;
-		}
-		spin_unlock_bh(&wl->lock);
-	}
+		wiphy_dbg(wiphy, "FIF_OTHER_BSS\n");
+	if (changed_flags & FIF_PSPOLL)
+		wiphy_dbg(wiphy, "FIF_PSPOLL\n");
+	if (changed_flags & FIF_BCN_PRBRESP_PROMISC)
+		wiphy_dbg(wiphy, "FIF_BCN_PRBRESP_PROMISC\n");
+
+	spin_lock_bh(&wl->lock);
+	brcms_c_mac_promisc(wl->wlc, *total_flags);
+	spin_unlock_bh(&wl->lock);
 	return;
 }
 
@@ -619,13 +615,6 @@ brcms_ops_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	wl->pub->global_ampdu = &(scb->scb_ampdu);
 	wl->pub->global_ampdu->scb = scb;
 	wl->pub->global_ampdu->max_pdu = 16;
-
-	sta->ht_cap.ht_supported = true;
-	sta->ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K;
-	sta->ht_cap.ampdu_density = AMPDU_DEF_MPDU_DENSITY;
-	sta->ht_cap.cap = IEEE80211_HT_CAP_GRN_FLD |
-	    IEEE80211_HT_CAP_SGI_20 |
-	    IEEE80211_HT_CAP_SGI_40 | IEEE80211_HT_CAP_40MHZ_INTOLERANT;
 
 	/*
 	 * minstrel_ht initiates addBA on our behalf by calling
@@ -1557,11 +1546,10 @@ int brcms_ucode_init_buf(struct brcms_info *wl, void **pbuf, u32 idx)
 			if (le32_to_cpu(hdr->idx) == idx) {
 				pdata = wl->fw.fw_bin[i]->data +
 					le32_to_cpu(hdr->offset);
-				*pbuf = kmalloc(len, GFP_ATOMIC);
+				*pbuf = kmemdup(pdata, len, GFP_ATOMIC);
 				if (*pbuf == NULL)
 					goto fail;
 
-				memcpy(*pbuf, pdata, len);
 				return 0;
 			}
 		}

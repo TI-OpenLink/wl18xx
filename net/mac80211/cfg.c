@@ -102,6 +102,16 @@ static int ieee80211_change_iface(struct wiphy *wiphy,
 	return 0;
 }
 
+static int ieee80211_set_noack_map(struct wiphy *wiphy,
+				  struct net_device *dev,
+				  u16 noack_map)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+
+	sdata->noack_map = noack_map;
+	return 0;
+}
+
 static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 			     u8 key_idx, bool pairwise, const u8 *mac_addr,
 			     struct key_params *params)
@@ -491,6 +501,31 @@ static void ieee80211_config_ap_ssid(struct ieee80211_sub_if_data *sdata,
 		(params->hidden_ssid != NL80211_HIDDEN_SSID_NOT_IN_USE);
 }
 
+static int ieee80211_set_probe_resp(struct ieee80211_sub_if_data *sdata,
+				    u8 *resp, size_t resp_len)
+{
+	struct sk_buff *new, *old;
+
+	if (!resp || !resp_len)
+		return -EINVAL;
+
+	old = rtnl_dereference(sdata->u.ap.probe_resp);
+
+	new = dev_alloc_skb(resp_len);
+	if (!new)
+		return -ENOMEM;
+
+	memcpy(skb_put(new, resp_len), resp, resp_len);
+
+	rcu_assign_pointer(sdata->u.ap.probe_resp, new);
+	synchronize_rcu();
+
+	if (old)
+		dev_kfree_skb(old);
+
+	return 0;
+}
+
 /*
  * This handles both adding a beacon and setting new beacon info
  */
@@ -501,6 +536,7 @@ static int ieee80211_config_beacon(struct ieee80211_sub_if_data *sdata,
 	int new_head_len, new_tail_len;
 	int size;
 	int err = -EINVAL;
+	u32 changed = 0;
 
 	old = rtnl_dereference(sdata->u.ap.beacon);
 
@@ -584,11 +620,17 @@ static int ieee80211_config_beacon(struct ieee80211_sub_if_data *sdata,
 
 	kfree(old);
 
-	ieee80211_config_ap_ssid(sdata, params);
+	err = ieee80211_set_probe_resp(sdata, params->probe_resp,
+				       params->probe_resp_len);
+	if (!err)
+		changed |= BSS_CHANGED_AP_PROBE_RESP;
 
-	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BEACON_ENABLED |
-						BSS_CHANGED_BEACON |
-						BSS_CHANGED_SSID);
+	ieee80211_config_ap_ssid(sdata, params);
+	changed |= BSS_CHANGED_BEACON_ENABLED |
+		   BSS_CHANGED_BEACON |
+		   BSS_CHANGED_SSID;
+
+	ieee80211_bss_info_change_notify(sdata, changed);
 	return 0;
 }
 
@@ -800,7 +842,7 @@ static void sta_apply_parameters(struct ieee80211_local *local,
 	}
 
 	if (params->ht_capa)
-		ieee80211_ht_cap_ie_to_sta_ht_cap(sband,
+		ieee80211_ht_cap_ie_to_sta_ht_cap(sdata, sband,
 						  params->ht_capa,
 						  &sta->sta.ht_cap);
 
@@ -869,7 +911,12 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
 
 	sta_apply_parameters(local, sta, params);
 
-	rate_control_rate_init(sta);
+	/*
+	 * for TDLS, rate control should be initialized only when supported
+	 * rates are known.
+	 */
+	if (!test_sta_flag(sta, WLAN_STA_TDLS_PEER))
+		rate_control_rate_init(sta);
 
 	layer2_update = sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||
 		sdata->vif.type == NL80211_IFTYPE_AP;
@@ -952,6 +999,9 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 	}
 
 	sta_apply_parameters(local, sta, params);
+
+	if (test_sta_flag(sta, WLAN_STA_TDLS_PEER) && params->supported_rates)
+		rate_control_rate_init(sta);
 
 	rcu_read_unlock();
 
@@ -1145,6 +1195,8 @@ static int copy_mesh_setup(struct ieee80211_if_mesh *ifmsh,
 {
 	u8 *new_ie;
 	const u8 *old_ie;
+	struct ieee80211_sub_if_data *sdata = container_of(ifmsh,
+					struct ieee80211_sub_if_data, u.mesh);
 
 	/* allocate information elements */
 	new_ie = NULL;
@@ -1170,6 +1222,10 @@ static int copy_mesh_setup(struct ieee80211_if_mesh *ifmsh,
 		ifmsh->security |= IEEE80211_MESH_SEC_AUTHED;
 	if (setup->is_secure)
 		ifmsh->security |= IEEE80211_MESH_SEC_SECURED;
+
+	/* mcast rate setting in Mesh Node */
+	memcpy(sdata->vif.bss_conf.mcast_rate, setup->mcast_rate,
+						sizeof(setup->mcast_rate));
 
 	return 0;
 }
@@ -1216,6 +1272,9 @@ static int ieee80211_update_mesh_config(struct wiphy *wiphy,
 	if (_chg_mesh_attr(NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL, mask))
 		conf->dot11MeshHWMPpreqMinInterval =
 			nconf->dot11MeshHWMPpreqMinInterval;
+	if (_chg_mesh_attr(NL80211_MESHCONF_HWMP_PERR_MIN_INTERVAL, mask))
+		conf->dot11MeshHWMPperrMinInterval =
+			nconf->dot11MeshHWMPperrMinInterval;
 	if (_chg_mesh_attr(NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME,
 			   mask))
 		conf->dot11MeshHWMPnetDiameterTraversalTime =
@@ -2530,12 +2589,13 @@ static int ieee80211_probe_client(struct wiphy *wiphy, struct net_device *dev,
 
 	rcu_read_lock();
 	sta = sta_info_get(sdata, peer);
-	if (sta)
+	if (sta) {
 		qos = test_sta_flag(sta, WLAN_STA_WME);
-	rcu_read_unlock();
-
-	if (!sta)
+		rcu_read_unlock();
+	} else {
+		rcu_read_unlock();
 		return -ENOLINK;
+	}
 
 	if (qos) {
 		fc = cpu_to_le16(IEEE80211_FTYPE_DATA |
@@ -2580,6 +2640,14 @@ static int ieee80211_probe_client(struct wiphy *wiphy, struct net_device *dev,
 
 	*cookie = (unsigned long) skb;
 	return 0;
+}
+
+static struct ieee80211_channel *
+ieee80211_wiphy_get_channel(struct wiphy *wiphy)
+{
+	struct ieee80211_local *local = wiphy_priv(wiphy);
+
+	return local->oper_channel;
 }
 
 struct cfg80211_ops mac80211_config_ops = {
@@ -2648,4 +2716,6 @@ struct cfg80211_ops mac80211_config_ops = {
 	.tdls_oper = ieee80211_tdls_oper,
 	.tdls_mgmt = ieee80211_tdls_mgmt,
 	.probe_client = ieee80211_probe_client,
+	.get_channel = ieee80211_wiphy_get_channel,
+	.set_noack_map = ieee80211_set_noack_map,
 };

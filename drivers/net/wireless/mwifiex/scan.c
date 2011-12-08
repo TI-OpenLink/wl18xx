@@ -819,8 +819,10 @@ mwifiex_scan_setup_scan_config(struct mwifiex_private *priv,
 			wildcard_ssid_tlv->header.len = cpu_to_le16(
 				(u16) (ssid_len + sizeof(wildcard_ssid_tlv->
 							 max_ssid_length)));
-			wildcard_ssid_tlv->max_ssid_length =
-				user_scan_in->ssid_list[ssid_idx].max_len;
+
+			/* max_ssid_length = 0 tells firmware to perform
+			   specific scan for the SSID filled */
+			wildcard_ssid_tlv->max_ssid_length = 0;
 
 			memcpy(wildcard_ssid_tlv->ssid,
 			       user_scan_in->ssid_list[ssid_idx].ssid,
@@ -1535,11 +1537,6 @@ done:
 	return 0;
 }
 
-static void mwifiex_free_bss_priv(struct cfg80211_bss *bss)
-{
-	kfree(bss->priv);
-}
-
 /*
  * This function handles the command response of scan.
  *
@@ -1765,7 +1762,7 @@ int mwifiex_ret_802_11_scan(struct mwifiex_private *priv,
 					      cap_info_bitmap, beacon_period,
 					      ie_buf, ie_len, rssi, GFP_KERNEL);
 				*(u8 *)bss->priv = band;
-				bss->free_priv = mwifiex_free_bss_priv;
+				cfg80211_put_bss(bss);
 
 				if (priv->media_connected && !memcmp(bssid,
 					priv->curr_bss_params.bss_descriptor

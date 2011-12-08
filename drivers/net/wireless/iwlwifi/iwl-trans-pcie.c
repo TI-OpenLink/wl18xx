@@ -990,28 +990,15 @@ static int iwl_trans_tx_stop(struct iwl_trans *trans)
 	return 0;
 }
 
-static void iwl_trans_pcie_disable_sync_irq(struct iwl_trans *trans)
+static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)
 {
 	unsigned long flags;
-	struct iwl_trans_pcie *trans_pcie =
-		IWL_TRANS_GET_PCIE_TRANS(trans);
+	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
+	/* tell the device to stop sending interrupts */
 	spin_lock_irqsave(&trans->shrd->lock, flags);
 	iwl_disable_interrupts(trans);
 	spin_unlock_irqrestore(&trans->shrd->lock, flags);
-
-	/* wait to make sure we flush pending tasklet*/
-	synchronize_irq(bus(trans)->irq);
-	tasklet_kill(&trans_pcie->irq_tasklet);
-}
-
-static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)
-{
-	/* stop and reset the on-board processor */
-	iwl_write32(bus(trans), CSR_RESET, CSR_RESET_REG_FLAG_NEVO_RESET);
-
-	/* tell the device to stop sending interrupts */
-	iwl_trans_pcie_disable_sync_irq(trans);
 
 	/* device going down, Stop using ICT table */
 	iwl_disable_ict(trans);
@@ -1039,6 +1026,20 @@ static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)
 
 	/* Stop the device, and put it in low power state */
 	iwl_apm_stop(priv(trans));
+
+	/* Upon stop, the APM issues an interrupt if HW RF kill is set.
+	 * Clean again the interrupt here
+	 */
+	spin_lock_irqsave(&trans->shrd->lock, flags);
+	iwl_disable_interrupts(trans);
+	spin_unlock_irqrestore(&trans->shrd->lock, flags);
+
+	/* wait to make sure we flush pending tasklet*/
+	synchronize_irq(bus(trans)->irq);
+	tasklet_kill(&trans_pcie->irq_tasklet);
+
+	/* stop and reset the on-board processor */
+	iwl_write32(bus(trans), CSR_RESET, CSR_RESET_REG_FLAG_NEVO_RESET);
 }
 
 static int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
@@ -1099,13 +1100,21 @@ static int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
 		hdr->seq_ctrl = hdr->seq_ctrl &
 				cpu_to_le16(IEEE80211_SCTL_FRAG);
 		hdr->seq_ctrl |= cpu_to_le16(seq_number);
-		seq_number += 0x10;
 		/* aggregation is on for this <sta,tid> */
 		if (info->flags & IEEE80211_TX_CTL_AMPDU) {
-			WARN_ON_ONCE(tid_data->agg.state != IWL_AGG_ON);
+			if (WARN_ON_ONCE(tid_data->agg.state != IWL_AGG_ON)) {
+				IWL_ERR(trans, "TX_CTL_AMPDU while not in AGG:"
+					" Tx flags = 0x%08x, agg.state = %d",
+					info->flags, tid_data->agg.state);
+				IWL_ERR(trans, "sta_id = %d, tid = %d "
+					"txq_id = %d, seq_num = %d", sta_id,
+					tid, tid_data->agg.txq_id,
+					seq_number >> 4);
+			}
 			txq_id = tid_data->agg.txq_id;
 			is_agg = true;
 		}
+		seq_number += 0x10;
 	}
 
 	/* Copy MAC header from skb into command buffer */
@@ -1231,7 +1240,7 @@ static int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
 			txq->need_update = 1;
 			iwl_txq_update_write_ptr(trans, txq);
 		} else {
-			iwl_stop_queue(trans, txq);
+			iwl_stop_queue(trans, txq, "Queue is full");
 		}
 	}
 	return 0;
@@ -1283,20 +1292,21 @@ static int iwlagn_txq_check_empty(struct iwl_trans *trans,
 		/* aggregated HW queue */
 		if ((txq_id  == tid_data->agg.txq_id) &&
 		    (q->read_ptr == q->write_ptr)) {
-			IWL_DEBUG_HT(trans,
+			IWL_DEBUG_TX_QUEUES(trans,
 				"HW queue empty: continue DELBA flow\n");
 			iwl_trans_pcie_txq_agg_disable(trans, txq_id);
 			tid_data->agg.state = IWL_AGG_OFF;
 			iwl_stop_tx_ba_trans_ready(priv(trans),
 						   NUM_IWL_RXON_CTX,
 						   sta_id, tid);
-			iwl_wake_queue(trans, &trans_pcie->txq[txq_id]);
+			iwl_wake_queue(trans, &trans_pcie->txq[txq_id],
+				       "DELBA flow complete");
 		}
 		break;
 	case IWL_EMPTYING_HW_QUEUE_ADDBA:
 		/* We are reclaiming the last packet of the queue */
 		if (tid_data->tfds_in_queue == 0) {
-			IWL_DEBUG_HT(trans,
+			IWL_DEBUG_TX_QUEUES(trans,
 				"HW queue empty: continue ADDBA flow\n");
 			tid_data->agg.state = IWL_AGG_ON;
 			iwl_start_tx_ba_trans_ready(priv(trans),
@@ -1349,12 +1359,12 @@ static void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int sta_id, int tid,
 	}
 
 	if (txq->q.read_ptr != tfd_num) {
-		IWL_DEBUG_TX_REPLY(trans, "Retry scheduler reclaim "
-				"scd_ssn=%d idx=%d txq=%d swq=%d\n",
-				ssn , tfd_num, txq_id, txq->swq_id);
+		IWL_DEBUG_TX_REPLY(trans, "[Q %d | AC %d] %d -> %d (%d)\n",
+				txq_id, iwl_get_queue_ac(txq), txq->q.read_ptr,
+				tfd_num, ssn);
 		freed = iwl_tx_queue_reclaim(trans, txq_id, tfd_num, skbs);
 		if (iwl_queue_space(&txq->q) > txq->q.low_mark && cond)
-			iwl_wake_queue(trans, txq);
+			iwl_wake_queue(trans, txq, "Packets reclaimed");
 	}
 
 	iwl_free_tfds_in_queue(trans, sta_id, tid, freed);
@@ -1418,7 +1428,8 @@ static int iwl_trans_pcie_resume(struct iwl_trans *trans)
 #endif /* CONFIG_PM_SLEEP */
 
 static void iwl_trans_pcie_wake_any_queue(struct iwl_trans *trans,
-					  enum iwl_rxon_context_id ctx)
+					  enum iwl_rxon_context_id ctx,
+					  const char *msg)
 {
 	u8 ac, txq_id;
 	struct iwl_trans_pcie *trans_pcie =
@@ -1426,11 +1437,11 @@ static void iwl_trans_pcie_wake_any_queue(struct iwl_trans *trans,
 
 	for (ac = 0; ac < AC_NUM; ac++) {
 		txq_id = trans_pcie->ac_to_queue[ctx][ac];
-		IWL_DEBUG_INFO(trans, "Queue Status: Q[%d] %s\n",
+		IWL_DEBUG_TX_QUEUES(trans, "Queue Status: Q[%d] %s\n",
 			ac,
 			(atomic_read(&trans_pcie->queue_stop_count[ac]) > 0)
 			      ? "stopped" : "awake");
-		iwl_wake_queue(trans, &trans_pcie->txq[txq_id]);
+		iwl_wake_queue(trans, &trans_pcie->txq[txq_id], msg);
 	}
 }
 
@@ -1453,11 +1464,12 @@ static struct iwl_trans *iwl_trans_pcie_alloc(struct iwl_shared *shrd)
 	return iwl_trans;
 }
 
-static void iwl_trans_pcie_stop_queue(struct iwl_trans *trans, int txq_id)
+static void iwl_trans_pcie_stop_queue(struct iwl_trans *trans, int txq_id,
+				      const char *msg)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
-	iwl_stop_queue(trans, &trans_pcie->txq[txq_id]);
+	iwl_stop_queue(trans, &trans_pcie->txq[txq_id], msg);
 }
 
 #define IWL_FLUSH_WAIT_MS	2000
@@ -1512,8 +1524,12 @@ static int iwl_trans_pcie_check_stuck_queue(struct iwl_trans *trans, int cnt)
 	if (time_after(jiffies, timeout)) {
 		IWL_ERR(trans, "Queue %d stuck for %u ms.\n", q->id,
 			hw_params(trans).wd_timeout);
-		IWL_ERR(trans, "Current read_ptr %d write_ptr %d\n",
+		IWL_ERR(trans, "Current SW read_ptr %d write_ptr %d\n",
 			q->read_ptr, q->write_ptr);
+		IWL_ERR(trans, "Current HW read_ptr %d write_ptr %d\n",
+			iwl_read_prph(bus(trans), SCD_QUEUE_RDPTR(cnt))
+				& (TFD_QUEUE_SIZE_MAX - 1),
+			iwl_read_prph(bus(trans), SCD_QUEUE_WRPTR(cnt)));
 		return 1;
 	}
 

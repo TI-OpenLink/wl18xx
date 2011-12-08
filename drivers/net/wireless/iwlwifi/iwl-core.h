@@ -113,6 +113,7 @@ struct iwl_lib_ops {
  * @shadow_reg_enable: HW shadhow register bit
  * @no_idle_support: do not support idle mode
  * @hd_v2: v2 of enhanced sensitivity value, used for 2000 series and up
+ * wd_disable: disable watchdog timer
  */
 struct iwl_base_params {
 	int eeprom_size;
@@ -134,6 +135,7 @@ struct iwl_base_params {
 	const bool shadow_reg_enable;
 	const bool no_idle_support;
 	const bool hd_v2;
+	const bool wd_disable;
 };
 /*
  * @advanced_bt_coexist: support advanced bt coexist
@@ -184,8 +186,9 @@ struct iwl_ht_params {
  * @ht_params: point to ht patameters
  * @bt_params: pointer to bt parameters
  * @pa_type: used by 6000 series only to identify the type of Power Amplifier
- * @need_dc_calib: need to perform init dc calibration
  * @need_temp_offset_calib: need to perform temperature offset calibration
+ * @no_xtal_calib: some devices do not need crystal calibration data,
+ *	don't send it to those
  * @scan_antennas: available antenna for scan operation
  * @led_mode: 0=blinking, 1=On(RF On)/Off(RF Off)
  * @adv_pm: advance power management
@@ -222,8 +225,8 @@ struct iwl_cfg {
 	struct iwl_ht_params *ht_params;
 	struct iwl_bt_params *bt_params;
 	enum iwl_pa_type pa_type;	  /* if used set to IWL_PA_SYSTEM */
-	const bool need_dc_calib;	  /* if used set to true */
 	const bool need_temp_offset_calib; /* if used set to true */
+	const bool no_xtal_calib;
 	u8 scan_rx_antennas[IEEE80211_NUM_BANDS];
 	enum iwl_led_mode led_mode;
 	const bool adv_pm;
@@ -237,10 +240,6 @@ struct iwl_cfg {
  *   L i b                 *
  ***************************/
 
-int iwlagn_mac_conf_tx(struct ieee80211_hw *hw,
-		    struct ieee80211_vif *vif, u16 queue,
-		    const struct ieee80211_tx_queue_params *params);
-int iwlagn_mac_tx_last_beacon(struct ieee80211_hw *hw);
 void iwl_set_rxon_hwcrypto(struct iwl_priv *priv, struct iwl_rxon_context *ctx,
 			   int hw_decrypt);
 int iwl_check_rxon_cmd(struct iwl_priv *priv, struct iwl_rxon_context *ctx);
@@ -260,13 +259,6 @@ bool iwl_is_ht40_tx_allowed(struct iwl_priv *priv,
 void iwl_connection_init_rx_config(struct iwl_priv *priv,
 				   struct iwl_rxon_context *ctx);
 void iwl_set_rate(struct iwl_priv *priv);
-int iwlagn_mac_add_interface(struct ieee80211_hw *hw,
-			  struct ieee80211_vif *vif);
-void iwlagn_mac_remove_interface(struct ieee80211_hw *hw,
-			      struct ieee80211_vif *vif);
-int iwlagn_mac_change_interface(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     enum nl80211_iftype newtype, bool newp2p);
 int iwl_cmd_echo_test(struct iwl_priv *priv);
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 int iwl_alloc_traffic_mem(struct iwl_priv *priv);
@@ -323,9 +315,6 @@ void iwl_init_scan_params(struct iwl_priv *priv);
 int iwl_scan_cancel(struct iwl_priv *priv);
 void iwl_scan_cancel_timeout(struct iwl_priv *priv, unsigned long ms);
 void iwl_force_scan_end(struct iwl_priv *priv);
-int iwlagn_mac_hw_scan(struct ieee80211_hw *hw,
-		    struct ieee80211_vif *vif,
-		    struct cfg80211_scan_request *req);
 void iwl_internal_short_hw_scan(struct iwl_priv *priv);
 int iwl_force_reset(struct iwl_priv *priv, int mode, bool external);
 u16 iwl_fill_probe_req(struct iwl_priv *priv, struct ieee80211_mgmt *frame,
