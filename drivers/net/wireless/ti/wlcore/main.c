@@ -57,6 +57,7 @@
 
 static char *fwlog_param;
 static bool bug_on_recovery;
+static bool no_recovery;
 static char *fref_param;
 static char *tcxo_param;
 
@@ -894,6 +895,15 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	BUG_ON(bug_on_recovery &&
 	       !test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags));
+
+	if (no_recovery) {
+		wl1271_info("No recovery (chosen on module load). Fw will "
+			    "remain stuck.");
+		clear_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
+		goto out_unlock;
+	}
+
+	BUG_ON(bug_on_recovery);
 
 	/*
 	 * Advance security sequence number to overcome potential progress
@@ -5371,6 +5381,9 @@ MODULE_PARM_DESC(keymap,
 
 module_param(bug_on_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
+
+module_param(no_recovery, bool, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(no_recovery, "Prevent HW recovery. FW will remain stuck.");
 
 module_param_named(fref, fref_param, charp, 0);
 MODULE_PARM_DESC(fref, "FREF clock: 19.2, 26, 26x, 38.4, 38.4x, 52");
