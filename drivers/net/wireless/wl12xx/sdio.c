@@ -325,7 +325,7 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	else
 		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
 
-	wl->inband_irq = true;
+	wl->inband_irq = false;
 	if (interrupt) {
 		if (!strcmp(interrupt, "gpio"))
 			wl->inband_irq = false;
