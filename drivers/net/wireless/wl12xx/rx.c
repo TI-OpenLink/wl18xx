@@ -308,74 +308,32 @@ int wl1271_rx_data_filtering_enable(struct wl1271 *wl, bool enable,
 
 	ret = wl1271_acx_toggle_rx_data_filter(wl, enable, policy);
 
-	if (ret)
-		return ret;
-
-	wl->rx_data_filter_enabled = enable;
-	wl->rx_data_filter_policy = policy;
-	return 0;
+	return ret;
 }
 
 int wl1271_rx_data_filter_enable(struct wl1271 *wl,
-				 struct wl12xx_rx_data_filter *f, int nr,
-				 bool enable)
+				 int index,
+				 bool enable,
+				 struct wl12xx_rx_data_filter *filter)
 {
 	int ret;
 
-	if (f->enabled == enable)
+	if (wl->rx_data_filters_status[index] == enable) {
+		wl1271_debug(DEBUG_ACX, "Request to enable an already "
+			     "enabled rx filter %d", index);
 		return 0;
+	}
 
-	ret = wl1271_acx_set_rx_data_filter(wl, enable, nr, f->action,
-					    f->pattern, f->len, f->offset);
+	ret = wl1271_acx_set_rx_data_filter(wl, index, enable, filter);
+
 	if (ret) {
-		wl1271_error("Failed to enable/disable rx data filter");
+		wl1271_error("Failed to %s rx data filter %d (err=%d)",
+			     enable ? "enable" : "disable", index, ret);
 		return ret;
 	}
 
-	f->enabled = enable;
-	return 0;
-}
+	wl->rx_data_filters_status[index] = enable;
 
-int wl1271_rx_data_filter_set_action(struct wl12xx_rx_data_filter *f,
-				     enum rx_data_filter_action action)
-{
-	if (f->enabled)
-		return -EBUSY;
-
-	if (action < FILTER_DROP || action > FILTER_FW_HANDLE) {
-		wl1271_warning("filter action is not in valid range");
-		return -ERANGE;
-	}
-
-	f->action = action;
-	return 0;
-}
-
-int wl1271_rx_data_filter_set_offset(struct wl12xx_rx_data_filter *f,
-				     u16 offset)
-{
-	if (f->enabled)
-		return -EBUSY;
-
-	if (offset > USHRT_MAX-1) {
-		wl1271_warning("illegal value for filter offset");
-		return -ERANGE;
-	}
-
-	f->offset = offset;
-	return 0;
-}
-
-int wl1271_rx_data_filter_set_pattern(struct wl12xx_rx_data_filter *f, u8 *buf,
-				      u8 len)
-{
-	if (f->enabled)
-		return -EBUSY;
-	if (len > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE)
-		return -E2BIG;
-
-	memcpy(f->pattern, buf, len);
-	f->len = len;
 	return 0;
 }
 
@@ -383,12 +341,10 @@ int wl1271_rx_data_filter_set_pattern(struct wl12xx_rx_data_filter *f, u8 *buf,
 void wl1271_rx_data_filters_clear_all(struct wl1271 *wl)
 {
 	int i;
-	struct wl12xx_rx_data_filter *f;
 
 	for (i = 0; i < WL1271_MAX_RX_DATA_FILTERS; i++) {
-		f  = &wl->rx_data_filters[i];
-		if (!f->enabled)
+		if (!wl->rx_data_filters_status[i])
 			continue;
-		wl1271_rx_data_filter_enable(wl, f, i, 0);
+		wl1271_rx_data_filter_enable(wl, i, 0, NULL);
 	}
 }

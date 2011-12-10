@@ -1771,56 +1771,55 @@ out:
 	return ret;
 }
 
-int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, bool add, u8 index,
-				  u8 action, u8 *pattern, u8 length, u16 offset)
+int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, u8 index, bool enable,
+				  struct wl12xx_rx_data_filter *filter)
 {
 	struct acx_rx_data_filter_cfg *acx;
+	int fields_size = 0;
+	int acx_size;
 	int ret;
 
-	wl1271_debug(DEBUG_ACX, "acx set rx data filter add: %d idx: %d "
-		     "act: %d pat_len: %d offset: %d", add, index, action,
-		     length, offset);
-
-	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
-	if (!acx) {
-		ret = -ENOMEM;
-		goto out;
+	if (enable && !filter) {
+		wl1271_warning("acx_set_rx_data_filter: enable but no filter");
+		return -EINVAL;
 	}
 
-	if (index >= WL1271_MAX_RX_DATA_FILTERS ||
-	    length > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE ||
-	    (add && !pattern)) {
-		ret = -EINVAL;
-		goto out;
+	if (index >= WL1271_MAX_RX_DATA_FILTERS) {
+		wl1271_warning("acx_set_rx_data_filter: invalid filter idx(%d)",
+			       index);
+		return -EINVAL;
 	}
 
-	acx->add_filter = add ? 1 : 0;
+	wl1271_debug(DEBUG_ACX, "acx set rx data filter idx: %d, enable: %d",
+		     index, enable);
+
+	if (enable) {
+		fields_size = filter->fields_size;
+
+		wl1271_debug(DEBUG_ACX, "act: %d num_fields: %d field_size: %d",
+		      filter->action, filter->num_fields, fields_size);
+	}
+
+	acx_size = roundup(sizeof(*acx) + fields_size, 4);
+	acx = kzalloc(acx_size, GFP_KERNEL);
+
+	if (!acx)
+		return -ENOMEM;
+
+	acx->enable = enable ? 1 : 0;
 	acx->index = index;
-	acx->num_fields = 1;
-	acx->action = action;
 
-	if (add) {
-		/* pattern description */
-		acx->length = length;
-		memcpy(acx->pattern, pattern, length);
+	if (enable) {
+		acx->num_fields = filter->num_fields;
+		acx->action = filter->action;
 
-		if (offset + length <= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
-			acx->flag = WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER;
-			acx->offset = cpu_to_le16(offset);
-		} else if (offset >= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
-			acx->flag = WL1271_RX_DATA_FILTER_FLAG_IP_HEADER;
-			acx->offset = cpu_to_le16(offset -
-				      WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE);
-		} else {
-			wl1271_error("header boundry crossing filters not "
-				     "supported currently");
-			ret = -EINVAL;
-			goto out;
-		}
+		memcpy(acx->fields, filter->fields, filter->fields_size);
 	}
+
+	wl1271_dump(DEBUG_ACX, "RX_FILTER: ", acx, acx_size);
 
 	ret = wl1271_cmd_configure(wl, ACX_SET_RX_DATA_FILTER, acx,
-				   sizeof(*acx));
+				   acx_size);
 	if (ret < 0) {
 		wl1271_warning("setting rx data filter failed: %d", ret);
 		goto out;

@@ -1656,6 +1656,89 @@ static int wl1271_count_bit_flips(void *bitmap, int len)
 	return flips;
 }
 
+int wl1271_validate_wowlan_pattern(struct cfg80211_wowlan_trig_pkt_pattern *p)
+{
+	int offset, len;
+	int ret = 0;
+
+	/* WoWLAN triggers as defined by nl80211 does not match wl12xx's
+	   capabilities 1:1 so it's possible to get a pattern that
+	   FW cannot handle */
+	if (wl1271_count_bit_flips(p->mask, p->pattern_len) > 1) {
+		wl1271_warning("WoWLAN pattern too advanced");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	offset = find_first_bit((const unsigned long *) p->mask,
+				p->pattern_len);
+	len = p->pattern_len - offset;
+
+	if (len > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE) {
+		wl1271_warning("WoWLAN pattern too big");
+		ret = -E2BIG;
+	}
+
+out:
+	return ret;
+}
+
+int wl1271_convert_wowlan_pattern_to_rx_filter(
+	struct cfg80211_wowlan_trig_pkt_pattern *p,
+	struct wl12xx_rx_data_filter **f)
+{
+	int offset, len;
+	int filter_size;
+	int ret = 0;
+	struct wl12xx_rx_data_filter_field *field;
+	struct wl12xx_rx_data_filter *filter;
+
+	filter_size = sizeof(*filter) + sizeof(*field)
+		+ WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+
+	filter = kzalloc(filter_size, GFP_KERNEL);
+	if (!filter) {
+		wl1271_warning("Failed to alloc rx filter");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	offset = find_first_bit((const unsigned long *) p->mask,
+				p->pattern_len);
+	len = p->pattern_len - offset;
+
+	field = &filter->fields[0];
+	if (offset + len <= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
+		field->flags = WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER;
+		field->offset = cpu_to_le16(offset);
+	} else if (offset >= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
+		field->flags = WL1271_RX_DATA_FILTER_FLAG_IP_HEADER;
+		field->offset = cpu_to_le16(offset -
+				  WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE);
+	} else {
+		wl1271_error("header boundry crossing filters not "
+			     "supported currently");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	field->len = len;
+	filter->action = FILTER_SIGNAL;
+	filter->num_fields = 1;
+	filter->fields_size = sizeof(*field) + len;
+
+	memcpy(field->pattern, &p->pattern[offset], len);
+
+	*f = filter;
+	return 0;
+
+err:
+	kfree(filter);
+	*f = NULL;
+
+	return ret;
+}
+
 static int wl1271_configure_wowlan(struct wl1271 *wl,
 				   struct cfg80211_wowlan *wow)
 {
@@ -1675,42 +1758,41 @@ static int wl1271_configure_wowlan(struct wl1271 *wl,
 	/* Translate WoWLAN patterns into filters */
 	for (i = 0; i < wow->n_patterns; i++) {
 		struct cfg80211_wowlan_trig_pkt_pattern *p;
-		struct wl12xx_rx_data_filter *f;
-		int offset, len;
+		struct wl12xx_rx_data_filter *filter = NULL;
 
 		p = &wow->patterns[i];
-		f = &wl->rx_data_filters[i];
 
-		/* WoWLAN triggers as defined by nl80211 does not match wl12xx's
-		   capabilities 1:1 so it's possible to get a pattern that
-		   FW cannot handle */
-		if (wl1271_count_bit_flips(p->mask, p->pattern_len) > 1) {
-			wl1271_warning("WoWLAN pattern too advanced\n");
-			goto err;
+		ret = wl1271_validate_wowlan_pattern(p);
+		if (ret) {
+			wl1271_warning("validate_wowlan_pattern "
+				       "failed (%d)", ret);
+			goto out;
 		}
-		offset = find_first_bit((const unsigned long *) p->mask,
-					p->pattern_len);
-		len = p->pattern_len - offset;
 
-		ret = wl1271_rx_data_filter_set_action(f, FILTER_SIGNAL);
-		if (ret)
-			goto err;
-		ret = wl1271_rx_data_filter_set_offset(f, offset);
-		if (ret)
-			goto err;
-		ret = wl1271_rx_data_filter_set_pattern(f, &p->pattern[offset],
-							len);
-		if (ret)
-			goto err;
-		ret = wl1271_rx_data_filter_enable(wl, f, i, 1);
-		if (ret)
-			goto err;
+		ret = wl1271_convert_wowlan_pattern_to_rx_filter(p, &filter);
+		if (ret) {
+			wl1271_warning("convert_wowlan_pattern_to_rx_filter "
+				       "failed (%d)", ret);
+			goto out;
+		}
+
+		ret = wl1271_rx_data_filter_enable(wl, i, 1, filter);
+
+		kfree(filter);
+		if (ret) {
+			wl1271_warning("rx_data_filter_enable "
+				       " failed (%d)", ret);
+			goto out;
+		}
 	}
+
 	ret = wl1271_rx_data_filtering_enable(wl, 1, FILTER_DROP);
-	if (ret)
-		goto err;
-	return 0;
-err:
+	if (ret) {
+		wl1271_warning("rx_data_filtering_enable failed (%d)", ret);
+		goto out;
+	}
+
+out:
 	return ret;
 }
 

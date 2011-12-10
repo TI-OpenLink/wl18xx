@@ -1166,27 +1166,16 @@ struct acx_rx_data_filter_state {
 struct acx_rx_data_filter_cfg {
 	struct acx_header header;
 
-	u8 add_filter;
+	u8 enable;
 
 	/* range 0 - MAX_DATA_FILTERS */
 	u8 index;
 
-	/* action of type FILTER_XXX */
 	u8 action;
 
-	/* number of fields in this filter */
 	u8 num_fields;
 
-	/*
-	 * currently we only support a single filtering field in the driver, so
-	 * spell it out directly here
-	 */
-
-	/* The offset is taken from the start of the first MAC addr */
-	__le16 offset;
-	u8 length;
-	u8 flag;
-	u8 pattern[WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE];
+	struct wl12xx_rx_data_filter_field fields[0];
 } __packed;
 
 enum {
@@ -1349,8 +1338,6 @@ int wl12xx_acx_set_rate_mgmt_params(struct wl1271 *wl);
 int wl12xx_acx_config_hangover(struct wl1271 *wl);
 int wl1271_acx_toggle_rx_data_filter(struct wl1271 *wl, bool enable,
 				     u8 default_action);
-int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, bool add, u8 index,
-				  u8 action, u8 *pattern, u8 length,
-				  u16 offset);
-
+int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, u8 index, bool enable,
+				  struct wl12xx_rx_data_filter *filter);
 #endif /* __WL1271_ACX_H__ */
