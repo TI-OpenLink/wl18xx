@@ -296,13 +296,17 @@ struct wl1271_link {
 };
 
 #define WL1271_MAX_RX_DATA_FILTERS 4
-#define WL1271_MAX_RX_DATA_FILTER_SIZE 98
 #define WL1271_RX_DATA_FILTER_MAX_FIELD_PATTERNS 8
-#define WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE 64
+
+/* FW MAX FILTER SIZE is 98 bytes. The MAX_PATTERN_SIZE is imposed
+ * after taking into account the mask bytes and other structs members
+ */
+#define WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE 43
 #define WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE 14
 
+#define WL1271_RX_DATA_FILTER_FLAG_MASK                BIT(0)
 #define WL1271_RX_DATA_FILTER_FLAG_IP_HEADER           0
-#define WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER     2
+#define WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER     BIT(1)
 
 enum rx_data_filter_action {
 	FILTER_DROP = 0,

@@ -1790,6 +1790,22 @@ int wl1271_acx_set_rx_data_filter(struct wl1271 *wl, u8 index, bool enable,
 		return -EINVAL;
 	}
 
+	if (filter) {
+		if (filter->action < FILTER_DROP ||
+		    filter->action > FILTER_FW_HANDLE) {
+			wl1271_warning("invalid filter action (%d)",
+				       filter->action);
+			return -EINVAL;
+		}
+
+		if (filter->num_fields != 1 &&
+		    filter->num_fields != 2) {
+			wl1271_warning("invalid filter num_fields (%d)",
+				       filter->num_fields);
+			return -EINVAL;
+		}
+	}
+
 	wl1271_debug(DEBUG_ACX, "acx set rx data filter idx: %d, enable: %d",
 		     index, enable);
 

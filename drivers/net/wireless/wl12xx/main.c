@@ -1,4 +1,3 @@
-
 /*
  * This file is part of wl1271
  *
@@ -1635,66 +1634,77 @@ static struct notifier_block wl1271_dev_notifier = {
 };
 
 #ifdef CONFIG_PM
-/* Count number of 1->0 or 0->1 transitions in a bit mask */
-static int wl1271_count_bit_flips(void *bitmap, int len)
-{
-	int i, flips = 0;
-	int b, bt;
-
-	if (!len)
-		return 0;
-
-	b = test_bit(0, bitmap);
-
-	for (i = 0; i < len; i++) {
-		bt = test_bit(i, bitmap);
-		if (bt != b)
-			flips++;
-		b = bt;
-	}
-
-	return flips;
-}
-
 int wl1271_validate_wowlan_pattern(struct cfg80211_wowlan_trig_pkt_pattern *p)
 {
-	int offset, len;
-	int ret = 0;
-
-	/* WoWLAN triggers as defined by nl80211 does not match wl12xx's
-	   capabilities 1:1 so it's possible to get a pattern that
-	   FW cannot handle */
-	if (wl1271_count_bit_flips(p->mask, p->pattern_len) > 1) {
-		wl1271_warning("WoWLAN pattern too advanced");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	offset = find_first_bit((const unsigned long *) p->mask,
-				p->pattern_len);
-	len = p->pattern_len - offset;
-
-	if (len > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE) {
+	if (p->pattern_len > WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE) {
 		wl1271_warning("WoWLAN pattern too big");
-		ret = -E2BIG;
+		return -E2BIG;
 	}
 
-out:
-	return ret;
+	if (!p->mask) {
+		wl1271_warning("No mask in WoWLAN pattern");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
+int wl1271_build_rx_filter_field(struct wl12xx_rx_data_filter_field *field,
+				 u8 *pattern, u8 len, u8 offset,
+				 u8 *bitmask, u8 flags)
+{
+	u8 *mask;
+	int i;
+
+	field->flags = flags | WL1271_RX_DATA_FILTER_FLAG_MASK;
+
+	/* Not using the capability to set offset within an RX filter field.
+	 * The offset param is used to access pattern and bitmask.
+	 */
+	field->offset = 0;
+	field->len = len;
+	memcpy(field->pattern, &pattern[offset], len);
+
+	/* Translate the WowLAN bitmask (in bits) to the FW RX filter field
+	   mask which is in bytes */
+
+	mask = field->pattern + len;
+
+	for (i = offset; i < (offset+len); i++) {
+		if (test_bit(i, (unsigned long *)bitmask))
+			*mask = 0xFF;
+
+		mask++;
+	}
+
+	return sizeof(*field) + len + (bitmask ? len : 0);
+}
+
+/* Allocates an RX filter returned through f
+   which needs to be freed using kfree() */
 int wl1271_convert_wowlan_pattern_to_rx_filter(
 	struct cfg80211_wowlan_trig_pkt_pattern *p,
 	struct wl12xx_rx_data_filter **f)
 {
-	int offset, len;
-	int filter_size;
+	int filter_size, num_fields, fields_size;
+	int first_field_size;
 	int ret = 0;
 	struct wl12xx_rx_data_filter_field *field;
 	struct wl12xx_rx_data_filter *filter;
 
-	filter_size = sizeof(*filter) + sizeof(*field)
-		+ WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE;
+	/* If pattern is longer then the ETHERNET header we split it into
+	 * 2 fields in the rx filter as you can't have a single
+	 * field across ETH header boundary. The first field will filter
+	 * anything in the ETH header and the 2nd one from the IP header.
+	 * Each field will contain pattern bytes and mask bytes
+	 */
+	if (p->pattern_len > WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE)
+		num_fields = 2;
+	else
+		num_fields = 1;
+
+	fields_size = (sizeof(*field) * num_fields) + (2 * p->pattern_len);
+	filter_size = sizeof(*filter) + fields_size;
 
 	filter = kzalloc(filter_size, GFP_KERNEL);
 	if (!filter) {
@@ -1703,31 +1713,30 @@ int wl1271_convert_wowlan_pattern_to_rx_filter(
 		goto err;
 	}
 
-	offset = find_first_bit((const unsigned long *) p->mask,
-				p->pattern_len);
-	len = p->pattern_len - offset;
-
 	field = &filter->fields[0];
-	if (offset + len <= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
-		field->flags = WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER;
-		field->offset = cpu_to_le16(offset);
-	} else if (offset >= WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE) {
-		field->flags = WL1271_RX_DATA_FILTER_FLAG_IP_HEADER;
-		field->offset = cpu_to_le16(offset -
-				  WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE);
-	} else {
-		wl1271_error("header boundry crossing filters not "
-			     "supported currently");
-		ret = -EINVAL;
-		goto err;
+	first_field_size = wl1271_build_rx_filter_field(field,
+			p->pattern,
+			min(p->pattern_len,
+			    WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE),
+			0,
+			p->mask,
+			WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER);
+
+	field = (struct wl12xx_rx_data_filter_field *)
+		  (((u8 *)filter->fields) + first_field_size);
+
+	if (num_fields > 1) {
+		wl1271_build_rx_filter_field(field,
+		     p->pattern,
+		     p->pattern_len - WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE,
+		     WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE,
+		     p->mask,
+		     WL1271_RX_DATA_FILTER_FLAG_IP_HEADER);
 	}
 
-	field->len = len;
 	filter->action = FILTER_SIGNAL;
-	filter->num_fields = 1;
-	filter->fields_size = sizeof(*field) + len;
-
-	memcpy(field->pattern, &p->pattern[offset], len);
+	filter->num_fields = num_fields;
+	filter->fields_size = fields_size;
 
 	*f = filter;
 	return 0;
@@ -1975,7 +1984,7 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 
 	return 0;
 }
-#endif
+#endif /* CONFIG_PM */
 
 static int wl1271_op_start(struct ieee80211_hw *hw)
 {
