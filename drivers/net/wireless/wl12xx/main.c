@@ -50,8 +50,7 @@
 #include "testmode.h"
 #include "scan.h"
 
-#define WL1271_BOOT_RETRIES 1
-//#define WL1271_BOOT_RETRIES 3
+#define WL1271_BOOT_RETRIES 20
 
 u32 wl18xx_bool_40mhz = true;
 u32 wl18xx_bool_mimo = false;
