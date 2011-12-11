@@ -1011,6 +1011,10 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 
 		ocp_state = wl1271_read32(wl, PHY_HRAM_RD_EN_PER_RAM);
 
+		if (!ocp_state) {
+			return -1;
+		}
+
 		/* Check OCP state */
 		if (ocp_state == 0x3F) {
 			goto toggle_pdsp_reset;
@@ -1029,6 +1033,10 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 		wl1271_set_partition(wl, &part_table[PART_PHY_PDSP_WA]);
 
 		ocp_state = wl1271_read32(wl, PHY_HRAM_RD_EN_PER_RAM);
+
+		if (!ocp_state) {
+			return -1;
+		}
 
 		/* Check OCP state */
 		if (ocp_state == 0x3F) {
@@ -1051,6 +1059,10 @@ static int wl18xx_pdsp_wa_sequence(struct wl1271 *wl)
 
 	wl1271_set_partition(wl, &part_table[PART_PHY_PDSP_WA]);
 	ocp_state = wl1271_read32(wl, PHY_HRAM_RD_EN_PER_RAM);
+
+	if (!ocp_state) {
+		return -1;
+	}
 
 	/* Check OCP state */
 	if (ocp_state != 0x3F) {
