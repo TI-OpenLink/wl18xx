@@ -28,6 +28,7 @@
 #include "../wlcore/acx.h"
 #include "../wlcore/tx.h"
 #include "../wlcore/rx.h"
+#include "../wlcore/io.h"
 #include "../wlcore/boot.h"
 
 #include "reg.h"
@@ -451,6 +452,10 @@ wl18xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 	return WLCORE_RX_BUF_ALIGNED;
 }
 
+static void wl18xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
+{
+	wl1271_read(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf, len, true);
+}
 
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
@@ -461,6 +466,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.set_tx_desc_blocks = wl18xx_set_tx_desc_blocks,
 	.set_tx_desc_data_len = wl18xx_set_tx_desc_data_len,
 	.get_rx_buf_align = wl18xx_get_rx_buf_align,
+	.read_data = wl18xx_read_data,
 };
 
 int __devinit wl18xx_probe(struct platform_device *pdev)
