@@ -46,6 +46,7 @@ struct wlcore_ops {
 				     struct sk_buff *skb);
 	enum wl_rx_buf_align (*get_rx_buf_align)(struct wl1271 *wl,
 						 u32 rx_desc);
+	void (*read_data)(struct wl1271 *wl, u32 rx_desc, u32 len);
 };
 
 enum wlcore_chip_family {
