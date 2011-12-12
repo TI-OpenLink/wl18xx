@@ -650,6 +650,7 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->ops = &wl12xx_ops;
 	wl->ptable = wl12xx_ptable;
 	wl->rtable = wl12xx_rtable;
+	wl->chip_family = WL12XX_CHIP;
 	wl->num_tx_desc = 16;
 	wl->normal_tx_spare = WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
 	wl->gem_tx_spare = WL12XX_TX_HW_BLOCK_GEM_SPARE;
