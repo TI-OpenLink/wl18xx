@@ -155,7 +155,7 @@ static int wl1271_boot_upload_firmware_chunk(struct wl1271 *wl, void *buf,
 	return 0;
 }
 
-static int wl1271_boot_upload_firmware(struct wl1271 *wl)
+int wlcore_boot_upload_firmware(struct wl1271 *wl)
 {
 	u32 chunks, addr, len;
 	int ret = 0;
@@ -187,8 +187,9 @@ static int wl1271_boot_upload_firmware(struct wl1271 *wl)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(wlcore_boot_upload_firmware);
 
-static int wl1271_boot_upload_nvs(struct wl1271 *wl)
+int wlcore_boot_upload_nvs(struct wl1271 *wl)
 {
 	size_t nvs_len, burst_len;
 	int i;
@@ -333,8 +334,9 @@ out_badnvs:
 	wl1271_error("nvs data is malformed");
 	return -EILSEQ;
 }
+EXPORT_SYMBOL_GPL(wlcore_boot_upload_nvs);
 
-static int wl1271_boot_run_firmware(struct wl1271 *wl)
+int wlcore_boot_run_firmware(struct wl1271 *wl)
 {
 	int loop, ret;
 	u32 chip_id, intr;
@@ -436,56 +438,4 @@ static int wl1271_boot_run_firmware(struct wl1271 *wl)
 	/* firmware startup completed */
 	return 0;
 }
-
-/* uploads NVS and firmware */
-int wl1271_load_firmware(struct wl1271 *wl)
-{
-	int ret = 0;
-
-	/*
-	 * TODO: we may want to move all this to an op and call back
-	 * the upload functions instead
-	 */
-
-	ret = wl->ops->pre_boot(wl);
-	if (ret < 0)
-		goto out;
-
-	/* 2. start processing NVS file */
-	ret = wl1271_boot_upload_nvs(wl);
-	if (ret < 0)
-		goto out;
-
-	wl->ops->pre_upload(wl);
-
-	ret = wl1271_boot_upload_firmware(wl);
-	if (ret < 0)
-		goto out;
-
-out:
-	return ret;
-}
-EXPORT_SYMBOL_GPL(wl1271_load_firmware);
-
-int wl1271_boot(struct wl1271 *wl)
-{
-	int ret;
-
-	/* upload NVS and firmware */
-	ret = wl1271_load_firmware(wl);
-	if (ret)
-		return ret;
-
-	if (wl->ops->pre_run)
-		wl->ops->pre_run(wl);
-
-	/* 10.5 start firmware */
-	ret = wl1271_boot_run_firmware(wl);
-	if (ret < 0)
-		goto out;
-
-	wl->ops->post_boot(wl);
-
-out:
-	return ret;
-}
+EXPORT_SYMBOL_GPL(wlcore_boot_run_firmware);

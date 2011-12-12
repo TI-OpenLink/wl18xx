@@ -34,6 +34,7 @@
 #include "../wlcore/rx.h"
 #include "../wlcore/io.h"
 #include "../wlcore/acx.h"
+#include "../wlcore/boot.h"
 
 #include "wl12xx.h"
 #include "reg.h"
@@ -966,7 +967,7 @@ static void wl12xx_pre_upload(struct wl1271 *wl)
 		wl12xx_top_reg_write(wl, SDIO_IO_DS, HCI_IO_DS_6MA);
 }
 
-static void wl12xx_post_boot(struct wl1271 *wl)
+static void wl12xx_enable_interrupts(struct wl1271 *wl)
 {
 	u32 polarity;
 
@@ -983,6 +984,34 @@ static void wl12xx_post_boot(struct wl1271 *wl)
 			 WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
 
 	wl1271_write32(wl, WL12XX_HI_CFG, HI_CFG_DEF_VAL);
+}
+
+static int wl12xx_boot(struct wl1271 *wl)
+{
+	int ret;
+
+	ret = wl12xx_pre_boot(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_boot_upload_nvs(wl);
+	if (ret < 0)
+		goto out;
+
+	wl12xx_pre_upload(wl);
+
+	ret = wlcore_boot_upload_firmware(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_boot_run_firmware(wl);
+	if (ret < 0)
+		goto out;
+
+	wl12xx_enable_interrupts(wl);
+
+out:
+	return ret;
 }
 
 static void wl12xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
@@ -1193,9 +1222,7 @@ static void wl12xx_conf_init(struct wl1271 *wl)
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.identify_fw	= wl12xx_identify_fw,
-	.pre_boot	= wl12xx_pre_boot,
-	.pre_upload	= wl12xx_pre_upload,
-	.post_boot	= wl12xx_post_boot,
+	.boot		= wl12xx_boot,
 	.trigger_cmd	= wl12xx_trigger_cmd,
 	.ack_event	= wl12xx_ack_event,
 	.calc_tx_blocks = wl12xx_calc_tx_blocks,
