@@ -61,6 +61,7 @@ struct wlcore_ops {
 
 enum wlcore_chip_family {
 	WL12XX_CHIP = 0,
+	WL18XX_CHIP,
 };
 
 enum wlcore_partitions {
