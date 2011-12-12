@@ -30,6 +30,7 @@
 #include "../wlcore/tx.h"
 #include "../wlcore/rx.h"
 #include "../wlcore/io.h"
+#include "../wlcore/boot.h"
 
 #include "wl18xx.h"
 #include "reg.h"
@@ -676,18 +677,13 @@ static void wl18xx_pre_upload(struct wl1271 *wl)
 	tmp = wl1271_read32(wl, WL18XX_SCR_PAD2);
 }
 
-static void wl18xx_pre_run(struct wl1271 *wl)
+static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
 	struct wl18xx_conf_phy *phy = &priv->conf.phy;
 	struct wl18xx_mac_and_phy_params params;
 
 	memset(&params, 0, sizeof(params));
-
-	/*
-	 * TODO: wl18xx_default_conf shouldn't be accessed directly
-	 * and must go into a priv part of the wlcore conf struct
-	 */
 
 	params.phy_standalone = phy->phy_standalone;
 	params.rdl = phy->rdl;
@@ -726,20 +722,45 @@ static void wl18xx_pre_run(struct wl1271 *wl)
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_INIT]);
 	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8*)&params,
 		     sizeof(params), false);
-
-	/*
-	 * 18xxTODO: should probably revert the set_partition thing, or
-	 * do all set_partition in a single function. otherwise confusing.
-	 */
 }
 
-static void wl18xx_post_boot(struct wl1271 *wl)
+static void wl18xx_enable_interrupts(struct wl1271 *wl)
 {
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK, WL1271_ACX_ALL_EVENTS_VECTOR);
 
 	wlcore_enable_interrupts(wl);
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK,
 			 WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
+}
+
+static int wl18xx_boot(struct wl1271 *wl)
+{
+	int ret;
+
+	ret = wl18xx_pre_boot(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_boot_upload_nvs(wl);
+	if (ret < 0)
+		goto out;
+
+	wl18xx_pre_upload(wl);
+
+	ret = wlcore_boot_upload_firmware(wl);
+	if (ret < 0)
+		goto out;
+
+	wl18xx_set_mac_and_phy(wl);
+
+	ret = wlcore_boot_run_firmware(wl);
+	if (ret < 0)
+		goto out;
+
+	wl18xx_enable_interrupts(wl);
+
+out:
+	return ret;
 }
 
 static void wl18xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
@@ -937,10 +958,7 @@ static void wl18xx_conf_init(struct wl1271 *wl)
 
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
-	.pre_boot	= wl18xx_pre_boot,
-	.pre_upload	= wl18xx_pre_upload,
-	.pre_run	= wl18xx_pre_run,
-	.post_boot	= wl18xx_post_boot,
+	.boot		= wl18xx_boot,
 	.trigger_cmd	= wl18xx_trigger_cmd,
 	.ack_event	= wl18xx_ack_event,
 	.calc_tx_blocks = wl18xx_calc_tx_blocks,
