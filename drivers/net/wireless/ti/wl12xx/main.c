@@ -589,6 +589,39 @@ wl12xx_set_tx_desc_blocks(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 	}
 }
 
+static void
+wl12xx_set_tx_desc_data_len(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
+			    struct sk_buff *skb)
+{
+	u32 aligned_len = wlcore_calc_packet_alignment(wl, skb->len);
+
+	if (wl->chip.id == CHIP_ID_1283_PG20) {
+		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
+		desc->length = cpu_to_le16(aligned_len >> 2);
+
+		wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
+			     "len: %d life: %d mem: %d extra: %d", desc->hlid,
+			     le16_to_cpu(desc->length),
+			     le16_to_cpu(desc->life_time),
+			     desc->wl128x_mem.total_mem_blocks,
+			     desc->wl128x_mem.extra_bytes);
+	} else {
+		/* calculate number of padding bytes */
+		int pad = aligned_len - skb->len;
+		desc->tx_attr |=
+			cpu_to_le16(pad << TX_HW_ATTR_OFST_LAST_WORD_PAD);
+
+		/* Store the aligned length in terms of words */
+		desc->length = cpu_to_le16(aligned_len >> 2);
+
+		wl1271_debug(DEBUG_TX, "tx_fill_hdr: pad: %d hlid: %d "
+			     "len: %d life: %d mem: %d", pad, desc->hlid,
+			     le16_to_cpu(desc->length),
+			     le16_to_cpu(desc->life_time),
+			     desc->wl127x_mem.total_mem_blocks);
+	}
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.pre_boot	= wl12xx_pre_boot,
@@ -598,6 +631,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.ack_event	= wl12xx_ack_event,
 	.calc_tx_blocks = wl12xx_calc_tx_blocks,
 	.set_tx_desc_blocks = wl12xx_set_tx_desc_blocks,
+	.set_tx_desc_data_len = wl12xx_set_tx_desc_data_len,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
