@@ -370,11 +370,16 @@ static void wl12xx_irq_ps_regulate_link(struct wl1271 *wl,
 
 static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 					   struct wl12xx_vif *wlvif,
-					   struct wl12xx_fw_status *status)
+					   struct wl_fw_status *status)
 {
 	struct wl1271_link *lnk;
 	u32 cur_fw_ps_map;
 	u8 hlid, cnt;
+	struct wl_fw_packet_counters *counters;
+
+	counters = (wl->chip_family == WL12XX_CHIP) ?
+		   &status->wl12xx.counters :
+		   &status->wl18xx.counters;
 
 	/* TODO: also use link_fast_bitmap here */
 
@@ -390,9 +395,9 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 
 	for_each_set_bit(hlid, wlvif->ap.sta_hlid_map, WL12XX_MAX_LINKS) {
 		lnk = &wl->links[hlid];
-		cnt = status->tx_lnk_free_pkts[hlid] - lnk->prev_freed_pkts;
+		cnt = counters->tx_lnk_free_pkts[hlid] - lnk->prev_freed_pkts;
 
-		lnk->prev_freed_pkts = status->tx_lnk_free_pkts[hlid];
+		lnk->prev_freed_pkts = counters->tx_lnk_free_pkts[hlid];
 		lnk->allocated_pkts -= cnt;
 
 		wl12xx_irq_ps_regulate_link(wl, wlvif, hlid,
@@ -401,16 +406,27 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 }
 
 static void wl12xx_fw_status(struct wl1271 *wl,
-			     struct wl12xx_fw_status *status)
+			     struct wl_fw_status *status)
 {
 	struct wl12xx_vif *wlvif;
 	struct timespec ts;
 	u32 old_tx_blk_count = wl->tx_blocks_available;
 	int avail, freed_blocks;
 	int i;
+	size_t common_status_len, plat_status_len;
+	struct wl_fw_packet_counters *counters;
+
+	counters = (wl->chip_family == WL12XX_CHIP) ?
+		   &status->wl12xx.counters :
+		   &status->wl18xx.counters;
+	plat_status_len = (wl->chip_family == WL12XX_CHIP) ?
+			  sizeof(status->wl12xx) :
+			  sizeof(status->wl18xx);
+	common_status_len = offsetof(struct wl_fw_status, per_family_data) +
+			    sizeof(status->log_start_addr);
 
 	wlcore_raw_read_data(wl, REG_RAW_FW_STATUS_ADDR, status,
-			     sizeof(*status), false);
+			common_status_len + plat_status_len, false);
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
 		     "drv_rx_counter = %d, tx_results_counter = %d)",
@@ -422,10 +438,10 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		/* prevent wrap-around in freed-packets counter */
 		wl->tx_allocated_pkts[i] -=
-				(status->tx_released_pkts[i] -
+				(counters->tx_released_pkts[i] -
 				wl->tx_pkts_freed[i]) & 0xff;
 
-		wl->tx_pkts_freed[i] = status->tx_released_pkts[i];
+		wl->tx_pkts_freed[i] = counters->tx_released_pkts[i];
 	}
 
 	/* prevent wrap-around in total blocks counter */

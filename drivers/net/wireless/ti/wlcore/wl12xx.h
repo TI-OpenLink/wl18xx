@@ -131,8 +131,19 @@ struct wl1271_stats {
 
 #define AP_MAX_STATIONS            8
 
+struct wl_fw_packet_counters {
+	/* Cumulative counter of released packets per AC */
+	u8 tx_released_pkts[NUM_TX_QUEUES];
+
+	/* Cumulative counter of freed packets per HLID */
+	u8 tx_lnk_free_pkts[WL12XX_MAX_LINKS];
+
+	/* Cumulative counter of released Voice memory blocks */
+	u8 tx_voice_released_blks;
+} __packed;
+
 /* FW status registers */
-struct wl12xx_fw_status {
+struct wl_fw_status {
 	__le32 intr;
 	u8  fw_rx_counter;
 	u8  drv_rx_counter;
@@ -159,15 +170,32 @@ struct wl12xx_fw_status {
 	/* Size (in Memory Blocks) of TX pool */
 	__le32 tx_total;
 
-	/* Cumulative counter of released packets per AC */
-	u8 tx_released_pkts[NUM_TX_QUEUES];
+	union {
+		/* used in offsetof() */
+		u8 per_family_data[0];
 
-	/* Cumulative counter of freed packets per HLID */
-	u8 tx_lnk_free_pkts[WL12XX_MAX_LINKS];
+		struct {
+			struct wl_fw_packet_counters counters;
+			u8 padding_1[3];
+		} wl12xx;
+		struct {
+			/*
+			 * Index in released_tx_desc for first byte that holds
+			 * released tx host desc
+			 */
+			u8 fw_release_idx;
 
-	/* Cumulative counter of released Voice memory blocks */
-	u8 tx_voice_released_blks;
-	u8 padding_1[3];
+			/*
+			 * Array of host Tx descriptors, where fw_release_idx
+			 * indicated the first released idx.
+			 */
+			u8 released_tx_desc[32];
+
+			struct wl_fw_packet_counters counters;
+			u8 padding_1[6];
+		} wl18xx;
+	} __packed;
+
 	__le32 log_start_addr;
 } __packed;
 
