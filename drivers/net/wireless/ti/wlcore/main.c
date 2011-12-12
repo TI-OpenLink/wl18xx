@@ -971,7 +971,7 @@ int wl1271_plt_start(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl1271_boot(wl);
+		ret = wl->ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
@@ -1615,7 +1615,7 @@ static bool wl12xx_init_fw(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl1271_boot(wl);
+		ret = wl->ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
