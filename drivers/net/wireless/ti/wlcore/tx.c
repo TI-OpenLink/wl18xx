@@ -72,7 +72,7 @@ static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 	return id;
 }
 
-static void wl1271_free_tx_id(struct wl1271 *wl, int id)
+void wl1271_free_tx_id(struct wl1271 *wl, int id)
 {
 	if (__test_and_clear_bit(id, wl->tx_frames_map)) {
 		if (unlikely(wl->tx_frames_cnt == wl->num_tx_desc))
@@ -82,6 +82,7 @@ static void wl1271_free_tx_id(struct wl1271 *wl, int id)
 		wl->tx_frames_cnt--;
 	}
 }
+EXPORT_SYMBOL(wl1271_free_tx_id);
 
 static int wl1271_tx_update_filters(struct wl1271 *wl,
 				    struct wl12xx_vif *wlvif,
@@ -156,6 +157,7 @@ bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
 	return wl->dummy_packet == skb;
 }
+EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
 u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			 struct sk_buff *skb)
@@ -880,6 +882,7 @@ void wl1271_tx_complete(struct wl1271 *wl)
 		wl->tx_results_count++;
 	}
 }
+EXPORT_SYMBOL(wl1271_tx_complete);
 
 void wl1271_tx_reset_link_queues(struct wl1271 *wl, u8 hlid)
 {
