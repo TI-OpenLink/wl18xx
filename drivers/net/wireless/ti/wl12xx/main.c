@@ -31,6 +31,7 @@
 #include "../wlcore/io.h"
 #include "../wlcore/acx.h"
 #include "../wlcore/tx.h"
+#include "../wlcore/rx.h"
 #include "../wlcore/boot.h"
 
 #include "reg.h"
@@ -738,6 +739,15 @@ wl12xx_set_tx_desc_data_len(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 	}
 }
 
+static enum wl_rx_buf_align
+wl12xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
+{
+	if (rx_desc & RX_BUF_UNALIGNED_PAYLOAD)
+		return WLCORE_RX_BUF_UNALIGNED;
+
+	return WLCORE_RX_BUF_ALIGNED;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.boot		= wl12xx_boot,
@@ -746,6 +756,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.calc_tx_blocks = wl12xx_calc_tx_blocks,
 	.set_tx_desc_blocks = wl12xx_set_tx_desc_blocks,
 	.set_tx_desc_data_len = wl12xx_set_tx_desc_data_len,
+	.get_rx_buf_align = wl12xx_get_rx_buf_align,
 };
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
