@@ -34,6 +34,7 @@ struct wlcore_ops {
 	int (*boot)(struct wl1271 *wl);
 	void (*trigger_cmd)(struct wl1271 *wl);
 	void (*ack_event)(struct wl1271 *wl);
+	u32 (*calc_tx_blocks)(struct wl1271* wl, u32 len, u32 spare_blks);
 };
 
 enum wlcore_partitions {
