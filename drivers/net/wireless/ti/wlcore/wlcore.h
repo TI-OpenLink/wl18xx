@@ -46,6 +46,10 @@ struct wlcore_ops {
 				     struct sk_buff *skb);
 };
 
+enum wlcore_chip_family {
+	WL12XX_CHIP = 0,
+};
+
 enum wlcore_partitions {
 	PART_DOWN,
 	PART_WORK,
@@ -305,6 +309,9 @@ struct wl1271 {
 	/* spare Tx blocks for normal/GEM operating modes */
 	u32 normal_tx_spare;
 	u32 gem_tx_spare;
+
+	/* the family (type) of the current chip */
+	enum wlcore_chip_family chip_family;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
