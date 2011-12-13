@@ -680,8 +680,9 @@ out:
 	return ret;
 }
 
-static void wl12xx_trigger_cmd(struct wl1271 *wl)
+static void wl12xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
 {
+	wl1271_write(wl, wl->cmd_box_addr, buf, len, false);
 	wlcore_write_reg(wl, REG_INTERRUPT_TRIG, WL12XX_INTR_TRIG_CMD);
 }
 
