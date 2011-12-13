@@ -95,5 +95,14 @@ static inline void wlcore_hw_tx_immediate_completion(struct wl1271 *wl)
 		wl->ops->tx_immediate_completion(wl);
 }
 
+static inline int
+wlcore_hw_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	if (wl->ops->init_vif)
+		return wl->ops->init_vif(wl, wlvif);
+
+	return 0;
+}
+
 #endif
 
