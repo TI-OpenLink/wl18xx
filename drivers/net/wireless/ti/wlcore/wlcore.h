@@ -36,7 +36,7 @@ enum wl_rx_buf_align;
 struct wlcore_ops {
 	int (*identify_chip)(struct wl1271 *wl);
 	int (*boot)(struct wl1271 *wl);
-	void (*trigger_cmd)(struct wl1271 *wl);
+	void (*trigger_cmd)(struct wl1271 *wl, void *buf, size_t len);
 	void (*ack_event)(struct wl1271 *wl);
 	u32 (*calc_tx_blocks)(struct wl1271* wl, u32 len, u32 spare_blks);
 	void (*set_tx_desc_blocks)(struct wl1271 *wl,
