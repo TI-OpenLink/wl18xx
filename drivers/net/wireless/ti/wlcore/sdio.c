@@ -229,11 +229,7 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	/* Tell PM core that we don't need the card to be powered now */
 	pm_runtime_put_noidle(&func->dev);
 
-	/* TODO: move the version handling to a separate function */
-	if (wlan_data->magic != WLCORE_PLATDATA_MAGIC)
-		wlan_data->chip_family = WLCORE_DEFAULT_CHIP_FAMILY;
-
-	chip_family = wlan_data->chip_family;
+	chip_family = WLCORE_DEFAULT_CHIP_FAMILY;
 
 	/* Adjust settings according to the optional module param */
 	if (chip_family_param) {
