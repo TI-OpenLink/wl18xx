@@ -1478,6 +1478,16 @@ static bool wl18xx_lnk_low_prio(struct wl1271 *wl, u8 hlid,
 	return lnk->allocated_pkts < thold;
 }
 
+static int wl18xx_init_vif(struct wl1271* wl, struct wl12xx_vif *wlvif)
+{
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+	if (vif && checksum_param)
+		ieee80211_set_netdev_features(vif, NETIF_F_IP_CSUM);
+
+	return 0;
+}
+
 static int wl18xx_setup(struct wl1271 *wl);
 
 static struct wlcore_ops wl18xx_ops = {
@@ -1513,6 +1523,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.set_key	= wl18xx_set_key,
 	.channel_switch	= wl18xx_cmd_channel_switch,
 	.pre_pkt_send	= wl18xx_pre_pkt_send,
+	.init_vif	= wl18xx_init_vif,
 	.sta_rc_update	= wl18xx_sta_rc_update,
 	.set_peer_cap	= wl18xx_set_peer_cap,
 	.lnk_high_prio	= wl18xx_lnk_high_prio,
