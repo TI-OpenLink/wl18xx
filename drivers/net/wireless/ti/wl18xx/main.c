@@ -1303,6 +1303,16 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 	return buf_offset;
 }
 
+static int wl18xx_init_vif(struct wl1271* wl, struct wl12xx_vif *wlvif)
+{
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+	if (vif && checksum_param)
+		ieee80211_set_netdev_features(vif, NETIF_F_IP_CSUM);
+
+	return 0;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.boot		= wl18xx_boot,
@@ -1328,6 +1338,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.get_spare_blocks = wl18xx_get_spare_blocks,
 	.set_key	= wl18xx_set_key,
 	.pre_pkt_send	= wl18xx_pre_pkt_send,
+	.init_vif	= wl18xx_init_vif,
 };
 
 /* HT cap appropriate for wide channels */
