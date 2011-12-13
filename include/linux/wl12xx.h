@@ -46,41 +46,8 @@ enum {
 	WL12XX_TCXOCLOCK_33_6	= 7, /* 33.6 MHz */
 };
 
-/* arbitrary signature with a high value to make sure it's not an IRQ number */
-#define WLCORE_PLATDATA_MAGIC		0xf100ca71
-
 struct wl12xx_platform_data {
-	/*
-	 * If the magic number is set to 0xf100ca71 we can be pretty
-	 * sure it's not an IRQ (which was used at this point in the
-	 * old struct), so we can trust the version element.
-	 */
-	int version;
-	int magic;
-
 	void (*set_power)(bool enable);
-
-	/* SDIO only: IRQ number if WLAN_IRQ line is used, 0 for SDIO IRQs */
-	int irq;
-	bool use_eeprom;
-	int board_ref_clock;
-	int board_tcxo_clock;
-	unsigned long platform_quirks;
-	bool pwr_in_suspend;
-
-	struct wl1271_if_operations *ops;
-
-	const char *chip_family;
-};
-
-/*
- * TODO: we should move this to some less visible place inside the
- * driver, so it's not too exposed.  Maybe also add some version
- * macros etc.  */
-struct wl12xx_platform_data_legacy
-{
-	void (*set_power)(bool enable);
-
 	/* SDIO only: IRQ number if WLAN_IRQ line is used, 0 for SDIO IRQs */
 	int irq;
 	bool use_eeprom;
