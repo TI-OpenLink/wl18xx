@@ -570,7 +570,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
 			     wl->chip.id);
 		wl->exp.fw_name = WL18XX_FW_NAME;
-		wl->quirks |= WLCORE_QUIRK_NO_ELP |
+		wl->exp.quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
 
@@ -847,13 +847,13 @@ static int wl18xx_hw_init(struct wl1271 *wl)
 	u32 sdio_align_size = 0;
 
 	/* Enable Tx SDIO padding */
-	if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN) {
+	if (wl->exp.quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN) {
 		host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
 		sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
 	}
 
 	/* Enable Rx SDIO padding */
-	if (wl->quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN) {
+	if (wl->exp.quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN) {
 		host_cfg_bitmap |= HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
 		sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
 	}
@@ -1017,7 +1017,7 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	}
 
 	wl = hw->priv;
-	wl->quirks |= WLCORE_QUIRK_NO_PSM;
+	wl->exp.quirks |= WLCORE_QUIRK_NO_PSM;
 	priv = wl->exp.priv;
 	wl->exp.ops = &wl18xx_ops;
 	wl->exp.ptable = wl18xx_ptable;
