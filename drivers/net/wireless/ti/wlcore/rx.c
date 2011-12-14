@@ -71,7 +71,7 @@ static void wl1271_rx_status(struct wl1271 *wl,
 	status->rate_idx = wlcore_rate_to_idx(wl, desc->rate, status->band);
 
 	/* 11n support */
-	if (desc->rate <= wl->hw_min_ht_rate)
+	if (desc->rate <= wl->exp.hw_min_ht_rate)
 		status->flag |= RX_FLAG_HT;
 
 	status->signal = desc->rssi;

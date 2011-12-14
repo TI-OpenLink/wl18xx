@@ -67,13 +67,17 @@ static inline void wl1271_raw_read(struct wl1271 *wl, int addr, void *buf,
 static inline void wlcore_raw_read_data(struct wl1271 *wl, int reg, void *buf,
 					size_t len, bool fixed)
 {
-	wl1271_raw_read(wl, wl->rtable[reg], buf, len, fixed);
+	const int *rtable = wl->exp.rtable;
+
+	wl1271_raw_read(wl, rtable[reg], buf, len, fixed);
 }
 
 static inline void wlcore_raw_write_data(struct wl1271 *wl, int reg, void *buf,
 					 size_t len, bool fixed)
 {
-	wl1271_raw_write(wl, wl->rtable[reg], buf, len, fixed);
+	const int *rtable = wl->exp.rtable;
+
+	wl1271_raw_write(wl, rtable[reg], buf, len, fixed);
 }
 
 static inline u32 wl1271_raw_read32(struct wl1271 *wl, int addr)
@@ -114,13 +118,13 @@ static inline void wl1271_write(struct wl1271 *wl, int addr, void *buf,
 static inline void wlcore_write_data(struct wl1271 *wl, int reg, void *buf,
 				     size_t len, bool fixed)
 {
-	wl1271_write(wl, wl->rtable[reg], buf, len, fixed);
+	wl1271_write(wl, wl->exp.rtable[reg], buf, len, fixed);
 }
 
 static inline void wlcore_read_data(struct wl1271 *wl, int reg, void *buf,
 				    size_t len, bool fixed)
 {
-	wl1271_read(wl, wl->rtable[reg], buf, len, fixed);
+	wl1271_read(wl, wl->exp.rtable[reg], buf, len, fixed);
 }
 
 static inline void wl1271_read_hwaddr(struct wl1271 *wl, int hwaddr,
@@ -149,12 +153,16 @@ static inline void wl1271_write32(struct wl1271 *wl, int addr, u32 val)
 
 static inline u32 wlcore_read_reg(struct wl1271 *wl, int reg)
 {
-	return wl1271_raw_read32(wl, wlcore_translate_addr(wl, wl->rtable[reg]));
+	const int *rtable = wl->exp.rtable;
+
+	return wl1271_raw_read32(wl, wlcore_translate_addr(wl, rtable[reg]));
 }
 
 static inline void wlcore_write_reg(struct wl1271 *wl, int reg, u32 val)
 {
-	wl1271_raw_write32(wl, wlcore_translate_addr(wl, wl->rtable[reg]), val);
+	const int *rtable = wl->exp.rtable;
+
+	wl1271_raw_write32(wl, wlcore_translate_addr(wl, rtable[reg]), val);
 }
 
 static inline void wl1271_power_off(struct wl1271 *wl)

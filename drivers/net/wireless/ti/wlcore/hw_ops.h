@@ -28,20 +28,20 @@
 static inline u32
 wlcore_hw_calc_tx_blocks(struct wl1271 *wl, u32 len, u32 spare_blks)
 {
-	if (!wl->ops->calc_tx_blocks)
+	if (!wl->exp.ops->calc_tx_blocks)
 		BUG_ON(1);
 
-	return wl->ops->calc_tx_blocks(wl, len, spare_blks);
+	return wl->exp.ops->calc_tx_blocks(wl, len, spare_blks);
 }
 
 static inline void
 wlcore_hw_set_tx_desc_blocks(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 			     u32 blks, u32 spare_blks)
 {
-	if (!wl->ops->set_tx_desc_blocks)
+	if (!wl->exp.ops->set_tx_desc_blocks)
 		BUG_ON(1);
 
-	return wl->ops->set_tx_desc_blocks(wl, desc, blks, spare_blks);
+	return wl->exp.ops->set_tx_desc_blocks(wl, desc, blks, spare_blks);
 }
 
 static inline void
@@ -49,57 +49,57 @@ wlcore_hw_set_tx_desc_data_len(struct wl1271 *wl,
 			       struct wl1271_tx_hw_descr *desc,
 			       struct sk_buff *skb)
 {
-	if (!wl->ops->set_tx_desc_data_len)
+	if (!wl->exp.ops->set_tx_desc_data_len)
 		BUG_ON(1);
 
-	wl->ops->set_tx_desc_data_len(wl, desc, skb);
+	wl->exp.ops->set_tx_desc_data_len(wl, desc, skb);
 }
 
 static inline enum wl_rx_buf_align
 wlcore_hw_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 {
 
-	if (!wl->ops->get_rx_buf_align)
+	if (!wl->exp.ops->get_rx_buf_align)
 		BUG_ON(1);
 
-	return wl->ops->get_rx_buf_align(wl, rx_desc);
+	return wl->exp.ops->get_rx_buf_align(wl, rx_desc);
 }
 
 static inline void
 wlcore_hw_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
 {
-	if (!wl->ops->read_data)
+	if (!wl->exp.ops->read_data)
 		BUG_ON(1);
 
-	wl->ops->read_data(wl, rx_desc, len);
+	wl->exp.ops->read_data(wl, rx_desc, len);
 }
 
 static inline u32
 wlcore_hw_get_rx_packet_len(struct wl1271 *wl, void *rx_data, u32 data_len)
 {
-	if (!wl->ops->get_rx_packet_len)
+	if (!wl->exp.ops->get_rx_packet_len)
 		BUG_ON(1);
 
-	return wl->ops->get_rx_packet_len(wl, rx_data, data_len);
+	return wl->exp.ops->get_rx_packet_len(wl, rx_data, data_len);
 }
 
 static inline void wlcore_hw_tx_delayed_completion(struct wl1271 *wl)
 {
-	if (wl->ops->tx_delayed_completion)
-		wl->ops->tx_delayed_completion(wl);
+	if (wl->exp.ops->tx_delayed_completion)
+		wl->exp.ops->tx_delayed_completion(wl);
 }
 
 static inline void wlcore_hw_tx_immediate_completion(struct wl1271 *wl)
 {
-	if (wl->ops->tx_immediate_completion)
-		wl->ops->tx_immediate_completion(wl);
+	if (wl->exp.ops->tx_immediate_completion)
+		wl->exp.ops->tx_immediate_completion(wl);
 }
 
 static inline int
 wlcore_hw_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
-	if (wl->ops->init_vif)
-		return wl->ops->init_vif(wl, wlvif);
+	if (wl->exp.ops->init_vif)
+		return wl->exp.ops->init_vif(wl, wlvif);
 
 	return 0;
 }
@@ -107,16 +107,16 @@ wlcore_hw_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 static inline u32
 wlcore_hw_sta_get_ap_rate_mask(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
-	if (!wl->ops->sta_get_ap_rate_mask)
+	if (!wl->exp.ops->sta_get_ap_rate_mask)
 		BUG_ON(1);
 
-	return wl->ops->sta_get_ap_rate_mask(wl, wlvif);
+	return wl->exp.ops->sta_get_ap_rate_mask(wl, wlvif);
 }
 
 static inline int wlcore_identify_fw(struct wl1271 *wl)
 {
-	if (wl->ops->identify_fw)
-		return wl->ops->identify_fw(wl);
+	if (wl->exp.ops->identify_fw)
+		return wl->exp.ops->identify_fw(wl);
 
 	return 0;
 }
@@ -126,10 +126,10 @@ wlcore_hw_set_tx_desc_csum(struct wl1271 *wl,
 			   struct wl1271_tx_hw_descr *desc,
 			   struct sk_buff *skb)
 {
-	if (!wl->ops->set_tx_desc_csum)
+	if (!wl->exp.ops->set_tx_desc_csum)
 		BUG_ON(1);
 
-	wl->ops->set_tx_desc_csum(wl, desc, skb);
+	wl->exp.ops->set_tx_desc_csum(wl, desc, skb);
 }
 
 static inline void
@@ -137,16 +137,16 @@ wlcore_hw_set_rx_csum(struct wl1271 *wl,
 		      struct wl1271_rx_descriptor *desc,
 		      struct sk_buff *skb)
 {
-	if (wl->ops->set_rx_csum)
-		wl->ops->set_rx_csum(wl, desc, skb);
+	if (wl->exp.ops->set_rx_csum)
+		wl->exp.ops->set_rx_csum(wl, desc, skb);
 }
 
 static inline u32
 wlcore_hw_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 				     struct wl12xx_vif *wlvif)
 {
-	if (wl->ops->ap_get_mimo_wide_rate_mask)
-		return wl->ops->ap_get_mimo_wide_rate_mask(wl, wlvif);
+	if (wl->exp.ops->ap_get_mimo_wide_rate_mask)
+		return wl->exp.ops->ap_get_mimo_wide_rate_mask(wl, wlvif);
 
 	return 0;
 }

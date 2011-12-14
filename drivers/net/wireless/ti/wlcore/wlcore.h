@@ -119,7 +119,53 @@ enum wlcore_registers {
 	REG_TABLE_LEN,
 };
 
+struct wlcore_exp {
+	struct wlcore_ops *ops;
+	/* pointer to the lower driver partition table */
+	const struct wlcore_partition_set *ptable;
+	/* pointer to the lower driver register table */
+	const int *rtable;
+	/* name of the firmwares to load */
+	const char *plt_fw_name;
+	const char *sr_fw_name;
+	const char *mr_fw_name;
+
+	/* per-chip-family private structure */
+	void *priv;
+
+	/* number of TX descriptors the HW supports. */
+	u32 num_tx_desc;
+
+	/* spare Tx blocks for normal/GEM operating modes */
+	u32 normal_tx_spare;
+	u32 gem_tx_spare;
+
+	/* the family (type) of the current chip */
+	enum wlcore_chip_family chip_family;
+
+	/* translate HW Tx rates to standard rate-indices */
+	const u8 **band_rate_to_idx;
+
+	/* size of table for HW rates that can be received from chip */
+	u8 hw_tx_rate_tbl_size;
+
+	/* this HW rate and below are considered HT rates for this chip */
+	u8 hw_min_ht_rate;
+
+	/* HW HT (11n) capabilities */
+	struct ieee80211_sta_ht_cap ht_cap;
+
+	/* maximum number of A-MPDU RX sub-frames the HW supports */
+	u8 max_rx_aggregation_subframes;
+};
+
 struct wl1271 {
+	/*
+	 * The exported part of the parameters that can be accessed by
+	 * the lower driver.
+	 */
+	struct wlcore_exp exp;
+
 	struct ieee80211_hw *hw;
 	bool mac80211_registered;
 
@@ -322,44 +368,6 @@ struct wl1271 {
 
 	/* RX Data filter rule status - enabled/disabled */
 	bool rx_data_filters_status[WL1271_MAX_RX_DATA_FILTERS];
-
-	struct wlcore_ops *ops;
-	/* pointer to the lower driver partition table */
-	const struct wlcore_partition_set *ptable;
-	/* pointer to the lower driver register table */
-	const int *rtable;
-	/* name of the firmwares to load - for PLT, single role, multi-role */
-	const char *plt_fw_name;
-	const char *sr_fw_name;
-	const char *mr_fw_name;
-
-	/* per-chip-family private structure */
-	void *priv;
-
-	/* number of TX descriptors the HW supports. */
-	u32 num_tx_desc;
-
-	/* spare Tx blocks for normal/GEM operating modes */
-	u32 normal_tx_spare;
-	u32 gem_tx_spare;
-
-	/* the family (type) of the current chip */
-	enum wlcore_chip_family chip_family;
-
-	/* translate HW Tx rates to standard rate-indices */
-	const u8 **band_rate_to_idx;
-
-	/* size of table for HW rates that can be received from chip */
-	u8 hw_tx_rate_tbl_size;
-
-	/* this HW rate and below are considered HT rates for this chip */
-	u8 hw_min_ht_rate;
-
-	/* HW HT (11n) capabilities */
-	struct ieee80211_sta_ht_cap ht_cap;
-
-	/* maximum number of A-MPDU RX sub-frames the HW supports */
-	u8 max_rx_aggregation_subframes;
 
 	/* the current channel type */
 	enum nl80211_channel_type channel_type;
