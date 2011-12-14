@@ -22,8 +22,8 @@
  *
  */
 
-#ifndef __WL12XX_H__
-#define __WL12XX_H__
+#ifndef __WLCORE_I_H__
+#define __WLCORE_I_H__
 
 #include <linux/mutex.h>
 #include <linux/completion.h>
@@ -470,4 +470,4 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen);
 
 #define WL12XX_HW_BLOCK_SIZE	256
 
-#endif
+#endif /* __WLCORE_I_H__ */

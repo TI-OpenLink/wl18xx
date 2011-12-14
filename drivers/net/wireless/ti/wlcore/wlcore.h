@@ -24,7 +24,7 @@
 
 #include <linux/platform_device.h>
 
-#include "wl12xx.h"
+#include "wlcore_i.h"
 
 /* The maximum number of Tx descriptors in all chip families */
 #define MAX_ACX_TX_DESCRIPTORS 32
