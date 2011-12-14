@@ -1166,6 +1166,17 @@ out:
 }
 EXPORT_SYMBOL_GPL(wl1271_irq);
 
+void wl1271_sdio_irq_work(struct work_struct *work)
+{
+	struct wl1271 *wl = container_of(work, struct wl1271, sdio_irq_work);
+
+	wl1271_irq(0, wl);
+
+	if (wl->inband_claimed)
+		wl1271_enable_interrupts(wl);
+}
+
+
 static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 {
 	const struct firmware *fw;
@@ -5351,6 +5362,7 @@ struct ieee80211_hw *wl1271_alloc_hw(void)
 	INIT_WORK(&wl->netstack_work, wl1271_netstack_work);
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
+	INIT_WORK(&wl->sdio_irq_work, wl1271_sdio_irq_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
 	INIT_WORK(&wl->rx_streaming_enable_work,
 		  wl1271_rx_streaming_enable_work);
