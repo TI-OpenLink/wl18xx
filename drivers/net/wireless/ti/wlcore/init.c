@@ -302,7 +302,7 @@ static int wl12xx_init_fwlog(struct wl1271 *wl)
 {
 	int ret;
 
-	if (wl->quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED)
+	if (wl->exp.quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED)
 		return 0;
 
 	ret = wl12xx_cmd_config_fwlog(wl);
@@ -548,7 +548,7 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 			if (ret < 0)
 				return ret;
 		} else if (!wl->sta_count) {
-			if (wl->quirks & WLCORE_QUIRK_NO_ELP) {
+			if (wl->exp.quirks & WLCORE_QUIRK_NO_ELP) {
 				/* Configure for power always on */
 				ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_CAM);
 				if (ret < 0)

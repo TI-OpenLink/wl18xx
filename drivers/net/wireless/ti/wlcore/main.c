@@ -738,7 +738,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 	u32 first_addr;
 	u8 *block;
 
-	if ((wl->quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED) ||
+	if ((wl->exp.quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED) ||
 	    (wl->conf.fwlog.mode != WL12XX_FWLOG_ON_DEMAND) ||
 	    (wl->conf.fwlog.mem_blocks == 0))
 		return;
@@ -914,7 +914,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	 * chip types.
 	 */
 	if (wl1271_set_block_size(wl))
-		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		wl->exp.quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
 	ret = wl->exp.ops->identify_chip(wl);
 	if (ret < 0)
@@ -1797,7 +1797,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 
 	/* enable dyn ps just in case (if left on due to fw crash etc) */
 	if (wlvif->bss_type == BSS_TYPE_STA_BSS &&
-	    !(wl->quirks & WLCORE_QUIRK_NO_PSM))
+	    !(wl->exp.quirks & WLCORE_QUIRK_NO_PSM))
 		ieee80211_enable_dyn_ps(vif);
 
 	if (wl->scan.state != WL1271_SCAN_STATE_IDLE &&
@@ -3348,7 +3348,7 @@ sta_not_found:
 			wlvif->probereq = NULL;
 
 			/* re-enable dynamic ps - just in case */
-			if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+			if (!(wl->exp.quirks & WLCORE_QUIRK_NO_PSM))
 				ieee80211_enable_dyn_ps(vif);
 
 			/* revert back to minimum rates for the current band */
@@ -4465,7 +4465,7 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_AMPDU_AGGREGATION |
 		IEEE80211_HW_TX_AMPDU_SETUP_IN_HW;
 
-	if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+	if (!(wl->exp.quirks & WLCORE_QUIRK_NO_PSM))
 		wl->hw->flags |= IEEE80211_HW_SUPPORTS_PS;
 
 	wl->hw->wiphy->cipher_suites = cipher_suites;
@@ -4598,7 +4598,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->hw_pg_ver = -1;
 	wl->ap_ps_map = 0;
 	wl->ap_fw_ps_map = 0;
-	wl->quirks = 0;
+	wl->exp.quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;

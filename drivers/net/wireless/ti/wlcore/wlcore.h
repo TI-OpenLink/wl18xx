@@ -120,6 +120,9 @@ enum wlcore_registers {
 };
 
 struct wlcore_exp {
+	/* Quirks of specific hardware revisions */
+	unsigned int quirks;
+
 	struct wlcore_ops *ops;
 	/* pointer to the lower driver partition table */
 	const struct wlcore_partition_set *ptable;
@@ -343,9 +346,6 @@ struct wl1271 {
 
 	/* AP-mode - a bitmap of links currently in PS mode in mac80211 */
 	unsigned long ap_ps_map;
-
-	/* Quirks of specific hardware revisions */
-	unsigned int quirks;
 
 	/* Platform limitations */
 	unsigned int platform_quirks;

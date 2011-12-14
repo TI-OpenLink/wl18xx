@@ -41,7 +41,7 @@
 static u32 wlcore_rx_get_buf_size(struct wl1271 *wl,
 				  u32 rx_pkt_desc)
 {
-	if (wl->quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN)
+	if (wl->exp.quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN)
 		return (rx_pkt_desc & ALIGNED_RX_BUF_SIZE_MASK) >>
 		       ALIGNED_RX_BUF_SIZE_SHIFT;
 
@@ -50,7 +50,7 @@ static u32 wlcore_rx_get_buf_size(struct wl1271 *wl,
 
 static u32 wlcore_rx_get_align_buf_size(struct wl1271 *wl, u32 pkt_len)
 {
-	if (wl->quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN)
+	if (wl->exp.quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN)
 		return ALIGN(pkt_len, WL12XX_BUS_BLOCK_SIZE);
 
 	return pkt_len;
@@ -271,7 +271,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 	 * Write the driver's packet counter to the FW. This is only required
 	 * for older hardware revisions
 	 */
-	if (wl->quirks & WLCORE_QUIRK_END_OF_TRANSACTION)
+	if (wl->exp.quirks & WLCORE_QUIRK_END_OF_TRANSACTION)
 		wl1271_write32(wl, WL12XX_REG_RX_DRIVER_COUNTER,
 			       wl->rx_counter);
 

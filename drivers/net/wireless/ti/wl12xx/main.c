@@ -571,9 +571,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 			       wl->chip.id);
 
 		/* clear the alignment quirk, since we don't support it */
-		wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		wl->exp.quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
-		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
+		wl->exp.quirks |= WLCORE_QUIRK_LEGACY_NVS;
 		wl->exp.fw_name = WL127X_FW_NAME;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
@@ -585,9 +585,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 			     wl->chip.id);
 
 		/* clear the alignment quirk, since we don't support it */
-		wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		wl->exp.quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
-		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
+		wl->exp.quirks |= WLCORE_QUIRK_LEGACY_NVS;
 		wl->exp.fw_name = WL127X_FW_NAME;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
@@ -807,7 +807,7 @@ static int wl127x_boot_clk(struct wl1271 *wl)
 	u32 clk;
 
 	if (((wl->hw_pg_ver & PG_MAJOR_VER_MASK) >> PG_MAJOR_VER_OFFSET) < 3)
-		wl->quirks |= WLCORE_QUIRK_END_OF_TRANSACTION;
+		wl->exp.quirks |= WLCORE_QUIRK_END_OF_TRANSACTION;
 
 	if (wl->ref_clock == CONF_REF_CLK_19_2_E ||
 	    wl->ref_clock == CONF_REF_CLK_38_4_E ||
@@ -1147,7 +1147,7 @@ static int wl12xx_hw_init(struct wl1271 *wl)
 		if (ret < 0)
 			goto out;
 
-		if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN)
+		if (wl->exp.quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN)
 			/* Enable SDIO padding */
 			host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
 
@@ -1183,11 +1183,11 @@ static int wl12xx_identify_fw(struct wl1271 *wl)
 	/* Only new station firmwares support routing fw logs to the host */
 	if ((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_STA) &&
 	    (fw_ver[FW_VER_MINOR] < FW_VER_MINOR_FWLOG_STA_MIN))
-		wl->quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
+		wl->exp.quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
 
 	/* This feature is not yet supported for AP mode */
 	if (fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_AP)
-		wl->quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
+		wl->exp.quirks |= WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED;
 
 	return 0;
 }
