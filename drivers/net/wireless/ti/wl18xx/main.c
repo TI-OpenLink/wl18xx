@@ -569,7 +569,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
 			     wl->chip.id);
-		wl->fw_name = WL18XX_FW_NAME;
+		wl->exp.fw_name = WL18XX_FW_NAME;
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
@@ -588,14 +588,14 @@ out:
 
 static void wl18xx_set_clk(struct wl1271 *wl)
 {
-	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_priv *priv = wl->exp.priv;
 	u32 clk_freq;
 
 	/* write the translated board type to SCR_PAD2 */
 	wl1271_write32(wl, WL18XX_SCR_PAD2,
 		       wl18xx_board_type_to_scrpad2[priv->board_type]);
 
-	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_TOP_PRCM_ELP_SOC]);
 
 	/* TODO: PG2: apparently we need to read the clk type */
 
@@ -651,7 +651,7 @@ static int wl18xx_pre_boot(struct wl1271 *wl)
 	wl1271_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
 
-	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 
 	/* Disable interrupts */
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK, WL1271_ACX_INTR_ALL);
@@ -665,7 +665,7 @@ static void wl18xx_pre_upload(struct wl1271 *wl)
 {
 	u32 tmp;
 
-	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 
 	/* TODO: check if this is all needed */
 	wl1271_write32(wl, WL18XX_EEPROMLESS_IND, WL18XX_EEPROMLESS_IND);
@@ -679,7 +679,7 @@ static void wl18xx_pre_upload(struct wl1271 *wl)
 
 static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 {
-	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_priv *priv = wl->exp.priv;
 	struct wl18xx_conf_phy *phy = &priv->conf.phy;
 	struct wl18xx_mac_and_phy_params params;
 
@@ -719,7 +719,7 @@ static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 
 	params.board_type = priv->board_type;
 
-	wlcore_set_partition(wl, &wl->ptable[PART_PHY_INIT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_PHY_INIT]);
 	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8*)&params,
 		     sizeof(params), false);
 }
@@ -765,7 +765,7 @@ out:
 
 static void wl18xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
 {
-	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_priv *priv = wl->exp.priv;
 
 	memcpy(priv->cmd_buf, buf, len);
 	memset(priv->cmd_buf + len, 0, WL18XX_CMD_MAX_SIZE - len);
@@ -947,7 +947,7 @@ static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 
 static void wl18xx_conf_init(struct wl1271 *wl)
 {
-	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_priv *priv = wl->exp.priv;
 
 	/* apply driver default configuration */
 	memcpy(&wl->conf, &wl18xx_conf, sizeof(wl18xx_conf));
@@ -1018,21 +1018,21 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 
 	wl = hw->priv;
 	wl->quirks |= WLCORE_QUIRK_NO_PSM;
-	priv = wl->priv;
-	wl->ops = &wl18xx_ops;
-	wl->ptable = wl18xx_ptable;
-	wl->rtable = wl18xx_rtable;
-	wl->chip_family = WL18XX_CHIP;
-	wl->num_tx_desc = 32;
-	wl->normal_tx_spare = WL18XX_TX_HW_BLOCK_SPARE;
-	wl->gem_tx_spare = WL18XX_TX_HW_GEM_BLOCK_SPARE;
-	wl->band_rate_to_idx = wl18xx_band_rate_to_idx;
-	wl->hw_tx_rate_tbl_size = WL18XX_CONF_HW_RXTX_RATE_MAX;
-	wl->hw_min_ht_rate = WL18XX_CONF_HW_RXTX_RATE_MCS0;
-	wl->max_rx_aggregation_subframes = 10;
-	memcpy(&wl->ht_cap, &wl18xx_ht_cap, sizeof(wl18xx_ht_cap));
+	priv = wl->exp.priv;
+	wl->exp.ops = &wl18xx_ops;
+	wl->exp.ptable = wl18xx_ptable;
+	wl->exp.rtable = wl18xx_rtable;
+	wl->exp.chip_family = WL18XX_CHIP;
+	wl->exp.num_tx_desc = 32;
+	wl->exp.normal_tx_spare = WL18XX_TX_HW_BLOCK_SPARE;
+	wl->exp.gem_tx_spare = WL18XX_TX_HW_GEM_BLOCK_SPARE;
+	wl->exp.band_rate_to_idx = wl18xx_band_rate_to_idx;
+	wl->exp.hw_tx_rate_tbl_size = WL18XX_CONF_HW_RXTX_RATE_MAX;
+	wl->exp.hw_min_ht_rate = WL18XX_CONF_HW_RXTX_RATE_MCS0;
+	wl->exp.max_rx_aggregation_subframes = 10;
+	memcpy(&wl->exp.ht_cap, &wl18xx_ht_cap, sizeof(wl18xx_ht_cap));
 	if (ht_mode_param && !strcmp(ht_mode_param, "mimo"))
-		memcpy(&wl->ht_cap, &wl18xx_mimo_ht_cap,
+		memcpy(&wl->exp.ht_cap, &wl18xx_mimo_ht_cap,
 		       sizeof(wl18xx_mimo_ht_cap));
 
 	if (!board_type_param) {

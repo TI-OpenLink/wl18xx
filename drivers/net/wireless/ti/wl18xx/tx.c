@@ -36,7 +36,7 @@ static void wl18xx_tx_complete_packet(struct wl1271 *wl, u8 tx_stat_byte)
 	bool tx_success;
 
 	/* check for id legality */
-	if (unlikely(id >= wl->num_tx_desc || wl->tx_frames[id] == NULL)) {
+	if (unlikely(id >= wl->exp.num_tx_desc || wl->tx_frames[id] == NULL)) {
 		wl1271_warning("illegal id in tx completion: %d", id);
 		return;
 	}
@@ -94,7 +94,7 @@ static void wl18xx_tx_complete_packet(struct wl1271 *wl, u8 tx_stat_byte)
 void wl18xx_tx_immediate_complete(struct wl1271 *wl)
 {
 	struct wl_fw_status *status = wl->fw_status;
-	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_priv *priv = wl->exp.priv;
 	u8 i;
 
 	/* nothing to do here */
