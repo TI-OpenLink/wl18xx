@@ -79,7 +79,7 @@ static void wl12xx_event_soft_gemini_sense(struct wl1271 *wl,
 {
 	struct wl12xx_vif *wlvif;
 
-	if (wl->quirks & WLCORE_QUIRK_NO_PSM)
+	if (wl->exp.quirks & WLCORE_QUIRK_NO_PSM)
 		return;
 
 	if (enable) {

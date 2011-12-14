@@ -814,7 +814,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 	u32 first_addr;
 	u8 *block;
 
-	if ((wl->quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED) ||
+	if ((wl->exp.quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED) ||
 	    (wl->conf.fwlog.mode != WL12XX_FWLOG_ON_DEMAND) ||
 	    (wl->conf.fwlog.mem_blocks == 0))
 		return;
@@ -990,7 +990,7 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 	 * chip types.
 	 */
 	if (wl1271_set_block_size(wl))
-		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		wl->exp.quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
 	ret = wl->exp.ops->identify_chip(wl);
 	if (ret < 0)
@@ -4734,7 +4734,7 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_TX_AMPDU_SETUP_IN_HW |
 		IEEE80211_HW_SCAN_WHILE_IDLE;
 
-	if (!(wl->quirks & WLCORE_QUIRK_NO_PSM))
+	if (!(wl->exp.quirks & WLCORE_QUIRK_NO_PSM))
 		wl->hw->flags |= IEEE80211_HW_SUPPORTS_PS;
 
 	wl->hw->wiphy->cipher_suites = cipher_suites;
@@ -4866,7 +4866,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->hw_pg_ver = -1;
 	wl->ap_ps_map = 0;
 	wl->ap_fw_ps_map = 0;
-	wl->quirks = 0;
+	wl->exp.quirks = 0;
 	wl->platform_quirks = 0;
 	wl->sched_scanning = false;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;

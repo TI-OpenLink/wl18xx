@@ -199,7 +199,7 @@ int wlcore_boot_upload_nvs(struct wl1271 *wl)
 	if (wl->nvs == NULL)
 		return -ENODEV;
 
-	if (wl->quirks & WLCORE_QUIRK_LEGACY_NVS) {
+	if (wl->exp.quirks & WLCORE_QUIRK_LEGACY_NVS) {
 		struct wl1271_nvs_file *nvs =
 			(struct wl1271_nvs_file *)wl->nvs;
 		/*
