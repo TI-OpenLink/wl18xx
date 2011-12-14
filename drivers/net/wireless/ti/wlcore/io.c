@@ -154,7 +154,7 @@ void wlcore_select_partition(struct wl1271 *wl, u8 part)
 {
 	wl1271_debug(DEBUG_IO, "setting partition %d", part);
 
-	wlcore_set_partition(wl, &wl->ptable[part]);
+	wlcore_set_partition(wl, &wl->exp.ptable[part]);
 }
 EXPORT_SYMBOL_GPL(wlcore_select_partition);
 

@@ -637,7 +637,7 @@ int wl1271_hw_init(struct wl1271 *wl)
 	int ret;
 
 	/* Chip-specific hw init */
-	ret = wl->ops->hw_init(wl);
+	ret = wl->exp.ops->hw_init(wl);
 	if (ret < 0)
 		return ret;
 

@@ -62,8 +62,8 @@ static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 {
 	int id;
 
-	id = find_first_zero_bit(wl->tx_frames_map, wl->num_tx_desc);
-	if (id >= wl->num_tx_desc)
+	id = find_first_zero_bit(wl->tx_frames_map, wl->exp.num_tx_desc);
+	if (id >= wl->exp.num_tx_desc)
 		return -EBUSY;
 
 	__set_bit(id, wl->tx_frames_map);
@@ -75,7 +75,7 @@ static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 void wl1271_free_tx_id(struct wl1271 *wl, int id)
 {
 	if (__test_and_clear_bit(id, wl->tx_frames_map)) {
-		if (unlikely(wl->tx_frames_cnt == wl->num_tx_desc))
+		if (unlikely(wl->tx_frames_cnt == wl->exp.num_tx_desc))
 			clear_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
 
 		wl->tx_frames[id] = NULL;
@@ -224,7 +224,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	u32 total_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
-	u32 spare_blocks = wl->normal_tx_spare;
+	u32 spare_blocks = wl->exp.normal_tx_spare;
 	bool is_dummy = false;
 
 	if (buf_offset + total_len > WL1271_AGGR_BUFFER_SIZE)
@@ -238,7 +238,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (unlikely(wl12xx_is_dummy_packet(wl, skb)))
 		is_dummy = true;
 	else if (wlvif->is_gem)
-		spare_blocks = wl->gem_tx_spare;
+		spare_blocks = wl->exp.gem_tx_spare;
 
 	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
@@ -776,7 +776,7 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 	u8 retries = 0;
 
 	/* check for id legality */
-	if (unlikely(id >= wl->num_tx_desc || wl->tx_frames[id] == NULL)) {
+	if (unlikely(id >= wl->exp.num_tx_desc || wl->tx_frames[id] == NULL)) {
 		wl1271_warning("TX result illegal id: %d", id);
 		return;
 	}
@@ -963,7 +963,7 @@ void wl12xx_tx_reset(struct wl1271 *wl, bool reset_tx_queues)
 	if (reset_tx_queues)
 		wl1271_handle_tx_low_watermark(wl);
 
-	for (i = 0; i < wl->num_tx_desc; i++) {
+	for (i = 0; i < wl->exp.num_tx_desc; i++) {
 		if (wl->tx_frames[i] == NULL)
 			continue;
 

@@ -574,7 +574,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
 		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
-		wl->fw_name = WL127X_FW_NAME;
+		wl->exp.fw_name = WL127X_FW_NAME;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
 
@@ -588,7 +588,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
 		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
-		wl->fw_name = WL127X_FW_NAME;
+		wl->exp.fw_name = WL127X_FW_NAME;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
 
@@ -597,7 +597,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 	case CHIP_ID_1283_PG20:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1283 PG20)",
 			     wl->chip.id);
-		wl->fw_name = WL128X_FW_NAME;
+		wl->exp.fw_name = WL128X_FW_NAME;
 		break;
 	case CHIP_ID_1283_PG10:
 	default:
@@ -911,7 +911,7 @@ static int wl12xx_pre_boot(struct wl1271 *wl)
 	wl1271_write32(wl, WL12XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
 
-	wlcore_set_partition(wl, &wl->ptable[PART_DRPW]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_DRPW]);
 
 	/* Read-modify-write DRPW_SCRATCH_START register (see next state)
 	   to be used by DRPw FW. The RTRIM value will be added by the FW
@@ -929,7 +929,7 @@ static int wl12xx_pre_boot(struct wl1271 *wl)
 
 	wl1271_write32(wl, WL12XX_DRPW_SCRATCH_START, clk);
 
-	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_WORK]);
 
 	/* Disable interrupts */
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK, WL1271_ACX_INTR_ALL);
@@ -1194,7 +1194,7 @@ static int wl12xx_identify_fw(struct wl1271 *wl)
 
 static void wl12xx_conf_init(struct wl1271 *wl)
 {
-	struct wl12xx_priv *priv = wl->priv;
+	struct wl12xx_priv *priv = wl->exp.priv;
 
 	/* apply driver default configuration */
 	memcpy(&wl->conf, &wl12xx_conf, sizeof(wl12xx_conf));
@@ -1258,18 +1258,18 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	}
 
 	wl = hw->priv;
-	wl->ops = &wl12xx_ops;
-	wl->ptable = wl12xx_ptable;
-	wl->rtable = wl12xx_rtable;
-	wl->chip_family = WL12XX_CHIP;
-	wl->num_tx_desc = 16;
-	wl->normal_tx_spare = WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
-	wl->gem_tx_spare = WL12XX_TX_HW_BLOCK_GEM_SPARE;
-	wl->band_rate_to_idx = wl12xx_band_rate_to_idx;
-	wl->hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
-	wl->hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
-	wl->max_rx_aggregation_subframes = 8;
-	memcpy(&wl->ht_cap, &wl12xx_ht_cap, sizeof(wl12xx_ht_cap));
+	wl->exp.ops = &wl12xx_ops;
+	wl->exp.ptable = wl12xx_ptable;
+	wl->exp.rtable = wl12xx_rtable;
+	wl->exp.chip_family = WL12XX_CHIP;
+	wl->exp.num_tx_desc = 16;
+	wl->exp.normal_tx_spare = WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+	wl->exp.gem_tx_spare = WL12XX_TX_HW_BLOCK_GEM_SPARE;
+	wl->exp.band_rate_to_idx = wl12xx_band_rate_to_idx;
+	wl->exp.hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
+	wl->exp.hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
+	wl->exp.max_rx_aggregation_subframes = 8;
+	memcpy(&wl->exp.ht_cap, &wl12xx_ht_cap, sizeof(wl12xx_ht_cap));
 	wl12xx_conf_init(wl);
 
 	return wlcore_probe(wl, pdev);

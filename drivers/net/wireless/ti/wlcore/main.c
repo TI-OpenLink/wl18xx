@@ -307,7 +307,7 @@ static int wl1271_plt_init(struct wl1271 *wl)
 {
 	int ret;
 
-	ret = wl->ops->hw_init(wl);
+	ret = wl->exp.ops->hw_init(wl);
 	if (ret < 0)
 		return ret;
 
@@ -377,7 +377,7 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 	u8 hlid, cnt;
 	struct wl_fw_packet_counters *counters;
 
-	counters = (wl->chip_family == WL12XX_CHIP) ?
+	counters = (wl->exp.chip_family == WL12XX_CHIP) ?
 		   &status->wl12xx.counters :
 		   &status->wl18xx.counters;
 
@@ -416,10 +416,10 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	size_t common_status_len, plat_status_len;
 	struct wl_fw_packet_counters *counters;
 
-	counters = (wl->chip_family == WL12XX_CHIP) ?
+	counters = (wl->exp.chip_family == WL12XX_CHIP) ?
 		   &status->wl12xx.counters :
 		   &status->wl18xx.counters;
-	plat_status_len = (wl->chip_family == WL12XX_CHIP) ?
+	plat_status_len = (wl->exp.chip_family == WL12XX_CHIP) ?
 			  sizeof(status->wl12xx) :
 			  sizeof(status->wl18xx);
 	common_status_len = offsetof(struct wl_fw_status, per_family_data) +
@@ -639,12 +639,12 @@ static int wl1271_fetch_firmware(struct wl1271 *wl)
 	const struct firmware *fw;
 	int ret;
 
-	wl1271_debug(DEBUG_BOOT, "booting firmware %s", wl->fw_name);
+	wl1271_debug(DEBUG_BOOT, "booting firmware %s", wl->exp.fw_name);
 
-	ret = request_firmware(&fw, wl->fw_name, wl->dev);
+	ret = request_firmware(&fw, wl->exp.fw_name, wl->dev);
 
 	if (ret < 0) {
-		wl1271_error("could not get firmware %s: %d", wl->fw_name, ret);
+		wl1271_error("could not get firmware %s: %d", wl->exp.fw_name, ret);
 		return ret;
 	}
 
@@ -804,11 +804,11 @@ static void wl1271_recovery_work(struct work_struct *work)
 	wl12xx_read_fwlog_panic(wl);
 
 	/* change partitions momentarily so we can read the FW pc */
-	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
 		    wl->chip.fw_ver_str,
 		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY));
-	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_WORK]);
 
 	if (no_recovery) {
 		wl1271_info("No recovery (chosen on module load). Fw will "
@@ -895,7 +895,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	wl1271_io_reset(wl);
 	wl1271_io_init(wl);
 
-	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 
 	/* ELP module wake up */
 	wl1271_fw_wakeup(wl);
@@ -916,7 +916,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	if (wl1271_set_block_size(wl))
 		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
-	ret = wl->ops->identify_chip(wl);
+	ret = wl->exp.ops->identify_chip(wl);
 	if (ret < 0)
 		goto out;
 
@@ -966,7 +966,7 @@ int wl1271_plt_start(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl->ops->boot(wl);
+		ret = wl->exp.ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
@@ -1610,7 +1610,7 @@ static bool wl12xx_init_fw(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl->ops->boot(wl);
+		ret = wl->exp.ops->boot(wl);
 		if (ret < 0)
 			goto power_off;
 
@@ -4222,12 +4222,12 @@ u8 wlcore_rate_to_idx(struct wl1271 *wl, u8 rate, enum ieee80211_band band)
 
 	BUG_ON(band >= 2);
 
-	if (unlikely(rate >= wl->hw_tx_rate_tbl_size)) {
+	if (unlikely(rate >= wl->exp.hw_tx_rate_tbl_size)) {
 		wl1271_error("Illegal RX rate from HW: %d", rate);
 		return 0;
 	}
 
-	idx = wl->band_rate_to_idx[band][rate];
+	idx = wl->exp.band_rate_to_idx[band][rate];
 	if (unlikely(idx == CONF_HW_RXTX_RATE_UNSUPPORTED)) {
 		wl1271_error("Unsupported RX rate from HW: %d", rate);
 		return 0;
@@ -4500,12 +4500,12 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	 */
 	memcpy(&wl->bands[IEEE80211_BAND_2GHZ], &wl1271_band_2ghz,
 	       sizeof(wl1271_band_2ghz));
-	memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap, &wl->ht_cap,
-	       sizeof(wl->ht_cap));
+	memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap, &wl->exp.ht_cap,
+	       sizeof(wl->exp.ht_cap));
 	memcpy(&wl->bands[IEEE80211_BAND_5GHZ], &wl1271_band_5ghz,
 	       sizeof(wl1271_band_5ghz));
-	memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap, &wl->ht_cap,
-	       sizeof(wl->ht_cap));
+	memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap, &wl->exp.ht_cap,
+	       sizeof(wl->exp.ht_cap));
 
 	wl->hw->wiphy->bands[IEEE80211_BAND_2GHZ] =
 		&wl->bands[IEEE80211_BAND_2GHZ];
@@ -4529,7 +4529,8 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	wl->hw->sta_data_size = sizeof(struct wl1271_station);
 	wl->hw->vif_data_size = sizeof(struct wl12xx_vif);
 
-	wl->hw->max_rx_aggregation_subframes = wl->max_rx_aggregation_subframes;
+	wl->hw->max_rx_aggregation_subframes =
+		wl->exp.max_rx_aggregation_subframes;
 
 	return 0;
 }
@@ -4555,8 +4556,8 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl = hw->priv;
 	memset(wl, 0, sizeof(*wl));
 
-	wl->priv = kzalloc(priv_size, GFP_KERNEL);
-	if (!wl->priv) {
+	wl->exp.priv = kzalloc(priv_size, GFP_KERNEL);
+	if (!wl->exp.priv) {
 		wl1271_error("could not alloc wl priv");
 		ret = -ENOMEM;
 		goto err_priv_alloc;
@@ -4609,7 +4610,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	__set_bit(WL12XX_SYSTEM_HLID, wl->links_map);
 
 	memset(wl->tx_frames_map, 0, sizeof(wl->tx_frames_map));
-	for (i = 0; i < wl->num_tx_desc; i++)
+	for (i = 0; i < wl->exp.num_tx_desc; i++)
 		wl->tx_frames[i] = NULL;
 
 	spin_lock_init(&wl->wl_lock);
@@ -4650,7 +4651,7 @@ err_wq:
 
 err_hw:
 	wl1271_debugfs_exit(wl);
-	kfree(wl->priv);
+	kfree(wl->exp.priv);
 
 err_priv_alloc:
 	ieee80211_free_hw(hw);
@@ -4690,7 +4691,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 	kfree(wl->tx_res_if);
 	destroy_workqueue(wl->freezable_wq);
 
-	kfree(wl->priv);
+	kfree(wl->exp.priv);
 	ieee80211_free_hw(wl->hw);
 
 	return 0;
@@ -4732,12 +4733,12 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	unsigned long irqflags;
 	int ret;
 
-	if (!wl->ops || !wl->ptable) {
+	if (!wl->exp.ops || !wl->exp.ptable) {
 		ret = -EINVAL;
 		goto out_free_hw;
 	}
 
-	BUG_ON(wl->num_tx_desc > MAX_ACX_TX_DESCRIPTORS);
+	BUG_ON(wl->exp.num_tx_desc > MAX_ACX_TX_DESCRIPTORS);
 
 	/* adjust some runtime configuration parameters */
 	wlcore_adjust_conf(wl);

@@ -113,13 +113,13 @@ static int wl1271_boot_upload_firmware_chunk(struct wl1271 *wl, void *buf,
 		return -ENOMEM;
 	}
 
-	memcpy(&partition, &wl->ptable[PART_DOWN], sizeof(partition));
+	memcpy(&partition, &wl->exp.ptable[PART_DOWN], sizeof(partition));
 	partition.mem.start = dest;
 	wlcore_set_partition(wl, &partition);
 
 	/* 10.1 set partition limit and chunk num */
 	chunk_num = 0;
-	partition_limit = wl->ptable[PART_DOWN].mem.size;
+	partition_limit = wl->exp.ptable[PART_DOWN].mem.size;
 
 	while (chunk_num < fw_data_len / CHUNK_SIZE) {
 		/* 10.2 update partition, if needed */
@@ -127,7 +127,7 @@ static int wl1271_boot_upload_firmware_chunk(struct wl1271 *wl, void *buf,
 		if (addr > partition_limit) {
 			addr = dest + chunk_num * CHUNK_SIZE;
 			partition_limit = chunk_num * CHUNK_SIZE +
-				wl->ptable[PART_DOWN].mem.size;
+				wl->exp.ptable[PART_DOWN].mem.size;
 			partition.mem.start = addr;
 			wlcore_set_partition(wl, &partition);
 		}
@@ -316,7 +316,7 @@ int wlcore_boot_upload_nvs(struct wl1271 *wl)
 	nvs_len -= nvs_ptr - (u8 *)wl->nvs;
 
 	/* Now we must set the partition correctly */
-	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_WORK]);
 
 	/* Copy the NVS tables to a new block to ensure alignment */
 	nvs_aligned = kmemdup(nvs_ptr, nvs_len, GFP_KERNEL);
@@ -342,7 +342,7 @@ int wlcore_boot_run_firmware(struct wl1271 *wl)
 	u32 chip_id, intr;
 
 	/* Make sure we have the boot partition */
-	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 
 	wl1271_boot_set_ecpu_ctrl(wl, ECPU_CONTROL_HALT);
 
@@ -433,7 +433,7 @@ int wlcore_boot_run_firmware(struct wl1271 *wl)
 	}
 
 	/* set the working partition to its "running" mode offset */
-	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
+	wlcore_set_partition(wl, &wl->exp.ptable[PART_WORK]);
 
 	/* firmware startup completed */
 	return 0;
