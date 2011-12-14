@@ -114,15 +114,11 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 
 	wl1271_debug(DEBUG_IRQ, "SDIO IRQ");
 
-	if (test_bit(WL1271_FLAG_SUSPENDED, &wl->flags))
-		sdio_disable_irq(func);
+	sdio_disable_irq(func);
 
 	ret = wl1271_hardirq(0, wl);
-	if (ret == IRQ_WAKE_THREAD) {
-		sdio_release_host(func);
-		wl1271_irq(0, wl);
-		sdio_claim_host(func);
-	}
+	if (ret == IRQ_WAKE_THREAD)
+		ieee80211_queue_work(wl->hw, &wl->sdio_irq_work);
 }
 
 static void wl12xx_free_sdio_irq(struct wl1271 *wl)
@@ -132,8 +128,10 @@ static void wl12xx_free_sdio_irq(struct wl1271 *wl)
 	wl1271_debug(DEBUG_SDIO, "releasing sdio irq");
 	sdio_claim_host(func);
 	sdio_release_irq(func);
-	sdio_release_host(func);
 	wl->inband_claimed = false;
+	sdio_release_host(func);
+
+	flush_work(&wl->sdio_irq_work);
 }
 
 static void wl1271_sdio_disable_interrupts(struct wl1271 *wl)
@@ -158,11 +156,10 @@ static void wl12xx_claim_sdio_irq(struct wl1271 *wl)
 
 	sdio_claim_host(func);
 	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
-	sdio_release_host(func);
-	wl1271_debug(DEBUG_SDIO, "claiming sdio irq (func=%d). ret=%d", func->num, ret);
-
 	if (!ret)
 		wl->inband_claimed = true;
+	sdio_release_host(func);
+	wl1271_debug(DEBUG_SDIO, "claiming sdio irq (func=%d). ret=%d", func->num, ret);
 }
 
 static void wl1271_sdio_enable_interrupts(struct wl1271 *wl)

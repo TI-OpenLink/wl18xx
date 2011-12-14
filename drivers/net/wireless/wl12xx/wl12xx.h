@@ -544,6 +544,7 @@ struct wl1271 {
 	struct sk_buff_head deferred_tx_queue;
 
 	struct work_struct tx_work;
+	struct work_struct sdio_irq_work;
 	struct workqueue_struct *freezable_wq;
 
 	/* Pending TX frames */
