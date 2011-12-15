@@ -127,7 +127,6 @@ struct wl1271 {
 
 	void (*set_power)(bool enable);
 	int irq;
-	int ref_clock;
 
 	spinlock_t wl_lock;
 
@@ -281,8 +280,6 @@ struct wl1271 {
 
 	/* bands supported by this instance of wl12xx */
 	struct ieee80211_supported_band bands[IEEE80211_NUM_BANDS];
-
-	int tcxo_clock;
 
 	/*
 	 * wowlan trigger was configured during suspend.
