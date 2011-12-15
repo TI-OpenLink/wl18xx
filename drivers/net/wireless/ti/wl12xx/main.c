@@ -722,6 +722,7 @@ static int wl128x_manually_configure_mcs_pll(struct wl1271 *wl)
 
 static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
 {
+	struct wl12xx_priv *priv = wl->exp.priv;
 	u16 spare_reg;
 	u16 pll_config;
 	u8 input_freq;
@@ -734,8 +735,8 @@ static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
 	wl12xx_top_reg_write(wl, WL_SPARE_REG, spare_reg);
 
 	/* Handle special cases of the TCXO clock */
-	if (wl->tcxo_clock == WL12XX_TCXOCLOCK_16_8 ||
-	    wl->tcxo_clock == WL12XX_TCXOCLOCK_33_6)
+	if (priv->tcxo_clock == WL12XX_TCXOCLOCK_16_8 ||
+	    priv->tcxo_clock == WL12XX_TCXOCLOCK_33_6)
 		return wl128x_manually_configure_mcs_pll(wl);
 
 	/* Set the input frequency according to the selected clock source */
@@ -760,11 +761,12 @@ static int wl128x_configure_mcs_pll(struct wl1271 *wl, int clk)
  */
 static int wl128x_boot_clk(struct wl1271 *wl, int *selected_clock)
 {
+	struct wl12xx_priv *priv = wl->exp.priv;
 	u16 sys_clk_cfg;
 
 	/* For XTAL-only modes, FREF will be used after switching from TCXO */
-	if (wl->ref_clock == WL12XX_REFCLOCK_26_XTAL ||
-	    wl->ref_clock == WL12XX_REFCLOCK_38_XTAL) {
+	if (priv->ref_clock == WL12XX_REFCLOCK_26_XTAL ||
+	    priv->ref_clock == WL12XX_REFCLOCK_38_XTAL) {
 		if (!wl128x_switch_tcxo_to_fref(wl))
 			return -EINVAL;
 		goto fref_clk;
@@ -778,8 +780,8 @@ static int wl128x_boot_clk(struct wl1271 *wl, int *selected_clock)
 		goto fref_clk;
 
 	/* If TCXO is either 32.736MHz or 16.368MHz, switch to FREF */
-	if (wl->tcxo_clock == WL12XX_TCXOCLOCK_16_368 ||
-	    wl->tcxo_clock == WL12XX_TCXOCLOCK_32_736) {
+	if (priv->tcxo_clock == WL12XX_TCXOCLOCK_16_368 ||
+	    priv->tcxo_clock == WL12XX_TCXOCLOCK_32_736) {
 		if (!wl128x_switch_tcxo_to_fref(wl))
 			return -EINVAL;
 		goto fref_clk;
@@ -788,14 +790,14 @@ static int wl128x_boot_clk(struct wl1271 *wl, int *selected_clock)
 	/* TCXO clock is selected */
 	if (!wl128x_is_tcxo_valid(wl))
 		return -EINVAL;
-	*selected_clock = wl->tcxo_clock;
+	*selected_clock = priv->tcxo_clock;
 	goto config_mcs_pll;
 
 fref_clk:
 	/* FREF clock is selected */
 	if (!wl128x_is_fref_valid(wl))
 		return -EINVAL;
-	*selected_clock = wl->ref_clock;
+	*selected_clock = priv->ref_clock;
 
 config_mcs_pll:
 	return wl128x_configure_mcs_pll(wl, *selected_clock);
@@ -803,25 +805,26 @@ config_mcs_pll:
 
 static int wl127x_boot_clk(struct wl1271 *wl)
 {
+	struct wl12xx_priv *priv = wl->exp.priv;
 	u32 pause;
 	u32 clk;
 
 	if (((wl->hw_pg_ver & PG_MAJOR_VER_MASK) >> PG_MAJOR_VER_OFFSET) < 3)
 		wl->exp.quirks |= WLCORE_QUIRK_END_OF_TRANSACTION;
 
-	if (wl->ref_clock == CONF_REF_CLK_19_2_E ||
-	    wl->ref_clock == CONF_REF_CLK_38_4_E ||
-	    wl->ref_clock == CONF_REF_CLK_38_4_M_XTAL)
+	if (priv->ref_clock == CONF_REF_CLK_19_2_E ||
+	    priv->ref_clock == CONF_REF_CLK_38_4_E ||
+	    priv->ref_clock == CONF_REF_CLK_38_4_M_XTAL)
 		/* ref clk: 19.2/38.4/38.4-XTAL */
 		clk = 0x3;
-	else if (wl->ref_clock == CONF_REF_CLK_26_E ||
-		 wl->ref_clock == CONF_REF_CLK_52_E)
+	else if (priv->ref_clock == CONF_REF_CLK_26_E ||
+		 priv->ref_clock == CONF_REF_CLK_52_E)
 		/* ref clk: 26/52 */
 		clk = 0x5;
 	else
 		return -EINVAL;
 
-	if (wl->ref_clock != CONF_REF_CLK_19_2_E) {
+	if (priv->ref_clock != CONF_REF_CLK_19_2_E) {
 		u16 val;
 		/* Set clock type (open drain) */
 		val = wl12xx_top_reg_read(wl, OCP_REG_CLK_TYPE);
@@ -891,6 +894,7 @@ static int wl1271_boot_soft_reset(struct wl1271 *wl)
 
 static int wl12xx_pre_boot(struct wl1271 *wl)
 {
+	struct wl12xx_priv *priv = wl->exp.priv;
 	int ret = 0;
 	u32 clk;
 	int selected_clock = -1;
@@ -924,7 +928,7 @@ static int wl12xx_pre_boot(struct wl1271 *wl)
 	if (wl->chip.id == CHIP_ID_1283_PG20) {
 		clk |= ((selected_clock & 0x3) << 1) << 4;
 	} else {
-		clk |= (wl->ref_clock << 1) << 4;
+		clk |= (priv->ref_clock << 1) << 4;
 	}
 
 	wl1271_write32(wl, WL12XX_DRPW_SCRATCH_START, clk);
@@ -1247,6 +1251,7 @@ struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
 
 int __devinit wl12xx_probe(struct platform_device *pdev)
 {
+	struct wl12xx_platform_data *pdata = pdev->dev.platform_data;
 	struct wl1271 *wl;
 	struct ieee80211_hw *hw;
 	struct wl12xx_priv *priv;
@@ -1258,6 +1263,7 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	}
 
 	wl = hw->priv;
+	priv = wl->exp.priv;
 	wl->exp.ops = &wl12xx_ops;
 	wl->exp.ptable = wl12xx_ptable;
 	wl->exp.rtable = wl12xx_rtable;
@@ -1270,6 +1276,10 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->exp.hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
 	wl->exp.max_rx_aggregation_subframes = 8;
 	memcpy(&wl->exp.ht_cap, &wl12xx_ht_cap, sizeof(wl12xx_ht_cap));
+
+	priv->ref_clock = pdata->board_ref_clock;
+	priv->tcxo_clock = pdata->board_tcxo_clock;
+
 	wl12xx_conf_init(wl);
 
 	return wlcore_probe(wl, pdev);
