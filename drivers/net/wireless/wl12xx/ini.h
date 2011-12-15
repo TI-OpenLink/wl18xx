@@ -66,6 +66,11 @@ struct wl128x_ini_general_params {
 	u8 srf3[WL1271_INI_MAX_SMART_REFLEX_PARAM];
 } __packed;
 
+struct wl18xx_ini_general_params {
+	u8 number_of_assembled_ant2_4;
+	u8 external_pa_dc2dc;
+} __packed;
+
 #define WL1271_INI_RSSI_PROCESS_COMPENS_SIZE 15
 
 struct wl1271_ini_band_params_2 {
@@ -217,4 +222,15 @@ struct wl128x_nvs_file {
 		u8 padding;
 	} dyn_radio_params_5[WL1271_INI_FEM_MODULE_COUNT];
 } __packed;
+
+#define WL18XX_INI_NVS_SECTION_SIZE		     6
+
+struct wl18xx_nvs_file {
+	/* NVS section - must be first! */
+	u8 nvs[WL18XX_INI_NVS_SECTION_SIZE];
+
+	/* INI section */
+	struct wl18xx_ini_general_params general_params;
+} __packed;
+
 #endif

@@ -317,9 +317,38 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 	if (wl->nvs == NULL)
 		return -ENODEV;
 
-	if ((wl->chip.id == CHIP_ID_1283_PG20) ||
-		(wl->chip.id == CHIP_ID_185x_PG10) ||
+	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
 		(wl->chip.id == CHIP_ID_185x_PG20))  {
+		struct wl18xx_nvs_file *nvs = (struct wl18xx_nvs_file *)wl->nvs;
+
+		wl->conf.mac_and_phy_params.number_of_assembled_ant2_4 = nvs->general_params.number_of_assembled_ant2_4;
+		wl->conf.mac_and_phy_params.external_pa_dc2dc = nvs->general_params.external_pa_dc2dc;
+
+		if (wl->nvs_len != sizeof(struct wl18xx_nvs_file)) {
+			wl1271_error("nvs size is not as expected: %zu != %zu",
+				     wl->nvs_len,
+				     sizeof(struct wl18xx_nvs_file));
+			kfree(wl->nvs);
+			wl->nvs = NULL;
+			wl->nvs_len = 0;
+			return -EILSEQ;
+		}
+
+		/* only the first part of the NVS needs to be uploaded */
+		nvs_len = sizeof(nvs->nvs);
+		nvs_ptr = (u8 *)nvs->nvs;
+
+		/* update current MAC address to NVS */
+		nvs_ptr[5] = wl->mac_addr[0];
+		nvs_ptr[4] = wl->mac_addr[1];
+		nvs_ptr[3] = wl->mac_addr[2];
+		nvs_ptr[2] = wl->mac_addr[3];
+		nvs_ptr[1] = wl->mac_addr[4];
+		nvs_ptr[0] = wl->mac_addr[5];
+
+		return 0;
+
+	} else if (wl->chip.id == CHIP_ID_1283_PG20) {
 		struct wl128x_nvs_file *nvs = (struct wl128x_nvs_file *)wl->nvs;
 
 		if (wl->nvs_len == sizeof(struct wl128x_nvs_file)) {

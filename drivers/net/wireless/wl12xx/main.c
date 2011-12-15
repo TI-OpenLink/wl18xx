@@ -1252,13 +1252,7 @@ static int wl1271_fetch_nvs(struct wl1271 *wl)
 	const struct firmware *fw;
 	int ret;
 
-	if ((wl->chip.id == CHIP_ID_185x_PG10) ||
-		(wl->chip.id == CHIP_ID_185x_PG20)) {
-		ret = request_firmware(&fw, WL18XX_NVS_NAME, wl1271_wl_to_dev(wl));
-	}
-	else {
-		ret = request_firmware(&fw, WL12XX_NVS_NAME, wl1271_wl_to_dev(wl));
-	}
+	ret = request_firmware(&fw, WL18XX_NVS_NAME, wl1271_wl_to_dev(wl));
 
 	if (ret < 0) {
 		wl1271_error("could not get nvs file: %d", ret);
@@ -5170,12 +5164,12 @@ int wl1271_register_hw(struct wl1271 *wl)
 		 */
 		u8 *nvs_ptr = (u8 *)wl->nvs;
 
-		wl->mac_addr[0] = nvs_ptr[11];
-		wl->mac_addr[1] = nvs_ptr[10];
-		wl->mac_addr[2] = nvs_ptr[6];
-		wl->mac_addr[3] = nvs_ptr[5];
-		wl->mac_addr[4] = nvs_ptr[4];
-		wl->mac_addr[5] = nvs_ptr[3];
+		wl->mac_addr[0] = nvs_ptr[5];
+		wl->mac_addr[1] = nvs_ptr[4];
+		wl->mac_addr[2] = nvs_ptr[3];
+		wl->mac_addr[3] = nvs_ptr[2];
+		wl->mac_addr[4] = nvs_ptr[1];
+		wl->mac_addr[5] = nvs_ptr[0];
 	}
 
 	SET_IEEE80211_PERM_ADDR(wl->hw, wl->mac_addr);
