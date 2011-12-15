@@ -762,14 +762,15 @@ out:
 	return ret;
 }
 
-static void wl18xx_trigger_cmd(struct wl1271 *wl, void *buf, size_t len)
+static void wl18xx_trigger_cmd(struct wl1271 *wl, int cmd_box_addr,
+			       void *buf, size_t len)
 {
 	struct wl18xx_priv *priv = wl->exp.priv;
 
 	memcpy(priv->cmd_buf, buf, len);
 	memset(priv->cmd_buf + len, 0, WL18XX_CMD_MAX_SIZE - len);
 
-	wl1271_write(wl, wl->cmd_box_addr, priv->cmd_buf, WL18XX_CMD_MAX_SIZE,
+	wl1271_write(wl, cmd_box_addr, priv->cmd_buf, WL18XX_CMD_MAX_SIZE,
 		     false);
 }
 
