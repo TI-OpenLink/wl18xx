@@ -806,7 +806,7 @@ static void wl1271_recovery_work(struct work_struct *work)
 	/* change partitions momentarily so we can read the FW pc */
 	wlcore_set_partition(wl, &wl->exp.ptable[PART_BOOT]);
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
-		    wl->chip.fw_ver_str,
+		    wl->exp.chip.fw_ver_str,
 		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY));
 	wlcore_set_partition(wl, &wl->exp.ptable[PART_WORK]);
 
@@ -903,7 +903,7 @@ static int wl1271_chip_wakeup(struct wl1271 *wl)
 	/* whal_FwCtrl_BootSm() */
 
 	/* 0. read chip id from CHIP_ID */
-	wl->chip.id = wlcore_read_reg(wl, REG_CHIP_ID_B);
+	wl->exp.chip.id = wlcore_read_reg(wl, REG_CHIP_ID_B);
 
 	/*
 	 * For wl127x based devices we could use the default block
@@ -976,11 +976,11 @@ int wl1271_plt_start(struct wl1271 *wl)
 
 		wl->state = WL1271_STATE_PLT;
 		wl1271_notice("firmware booted in PLT mode (%s)",
-			      wl->chip.fw_ver_str);
+			      wl->exp.chip.fw_ver_str);
 
 		/* update hw/fw version info in wiphy struct */
-		wiphy->hw_version = wl->chip.id;
-		strncpy(wiphy->fw_version, wl->chip.fw_ver_str,
+		wiphy->hw_version = wl->exp.chip.id;
+		strncpy(wiphy->fw_version, wl->exp.chip.fw_ver_str,
 			sizeof(wiphy->fw_version));
 
 		goto out;
@@ -1644,11 +1644,11 @@ power_off:
 		goto out;
 	}
 
-	wl1271_info("firmware booted (%s)", wl->chip.fw_ver_str);
+	wl1271_info("firmware booted (%s)", wl->exp.chip.fw_ver_str);
 
 	/* update hw/fw version info in wiphy struct */
-	wiphy->hw_version = wl->chip.id;
-	strncpy(wiphy->fw_version, wl->chip.fw_ver_str,
+	wiphy->hw_version = wl->exp.chip.id;
+	strncpy(wiphy->fw_version, wl->exp.chip.fw_ver_str,
 		sizeof(wiphy->fw_version));
 
 	/*

@@ -565,10 +565,10 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 {
 	int ret = 0;
 
-	switch (wl->chip.id) {
+	switch (wl->exp.chip.id) {
 	case CHIP_ID_1271_PG10:
 		wl1271_warning("chip id 0x%x (1271 PG10) support is obsolete",
-			       wl->chip.id);
+			       wl->exp.chip.id);
 
 		/* clear the alignment quirk, since we don't support it */
 		wl->exp.quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
@@ -582,7 +582,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 
 	case CHIP_ID_1271_PG20:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
-			     wl->chip.id);
+			     wl->exp.chip.id);
 
 		/* clear the alignment quirk, since we don't support it */
 		wl->exp.quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
@@ -596,12 +596,12 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 
 	case CHIP_ID_1283_PG20:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1283 PG20)",
-			     wl->chip.id);
+			     wl->exp.chip.id);
 		wl->exp.fw_name = WL128X_FW_NAME;
 		break;
 	case CHIP_ID_1283_PG10:
 	default:
-		wl1271_warning("unsupported chip id: 0x%x", wl->chip.id);
+		wl1271_warning("unsupported chip id: 0x%x", wl->exp.chip.id);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -658,7 +658,7 @@ static void wl12xx_boot_hw_version(struct wl1271 *wl)
 {
 	u32 fuse;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20)
 		fuse = wl12xx_top_reg_read(wl, WL128X_REG_FUSE_DATA_2_1);
 	else
 		fuse = wl12xx_top_reg_read(wl, WL127X_REG_FUSE_DATA_2_1);
@@ -901,7 +901,7 @@ static int wl12xx_pre_boot(struct wl1271 *wl)
 
 	wl12xx_boot_hw_version(wl);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20) {
 		ret = wl128x_boot_clk(wl, &selected_clock);
 		if (ret < 0)
 			goto out;
@@ -925,7 +925,7 @@ static int wl12xx_pre_boot(struct wl1271 *wl)
 
 	wl1271_debug(DEBUG_BOOT, "clk2 0x%x", clk);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20) {
 		clk |= ((selected_clock & 0x3) << 1) << 4;
 	} else {
 		clk |= (priv->ref_clock << 1) << 4;
@@ -966,7 +966,7 @@ static void wl12xx_pre_upload(struct wl1271 *wl)
 	/* WL1271: The reference driver skips steps 7 to 10 (jumps directly
 	 * to upload_fw) */
 
-	if (wl->chip.id == CHIP_ID_1283_PG20)
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20)
 		wl12xx_top_reg_write(wl, SDIO_IO_DS, HCI_IO_DS_6MA);
 }
 
@@ -1040,7 +1040,7 @@ static void
 wl12xx_set_tx_desc_blocks(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 			  u32 blks, u32 spare_blks)
 {
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20) {
 		desc->wl128x_mem.total_mem_blocks = blks;
 	} else {
 		desc->wl127x_mem.extra_blocks = spare_blks;
@@ -1054,7 +1054,7 @@ wl12xx_set_tx_desc_data_len(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 {
 	u32 aligned_len = wlcore_calc_packet_alignment(wl, skb->len);
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20) {
 		desc->wl128x_mem.extra_bytes = aligned_len - skb->len;
 		desc->length = cpu_to_le16(aligned_len >> 2);
 
@@ -1092,7 +1092,7 @@ wl12xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 
 static void wl12xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
 {
-	if (wl->chip.id != CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id != CHIP_ID_1283_PG20) {
 		struct wl1271_acx_mem_map *wl_mem_map = wl->target_mem_map;
 
 		/*
@@ -1141,7 +1141,7 @@ static int wl12xx_hw_init(struct wl1271 *wl)
 {
 	int ret;
 
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
+	if (wl->exp.chip.id == CHIP_ID_1283_PG20) {
 		u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE;
 
 		ret = wl128x_cmd_general_parms(wl);
@@ -1182,7 +1182,7 @@ static u32 wl12xx_sta_get_ap_rate_mask(struct wl1271 *wl,
 
 static int wl12xx_identify_fw(struct wl1271 *wl)
 {
-	unsigned int *fw_ver = wl->chip.fw_ver;
+	unsigned int *fw_ver = wl->exp.chip.fw_ver;
 
 	/* Only new station firmwares support routing fw logs to the host */
 	if ((fw_ver[FW_VER_IF_TYPE] == FW_VER_IF_TYPE_STA) &&

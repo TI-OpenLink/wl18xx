@@ -91,33 +91,6 @@ enum wl1271_state {
 
 struct wl1271;
 
-enum {
-	FW_VER_CHIP,
-	FW_VER_IF_TYPE,
-	FW_VER_MAJOR,
-	FW_VER_SUBTYPE,
-	FW_VER_MINOR,
-
-	NUM_FW_VER
-};
-
-#define FW_VER_CHIP_WL127X 6
-#define FW_VER_CHIP_WL128X 7
-
-#define FW_VER_IF_TYPE_STA 1
-#define FW_VER_IF_TYPE_AP  2
-
-#define FW_VER_MINOR_1_SPARE_STA_MIN 58
-#define FW_VER_MINOR_1_SPARE_AP_MIN  47
-
-#define FW_VER_MINOR_FWLOG_STA_MIN 70
-
-struct wl1271_chip {
-	u32 id;
-	char fw_ver_str[ETHTOOL_BUSINFO_LEN];
-	unsigned int fw_ver[NUM_FW_VER];
-};
-
 struct wl1271_stats {
 	struct acx_statistics *fw_stats;
 	unsigned long fw_stats_update;

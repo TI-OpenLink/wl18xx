@@ -362,8 +362,8 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	/* TODO: ref_clock and tcxo_clock were moved to wl12xx priv */
 	DRIVER_STATE_PRINT_HEX(hw_pg_ver);
 	DRIVER_STATE_PRINT_HEX(platform_quirks);
-	DRIVER_STATE_PRINT_HEX(chip.id);
-	DRIVER_STATE_PRINT_STR(chip.fw_ver_str);
+	DRIVER_STATE_PRINT_HEX(exp.chip.id);
+	DRIVER_STATE_PRINT_STR(exp.chip.fw_ver_str);
 	DRIVER_STATE_PRINT_INT(sched_scanning);
 
 #undef DRIVER_STATE_PRINT_INT

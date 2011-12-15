@@ -119,7 +119,25 @@ enum wlcore_registers {
 	REG_TABLE_LEN,
 };
 
+enum {
+	FW_VER_CHIP,
+	FW_VER_IF_TYPE,
+	FW_VER_MAJOR,
+	FW_VER_SUBTYPE,
+	FW_VER_MINOR,
+
+	NUM_FW_VER
+};
+
+struct wl1271_chip {
+	u32 id;
+	char fw_ver_str[ETHTOOL_BUSINFO_LEN];
+	unsigned int fw_ver[NUM_FW_VER];
+};
+
 struct wlcore_exp {
+	struct wl1271_chip chip;
+
 	/* Quirks of specific hardware revisions */
 	unsigned int quirks;
 
@@ -187,8 +205,6 @@ struct wl1271 {
 	unsigned long flags;
 
 	struct wlcore_partition_set curr_part;
-
-	struct wl1271_chip chip;
 
 	int cmd_box_addr;
 
