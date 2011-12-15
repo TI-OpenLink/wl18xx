@@ -565,10 +565,10 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 {
 	int ret = 0;
 
-	switch (wl->chip.id) {
+	switch (wl->exp.chip.id) {
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
-			     wl->chip.id);
+			     wl->exp.chip.id);
 		wl->exp.fw_name = WL18XX_FW_NAME;
 		wl->exp.quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
@@ -577,7 +577,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		/* TODO: need to blocksize alignment for RX/TX separately? */
 		break;
 	default:
-		wl1271_warning("unsupported chip id: 0x%x", wl->chip.id);
+		wl1271_warning("unsupported chip id: 0x%x", wl->exp.chip.id);
 		ret = -ENODEV;
 		goto out;
 	}
