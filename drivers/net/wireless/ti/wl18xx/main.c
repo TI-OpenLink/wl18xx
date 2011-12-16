@@ -820,11 +820,6 @@ wl18xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 	return WLCORE_RX_BUF_ALIGNED;
 }
 
-static void wl18xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
-{
-	wl1271_read(wl, WL18XX_SLV_MEM_DATA, wl->aggr_buf, len, true);
-}
-
 static u32 wl18xx_get_rx_packet_len(struct wl1271 *wl, void *rx_data,
 				    u32 data_len)
 {
@@ -970,7 +965,6 @@ static struct wlcore_ops wl18xx_ops = {
 	.set_tx_desc_blocks = wl18xx_set_tx_desc_blocks,
 	.set_tx_desc_data_len = wl18xx_set_tx_desc_data_len,
 	.get_rx_buf_align = wl18xx_get_rx_buf_align,
-	.read_data = wl18xx_read_data,
 	.get_rx_packet_len = wl18xx_get_rx_packet_len,
 	.tx_immediate_completion = wl18xx_tx_immediate_completion,
 	.tx_delayed_completion = NULL,
