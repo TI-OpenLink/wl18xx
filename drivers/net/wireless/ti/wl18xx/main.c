@@ -642,9 +642,14 @@ static void wl18xx_boot_soft_reset(struct wl1271 *wl)
 
 static int wl18xx_pre_boot(struct wl1271 *wl)
 {
-	/* TODO: add hw_pg_ver reading */
+	u32 fuse;
 
 	wl18xx_set_clk(wl);
+
+        fuse = wl1271_read32(wl, WL18XX_REG_FUSE_DATA_1_3);
+        fuse = (fuse & WL18XX_PG_VER_MASK) >> WL18XX_PG_VER_OFFSET;
+
+	wl->exp.hw_pg_ver = (s8)fuse;
 
 	/* Continue the ELP wake up sequence */
 	wl1271_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
