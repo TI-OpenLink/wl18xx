@@ -139,6 +139,8 @@ struct wl1271_chip {
 struct wlcore_exp {
 	struct wl1271_chip chip;
 
+	s8 hw_pg_ver;
+
 	/* Quirks of specific hardware revisions */
 	unsigned int quirks;
 
@@ -217,8 +219,6 @@ struct wl1271 {
 	size_t fw_len;
 	void *nvs;
 	size_t nvs_len;
-
-	s8 hw_pg_ver;
 
 	u8 mac_addr[ETH_ALEN];
 	int channel;

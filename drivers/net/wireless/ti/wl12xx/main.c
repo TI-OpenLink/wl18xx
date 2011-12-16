@@ -686,8 +686,7 @@ static void wl12xx_boot_hw_version(struct wl1271 *wl)
 		fuse = wl12xx_top_reg_read(wl, WL127X_REG_FUSE_DATA_2_1);
 	fuse = (fuse & PG_VER_MASK) >> PG_VER_OFFSET;
 
-	/* TODO: it's a bit weird that we set random things in the ops */
-	wl->hw_pg_ver = (s8)fuse;
+	wl->exp.hw_pg_ver = (s8)fuse;
 }
 
 static int wl128x_switch_tcxo_to_fref(struct wl1271 *wl)
@@ -830,8 +829,9 @@ static int wl127x_boot_clk(struct wl1271 *wl)
 	struct wl12xx_priv *priv = wl->exp.priv;
 	u32 pause;
 	u32 clk;
+	s8 hw_pg_ver = wl->exp.hw_pg_ver;
 
-	if (((wl->hw_pg_ver & PG_MAJOR_VER_MASK) >> PG_MAJOR_VER_OFFSET) < 3)
+	if (((hw_pg_ver & PG_MAJOR_VER_MASK) >> PG_MAJOR_VER_OFFSET) < 3)
 		wl->exp.quirks |= WLCORE_QUIRK_END_OF_TRANSACTION;
 
 	if (priv->ref_clock == CONF_REF_CLK_19_2_E ||

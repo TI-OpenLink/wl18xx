@@ -4531,8 +4531,8 @@ static ssize_t wl1271_sysfs_show_hw_pg_ver(struct device *dev,
 	len = PAGE_SIZE;
 
 	mutex_lock(&wl->mutex);
-	if (wl->hw_pg_ver >= 0)
-		len = snprintf(buf, len, "%d\n", wl->hw_pg_ver);
+	if (wl->exp.hw_pg_ver >= 0)
+		len = snprintf(buf, len, "%d\n", wl->exp.hw_pg_ver);
 	else
 		len = snprintf(buf, len, "n/a\n");
 	mutex_unlock(&wl->mutex);
@@ -4821,7 +4821,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->flags = 0;
 	wl->sg_enabled = true;
-	wl->hw_pg_ver = -1;
+	wl->exp.hw_pg_ver = -1;
 	wl->ap_ps_map = 0;
 	wl->ap_fw_ps_map = 0;
 	wl->exp.quirks = 0;
