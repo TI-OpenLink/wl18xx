@@ -239,7 +239,9 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 
 		/* Read all available packets at once */
 		desc = le32_to_cpu(status->rx_pkt_descs[drv_rx_counter]);
-		wlcore_hw_read_data(wl, desc, buf_size);
+		wlcore_hw_prepare_read(wl, desc, buf_size);
+		wlcore_read_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
+				 buf_size, true);
 
 		/* Split data into separate packets */
 		pkt_offset = 0;

@@ -50,7 +50,7 @@ struct wlcore_ops {
 				     struct sk_buff *skb);
 	enum wl_rx_buf_align (*get_rx_buf_align)(struct wl1271 *wl,
 						 u32 rx_desc);
-	void (*read_data)(struct wl1271 *wl, u32 rx_desc, u32 len);
+	void (*prepare_read)(struct wl1271 *wl, u32 rx_desc, u32 len);
 	u32 (*get_rx_packet_len)(struct wl1271 *wl, void *rx_data,
 				 u32 data_len);
 	void (*tx_delayed_completion)(struct wl1271 *wl);

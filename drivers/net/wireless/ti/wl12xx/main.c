@@ -578,6 +578,29 @@ static const int wl12xx_rtable[REG_TABLE_LEN] = {
 #define WL127X_PLT_FW_NAME "ti-connectivity/wl127x-fw-mr_plt.bin.r4"
 #define WL128X_PLT_FW_NAME "ti-connectivity/wl128x-fw-mr_plt.bin.r4"
 
+static void wl127x_prepare_read(struct wl1271 *wl, u32 rx_desc, u32 len)
+{
+	if (wl->exp.chip.id != CHIP_ID_1283_PG20) {
+		struct wl1271_acx_mem_map *wl_mem_map = wl->target_mem_map;
+		struct wl127x_rx_mem_pool_addr rx_mem_addr;
+
+		/*
+		 * Choose the block we want to read
+		 * For aggregated packets, only the first memory block
+		 * should be retrieved. The FW takes care of the rest.
+		 */
+		u32 mem_block = rx_desc & RX_MEM_BLOCK_MASK;
+
+		rx_mem_addr.addr = (mem_block << 8) +
+			le32_to_cpu(wl_mem_map->packet_memory_pool_start);
+
+		rx_mem_addr.addr_extra = rx_mem_addr.addr + 4;
+
+		wl1271_write(wl, WL1271_SLV_REG_DATA,
+			     &rx_mem_addr, sizeof(rx_mem_addr), false);
+	}
+}
+
 static int wl12xx_identify_chip(struct wl1271 *wl)
 {
 	int ret = 0;
@@ -596,6 +619,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
 
+		/* read data preparation is only needed by wl127x */
+		wl->exp.ops->prepare_read = wl127x_prepare_read;
+
 		break;
 
 	case CHIP_ID_1271_PG20:
@@ -611,6 +637,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl->exp.mr_fw_name = WL127X_FW_NAME_MULTI;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
 		       sizeof(wl->conf.mem));
+
+		/* read data preparation is only needed by wl127x */
+		wl->exp.ops->prepare_read = wl127x_prepare_read;
 
 		break;
 
@@ -1113,31 +1142,6 @@ wl12xx_get_rx_buf_align(struct wl1271 *wl, u32 rx_desc)
 	return WLCORE_RX_BUF_ALIGNED;
 }
 
-static void wl12xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
-{
-	if (wl->exp.chip.id != CHIP_ID_1283_PG20) {
-		struct wl1271_acx_mem_map *wl_mem_map = wl->target_mem_map;
-		struct wl127x_rx_mem_pool_addr rx_mem_addr;
-
-		/*
-		 * Choose the block we want to read
-		 * For aggregated packets, only the first memory block
-		 * should be retrieved. The FW takes care of the rest.
-		 */
-		u32 mem_block = rx_desc & RX_MEM_BLOCK_MASK;
-
-		rx_mem_addr.addr = (mem_block << 8) +
-			le32_to_cpu(wl_mem_map->packet_memory_pool_start);
-
-		rx_mem_addr.addr_extra = rx_mem_addr.addr + 4;
-
-		wl1271_write(wl, WL1271_SLV_REG_DATA,
-			     &rx_mem_addr, sizeof(rx_mem_addr), false);
-	}
-
-	wl1271_read(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf, len, true);
-}
-
 static u32 wl12xx_get_rx_packet_len(struct wl1271 *wl, void *rx_data,
 				    u32 data_len)
 {
@@ -1246,7 +1250,6 @@ static struct wlcore_ops wl12xx_ops = {
 	.set_tx_desc_blocks = wl12xx_set_tx_desc_blocks,
 	.set_tx_desc_data_len = wl12xx_set_tx_desc_data_len,
 	.get_rx_buf_align = wl12xx_get_rx_buf_align,
-	.read_data = wl12xx_read_data,
 	.get_rx_packet_len = wl12xx_get_rx_packet_len,
 	.tx_immediate_completion = NULL,
 	.tx_delayed_completion = wl12xx_tx_delayed_completion,
