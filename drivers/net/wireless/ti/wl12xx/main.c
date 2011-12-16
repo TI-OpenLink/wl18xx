@@ -1117,6 +1117,7 @@ static void wl12xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
 {
 	if (wl->exp.chip.id != CHIP_ID_1283_PG20) {
 		struct wl1271_acx_mem_map *wl_mem_map = wl->target_mem_map;
+		struct wl127x_rx_mem_pool_addr rx_mem_addr;
 
 		/*
 		 * Choose the block we want to read
@@ -1125,15 +1126,13 @@ static void wl12xx_read_data(struct wl1271 *wl, u32 rx_desc, u32 len)
 		 */
 		u32 mem_block = rx_desc & RX_MEM_BLOCK_MASK;
 
-		wl->rx_mem_pool_addr.addr = (mem_block << 8) +
-		   le32_to_cpu(wl_mem_map->packet_memory_pool_start);
+		rx_mem_addr.addr = (mem_block << 8) +
+			le32_to_cpu(wl_mem_map->packet_memory_pool_start);
 
-		wl->rx_mem_pool_addr.addr_extra =
-			wl->rx_mem_pool_addr.addr + 4;
+		rx_mem_addr.addr_extra = rx_mem_addr.addr + 4;
 
 		wl1271_write(wl, WL1271_SLV_REG_DATA,
-			     &wl->rx_mem_pool_addr,
-			     sizeof(wl->rx_mem_pool_addr), false);
+			     &rx_mem_addr, sizeof(rx_mem_addr), false);
 	}
 
 	wl1271_read(wl, WL1271_SLV_MEM_DATA, wl->aggr_buf, len, true);

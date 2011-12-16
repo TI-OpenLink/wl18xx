@@ -184,11 +184,6 @@ struct wl_fw_status {
 	__le32 log_start_addr;
 } __packed;
 
-struct wl1271_rx_mem_pool_addr {
-	u32 addr;
-	u32 addr_extra;
-};
-
 #define WL1271_MAX_CHANNELS 64
 struct wl1271_scan {
 	struct cfg80211_scan_request *req;
