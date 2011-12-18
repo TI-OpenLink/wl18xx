@@ -973,11 +973,12 @@ int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
 	}
 
 	if (local->sched_scanning) {
-		for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+		for (i = 0; i < IEEE80211_NUM_BANDS; i++) {
 			kfree(local->sched_scan_ies.ie[i]);
+			local->sched_scan_ies.ie[i] = NULL;
+		}
 
 		drv_sched_scan_stop(local, sdata);
-		local->sched_scanning = false;
 	}
 out:
 	mutex_unlock(&sdata->local->mtx);
@@ -1009,8 +1010,10 @@ void ieee80211_sched_scan_stopped_work(struct work_struct *work)
 		return;
 	}
 
-	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+	for (i = 0; i < IEEE80211_NUM_BANDS; i++) {
 		kfree(local->sched_scan_ies.ie[i]);
+		local->sched_scan_ies.ie[i] = NULL;
+	}
 
 	local->sched_scanning = false;
 
