@@ -981,8 +981,10 @@ int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
 	}
 
 	if (rcu_access_pointer(local->sched_scan_sdata)) {
-		for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+		for (i = 0; i < IEEE80211_NUM_BANDS; i++) {
 			kfree(local->sched_scan_ies.ie[i]);
+			local->sched_scan_ies.ie[i] = NULL;
+		}
 
 		drv_sched_scan_stop(local, sdata);
 	}
@@ -1016,8 +1018,10 @@ void ieee80211_sched_scan_stopped_work(struct work_struct *work)
 		return;
 	}
 
-	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+	for (i = 0; i < IEEE80211_NUM_BANDS; i++) {
 		kfree(local->sched_scan_ies.ie[i]);
+		local->sched_scan_ies.ie[i] = NULL;
+	}
 
 	rcu_assign_pointer(local->sched_scan_sdata, NULL);
 
