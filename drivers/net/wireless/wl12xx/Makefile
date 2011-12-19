@@ -15,11 +15,6 @@ obj-$(CONFIG_WL12XX_SDIO_TEST)	+= wl12xx_sdio_test.o
 # small builtin driver bit
 obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+= wl12xx_platform_data.o
 
-ifeq ($(WL12XX_BMTRACE),y)
-obj-m  += bmtrace.o
-EXTRA_CFLAGS += -DTIWLAN_BMTRACE
-endif
-
 ifeq ($(WL18XX_DEBUGFS_TI),y)
 EXTRA_CFLAGS += -DDEBUGFS_TI
 endif
