@@ -346,6 +346,9 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 		nvs_ptr[1] = wl->mac_addr[4];
 		nvs_ptr[0] = wl->mac_addr[5];
 
+		/* TODO: check the dual_mode_select ini param, currently always support  */
+		wl->enable_11a = true;
+
 		return 0;
 
 	} else if (wl->chip.id == CHIP_ID_1283_PG20) {
