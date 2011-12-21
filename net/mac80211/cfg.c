@@ -945,11 +945,7 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
 		return -ENOMEM;
 
 	sta_info_move_state(sta, IEEE80211_STA_AUTH);
-	if (params->sta_flags_mask & BIT(NL80211_STA_FLAG_PRE_ASSOC) &&
-	    params->sta_flags_set & BIT(NL80211_STA_FLAG_PRE_ASSOC))
-		sta->dummy = true;
-	else
-		sta_info_move_state(sta, IEEE80211_STA_ASSOC);
+	sta_info_move_state(sta, IEEE80211_STA_ASSOC);
 
 	err = sta_apply_parameters(local, sta, params);
 	if (err) {
@@ -996,43 +992,6 @@ static int ieee80211_del_station(struct wiphy *wiphy, struct net_device *dev,
 	return 0;
 }
 
-static int ieee80211_reinsert_pre_assoc(struct ieee80211_sub_if_data *sdata,
-					u8 *mac)
-{
-	struct sta_info *sta;
-	int err;
-
-	mutex_lock(&sdata->local->sta_mtx);
-	/*
-	 * station info was already allocated and inserted before
-	 * the association and should be available to us
-	 */
-	sta = sta_info_get_rx(sdata, mac);
-	if (WARN_ON(!sta)) {
-		mutex_unlock(&sdata->local->sta_mtx);
-		return -ENOENT;
-	}
-
-	if (!sta->dummy) {
-		/* sta was already reinserted */
-		mutex_unlock(&sdata->local->sta_mtx);
-		return 0;
-	}
-
-	/* move to associated state */
-	sta_info_move_state(sta, IEEE80211_STA_ASSOC);
-
-	/* sta_info_reinsert will also unlock the mutex lock */
-	err = sta_info_reinsert(sta);
-	sta = NULL;
-	if (err) {
-		printk(KERN_DEBUG "%s: failed to insert STA entry for"
-		       " the AP (error %d)\n", sdata->name, err);
-		return err;
-	}
-	return 0;
-
-}
 static int ieee80211_change_station(struct wiphy *wiphy,
 				    struct net_device *dev,
 				    u8 *mac,
@@ -1042,11 +1001,10 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 	struct ieee80211_local *local = wiphy_priv(wiphy);
 	struct sta_info *sta;
 	struct ieee80211_sub_if_data *vlansdata;
-	bool is_dummy = false;
 
 	mutex_lock(&local->sta_mtx);
 
-	sta = sta_info_get_bss_rx(sdata, mac);
+	sta = sta_info_get_bss(sdata, mac);
 	if (!sta) {
 		mutex_unlock(&local->sta_mtx);
 		return -ENOENT;
@@ -1082,19 +1040,12 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 		ieee80211_send_layer2_update(sta);
 	}
 
-	if (sta->dummy)
-		is_dummy = true;
-
 	sta_apply_parameters(local, sta, params);
 
 	if (test_sta_flag(sta, WLAN_STA_TDLS_PEER) && params->supported_rates)
 		rate_control_rate_init(sta);
 
 	mutex_unlock(&local->sta_mtx);
-	if (is_dummy &&
-	    (params->sta_flags_mask & BIT(NL80211_STA_FLAG_PRE_ASSOC)) &&
-	    !(params->sta_flags_set & BIT(NL80211_STA_FLAG_PRE_ASSOC)))
-		ieee80211_reinsert_pre_assoc(sdata, mac);
 
 	if (sdata->vif.type == NL80211_IFTYPE_STATION &&
 	    params->sta_flags_mask & BIT(NL80211_STA_FLAG_AUTHORIZED))
