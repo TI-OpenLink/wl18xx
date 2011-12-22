@@ -208,6 +208,30 @@ DEBUGFS_READONLY_FILE_OPS(hwflags);
 DEBUGFS_READONLY_FILE_OPS(channel_type);
 DEBUGFS_READONLY_FILE_OPS(queues);
 
+
+static ssize_t wme_read(struct file *file, char __user *user_buf,
+		size_t count, loff_t *ppos)
+{
+	struct ieee80211_local *local = file->private_data;
+	int res = 0;
+	char buf[100];
+	res += sprintf(buf, "\t BE\t BK\t VI\t VO\n");
+	res += sprintf(buf + res, "\t0 3\t1 2\t4 5\t6 7\n");
+	res += sprintf(buf + res, "acm\t%lu %lu\t%lu %lu\t%lu %lu\t%lu %lu\n"
+			                  "adm\t%lu %lu\t%lu %lu\t%lu %lu\t%lu %lu\n",
+	(local->wmm_acm >> 0) & BIT(0), (local->wmm_acm >> 3) & BIT(0),
+	(local->wmm_acm >> 1) & BIT(0), (local->wmm_acm >> 2) & BIT(0),
+	(local->wmm_acm >> 4) & BIT(0), (local->wmm_acm >> 5) & BIT(0),
+	(local->wmm_acm >> 6) & BIT(0), (local->wmm_acm >> 7) & BIT(0),
+	(local->wmm_admitted >> 0) & BIT(0), (local->wmm_admitted >> 3) & BIT(0),
+	(local->wmm_admitted >> 1) & BIT(0), (local->wmm_admitted >> 2) & BIT(0),
+	(local->wmm_admitted >> 4) & BIT(0), (local->wmm_admitted >> 5) & BIT(0),
+	(local->wmm_admitted >> 6) & BIT(0), (local->wmm_admitted >> 7) & BIT(0));
+
+	return simple_read_from_buffer(user_buf, count, ppos, buf, res);
+}
+DEBUGFS_READONLY_FILE_OPS(wme);
+
 /* statistics stuff */
 
 static ssize_t format_devstat_counter(struct ieee80211_local *local,
@@ -281,6 +305,7 @@ void debugfs_hw_add(struct ieee80211_local *local)
 	DEBUGFS_ADD(hwflags);
 	DEBUGFS_ADD(user_power);
 	DEBUGFS_ADD(power);
+	DEBUGFS_ADD(wme);
 
 	statsd = debugfs_create_dir("statistics", phyd);
 
