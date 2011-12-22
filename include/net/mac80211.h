@@ -2374,6 +2374,9 @@ struct ieee80211_ops {
 				  u32 sset, u8 *data);
 	int (*set_default_key_idx)(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif, int idx);
+	void (*set_wme_medium_time)(struct ieee80211_hw *hw,
+			struct ieee80211_vif *vif,
+			u16 medium_time, u32 minimu_phy_rate, int ac);
 };
 
 /**
@@ -3654,6 +3657,19 @@ void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
  * @ssn: the new starting sequence number for the receiver
  */
 void ieee80211_send_bar(struct ieee80211_vif *vif, u8 *ra, u16 tid, u16 ssn);
+
+/**
+ * ieee80211_set_wme_acm - set the wme acm
+ *
+ * can be used if an admitted AC uses up it's allocated medium time
+ * given upon an ADDTS request.
+ *
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @ac:  wme queue
+ * @admitted: true if the ac admitted for traffic
+ */
+void ieee80211_set_wme_medium_time_crossed(struct ieee80211_hw *hw,
+		struct sk_buff *skb);
 
 /* Rate control API */
 

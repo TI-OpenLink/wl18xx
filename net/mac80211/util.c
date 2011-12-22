@@ -690,6 +690,9 @@ u32 ieee802_11_parse_elems_crc(u8 *start, size_t len,
 					} else if (pos[4] == 1) {
 						elems->wmm_param = pos;
 						elems->wmm_param_len = elen;
+					} else if (pos[4] == 2) {
+						elems->tspec = pos;
+						elems->tspec_len = elen;
 					}
 				}
 			}

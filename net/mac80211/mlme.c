@@ -29,6 +29,7 @@
 #include "driver-ops.h"
 #include "rate.h"
 #include "led.h"
+#include "wme.h"
 
 #define IEEE80211_AUTH_TIMEOUT (HZ / 5)
 #define IEEE80211_AUTH_MAX_TRIES 3
@@ -1157,6 +1158,7 @@ static void ieee80211_sta_wmm_params(struct ieee80211_local *local,
 	memset(&params, 0, sizeof(params));
 
 	local->wmm_acm = 0;
+	local->wmm_admitted = 0;
 	for (; left >= 4; left -= 4, pos += 4) {
 		int aci = (pos[0] >> 5) & 0x03;
 		int acm = (pos[0] >> 4) & 0x01;
@@ -1215,6 +1217,7 @@ static void ieee80211_sta_wmm_params(struct ieee80211_local *local,
 				    "failed to set TX queue parameters for queue %d\n",
 				    queue);
 	}
+	local->wmm_admitted = (~(local->wmm_acm)) & 0xFF ;
 
 	/* enable WMM or activate new settings */
 	sdata->vif.bss_conf.qos = true;
@@ -2091,6 +2094,11 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	 * ieee80211_set_associated() will tell the driver */
 	bss_conf->aid = aid;
 	bss_conf->assoc_capability = capab_info;
+	if (elems.tspec)
+					wme_rx_action_tspec(sdata,
+							WLAN_WMM_ACTION_CODE_ADDTS_RESPONSE,
+							IEEE80211_TSPEC_STATUS_ADMISS_ACCEPTED,
+							elems.tspec);
 	ieee80211_set_associated(sdata, cbss, changed);
 
 	/*
