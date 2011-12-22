@@ -891,6 +891,12 @@ static void ieee80211_iface_work(struct work_struct *work)
 				}
 			}
 			mutex_unlock(&local->sta_mtx);
+		} else if (ieee80211_is_action(mgmt->frame_control) &&
+					   mgmt->u.action.category == WLAN_CATEGORY_WMM) {
+			wme_rx_action_tspec(sdata, mgmt->u.action.u.wme_action.action_code,
+					mgmt->u.action.u.wme_action.status_code,
+					mgmt->u.action.u.wme_action.variable + 2);
+			ieee80211_tspec_done(sdata, (u8*)mgmt, skb->len);
 		} else if (ieee80211_is_data_qos(mgmt->frame_control)) {
 			struct ieee80211_hdr *hdr = (void *)mgmt;
 			/*
