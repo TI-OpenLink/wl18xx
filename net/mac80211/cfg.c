@@ -369,7 +369,8 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 			STATION_INFO_BSS_PARAM |
 			STATION_INFO_CONNECTED_TIME |
 			STATION_INFO_STA_FLAGS |
-			STATION_INFO_BEACON_LOSS_COUNT;
+			STATION_INFO_BEACON_LOSS_COUNT |
+			STATION_INFO_WMM_ACM;
 
 	do_posix_clock_monotonic_gettime(&uptime);
 	sinfo->connected_time = uptime.tv_sec - sta->last_connected;
@@ -383,6 +384,7 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 	sinfo->tx_failed = sta->tx_retry_failed;
 	sinfo->rx_dropped_misc = sta->rx_dropped;
 	sinfo->beacon_loss_count = sta->beacon_loss_count;
+	sinfo->wmm_acm = sdata->wmm_acm;
 
 	if ((sta->local->hw.flags & IEEE80211_HW_SIGNAL_DBM) ||
 	    (sta->local->hw.flags & IEEE80211_HW_SIGNAL_UNSPEC)) {
@@ -2956,6 +2958,36 @@ static void ieee80211_set_wakeup(struct wiphy *wiphy, bool enabled)
 }
 #endif
 
+int ieee80211_wme_tspec(struct wiphy *wiphy, struct net_device *dev,
+		u8 action_code, u8 status_code,
+		struct ieee80211_tspec_params *tspec_params,
+		u8* extra_ies, u8 extra_ies_len) {
+
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+
+	if (sdata->vif.type != NL80211_IFTYPE_STATION)
+		return -EINVAL;
+
+	if (!sdata->u.mgd.associated)
+		return -EINVAL;
+
+	if (!(sdata->wmm_acm & BIT(tspec_params->tid)))
+		return -EINVAL;
+
+	if (action_code == WLAN_WMM_ACTION_CODE_ADDTS_REQUEST)
+		return ieee80211_addts_request(
+				IEEE80211_DEV_TO_SUB_IF(dev), tspec_params,
+				extra_ies, extra_ies_len);
+
+	if (action_code == WLAN_WMM_ACTION_CODE_DELTS) {
+		if (!(sdata->wmm_admitted  & BIT(tspec_params->tid)))
+			return -1;
+		return ieee80211_delts_request(IEEE80211_DEV_TO_SUB_IF(dev),
+				status_code, tspec_params);
+	}
+	return -EINVAL;
+}
+
 struct cfg80211_ops mac80211_config_ops = {
 	.add_virtual_intf = ieee80211_add_iface,
 	.del_virtual_intf = ieee80211_del_iface,
@@ -3031,4 +3063,5 @@ struct cfg80211_ops mac80211_config_ops = {
 	.get_et_sset_count = ieee80211_get_et_sset_count,
 	.get_et_stats = ieee80211_get_et_stats,
 	.get_et_strings = ieee80211_get_et_strings,
+	.wme_tspec = ieee80211_wme_tspec,
 };

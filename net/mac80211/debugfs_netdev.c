@@ -175,6 +175,34 @@ IEEE80211_IF_FILE(aid, u.mgd.aid, DEC);
 IEEE80211_IF_FILE(last_beacon, u.mgd.last_beacon_signal, DEC);
 IEEE80211_IF_FILE(ave_beacon, u.mgd.ave_beacon_signal, DEC_DIV_16);
 
+static ssize_t ieee80211_wme_read(struct file *file, char __user *user_buf,
+				  size_t count, loff_t *ppos)
+{
+	struct ieee80211_sub_if_data *sdata = file->private_data;
+	int res = 0;
+	char buf[100];
+	res += sprintf(buf, "\t BE\t BK\t VI\t VO\n");
+	res += sprintf(buf + res, "\t0 3\t1 2\t4 5\t6 7\n");
+	res += sprintf(buf + res, "acm\t%lu %lu\t%lu %lu\t%lu %lu\t%lu %lu\n"
+		       "adm\t%lu %lu\t%lu %lu\t%lu %lu\t%lu %lu\n",
+	(sdata->wmm_acm >> 0) & BIT(0), (sdata->wmm_acm >> 3) & BIT(0),
+	(sdata->wmm_acm >> 1) & BIT(0), (sdata->wmm_acm >> 2) & BIT(0),
+	(sdata->wmm_acm >> 4) & BIT(0), (sdata->wmm_acm >> 5) & BIT(0),
+	(sdata->wmm_acm >> 6) & BIT(0), (sdata->wmm_acm >> 7) & BIT(0),
+	(sdata->wmm_admitted >> 0) & BIT(0), (sdata->wmm_admitted >> 3) & BIT(0),
+	(sdata->wmm_admitted >> 1) & BIT(0), (sdata->wmm_admitted >> 2) & BIT(0),
+	(sdata->wmm_admitted >> 4) & BIT(0), (sdata->wmm_admitted >> 5) & BIT(0),
+	(sdata->wmm_admitted >> 6) & BIT(0), (sdata->wmm_admitted >> 7) & BIT(0));
+
+	return simple_read_from_buffer(user_buf, count, ppos, buf, res);
+}
+
+static const struct file_operations wme_ops = {
+	.read = ieee80211_wme_read,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
+
 static int ieee80211_set_smps(struct ieee80211_sub_if_data *sdata,
 			      enum ieee80211_smps_mode smps_mode)
 {
@@ -533,6 +561,7 @@ static void add_sta_files(struct ieee80211_sub_if_data *sdata)
 	DEBUGFS_ADD(aid);
 	DEBUGFS_ADD(last_beacon);
 	DEBUGFS_ADD(ave_beacon);
+	DEBUGFS_ADD(wme);
 	DEBUGFS_ADD_MODE(smps, 0600);
 	DEBUGFS_ADD_MODE(tkip_mic_test, 0200);
 	DEBUGFS_ADD_MODE(uapsd_queues, 0600);
