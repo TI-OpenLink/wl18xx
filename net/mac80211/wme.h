@@ -22,5 +22,16 @@ u16 ieee80211_select_queue(struct ieee80211_sub_if_data *sdata,
 			   struct sk_buff *skb);
 void ieee80211_set_qos_hdr(struct ieee80211_sub_if_data *sdata,
 			   struct sk_buff *skb);
+u16 ieee80211_downgrade_queue(struct ieee80211_sub_if_data *sdata,
+			      struct sk_buff *skb);
+
+void wme_rx_action_tspec(struct ieee80211_sub_if_data *sdata,
+		u8 action_code,	u8 status_code, u8 *buf);
+
+void ieee80211_tspec_done(struct ieee80211_sub_if_data *sdata,
+						  u8* buf, u8 len);
+
+void ieee80211_set_wme_ac_admitted(struct ieee80211_sub_if_data *sdata,
+				   u8 ac, bool admitted);
 
 #endif /* _WME_H */

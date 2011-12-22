@@ -683,6 +683,13 @@ struct ieee80211_sub_if_data {
 
 	/* bit field of ACM bits (BIT(802.1D tag)) */
 	u8 wmm_acm;
+	/* bit field of admitted access categories */
+	unsigned int wmm_admitted;
+	unsigned int wmm_ac_downgraded;
+	unsigned int downgrade_ts[IEEE80211_MAX_QUEUES];
+	/* holds the tspec params after AC is admitted, used in roaming */
+	struct ieee80211_tspec_params *tspec_params[IEEE80211_MAX_QUEUES];
+	u8 dialog_token;
 
 	struct ieee80211_key __rcu *keys[NUM_DEFAULT_KEYS + NUM_DEFAULT_MGMT_KEYS];
 	struct ieee80211_key __rcu *default_unicast_key;
@@ -1116,6 +1123,7 @@ struct ieee802_11_elems {
 	u8 *ext_supp_rates;
 	u8 *wmm_info;
 	u8 *wmm_param;
+	u8 *tspec;
 	struct ieee80211_ht_cap *ht_cap_elem;
 	struct ieee80211_ht_operation *ht_operation;
 	struct ieee80211_meshconf_ie *mesh_config;
@@ -1146,6 +1154,7 @@ struct ieee802_11_elems {
 	u8 ext_supp_rates_len;
 	u8 wmm_info_len;
 	u8 wmm_param_len;
+	u8 tspec_len;
 	u8 mesh_id_len;
 	u8 peering_len;
 	u8 preq_len;
@@ -1496,6 +1505,14 @@ bool ieee80211_set_channel_type(struct ieee80211_local *local,
 				enum nl80211_channel_type chantype);
 enum nl80211_channel_type
 ieee80211_ht_oper_to_channel_type(struct ieee80211_ht_operation *ht_oper);
+
+/* wmm, tspec handling */
+int ieee80211_addts_request(struct ieee80211_sub_if_data *sdata,
+		struct ieee80211_tspec_params *tspec_params,
+		u8* extra_ies, u8 extra_ies_len);
+
+int ieee80211_delts_request(struct ieee80211_sub_if_data *sdata,
+		u8 status_code, struct ieee80211_tspec_params *tspec_params);
 
 #ifdef CONFIG_MAC80211_NOINLINE
 #define debug_noinline noinline

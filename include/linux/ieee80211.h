@@ -1637,6 +1637,7 @@ enum ieee80211_sa_query_action {
 /*
  * WMM/802.11e Tspec Element
  */
+#define WMM_TSPEC_IE_LEN   63
 #define IEEE80211_WMM_IE_TSPEC_TID_MASK		0x0F
 #define IEEE80211_WMM_IE_TSPEC_TID_SHIFT	1
 #define IEEE80211_WMM_IE_TSPEC_DIR_MASK     0x03
@@ -1656,8 +1657,8 @@ enum ieee80211_tspec_status_code {
 };
 
 struct ieee80211_tspec_ie {
-	u8 element_id;
-	u8 len;
+/*	u8 element_id;
+	u8 len;*/
 	u8 oui[3];
 	u8 oui_type;
 	u8 oui_subtype;
