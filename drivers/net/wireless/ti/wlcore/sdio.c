@@ -152,6 +152,8 @@ static int wl12xx_sdio_power_on(struct wl12xx_sdio_glue *glue)
 	int ret;
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
 
+	sdio_claim_host(func);
+
 	/* If enabled, tell runtime PM not to power off the card */
 	if (pm_runtime_enabled(&func->dev)) {
 		ret = pm_runtime_get_sync(&func->dev);
@@ -164,11 +166,10 @@ static int wl12xx_sdio_power_on(struct wl12xx_sdio_glue *glue)
 			goto out;
 	}
 
-	sdio_claim_host(func);
 	sdio_enable_func(func);
-	sdio_release_host(func);
 
 out:
+	sdio_release_host(func);
 	return ret;
 }
 
@@ -179,17 +180,18 @@ static int wl12xx_sdio_power_off(struct wl12xx_sdio_glue *glue)
 
 	sdio_claim_host(func);
 	sdio_disable_func(func);
-	sdio_release_host(func);
 
 	/* Power off the card manually, even if runtime PM is enabled. */
 	ret = mmc_power_save_host(func->card->host);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	/* If enabled, let runtime PM know the card is powered off */
 	if (pm_runtime_enabled(&func->dev))
 		ret = pm_runtime_put_sync(&func->dev);
 
+out:
+	sdio_release_host(func);
 	return ret;
 }
 
