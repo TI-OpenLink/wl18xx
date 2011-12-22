@@ -346,6 +346,15 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 		nvs_ptr[1] = wl->mac_addr[4];
 		nvs_ptr[0] = wl->mac_addr[5];
 
+		/* write the mac address to the register */
+		val = (nvs_ptr[0] | (nvs_ptr[1] << 8)
+							       | (nvs_ptr[2] << 16) | (nvs_ptr[3] << 24));
+		wl1271_write32(wl, STA_ADDR_LOW, val);
+
+		val = (0x0 | nvs_ptr[4] | (nvs_ptr[5] << 8));
+		wl1271_write32(wl, STA_ADDR_HIGH, val);
+
+
 		/* TODO: check the dual_mode_select ini param, currently always support  */
 		wl->enable_11a = true;
 
