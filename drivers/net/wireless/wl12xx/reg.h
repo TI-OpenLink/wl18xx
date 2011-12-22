@@ -268,6 +268,11 @@
 #define SCR_PAD8                       (REGISTERS_BASE + 0x01551C)
 #define SCR_PAD9                       (REGISTERS_BASE + 0x015520)
 
+
+#define STA_ADDR_LOW                   (REGISTERS_BASE + 0x015548)
+#define STA_ADDR_HIGH                  (REGISTERS_BASE + 0x015544)
+
+
 /* Spare registers*/
 #define SPARE_A1                       (REGISTERS_BASE + 0x002194)
 #define SPARE_A2                       (REGISTERS_BASE + 0x002198)
