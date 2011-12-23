@@ -476,6 +476,23 @@ static inline void drv_sta_remove(struct ieee80211_local *local,
 	trace_drv_return_void(local);
 }
 
+static inline void drv_sta_state(struct ieee80211_local *local,
+				 struct ieee80211_sub_if_data *sdata,
+				 struct ieee80211_sta *sta,
+				 enum ieee80211_sta_state state)
+{
+	might_sleep();
+
+	sdata = get_bss_sdata(sdata);
+	check_sdata_in_driver(sdata);
+
+	trace_drv_sta_state(local, sdata, sta, state);
+	if (local->ops->sta_state)
+		local->ops->sta_state(&local->hw, &sdata->vif, sta,
+				      state);
+	trace_drv_return_void(local);
+}
+
 static inline int drv_conf_tx(struct ieee80211_local *local,
 			      struct ieee80211_sub_if_data *sdata, u16 queue,
 			      const struct ieee80211_tx_queue_params *params)

@@ -392,8 +392,13 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 			printk(KERN_DEBUG "%s: failed to add IBSS STA %pM to "
 					  "driver (%d) - keeping it anyway.\n",
 			       sdata->name, sta->sta.addr, err);
-		} else
+		} else {
+			enum ieee80211_sta_state state = IEEE80211_STA_NONE;
+
 			sta->uploaded = true;
+			while (state < sta->sta.state)
+				drv_sta_state(local, sdata, &sta->sta, ++state);
+		}
 	}
 
 	if (!dummy_reinsert) {
@@ -1450,6 +1455,12 @@ int sta_info_move_state_checked(struct sta_info *sta,
 
 	printk(KERN_DEBUG "%s: moving STA %pM to state %d\n",
 		sta->sdata->name, sta->sta.addr, new_state);
+	/*
+	 * notify the driver before the actual change, so it will be
+	 * able to determine the transition
+	 */
+	if (sta->uploaded)
+		drv_sta_state(sta->local, sta->sdata, &sta->sta, new_state);
 	sta->sta.state = new_state;
 
 	return 0;
