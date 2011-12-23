@@ -2384,7 +2384,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		 * we still need this in order to configure the fw
 		 * while uploading the nvs
 		 */
-		memcpy(wl->mac_addr, vif->addr, ETH_ALEN);
+		memcpy(wl->addresses[0].addr, vif->addr, ETH_ALEN);
 
 		booted = wl12xx_init_fw(wl);
 		if (!booted) {
@@ -5179,15 +5179,23 @@ static int wl1271_register_hw(struct wl1271 *wl)
 		 */
 		u8 *nvs_ptr = (u8 *)wl->nvs;
 
-		wl->mac_addr[0] = nvs_ptr[11];
-		wl->mac_addr[1] = nvs_ptr[10];
-		wl->mac_addr[2] = nvs_ptr[6];
-		wl->mac_addr[3] = nvs_ptr[5];
-		wl->mac_addr[4] = nvs_ptr[4];
-		wl->mac_addr[5] = nvs_ptr[3];
-	}
+		wl->addresses[0].addr[0] = nvs_ptr[11];
+		wl->addresses[0].addr[1] = nvs_ptr[10];
+		wl->addresses[0].addr[2] = nvs_ptr[6];
+		wl->addresses[0].addr[3] = nvs_ptr[5];
+		wl->addresses[0].addr[4] = nvs_ptr[4];
+		wl->addresses[0].addr[5] = nvs_ptr[3];
 
-	SET_IEEE80211_PERM_ADDR(wl->hw, wl->mac_addr);
+		/*
+		 * allow for 2 addresses, with the first one based on the NVS,
+		 * and the second with its lower bit flipped.
+		 */
+		memcpy(wl->addresses[1].addr, wl->addresses[0].addr, ETH_ALEN);
+		wl->addresses[1].addr[5] ^= 0x01;
+
+		wl->hw->wiphy->n_addresses = 2;
+		wl->hw->wiphy->addresses = wl->addresses;
+	}
 
 	ret = ieee80211_register_hw(wl->hw);
 	if (ret < 0) {
