@@ -73,14 +73,6 @@ enum ieee80211_sta_info_flags {
 	WLAN_STA_4ADDR_EVENT,
 };
 
-enum ieee80211_sta_state {
-	/* NOTE: These need to be ordered correctly! */
-	IEEE80211_STA_NONE,
-	IEEE80211_STA_AUTH,
-	IEEE80211_STA_ASSOC,
-	IEEE80211_STA_AUTHORIZED,
-};
-
 #define STA_TID_NUM 16
 #define ADDBA_RESP_INTERVAL HZ
 #define HT_AGG_MAX_RETRIES		15
@@ -274,7 +266,6 @@ struct sta_ampdu_mlme {
  * @dummy: indicate a dummy station created for receiving
  *	EAP frames before association
  * @sta: station information we share with the driver
- * @sta_state: duplicates information about station state (for debug)
  * @beacon_loss_count: number of times beacon loss has triggered
  */
 struct sta_info {
@@ -296,8 +287,6 @@ struct sta_info {
 	bool dead;
 
 	bool uploaded;
-
-	enum ieee80211_sta_state sta_state;
 
 	/* use the accessors defined below */
 	unsigned long _flags;

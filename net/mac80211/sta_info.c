@@ -765,8 +765,8 @@ static int __must_check __sta_info_destroy(struct sta_info *sta)
 	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
 		RCU_INIT_POINTER(sdata->u.vlan.sta, NULL);
 
-	while (sta->sta_state > IEEE80211_STA_NONE)
-		sta_info_move_state(sta, sta->sta_state - 1);
+	while (sta->sta.state > IEEE80211_STA_NONE)
+		sta_info_move_state(sta, sta->sta.state - 1);
 
 	if (sta->uploaded) {
 		if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
@@ -1407,28 +1407,28 @@ int sta_info_move_state_checked(struct sta_info *sta,
 {
 	might_sleep();
 
-	if (sta->sta_state == new_state)
+	if (sta->sta.state == new_state)
 		return 0;
 
 	switch (new_state) {
 	case IEEE80211_STA_NONE:
-		if (sta->sta_state == IEEE80211_STA_AUTH)
+		if (sta->sta.state == IEEE80211_STA_AUTH)
 			clear_bit(WLAN_STA_AUTH, &sta->_flags);
 		else
 			return -EINVAL;
 		break;
 	case IEEE80211_STA_AUTH:
-		if (sta->sta_state == IEEE80211_STA_NONE)
+		if (sta->sta.state == IEEE80211_STA_NONE)
 			set_bit(WLAN_STA_AUTH, &sta->_flags);
-		else if (sta->sta_state == IEEE80211_STA_ASSOC)
+		else if (sta->sta.state == IEEE80211_STA_ASSOC)
 			clear_bit(WLAN_STA_ASSOC, &sta->_flags);
 		else
 			return -EINVAL;
 		break;
 	case IEEE80211_STA_ASSOC:
-		if (sta->sta_state == IEEE80211_STA_AUTH) {
+		if (sta->sta.state == IEEE80211_STA_AUTH) {
 			set_bit(WLAN_STA_ASSOC, &sta->_flags);
-		} else if (sta->sta_state == IEEE80211_STA_AUTHORIZED) {
+		} else if (sta->sta.state == IEEE80211_STA_AUTHORIZED) {
 			if (sta->sdata->vif.type == NL80211_IFTYPE_AP)
 				atomic_dec(&sta->sdata->u.ap.num_sta_authorized);
 			clear_bit(WLAN_STA_AUTHORIZED, &sta->_flags);
@@ -1436,7 +1436,7 @@ int sta_info_move_state_checked(struct sta_info *sta,
 			return -EINVAL;
 		break;
 	case IEEE80211_STA_AUTHORIZED:
-		if (sta->sta_state == IEEE80211_STA_ASSOC) {
+		if (sta->sta.state == IEEE80211_STA_ASSOC) {
 			if (sta->sdata->vif.type == NL80211_IFTYPE_AP)
 				atomic_inc(&sta->sdata->u.ap.num_sta_authorized);
 			set_bit(WLAN_STA_AUTHORIZED, &sta->_flags);
@@ -1450,7 +1450,7 @@ int sta_info_move_state_checked(struct sta_info *sta,
 
 	printk(KERN_DEBUG "%s: moving STA %pM to state %d\n",
 		sta->sdata->name, sta->sta.addr, new_state);
-	sta->sta_state = new_state;
+	sta->sta.state = new_state;
 
 	return 0;
 }
