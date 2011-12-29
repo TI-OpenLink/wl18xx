@@ -253,8 +253,7 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 		goto out;
 	}
 
-	/* disable the timeout */
-	trigger->timeout = 0;
+	trigger->timeout = wl->conf.scan.split_scan_timeout;
 	ret = wl1271_cmd_send(wl, CMD_TRIGGER_SCAN_TO, trigger,
 			      sizeof(*trigger), 0);
 	if (ret < 0) {
