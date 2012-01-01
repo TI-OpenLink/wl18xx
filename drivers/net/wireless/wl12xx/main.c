@@ -434,7 +434,7 @@ static struct conf_drv_settings default_conf = {
 			.pwr_limit_reference_11p = 0x0,
 			.per_sub_band_tx_trace_loss = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0},
 			.per_sub_band_rx_trace_loss = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0},
-			.hw_board_type = BOARD_TYPE_HDK_18XX
+			.hw_board_type = HW_BOARD_TYPE_HDK_18XX
 	},
 	.sleep_auth                       = WL1271_PSM_CAM,
 	.hw_tx_extra_mem_blk			  = TX_HW_BLOCK_SPARE_DEFAULT

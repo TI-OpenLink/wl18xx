@@ -761,27 +761,34 @@ static int wl18xx_boot_clk(struct wl1271 *wl)
 
 	switch (wl->conf.mac_and_phy_params.hw_board_type)
 	{
-	case BOARD_TYPE_FPGA_18XX:
+	case HW_BOARD_TYPE_EVB_18XX:
 		{
-			wl1271_info("FPGA board configured (skipping top init)");
-			wl1271_write32(wl, SCR_PAD2, 0xB1);
+			wl1271_info("EVB board configured");
 			break;
 		}
-	case BOARD_TYPE_HDK_18XX:
+	case HW_BOARD_TYPE_DVP_18XX:
+		{
+			wl1271_info("DVP board configured");
+			break;
+		}
+	case HW_BOARD_TYPE_HDK_18XX:
 		{
 			wl1271_info("HDK board configured");
-			wl1271_write32(wl, SCR_PAD2,0xB2);
 			break;
 		}
-	case BOARD_TYPE_DVP_EVB_18XX:
+	case HW_BOARD_TYPE_FPGA_18XX:
 		{
-			wl1271_info("DVP/EVB board configured");
-			wl1271_write32(wl, SCR_PAD2, 0xB3);
+			wl1271_info("FPGA board configured (skipping top init)");
+			break;
+		}
+	case HW_BOARD_TYPE_COM8_18XX:
+		{
+			wl1271_info("COM8 board configured");
 			break;
 		}
 	}
 
-    if (wl->conf.mac_and_phy_params.hw_board_type != BOARD_TYPE_FPGA_18XX)
+    if (wl->conf.mac_and_phy_params.hw_board_type != HW_BOARD_TYPE_FPGA_18XX)
     {
         wl1271_info("Starting Init");
         wl1271_set_partition(wl, &part_table[PART_TOP_PRCM_ELP_SOC]);
