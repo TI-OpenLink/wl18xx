@@ -514,19 +514,14 @@ static void wl1271_netstack_work(struct work_struct *work)
 
 #define WL1271_IRQ_MAX_LOOPS 256
 
-irqreturn_t wl1271_irq(int irq, void *cookie)
+irqreturn_t wl1271_irq_locked(struct wl1271 *wl)
 {
 	int ret;
 	u32 intr;
 	int loopcount = WL1271_IRQ_MAX_LOOPS;
-	struct wl1271 *wl = (struct wl1271 *)cookie;
 	bool done = false;
 	unsigned int defer_count;
 	unsigned long flags;
-
-	/* TX might be handled here, avoid redundant work */
-	set_bit(WL1271_FLAG_TX_PENDING, &wl->flags);
-	cancel_work_sync(&wl->tx_work);
 
 	/*
 	 * In case edge triggered interrupt must be used, we cannot iterate
@@ -534,8 +529,6 @@ irqreturn_t wl1271_irq(int irq, void *cookie)
 	 */
 	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
 		loopcount = 1;
-
-	mutex_lock(&wl->mutex);
 
 	wl1271_debug(DEBUG_IRQ, "IRQ work");
 
@@ -638,10 +631,26 @@ out:
 #endif
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
-	mutex_unlock(&wl->mutex);
-
 	return IRQ_HANDLED;
 }
+EXPORT_SYMBOL_GPL(wl1271_irq_locked);
+
+irqreturn_t wl1271_irq(int irq, void *cookie)
+{
+	struct wl1271 *wl = cookie;
+	irqreturn_t ret;
+
+	/* TX might be handled here, avoid redundant work */
+	set_bit(WL1271_FLAG_TX_PENDING, &wl->flags);
+	cancel_work_sync(&wl->tx_work);
+
+	mutex_lock(&wl->mutex);
+	ret = wl1271_irq_locked(wl);
+	mutex_unlock(&wl->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wl1271_irq);
 
 static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 {
