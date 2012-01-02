@@ -358,7 +358,7 @@ static ssize_t dynamic_ps_timeout_write(struct file *file,
 	 */
 
 	wl12xx_for_each_wlvif_sta(wl, wlvif) {
-		if (test_bit(WLVIF_FLAG_IN_AUTO_PS, &wlvif->flags))
+		if (test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags))
 			wl1271_ps_set_mode(wl, wlvif, STATION_AUTO_PS_MODE);
 	}
 
@@ -425,7 +425,7 @@ static ssize_t forced_ps_write(struct file *file,
 	ps_mode = value ? STATION_POWER_SAVE_MODE : STATION_AUTO_PS_MODE;
 
 	wl12xx_for_each_wlvif_sta(wl, wlvif) {
-		if (test_bit(WLVIF_FLAG_IN_AUTO_PS, &wlvif->flags))
+		if (test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags))
 			wl1271_ps_set_mode(wl, wlvif, ps_mode);
 	}
 

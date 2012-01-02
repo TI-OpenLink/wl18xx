@@ -2794,7 +2794,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 		if ((conf->flags & IEEE80211_CONF_PS) &&
 		    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
-		    !test_bit(WLVIF_FLAG_IN_AUTO_PS, &wlvif->flags)) {
+		    !test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
 
 			int ps_mode;
 			char *ps_mode_str;
@@ -2816,7 +2816,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 					       ps_mode_str, ret);
 
 		} else if (!(conf->flags & IEEE80211_CONF_PS) &&
-			   test_bit(WLVIF_FLAG_IN_AUTO_PS, &wlvif->flags)) {
+			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
 
 			wl1271_debug(DEBUG_PSM, "auto ps disabled");
 
