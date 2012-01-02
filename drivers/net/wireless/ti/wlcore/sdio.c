@@ -211,6 +211,10 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 
 	dev_dbg(&func->dev, "SDIO IRQ");
 
+	/* TX might be handled here, avoid redundant work */
+	set_bit(WL1271_FLAG_TX_PENDING, &wl->flags);
+	cancel_work_sync(&wl->tx_work);
+
 	if (WARN_ON(!glue->handler || !glue->thread_fn))
 		return;
 
@@ -219,10 +223,26 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 
 	ret = glue->handler(0, glue->irq_cookie);
 	if (ret == IRQ_WAKE_THREAD) {
+
+		mutex_lock(&wl->mutex);
+		if (sdio_claim_host_irq(func)) {
+			/*
+			 * Theoretically we need to reschedule TX work.
+			 * Practically, if the irq is freed, there's little
+			 * point in doing so.
+			 */
+			mutex_unlock(&wl->mutex);
+			return;
+		}
+		wl1271_irq_locked(wl);
 		sdio_release_host(func);
-		glue->thread_fn(0, glue->irq_cookie);
-		sdio_claim_host(func);
+		mutex_unlock(&wl->mutex);
 	}
+	/*
+	 * Again, we shouldn't reschedule TX work in an else clause because the
+	 * system is suspended and the interrupt handler will be called when it
+	 * is resumed
+	 */
 }
 
 int wl12xx_sdio_request_irq(struct device *child,
@@ -247,7 +267,7 @@ int wl12xx_sdio_request_irq(struct device *child,
 	glue->handler = handler;
 	glue->thread_fn = thread_fn;
 	glue->irq_cookie = cookie;
-	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
+	ret = sdio_claim_irq_lockless(func, wl12xx_sdio_interrupt);
 	sdio_release_host(func);
 	printk("claiming sdio irq (func=%d). ret=%d\n", func->num, ret);
 	return ret;
