@@ -38,6 +38,24 @@ struct wl18xx_priv {
 	u8 board_type;
 };
 
+#define WL18XX_FW_MAX_TX_STATUS_DESC 33
+
+struct wl18xx_fw_status_priv {
+	/*
+	 * Index in released_tx_desc for first byte that holds
+	 * released tx host desc
+	 */
+	u8 fw_release_idx;
+
+	/*
+	 * Array of host Tx descriptors, where fw_release_idx
+	 * indicated the first released idx.
+	 */
+	u8 released_tx_desc[WL18XX_FW_MAX_TX_STATUS_DESC];
+
+	u8 padding[2];
+};
+
 struct wl18xx_clk_cfg {
 	u32 n;
 	u32 m;
