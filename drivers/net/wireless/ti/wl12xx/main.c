@@ -1300,6 +1300,7 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->exp.hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
 	wl->exp.hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
 	wl->exp.max_rx_aggregation_subframes = 8;
+	wl->exp.fw_status_priv_len = 0;
 	memcpy(&wl->exp.ht_cap, &wl12xx_ht_cap, sizeof(wl12xx_ht_cap));
 
 	wl12xx_conf_init(wl);

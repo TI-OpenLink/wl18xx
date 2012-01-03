@@ -181,6 +181,9 @@ struct wlcore_exp {
 
 	/* maximum number of A-MPDU RX sub-frames the HW supports */
 	u8 max_rx_aggregation_subframes;
+
+	/* size of the private FW status data */
+	size_t fw_status_priv_len;
 };
 
 struct wl1271 {

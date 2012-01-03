@@ -114,8 +114,6 @@ struct wl1271_stats {
 
 #define AP_MAX_STATIONS            8
 
-#define WL18XX_FW_MAX_TX_STATUS_DESC 33
-
 struct wl_fw_packet_counters {
 	/* Cumulative counter of released packets per AC */
 	u8 tx_released_pkts[NUM_TX_QUEUES];
@@ -125,6 +123,8 @@ struct wl_fw_packet_counters {
 
 	/* Cumulative counter of released Voice memory blocks */
 	u8 tx_voice_released_blks;
+
+	u8 padding[3];
 } __packed;
 
 /* FW status registers */
@@ -155,33 +155,12 @@ struct wl_fw_status {
 	/* Size (in Memory Blocks) of TX pool */
 	__le32 tx_total;
 
-	union {
-		/* used in offsetof() */
-		u8 per_family_data[0];
-
-		struct {
-			struct wl_fw_packet_counters counters;
-			u8 padding_1[3];
-		} wl12xx;
-		struct {
-			/*
-			 * Index in released_tx_desc for first byte that holds
-			 * released tx host desc
-			 */
-			u8 fw_release_idx;
-
-			/*
-			 * Array of host Tx descriptors, where fw_release_idx
-			 * indicated the first released idx.
-			 */
-			u8 released_tx_desc[WL18XX_FW_MAX_TX_STATUS_DESC];
-
-			struct wl_fw_packet_counters counters;
-			u8 padding_1[5];
-		} wl18xx;
-	} __packed;
+	struct wl_fw_packet_counters counters;
 
 	__le32 log_start_addr;
+
+	/* Private status to be used by the lower drivers */
+	u8 priv[0];
 } __packed;
 
 #define WL1271_MAX_CHANNELS 64
