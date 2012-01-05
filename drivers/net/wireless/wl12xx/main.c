@@ -5178,6 +5178,7 @@ static int wl1271_register_hw(struct wl1271 *wl)
 		 * the beginning of the wl->nvs structure.
 		 */
 		u8 *nvs_ptr = (u8 *)wl->nvs;
+		u32 nic_addr;
 
 		wl->addresses[0].addr[0] = nvs_ptr[11];
 		wl->addresses[0].addr[1] = nvs_ptr[10];
@@ -5188,10 +5189,16 @@ static int wl1271_register_hw(struct wl1271 *wl)
 
 		/*
 		 * allow for 2 addresses, with the first one based on the NVS,
-		 * and the second with its lower bit flipped.
+		 * and the second with its 3 lower bytes (NIC Specific)
+		 * incremented by 1.
 		 */
 		memcpy(wl->addresses[1].addr, wl->addresses[0].addr, ETH_ALEN);
-		wl->addresses[1].addr[5] ^= 0x01;
+		nic_addr = (u32)(wl->addresses[1].addr[5] +
+						(wl->addresses[1].addr[4] << 8) +
+						(wl->addresses[1].addr[3] << 16)) + 1;
+		wl->addresses[1].addr[3] = (u8)(nic_addr >> 16);
+		wl->addresses[1].addr[4] = (u8)(nic_addr >> 8);
+		wl->addresses[1].addr[5] = (u8) nic_addr;
 
 		wl->hw->wiphy->n_addresses = 2;
 		wl->hw->wiphy->addresses = wl->addresses;
