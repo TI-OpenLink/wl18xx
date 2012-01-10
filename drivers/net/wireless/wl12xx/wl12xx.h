@@ -365,7 +365,8 @@ struct wl1271 {
 
 	s8 hw_pg_ver;
 
-	u8 mac_addr[ETH_ALEN];
+	/* we have up to 2 MAC addresses */
+	struct mac_address addresses[2];
 	int channel;
 	u8 system_hlid;
 

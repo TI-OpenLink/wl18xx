@@ -2384,7 +2384,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		 * we still need this in order to configure the fw
 		 * while uploading the nvs
 		 */
-		memcpy(wl->mac_addr, vif->addr, ETH_ALEN);
+		memcpy(wl->addresses[0].addr, vif->addr, ETH_ALEN);
 
 		booted = wl12xx_init_fw(wl);
 		if (!booted) {
@@ -5178,16 +5178,31 @@ static int wl1271_register_hw(struct wl1271 *wl)
 		 * the beginning of the wl->nvs structure.
 		 */
 		u8 *nvs_ptr = (u8 *)wl->nvs;
+		u32 nic_addr;
 
-		wl->mac_addr[0] = nvs_ptr[11];
-		wl->mac_addr[1] = nvs_ptr[10];
-		wl->mac_addr[2] = nvs_ptr[6];
-		wl->mac_addr[3] = nvs_ptr[5];
-		wl->mac_addr[4] = nvs_ptr[4];
-		wl->mac_addr[5] = nvs_ptr[3];
+		wl->addresses[0].addr[0] = nvs_ptr[11];
+		wl->addresses[0].addr[1] = nvs_ptr[10];
+		wl->addresses[0].addr[2] = nvs_ptr[6];
+		wl->addresses[0].addr[3] = nvs_ptr[5];
+		wl->addresses[0].addr[4] = nvs_ptr[4];
+		wl->addresses[0].addr[5] = nvs_ptr[3];
+
+		/*
+		 * allow for 2 addresses, with the first one based on the NVS,
+		 * and the second with its 3 lower bytes (NIC Specific)
+		 * incremented by 1.
+		 */
+		memcpy(wl->addresses[1].addr, wl->addresses[0].addr, ETH_ALEN);
+		nic_addr = (u32)(wl->addresses[1].addr[5] +
+						(wl->addresses[1].addr[4] << 8) +
+						(wl->addresses[1].addr[3] << 16)) + 1;
+		wl->addresses[1].addr[3] = (u8)(nic_addr >> 16);
+		wl->addresses[1].addr[4] = (u8)(nic_addr >> 8);
+		wl->addresses[1].addr[5] = (u8) nic_addr;
+
+		wl->hw->wiphy->n_addresses = 2;
+		wl->hw->wiphy->addresses = wl->addresses;
 	}
-
-	SET_IEEE80211_PERM_ADDR(wl->hw, wl->mac_addr);
 
 	ret = ieee80211_register_hw(wl->hw);
 	if (ret < 0) {

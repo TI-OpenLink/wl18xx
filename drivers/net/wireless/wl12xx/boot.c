@@ -317,12 +317,12 @@ static int wl1271_boot_upload_nvs(struct wl1271 *wl)
 	}
 
 	/* update current MAC address to NVS */
-	nvs_ptr[11] = wl->mac_addr[0];
-	nvs_ptr[10] = wl->mac_addr[1];
-	nvs_ptr[6] = wl->mac_addr[2];
-	nvs_ptr[5] = wl->mac_addr[3];
-	nvs_ptr[4] = wl->mac_addr[4];
-	nvs_ptr[3] = wl->mac_addr[5];
+	nvs_ptr[11] = wl->addresses[0].addr[0];
+	nvs_ptr[10] = wl->addresses[0].addr[1];
+	nvs_ptr[6] = wl->addresses[0].addr[2];
+	nvs_ptr[5] = wl->addresses[0].addr[3];
+	nvs_ptr[4] = wl->addresses[0].addr[4];
+	nvs_ptr[3] = wl->addresses[0].addr[5];
 
 	/*
 	 * Layout before the actual NVS tables:
