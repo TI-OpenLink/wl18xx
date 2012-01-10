@@ -2283,6 +2283,7 @@ EXPORT_SYMBOL(mmc_cache_ctrl);
 int mmc_suspend_host(struct mmc_host *host)
 {
 	int err = 0;
+	bool powered_off = false;
 
 	if (host->caps & MMC_CAP_DISABLE)
 		cancel_delayed_work(&host->disable);
@@ -2317,6 +2318,7 @@ int mmc_suspend_host(struct mmc_host *host)
 				mmc_release_host(host);
 				host->pm_flags = 0;
 				err = 0;
+				powered_off = true;
 			}
 			mmc_do_release_host(host);
 		} else {
@@ -2325,8 +2327,11 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host))
+	if (!powered_off && !err && !mmc_card_keep_power(host)) {
+		mmc_claim_host(host);
 		mmc_power_off(host);
+		mmc_release_host(host);
+	}
 
 out:
 	return err;
