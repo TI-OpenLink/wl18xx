@@ -1001,8 +1001,7 @@ ieee80211_tx_h_stats(struct ieee80211_tx_data *tx)
 static ieee80211_tx_result debug_noinline
 ieee80211_tx_h_encrypt(struct ieee80211_tx_data *tx)
 {
-	struct sk_buff *skb;
-	struct ieee80211_tx_info *info = NULL;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx->skb);
 
 	if (!tx->key)
 		return TX_CONTINUE;
@@ -1018,12 +1017,6 @@ ieee80211_tx_h_encrypt(struct ieee80211_tx_data *tx)
 	case WLAN_CIPHER_SUITE_AES_CMAC:
 		return ieee80211_crypto_aes_cmac_encrypt(tx);
 	default:
-		skb_queue_walk(&tx->skbs, skb) {
-			info  = IEEE80211_SKB_CB(skb);
-			break;
-		}
-		if (info == NULL)
-			break;
 		/* handle hw-only algorithm */
 		if (info->control.hw_key) {
 			ieee80211_tx_set_protected(tx);
