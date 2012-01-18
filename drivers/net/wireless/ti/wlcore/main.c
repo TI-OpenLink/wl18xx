@@ -3710,6 +3710,13 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271_op_sched_scan_start");
 
+	if (req->n_short_intervals > SCAN_MAX_SHORT_INTERVALS) {
+		wl1271_warning("Number of short intervals requested (%d)"
+			       "exceeds limit (%d)", req->n_short_intervals,
+			       SCAN_MAX_SHORT_INTERVALS);
+		return -EINVAL;
+	}
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -5874,6 +5881,7 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	wl->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
 		BIT(NL80211_IFTYPE_ADHOC) | BIT(NL80211_IFTYPE_AP) |
 		BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_GO);
+	wl->hw->wiphy->features |= NL80211_FEATURE_SCHED_SCAN_INTERVALS;
 	wl->hw->wiphy->max_scan_ssids = 1;
 	wl->hw->wiphy->max_sched_scan_ssids = 16;
 	wl->hw->wiphy->max_match_sets = 16;
