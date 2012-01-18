@@ -1139,7 +1139,9 @@ enum nl80211_commands {
  *	triggers.
  *
  * @NL80211_ATTR_SCHED_SCAN_INTERVAL: Interval between scheduled scan
- *	cycles, in msecs.
+ *	cycles, in msecs. If short interval is supported by the driver
+ *      and configured then this will be used only after the requested
+ *      number of short intervals
  *
  * @NL80211_ATTR_SCHED_SCAN_MATCH: Nested attribute with one or more
  *	sets of attributes to match during scheduled scans.  Only BSSs
@@ -1304,6 +1306,11 @@ enum nl80211_commands {
  * @%NL80211_ATTR_SCAN_NUM_PROBE:  Attribute (u8) to setup number of probe
  *	requests to transmit on each active scan channel, used with
  *	%NL80211_CMD_TRIGGER_SCAN command.
+ *
+ * @NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL: interval between
+ *      each short interval scheduled scan cycle in msecs.
+ * @NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS: number of short
+ *      sched scan intervals before switching to the long interval
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1566,6 +1573,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_SCAN_MIN_DWELL,
 	NL80211_ATTR_SCAN_MAX_DWELL,
 	NL80211_ATTR_SCAN_NUM_PROBE,
+
+	NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL,
+	NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -3065,6 +3075,10 @@ enum nl80211_ap_sme_features {
  *	in the interface combinations, even when it's only used for scan
  *	and remain-on-channel. This could be due to, for example, the
  *	remain-on-channel implementation requiring a channel context.
+ *
+ * @NL80211_FEATURE_SCHED_SCAN_INTERVALS: This driver supports using
+ *	short interval for sched scan and then switching to a longer
+ *	interval.
  */
 enum nl80211_feature_flags {
 	NL80211_FEATURE_SK_TX_STATUS			= 1 << 0,
@@ -3072,6 +3086,7 @@ enum nl80211_feature_flags {
 	NL80211_FEATURE_INACTIVITY_TIMER		= 1 << 2,
 	NL80211_FEATURE_CELL_BASE_REG_HINTS		= 1 << 3,
 	NL80211_FEATURE_P2P_DEVICE_NEEDS_CHANNEL	= 1 << 4,
+	NL80211_FEATURE_SCHED_SCAN_INTERVALS  = 1 << 5,
 };
 
 /**
