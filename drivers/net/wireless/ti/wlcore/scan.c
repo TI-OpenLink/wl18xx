@@ -704,6 +704,13 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 
 	wl1271_debug(DEBUG_CMD, "cmd sched_scan scan config");
 
+	if (req->n_short_intervals > SCAN_MAX_SHORT_INTERVALS) {
+		wl1271_warning("Number of short intervals requested (%d)"
+			       "exceeds limit (%d)", req->n_short_intervals,
+			       SCAN_MAX_SHORT_INTERVALS);
+		return -EINVAL;
+	}
+
 	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
 	if (!cfg)
 		return -ENOMEM;
@@ -721,9 +728,13 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	cfg->tag = WL1271_SCAN_DEFAULT_TAG;
 	/* don't filter on BSS type */
 	cfg->bss_type = SCAN_BSS_TYPE_ANY;
-	/* currently NL80211 supports only a single interval */
-	for (i = 0; i < SCAN_MAX_CYCLE_INTERVALS; i++)
-		cfg->intervals[i] = cpu_to_le32(req->long_interval);
+
+	for (i = 1; i < SCAN_MAX_CYCLE_INTERVALS; i++) {
+		if (i <= req->n_short_intervals)
+			cfg->intervals[i] = cpu_to_le32(req->short_interval);
+		else
+			cfg->intervals[i] = cpu_to_le32(req->long_interval);
+	}
 
 	cfg->ssid_len = 0;
 	ret = wl12xx_scan_sched_scan_ssid_list(wl, wlvif, req);
