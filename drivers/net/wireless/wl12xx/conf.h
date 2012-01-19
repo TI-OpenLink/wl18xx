@@ -690,6 +690,9 @@ struct conf_tx_settings {
 	 */
 	u8 tmpl_short_retry_limit;
 	u8 tmpl_long_retry_limit;
+
+	/* Time in ms for "Tx stuck" timer to expire */
+	u32 tx_stuck_timeout;
 };
 
 enum {

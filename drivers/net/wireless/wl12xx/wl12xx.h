@@ -540,6 +540,9 @@ struct wl1271 {
 
 	/* RX Data filter rule status - enabled/disabled */
 	bool rx_data_filters_status[WL1271_MAX_RX_DATA_FILTERS];
+
+	/* Timer to fire when Tx is stuck */
+	struct timer_list tx_stuck_timer;
 };
 
 struct wl1271_station {

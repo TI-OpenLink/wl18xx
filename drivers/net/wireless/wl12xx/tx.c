@@ -254,6 +254,13 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 		desc->id = id;
 
+		/* If the FW was empty before, arm the Tx timer. */
+		if (wl->tx_allocated_blocks == 0) {
+			unsigned long jiffies_after = jiffies +
+				msecs_to_jiffies(wl->conf.tx.tx_stuck_timeout);
+			mod_timer(&wl->tx_stuck_timer, jiffies_after);
+		}
+
 		wl->tx_blocks_available -= total_blocks;
 		wl->tx_allocated_blocks += total_blocks;
 

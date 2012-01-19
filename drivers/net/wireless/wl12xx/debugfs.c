@@ -1006,6 +1006,26 @@ static const struct file_operations beacon_filtering_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t tx_stuck_write(struct file *file,
+			      const char __user *user_buf,
+			      size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	mutex_lock(&wl->mutex);
+
+	wl1271_power_off(wl);
+	wl1271_power_on(wl);
+
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations tx_stuck_ops = {
+	.write = tx_stuck_write,
+	.open = wl1271_open_file_generic,
+	.llseek = default_llseek,
+};
 static int wl1271_debugfs_add_files(struct wl1271 *wl,
 				     struct dentry *rootdir)
 {
@@ -1124,6 +1144,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(dynamic_ps_timeout, rootdir);
 	DEBUGFS_ADD(forced_ps, rootdir);
 	DEBUGFS_ADD(split_scan_timeout, rootdir);
+	DEBUGFS_ADD(tx_stuck, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))

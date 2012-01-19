@@ -216,6 +216,7 @@ static struct conf_drv_settings default_conf = {
 		.basic_rate_5                = CONF_HW_BIT_RATE_6MBPS,
 		.tmpl_short_retry_limit      = 10,
 		.tmpl_long_retry_limit       = 10,
+		.tx_stuck_timeout            = 5000,
 	},
 	.conn = {
 		.wake_up_event               = CONF_WAKE_UP_EVENT_DTIM,
@@ -624,6 +625,14 @@ static void wl1271_rx_streaming_timer(unsigned long data)
 	ieee80211_queue_work(wl->hw, &wlvif->rx_streaming_disable_work);
 }
 
+static void wl12xx_tx_stuck(unsigned long data)
+{
+	struct wl1271 *wl = (struct wl1271 *)data;
+	wl1271_error("Tx stuck (in FW) for %d milliseconds. Starting recovery",
+		     wl->conf.tx.tx_stuck_timeout);
+	wl12xx_queue_recovery_work(wl);
+}
+
 static void wl1271_conf_init(struct wl1271 *wl)
 {
 
@@ -857,6 +866,21 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	wl->tx_blocks_freed = le32_to_cpu(status->total_released_blks);
 
 	wl->tx_allocated_blocks -= freed_blocks;
+
+	/*
+	 * If the FW freed some blocks:
+	 * If we still have allocated blocks - re-arm the timer, Tx is
+	 * not stuck. Otherwise, cancel the timer (no Tx currently).
+	 */
+	if (freed_blocks) {
+		if (wl->tx_allocated_blocks) {
+			unsigned long jiffies_after = jiffies +
+			     msecs_to_jiffies(wl->conf.tx.tx_stuck_timeout);
+			mod_timer(&wl->tx_stuck_timer, jiffies_after);
+		} else {
+			del_timer(&wl->tx_stuck_timer);
+		}
+	}
 
 	avail = le32_to_cpu(status->tx_total) - wl->tx_allocated_blocks;
 
@@ -2056,6 +2080,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 	mutex_unlock(&wl_list_mutex);
 
 	wl1271_flush_deferred_work(wl);
+	del_timer_sync(&wl->tx_stuck_timer);
 	cancel_delayed_work_sync(&wl->scan_complete_work);
 	cancel_work_sync(&wl->netstack_work);
 	cancel_work_sync(&wl->tx_work);
@@ -5408,6 +5433,7 @@ static struct ieee80211_hw *wl1271_alloc_hw(void)
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
+	setup_timer(&wl->tx_stuck_timer, wl12xx_tx_stuck, (unsigned long) wl);
 
 	wl->freezable_wq = create_freezable_workqueue("wl12xx_wq");
 	if (!wl->freezable_wq) {
