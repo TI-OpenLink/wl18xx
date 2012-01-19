@@ -30,7 +30,6 @@
 #include "acx.h"
 #include "reg.h"
 #include "ps.h"
-#include "io.h"
 
 #define WL1271_TM_MAX_DATA_LENGTH 1024
 
@@ -42,7 +41,6 @@ enum wl1271_tm_commands {
 	WL1271_TM_CMD_NVS_PUSH,		/* Not in use. Keep to not break ABI */
 	WL1271_TM_CMD_SET_PLT_MODE,
 	WL1271_TM_CMD_RECOVER,
-	WL1271_TM_CMD_GET_MAC,
 
 	__WL1271_TM_CMD_AFTER_LAST
 };
@@ -266,89 +264,6 @@ static int wl1271_tm_cmd_recover(struct wl1271 *wl, struct nlattr *tb[])
 	return 0;
 }
 
-static bool wl12xx_tm_mac_in_fuse(struct wl1271 *wl)
-{
-	bool supported = false;
-	u8 major, minor;
-
-	if (wl->chip.id == CHIP_ID_1283_PG20) {
-		major = (wl->hw_pg_ver & WL128X_PG_MAJOR_VER_MASK) >>
-			WL128X_PG_MAJOR_VER_OFFSET;
-		minor = (wl->hw_pg_ver & WL128X_PG_MINOR_VER_MASK) >>
-			WL128X_PG_MINOR_VER_OFFSET;
-
-		/* in wl128x we have the MAC address if the PG is >= (2, 1) */
-		if (major > 2 || (major == 2 && minor >= 1))
-			supported = true;
-	} else {
-		major = (wl->hw_pg_ver & WL127X_PG_MAJOR_VER_MASK) >>
-			WL127X_PG_MAJOR_VER_OFFSET;
-		minor = (wl->hw_pg_ver & WL127X_PG_MINOR_VER_MASK) >>
-			WL127X_PG_MINOR_VER_OFFSET;
-
-		/* in wl127x we have the MAC address if the PG is >= (3, 1) */
-		if (major == 3 && minor >= 1)
-			supported = true;
-	}
-
-	wl1271_debug(DEBUG_TESTMODE,
-		     "PG Ver major = %d minor = %d, MAC %s present",
-		     major, minor, supported ? "is" : "is not");
-
-	return supported;
-}
-
-static int wl12xx_tm_cmd_get_mac(struct wl1271 *wl, struct nlattr *tb[])
-{
-	struct sk_buff *skb;
-	u8 mac_addr[ETH_ALEN];
-	u32 tmp;
-	int ret = 0;
-
-	if (wl->state != WL1271_STATE_PLT) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if(!wl12xx_tm_mac_in_fuse(wl)) {
-		ret = -EOPNOTSUPP;
-		goto out;
-	}
-
-	wl1271_set_partition(wl, &part_table[PART_DRPW]);
-
-	tmp = wl1271_read32(wl, 0x00310eb4);
-	mac_addr[2] = (tmp & 0xff000000) >> 24;
-	mac_addr[3] = (tmp & 0xff0000) >> 16;
-	mac_addr[4] = (tmp & 0xff00) >> 8;
-	mac_addr[5] = tmp & 0xff;
-
-	tmp = wl1271_read32(wl, 0x00310eb8);
-	mac_addr[0] = (tmp & 0xff00) >> 8;
-	mac_addr[1] = tmp & 0xff;
-
-	wl1271_set_partition(wl, &part_table[PART_WORK]);
-
-	skb = cfg80211_testmode_alloc_reply_skb(wl->hw->wiphy, sizeof(ETH_ALEN));
-	if (!skb) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	NLA_PUT(skb, WL1271_TM_ATTR_DATA, ETH_ALEN, mac_addr);
-	ret = cfg80211_testmode_reply(skb);
-	if (ret < 0)
-		goto out;
-
-out:
-	return ret;
-
-nla_put_failure:
-	kfree_skb(skb);
-	ret = -EMSGSIZE;
-	goto out;
-}
-
 int wl1271_tm_cmd(struct ieee80211_hw *hw, void *data, int len)
 {
 	struct wl1271 *wl = hw->priv;
@@ -373,8 +288,6 @@ int wl1271_tm_cmd(struct ieee80211_hw *hw, void *data, int len)
 		return wl1271_tm_cmd_set_plt_mode(wl, tb);
 	case WL1271_TM_CMD_RECOVER:
 		return wl1271_tm_cmd_recover(wl, tb);
-	case WL1271_TM_CMD_GET_MAC:
-		return wl12xx_tm_cmd_get_mac(wl, tb);
 	default:
 		return -EOPNOTSUPP;
 	}

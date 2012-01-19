@@ -525,19 +525,4 @@ b12-b0 - Supported Rate indicator bits as defined below.
  */
 #define INTR_TRIG_TX_PROC1 BIT(18)
 
-#define WL127X_REG_FUSE_DATA_2_1    0x050a
-#define WL128X_REG_FUSE_DATA_2_1    0x2152
-#define PG_VER_MASK          0x3c
-#define PG_VER_OFFSET        2
-
-#define WL127X_PG_MAJOR_VER_MASK    0x3
-#define WL127X_PG_MAJOR_VER_OFFSET  0x0
-#define WL127X_PG_MINOR_VER_MASK    0xc
-#define WL127X_PG_MINOR_VER_OFFSET  0x2
-
-#define WL128X_PG_MAJOR_VER_MASK    0xc
-#define WL128X_PG_MAJOR_VER_OFFSET  0x2
-#define WL128X_PG_MINOR_VER_MASK    0x3
-#define WL128X_PG_MINOR_VER_OFFSET  0x0
-
 #endif
