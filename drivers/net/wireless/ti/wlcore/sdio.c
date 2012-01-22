@@ -219,7 +219,7 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 	}
 }
 
-void wl12xx_sdio_request_irq(struct device *child,
+int wl12xx_sdio_request_irq(struct device *child,
 			     irq_handler_t handler,
 			     irq_handler_t thread_fn,
 			     void *cookie)
@@ -235,6 +235,7 @@ void wl12xx_sdio_request_irq(struct device *child,
 	ret = sdio_claim_irq(func, wl12xx_sdio_interrupt);
 	sdio_release_host(func);
 	printk("claiming sdio irq (func=%d). ret=%d\n", func->num, ret);
+	return ret;
 }
 
 static void wl12xx_sdio_free_irq(struct device *child)
