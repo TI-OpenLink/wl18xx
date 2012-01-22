@@ -303,3 +303,59 @@ int sdio_release_irq(struct sdio_func *func)
 }
 EXPORT_SYMBOL_GPL(sdio_release_irq);
 
+int sdio_enable_irq(struct sdio_func *func)
+{
+	int ret;
+	unsigned char reg;
+
+	BUG_ON(!func);
+	BUG_ON(!func->card);
+
+	pr_debug("SDIO: Enabling IRQ for %s...\n", sdio_func_id(func));
+
+	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IENx, 0, &reg);
+	if (ret)
+		return ret;
+
+	reg |= 1 << func->num;
+
+	reg |= 1; /* Master interrupt enable */
+
+	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IENx, reg, NULL);
+	if (ret)
+		return ret;
+
+	/* TODO: add async stuff */
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(sdio_enable_irq);
+
+int sdio_disable_irq(struct sdio_func *func)
+{
+	int ret;
+	unsigned char reg;
+
+	BUG_ON(!func);
+	BUG_ON(!func->card);
+
+	pr_debug("SDIO: Disabling IRQ for %s...\n", sdio_func_id(func));
+
+	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IENx, 0, &reg);
+	if (ret)
+		return ret;
+
+	reg &= ~(1 << func->num);
+
+	/* Disable master interrupt with the last function interrupt */
+	if (!(reg & 0xFE))
+		reg = 0;
+
+	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IENx, reg, NULL);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sdio_disable_irq);
+
