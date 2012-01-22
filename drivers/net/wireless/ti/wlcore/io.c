@@ -44,21 +44,26 @@ bool wl1271_set_block_size(struct wl1271 *wl)
 
 void wlcore_disable_interrupts(struct wl1271 *wl)
 {
-	if (wl->inband_irq)
+	if (wl->inband_irq) {
 		wl->if_ops->free_inband_irq(wl->dev);
-	else
+		wl->inband_claimed = false;
+	} else
 		disable_irq(wl->irq);
 }
 EXPORT_SYMBOL_GPL(wlcore_disable_interrupts);
 
 void wlcore_enable_interrupts(struct wl1271 *wl)
 {
-	if (wl->inband_irq)
-		wl->if_ops->request_inband_irq(wl->dev,
-					       wl12xx_hardirq,
-					       wl1271_irq,
-					       wl);
-	else
+	int ret;
+
+	if (wl->inband_irq) {
+		ret = wl->if_ops->request_inband_irq(wl->dev,
+						     wl12xx_hardirq,
+						     wl1271_irq,
+						     wl);
+		if (!ret)
+			wl->inband_claimed = true;
+	} else
 		enable_irq(wl->irq);
 }
 EXPORT_SYMBOL_GPL(wlcore_enable_interrupts);
