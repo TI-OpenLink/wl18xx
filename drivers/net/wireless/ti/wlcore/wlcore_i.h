@@ -137,7 +137,7 @@ struct wl1271_stats {
 };
 
 #define NUM_TX_QUEUES              4
-#define NUM_RX_PKT_DESC            8
+#define NUM_RX_PKT_DESC            16
 
 #define AP_MAX_STATIONS            8
 

@@ -209,8 +209,8 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 {
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	u32 buf_size;
-	u32 fw_rx_counter  = status->fw_rx_counter & NUM_RX_PKT_DESC_MOD_MASK;
-	u32 drv_rx_counter = wl->rx_counter & NUM_RX_PKT_DESC_MOD_MASK;
+	u32 fw_rx_counter = status->fw_rx_counter % NUM_RX_PKT_DESC;
+	u32 drv_rx_counter = wl->rx_counter % NUM_RX_PKT_DESC;
 	u32 rx_counter;
 	u32 pkt_len, align_pkt_len;
 	u32 pkt_offset, desc;
@@ -229,7 +229,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 				break;
 			buf_size += align_pkt_len;
 			rx_counter++;
-			rx_counter &= NUM_RX_PKT_DESC_MOD_MASK;
+			rx_counter %= NUM_RX_PKT_DESC;
 		}
 
 		if (buf_size == 0) {
@@ -269,7 +269,7 @@ void wl12xx_rx(struct wl1271 *wl, struct wl_fw_status *status)
 
 			wl->rx_counter++;
 			drv_rx_counter++;
-			drv_rx_counter &= NUM_RX_PKT_DESC_MOD_MASK;
+			drv_rx_counter %= NUM_RX_PKT_DESC;
 			pkt_offset += wlcore_rx_get_align_buf_size(wl, pkt_len);
 		}
 	}
