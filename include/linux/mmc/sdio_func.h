@@ -126,6 +126,8 @@ extern int sdio_set_block_size(struct sdio_func *func, unsigned blksz);
 
 extern int sdio_claim_irq(struct sdio_func *func, sdio_irq_handler_t *handler);
 extern int sdio_release_irq(struct sdio_func *func);
+extern int sdio_enable_irq(struct sdio_func *func);
+extern int sdio_disable_irq(struct sdio_func *func);
 
 extern unsigned int sdio_align_size(struct sdio_func *func, unsigned int sz);
 
