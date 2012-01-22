@@ -144,6 +144,7 @@ struct wl1271 {
 
 	void (*set_power)(bool enable);
 	bool inband_irq;
+	bool inband_claimed;
 	int irq;
 
 	spinlock_t wl_lock;

@@ -208,7 +208,7 @@ struct wl1271_if_operations {
 	void (*init)(struct device *child);
 	int (*power)(struct device *child, bool enable);
 	void (*set_block_size) (struct device *child, unsigned int blksz);
-	void (*request_inband_irq)(struct device *child,
+	int (*request_inband_irq)(struct device *child,
 				   irq_handler_t handler,
 				   irq_handler_t thread_fn,
 				   void *cookie);
