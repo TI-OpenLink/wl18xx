@@ -2491,6 +2491,12 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		wl->ap_count++;
 	else
 		wl->sta_count++;
+
+	if (wl->fw_type == WL12XX_FW_TYPE_MULTI)
+		ieee80211_roaming_status(vif, false);
+	else
+		ieee80211_roaming_status(vif, true);
+
 out:
 	wl1271_ps_elp_sleep(wl);
 out_unlock:
