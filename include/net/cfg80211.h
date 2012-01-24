@@ -3591,6 +3591,16 @@ void cfg80211_cqm_txe_notify(struct net_device *dev, const u8 *peer,
 			     u32 num_packets, u32 rate, u32 intvl, gfp_t gfp);
 
 /**
+ * cfg80211_roaming_status - notify userspace about changes in the driver
+ * ability to support roaming
+ * @dev: network device
+ * @enabled: indicates whether roaming is supported at the current time
+ * @gfp: allocation flags
+ */
+void cfg80211_roaming_status(struct net_device *dev,
+			     bool enabled, gfp_t gfp);
+
+/**
  * cfg80211_gtk_rekey_notify - notify userspace about driver rekeying
  * @dev: network device
  * @bssid: BSSID of AP (to avoid races)

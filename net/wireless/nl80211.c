@@ -370,6 +370,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_SCAN_NUM_PROBE] = { .type = NLA_U8 },
 	[NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL] = { .type = NLA_U32 },
 	[NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS] = { .type = NLA_U8 },
+	[NL80211_ATTR_ROAMING_DISABLED] = { .type = NLA_FLAG },
 };
 
 /* policy for the key attributes */
@@ -9175,6 +9176,50 @@ void cfg80211_probe_status(struct net_device *dev, const u8 *addr,
 	nlmsg_free(msg);
 }
 EXPORT_SYMBOL(cfg80211_probe_status);
+
+
+void cfg80211_roaming_status(struct net_device *dev, bool enabled, gfp_t gfp)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+	struct sk_buff *msg;
+	void *hdr;
+	int err;
+
+	msg = nlmsg_new(NLMSG_GOODSIZE, gfp);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_ROAMING_SUPPORT);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex))
+		goto nla_put_failure;
+
+	if (!enabled)
+		if (nla_put_flag(msg, NL80211_ATTR_ROAMING_DISABLED))
+			goto nla_put_failure;
+
+	err = genlmsg_end(msg, hdr);
+	if (err < 0) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, gfp);
+	return;
+
+ nla_put_failure:
+	genlmsg_cancel(msg, hdr);
+	nlmsg_free(msg);
+}
+EXPORT_SYMBOL(cfg80211_roaming_status);
+
 
 void cfg80211_report_obss_beacon(struct wiphy *wiphy,
 				 const u8 *frame, size_t len,

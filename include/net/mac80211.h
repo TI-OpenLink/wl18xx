@@ -3056,6 +3056,17 @@ void ieee80211_tx_status_irqsafe(struct ieee80211_hw *hw,
 void ieee80211_report_low_ack(struct ieee80211_sta *sta, u32 num_packets);
 
 /**
+ * ieee80211_roaming_status - report if roaming support by the driver changed
+ *
+ * Some drivers have limitations on roaming in certain conditions (e.g. multi
+ * role) and need to report this back to userspace.
+ *
+ * @vif: interface
+ * @enabled: is roaming supported
+ */
+void ieee80211_roaming_status(struct ieee80211_vif *vif, bool enabled);
+
+/**
  * ieee80211_beacon_get_tim - beacon generation function
  * @hw: pointer obtained from ieee80211_alloc_hw().
  * @vif: &struct ieee80211_vif pointer from the add_interface callback.

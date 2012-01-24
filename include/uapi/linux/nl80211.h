@@ -596,6 +596,11 @@
  *	On reception of this notification, userspace may decide to stop earlier
  *	currently running scan with (@NL80211_CMD_SCAN_CANCEL).
  *
+ * @NL80211_CMD_ROAMING_SUPPORT: A notify event used to alert userspace
+ *      regarding changes in roaming support by the driver. If roaming is
+ *      disabled (marked by the presence of @NL80211_ATTR_ROAMING_DISABLED flag)
+ *      userspace should disable background scans and roaming attempts.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -749,6 +754,8 @@ enum nl80211_commands {
 	NL80211_CMD_SCAN_CANCEL,
 
 	NL80211_CMD_IM_SCAN_RESULT,
+
+	NL80211_CMD_ROAMING_SUPPORT,
 
 	/* add new commands above here */
 
@@ -1349,6 +1356,8 @@ enum nl80211_commands {
  *      each short interval scheduled scan cycle in msecs.
  * @NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS: number of short
  *      sched scan intervals before switching to the long interval
+ * @NL80211_ATTR_ROAMING_DISABLED: indicates that the driver can't do roaming
+ *      currently.
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1626,6 +1635,8 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL,
 	NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS,
+
+	NL80211_ATTR_ROAMING_DISABLED,
 
 	/* add attributes here, update the policy in nl80211.c */
 
