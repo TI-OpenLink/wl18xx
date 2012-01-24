@@ -2358,6 +2358,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret = 0;
 	u8 role_type;
+	int open_count;
 	bool booted = false;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 add interface type %d mac %pM",
@@ -2448,6 +2449,13 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		wl->ap_count++;
 	else
 		wl->sta_count++;
+
+	open_count = ieee80211_get_open_count(hw, vif);
+	if (open_count > 0)  /* Multi Role */
+		ieee80211_roaming_status(vif, false);
+	else                 /* Single Role */
+		ieee80211_roaming_status(vif, true);
+
 out:
 	wl1271_ps_elp_sleep(wl);
 out_unlock:
