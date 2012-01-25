@@ -118,10 +118,10 @@ void ieee80211_offchannel_stop_vifs(struct ieee80211_local *local,
 	list_for_each_entry(sdata, &local->interfaces, list) {
 		if (!ieee80211_sdata_running(sdata))
 			continue;
-
 		if (sdata->vif.type == NL80211_IFTYPE_P2P_DEVICE)
 			continue;
 
+#if 0
 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
 			set_bit(SDATA_STATE_OFFCHANNEL, &sdata->state);
 
@@ -131,7 +131,7 @@ void ieee80211_offchannel_stop_vifs(struct ieee80211_local *local,
 		    sdata->vif.type == NL80211_IFTYPE_MESH_POINT)
 			ieee80211_bss_info_change_notify(
 				sdata, BSS_CHANGED_BEACON_ENABLED);
-
+#endif
 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR) {
 			netif_tx_stop_all_queues(sdata->dev);
 			if (offchannel_ps_enable &&
@@ -156,9 +156,10 @@ void ieee80211_offchannel_return(struct ieee80211_local *local,
 		if (sdata->vif.type == NL80211_IFTYPE_P2P_DEVICE)
 			continue;
 
+#if 0
 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
 			clear_bit(SDATA_STATE_OFFCHANNEL, &sdata->state);
-
+#endif
 		if (!ieee80211_sdata_running(sdata))
 			continue;
 
@@ -182,12 +183,13 @@ void ieee80211_offchannel_return(struct ieee80211_local *local,
 			 */
 			netif_tx_wake_all_queues(sdata->dev);
 		}
-
+#if 0
 		if (sdata->vif.type == NL80211_IFTYPE_AP ||
 		    sdata->vif.type == NL80211_IFTYPE_ADHOC ||
 		    sdata->vif.type == NL80211_IFTYPE_MESH_POINT)
 			ieee80211_bss_info_change_notify(
 				sdata, BSS_CHANGED_BEACON_ENABLED);
+#endif
 	}
 	mutex_unlock(&local->iflist_mtx);
 }
