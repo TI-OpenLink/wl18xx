@@ -1241,7 +1241,8 @@ static void wl1271_recovery_work(struct work_struct *work)
 	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
 		    wl->chip.fw_ver_str, wl1271_read32(wl, SCR_PAD4));
 
-	BUG_ON(bug_on_recovery);
+	BUG_ON(bug_on_recovery &&
+	       !test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags));
 
 	/*
 	 * Advance security sequence number to overcome potential progress
@@ -2394,6 +2395,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 
 	if (wl12xx_need_fw_change(hw, vif, wl->fw_type, true)) {
 		wl12xx_force_active_psm(wl);
+		set_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags);
 		mutex_unlock(&wl->mutex);
 		wl1271_recovery_work(&wl->recovery_work);
 		return 0;
@@ -2589,6 +2591,7 @@ static void wl1271_op_remove_interface(struct ieee80211_hw *hw,
 	WARN_ON(iter != wlvif);
 	if (wl12xx_need_fw_change(hw, vif, wl->fw_type, false)) {
 		wl12xx_force_active_psm(wl);
+		set_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags);
 		wl12xx_queue_recovery_work(wl);
 		cancel_recovery = false;
 	}
