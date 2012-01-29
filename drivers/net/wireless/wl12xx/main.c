@@ -3242,7 +3242,7 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		/* the default WEP key needs to be configured at least once */
 		if (key_type == KEY_WEP) {
 			ret = wl12xx_cmd_set_default_wep_key(wl,
-							wlvif->default_key,
+							id,
 							wlvif->sta.hlid);
 			if (ret < 0)
 				return ret;
@@ -3263,6 +3263,7 @@ static int wl1271_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	u32 tx_seq_32 = 0;
 	u16 tx_seq_16 = 0;
 	u8 key_type;
+	u8 key_idx = wlvif->default_key;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 set key");
 
@@ -3289,6 +3290,7 @@ static int wl1271_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		key_type = KEY_WEP;
 
 		key_conf->hw_key_idx = key_conf->keyidx;
+		key_idx = key_conf->keyidx;
 		break;
 	case WLAN_CIPHER_SUITE_TKIP:
 		key_type = KEY_TKIP;
@@ -3333,8 +3335,10 @@ static int wl1271_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		 */
 		if (wlvif->bss_type == BSS_TYPE_STA_BSS &&
 		    (sta || key_type == KEY_WEP) &&
-		    wlvif->encryption_type != key_type) {
+		    (wlvif->encryption_type != key_type ||
+		     wlvif->default_key != key_idx)) {
 			wlvif->encryption_type = key_type;
+			wlvif->default_key = key_idx;
 			ret = wl1271_cmd_build_arp_rsp(wl, wlvif);
 			if (ret < 0) {
 				wl1271_warning("build arp rsp failed: %d", ret);
