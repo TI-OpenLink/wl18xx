@@ -3573,6 +3573,7 @@ sta_not_found:
 			int ieoffset;
 			wlvif->aid = bss_conf->aid;
 			wlvif->channel_type = bss_conf->channel_type;
+			wlvif->beacon_int = bss_conf->beacon_int;
 			set_assoc = true;
 
 			/*
