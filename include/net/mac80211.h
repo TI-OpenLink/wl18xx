@@ -1381,6 +1381,9 @@ void ieee80211_free_txskb(struct ieee80211_hw *hw, struct sk_buff *skb);
  * rekeying), it will not include a valid phase 1 key. The valid phase 1 key is
  * provided by update_tkip_key only. The trigger that makes mac80211 call this
  * handler is software decryption with wrap around of iv16.
+ *
+ * The set_default_key_idx() call updates the default WEP key index configured
+ * to the hardware for WEP encryption type.
  */
 
 /**
@@ -2261,6 +2264,8 @@ struct ieee80211_ops {
 					u16 tids, int num_frames,
 					enum ieee80211_frame_release_type reason,
 					bool more_data);
+	int (*set_default_key_idx)(struct ieee80211_hw *hw,
+				    struct ieee80211_vif *vif, int idx);
 };
 
 /**
