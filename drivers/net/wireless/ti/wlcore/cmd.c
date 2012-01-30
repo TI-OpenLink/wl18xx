@@ -487,6 +487,12 @@ int wl12xx_cmd_role_stop_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		goto out_free;
 	}
 
+	ret = wl1271_cmd_wait_for_event(wl, ROLE_STOP_COMPLETE_EVENT_ID);
+	if (ret < 0) {
+		wl1271_error("cmd role stop sta event completion error");
+		goto out_free;
+	}
+
 	wl12xx_free_link(wl, wlvif, &wlvif->sta.hlid);
 
 out_free:
