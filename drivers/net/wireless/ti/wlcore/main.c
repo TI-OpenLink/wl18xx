@@ -3228,14 +3228,6 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		if (ret < 0)
 			return ret;
 
-		/* the default WEP key needs to be configured at least once */
-		if (key_type == KEY_WEP) {
-			ret = wl12xx_cmd_set_default_wep_key(wl,
-							wlvif->default_key,
-							wlvif->sta.hlid);
-			if (ret < 0)
-				return ret;
-		}
 	}
 
 	return 0;
@@ -3382,6 +3374,47 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(wlcore_set_key);
+
+static int wl1271_op_set_default_key_idx(struct ieee80211_hw *hw,
+					 struct ieee80211_vif *vif,
+					 int key_idx)
+{
+	struct wl1271 *wl = hw->priv;
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	int ret = 0;
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 set default key idx %d",
+		     key_idx);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		ret = -EAGAIN;
+		goto out_unlock;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out_unlock;
+
+	wlvif->default_key = key_idx;
+
+	/* the default WEP key needs to be configured at least once */
+	if (wlvif->encryption_type == KEY_WEP) {
+		ret = wl12xx_cmd_set_default_wep_key(wl,
+				key_idx,
+				wlvif->sta.hlid);
+		if (ret < 0)
+			goto out_sleep;
+	}
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+
+out_unlock:
+	mutex_unlock(&wl->mutex);
+	return ret;
+}
 
 void wlcore_regdomain_config(struct wl1271 *wl)
 {
@@ -5312,6 +5345,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.ampdu_action = wl1271_op_ampdu_action,
 	.tx_frames_pending = wl1271_tx_frames_pending,
 	.set_bitrate_mask = wl12xx_set_bitrate_mask,
+	.set_default_key_idx = wl1271_op_set_default_key_idx,
 	.channel_switch = wl12xx_op_channel_switch,
 	.flush = wlcore_op_flush,
 	.remain_on_channel = wlcore_op_remain_on_channel,
