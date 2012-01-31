@@ -279,6 +279,39 @@ struct wl1271_link {
 	u8 ba_bitmap;
 };
 
+#define WL1271_MAX_RX_DATA_FILTERS 4
+#define WL1271_RX_DATA_FILTER_MAX_FIELD_PATTERNS 8
+
+/* FW MAX FILTER SIZE is 98 bytes. The MAX_PATTERN_SIZE is imposed
+ * after taking into account the mask bytes and other structs members
+ */
+#define WL1271_RX_DATA_FILTER_MAX_PATTERN_SIZE 43
+#define WL1271_RX_DATA_FILTER_ETH_HEADER_SIZE 14
+
+#define WL1271_RX_DATA_FILTER_FLAG_MASK                BIT(0)
+#define WL1271_RX_DATA_FILTER_FLAG_IP_HEADER           0
+#define WL1271_RX_DATA_FILTER_FLAG_ETHERNET_HEADER     BIT(1)
+
+enum rx_data_filter_action {
+	FILTER_DROP = 0,
+	FILTER_SIGNAL = 1,
+	FILTER_FW_HANDLE = 2
+};
+
+struct wl12xx_rx_data_filter_field {
+	__le16 offset;
+	u8 len;
+	u8 flags;
+	u8 pattern[0];
+} __packed;
+
+struct wl12xx_rx_data_filter {
+	u8 action;
+	int num_fields;
+	int fields_size;
+	struct wl12xx_rx_data_filter_field fields[0];
+} __packed;
+
 struct wl1271_station {
 	u8 hlid;
 };
