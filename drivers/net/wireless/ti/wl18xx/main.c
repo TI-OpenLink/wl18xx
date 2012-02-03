@@ -978,6 +978,23 @@ static s8 wl18xx_get_pg_ver(struct wl1271 *wl)
 	return (s8)fuse;
 }
 
+static void wl18xx_get_mac(struct wl1271 *wl)
+{
+	u32 mac1, mac2;
+
+	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
+
+	mac1 = wl1271_read32(wl, WL18XX_REG_FUSE_BD_ADDR_1);
+	mac2 = wl1271_read32(wl, WL18XX_REG_FUSE_BD_ADDR_2);
+
+	/* these are the two parts of the BD_ADDR */
+	wl->fuse_oui_addr = ((mac2 & 0xffff) << 8) +
+		((mac1 & 0xff000000) >> 24);
+	wl->fuse_nic_addr = (mac1 & 0xffffff);
+
+	wlcore_set_partition(wl, &wl->ptable[PART_DOWN]);
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.boot		= wl18xx_boot,
@@ -998,7 +1015,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.sta_get_ap_rate_mask = wl18xx_sta_get_ap_rate_mask,
 	.ap_get_mimo_wide_rate_mask = wl18xx_ap_get_mimo_wide_rate_mask,
 	.get_pg_ver	= wl18xx_get_pg_ver,
-	.get_mac	= NULL,
+	.get_mac	= wl18xx_get_mac,
 };
 
 /* HT cap appropriate for wide channels */
