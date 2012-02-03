@@ -137,7 +137,6 @@ struct wl1271_stats {
 };
 
 #define NUM_TX_QUEUES              4
-#define NUM_RX_PKT_DESC            16
 
 #define AP_MAX_STATIONS            8
 
@@ -155,13 +154,20 @@ struct wl_fw_packet_counters {
 } __packed;
 
 /* FW status registers */
-struct wl_fw_status {
+struct wl_fw_status_1 {
 	__le32 intr;
 	u8  fw_rx_counter;
 	u8  drv_rx_counter;
 	u8  reserved;
 	u8  tx_results_counter;
-	__le32 rx_pkt_descs[NUM_RX_PKT_DESC];
+	__le32 rx_pkt_descs[0];
+} __packed;
+
+#define WLCORE_FW_STATUS_1_LEN (sizeof(*wl->fw_status_1) + \
+				(sizeof(wl->fw_status_1->rx_pkt_descs[0]) * \
+				 wl->num_rx_desc))
+
+struct wl_fw_status_2 {
 	__le32 fw_localtime;
 
 	/*
