@@ -267,14 +267,21 @@ static struct wlcore_conf wl12xx_conf = {
 		.split_scan_timeout           = 50000,
 	},
 	.sched_scan = {
-		/* sched_scan requires dwell times in TU instead of TU/1000 */
-		.min_dwell_time_active = 30,
-		.max_dwell_time_active = 60,
-		.dwell_time_passive    = 100,
-		.dwell_time_dfs        = 150,
-		.num_probe_reqs        = 2,
-		.rssi_threshold        = -90,
-		.snr_threshold         = 0,
+		/*
+		 * Values are in TU/1000 but since sched scan FW command
+		 * params are in TUs rounding up may occur.
+		 */
+		.base_dwell_time              = 7500,
+		.max_dwell_time_delta         = 22500,
+		/* based on 250bits per probe @1Mbps */
+		.dwell_time_delta_per_probe   = 2000,
+		/* based on 250bits per probe @6Mbps (plus a bit more) */
+		.dwell_time_delta_per_probe_5 = 350,
+		.dwell_time_passive           = 100000,
+		.dwell_time_dfs               = 150000,
+		.num_probe_reqs               = 2,
+		.rssi_threshold               = -90,
+		.snr_threshold                = 0,
 	},
 	.ht = {
 		.rx_ba_win_size = 8,
