@@ -40,6 +40,7 @@
 #include "cmd.h"
 #include "acx.h"
 #include "debugfs.h"
+#include "version.h"
 
 static char *fref_param;
 static char *tcxo_param;
@@ -1499,7 +1500,7 @@ static int __devinit wl12xx_probe(struct platform_device *pdev)
 		else
 			wl1271_error("Invalid tcxo parameter %s", tcxo_param);
 	}
-
+	wl1271_info("wl12xx driver version: %s", wl12xx_git_head);
 	return wlcore_probe(wl, pdev);
 }
 

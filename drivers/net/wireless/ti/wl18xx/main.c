@@ -39,6 +39,7 @@
 #include "wl18xx.h"
 #include "io.h"
 #include "debugfs.h"
+#include "version.h"
 
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
@@ -1503,6 +1504,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 
 	wl->enable_11a = enable_11a_param;
 
+	wl1271_info("wl18xx driver version: %s", wl18xx_git_head);
 	return wlcore_probe(wl, pdev);
 
 out_free:
