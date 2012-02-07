@@ -49,6 +49,7 @@
 #include "testmode.h"
 #include "scan.h"
 #include "hw_ops.h"
+#include "version.h"
 
 /* LUCATODO: remove this once the FUSE definitions are separated */
 #include "../wl12xx/reg.h"
@@ -5228,6 +5229,8 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 		goto out_hw_pg_ver;
 	}
 
+	wl1271_info("driver version: %s", wlcore_git_head);
+	wl1271_info("compilation time: %s", wlcore_timestamp);
 	goto out;
 
 out_hw_pg_ver:
