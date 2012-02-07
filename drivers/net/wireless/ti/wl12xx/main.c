@@ -41,6 +41,7 @@
 #include "scan.h"
 #include "event.h"
 #include "debugfs.h"
+#include "version.h"
 
 static char *fref_param;
 static char *tcxo_param;
@@ -1774,6 +1775,7 @@ static int wl12xx_setup(struct wl1271 *wl)
 	if (!priv->rx_mem_addr)
 		return -ENOMEM;
 
+	wl1271_info("wl12xx driver version: %s", wl12xx_git_head);
 	return 0;
 }
 
