@@ -42,6 +42,7 @@
 #include "scan.h"
 #include "event.h"
 #include "debugfs.h"
+#include "version.h"
 
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
@@ -1705,6 +1706,7 @@ static int wl18xx_setup(struct wl1271 *wl)
 	/* Enable 11a Band only if we have 5G antennas */
 	wl->enable_11a = (priv->conf.phy.number_of_assembled_ant5 != 0);
 
+	wl1271_info("wl18xx driver version: %s", wl18xx_git_head);
 	return 0;
 }
 
