@@ -50,6 +50,7 @@
 #include "testmode.h"
 #include "scan.h"
 #include "hw_ops.h"
+#include "version.h"
 
 #define WL1271_BOOT_RETRIES 20
 
@@ -5432,6 +5433,8 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 		goto out_hw_pg_ver;
 	}
 
+	wl1271_info("driver version: %s", wlcore_git_head);
+	wl1271_info("compilation time: %s", wlcore_timestamp);
 	goto out;
 
 out_hw_pg_ver:
