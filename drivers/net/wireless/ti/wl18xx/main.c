@@ -1077,6 +1077,8 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 		memcpy(&wl->ht_cap, &wl18xx_mimo_ht_cap,
 		       sizeof(wl18xx_mimo_ht_cap));
 
+	wl18xx_conf_init(wl);
+
 	if (!board_type_param) {
 		board_type_param = kstrdup("dvp", GFP_KERNEL);
 		priv->board_type = BOARD_TYPE_DVP_18XX;
@@ -1105,7 +1107,6 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 
 	wl->enable_11a = enable_11a_param;
 
-	wl18xx_conf_init(wl);
 	wl1271_info("wl18xx driver version: %s", wl18xx_git_head);
 
 	return wlcore_probe(wl, pdev);
