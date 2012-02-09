@@ -51,9 +51,7 @@
 #include "scan.h"
 #include "hw_ops.h"
 
-#define WL1271_BOOT_RETRIES 3
-
-#define WL1271_BOOT_RETRIES 3
+#define WL1271_BOOT_RETRIES 20
 
 static char *fwlog_param;
 static bool bug_on_recovery;
