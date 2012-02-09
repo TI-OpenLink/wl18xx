@@ -643,6 +643,16 @@ out:
 	return IRQ_HANDLED;
 }
 
+void wl1271_sdio_irq_work(struct work_struct *work)
+{
+	struct wl1271 *wl = container_of(work, struct wl1271, sdio_irq_work);
+
+	wl1271_irq(0, wl);
+
+	if (wl->inband_claimed)
+		wlcore_enable_interrupts(wl);
+}
+
 static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 {
 	const struct firmware *fw;
@@ -5030,6 +5040,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	INIT_DELAYED_WORK(&wl->elp_work, wl1271_elp_work);
 	INIT_WORK(&wl->netstack_work, wl1271_netstack_work);
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
+	INIT_WORK(&wl->sdio_irq_work, wl1271_sdio_irq_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
 	setup_timer(&wl->tx_stuck_timer, wl12xx_tx_stuck, (unsigned long) wl);
