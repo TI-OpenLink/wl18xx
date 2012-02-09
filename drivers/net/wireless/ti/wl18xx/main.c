@@ -546,6 +546,12 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 		.mem2 = { .start = 0x00000000, .size = 0x00000000 },
 		.mem3 = { .start = 0x00000000, .size = 0x00000000 },
 	},
+	[PART_PHY_PDSP_WA] = {
+		.mem  = { .start = 0x00940100, .size  = 0x00000200 },
+		.reg  = { .start = 0x00953000, .size  = 0x00012000 },
+		.mem2 = { .start = 0x00000000, .size  = 0x00000000 },
+		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+	},
 };
 
 static const int wl18xx_rtable[REG_TABLE_LEN] = {
@@ -675,9 +681,130 @@ static void wl18xx_boot_soft_reset(struct wl1271 *wl)
 	wl1271_write32(wl, WL18XX_SPARE_A2, 0xffff);
 }
 
+static int wl18xx_pdsp_reset(struct wl1271 *wl)
+{
+	int status;
+
+	wl1271_debug(DEBUG_BOOT, "reset PDSP");
+
+	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_ENABLE);
+	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_DISABLE);
+	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_ENABLE);
+	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_DISABLE);
+
+	/* validate PDSP reset */
+	wl1271_write32(wl, WL18XX_FDSP_RAM, WL18XX_FDSP_RAM_VAL);
+	status = wl1271_read32(wl, WL18XX_FDSP_RAM);
+	if (status == WL18XX_FDSP_RAM_VAL) {
+		wl1271_debug(DEBUG_BOOT, "OCP bridge ready");
+		return 0;
+	}
+
+	return -EAGAIN;
+}
+
+static int wl18xx_phy_core_reset(struct wl1271 *wl)
+{
+	int ocp_state;
+
+	wl1271_debug(DEBUG_BOOT, "reset wl phy core");
+
+	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
+	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	if (!ocp_state)
+		return -EIO;
+
+	if (ocp_state == WL18XX_H_RAM_ENABLED)
+		return wl18xx_pdsp_reset(wl);
+
+	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
+
+	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_WL_PHY_PWR_REQ);
+
+	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_RM_OVERRIDE);
+
+	return -EAGAIN;
+}
+
+static int wl18xx_bt_core_reset(struct wl1271 *wl)
+{
+	int ocp_state, status;
+
+	wl1271_debug(DEBUG_BOOT, "reset bt core");
+
+	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
+	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	if (!ocp_state)
+		return -EIO;
+
+	if (ocp_state == WL18XX_H_RAM_ENABLED)
+		return wl18xx_pdsp_reset(wl);
+
+	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
+	/* check if BT is disabled */
+	status = wl18xx_top_reg_read(wl, WL18XX_PRCM_BT_PWR_RST);
+	if (status != 0)
+		return -EACCES;
+
+	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_BT_PWR_REQ);
+
+	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_BT_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_BT_WL_PHY_PWR_REQ);
+
+	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_RM_OVERRIDE);
+	return -EAGAIN;
+}
+
+static int wl18xx_release_ocp_bridge(struct wl1271 *wl)
+{
+	int ocp_state, i, status;
+
+	wl1271_debug(DEBUG_BOOT, "release OCP bridge");
+
+	for (i = 0; i < WL18XX_ACCESS_OCP_MAX_RETRIES; i++) {
+		status = wl18xx_phy_core_reset(wl);
+		if (!status)
+			goto out;
+		else if (status == -EIO)
+			return status;
+	}
+
+	for (i = 0; i < WL18XX_ACCESS_OCP_MAX_RETRIES; i++) {
+		status = wl18xx_bt_core_reset(wl);
+		if (!status)
+			goto out;
+		else if (status == -EIO)
+			return status;
+		else if (status == -EACCES)
+			break;
+	}
+
+	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
+	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	if (ocp_state == WL18XX_H_RAM_ENABLED)
+		goto out;
+
+	wl1271_error("OCP bridge is not accessible - please reset device");
+	return -EIO;
+
+out:
+	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
+	return 0;
+}
+
 static int wl18xx_pre_boot(struct wl1271 *wl)
 {
 	wl18xx_set_clk(wl);
+
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		int ret = wl18xx_release_ocp_bridge(wl);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Continue the ELP wake up sequence */
 	wl1271_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
