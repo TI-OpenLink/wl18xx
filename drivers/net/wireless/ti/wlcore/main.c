@@ -54,7 +54,7 @@
 /* LUCATODO: remove this once the FUSE definitions are separated */
 #include "../wl12xx/reg.h"
 
-#define WL1271_BOOT_RETRIES 3
+#define WL1271_BOOT_RETRIES 20
 
 static char *fwlog_param;
 static bool bug_on_recovery;
