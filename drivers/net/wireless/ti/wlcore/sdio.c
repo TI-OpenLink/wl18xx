@@ -214,15 +214,11 @@ static void wl12xx_sdio_interrupt(struct sdio_func *func)
 	if (WARN_ON(!glue->handler || !glue->thread_fn))
 		return;
 
-	if (test_bit(WL1271_FLAG_SUSPENDED, &wl->flags))
-		sdio_disable_irq(func);
+	sdio_disable_irq(func);
 
 	ret = glue->handler(0, glue->irq_cookie);
-	if (ret == IRQ_WAKE_THREAD) {
-		sdio_release_host(func);
-		glue->thread_fn(0, glue->irq_cookie);
-		sdio_claim_host(func);
-	}
+	if (ret == IRQ_WAKE_THREAD)
+		ieee80211_queue_work(wl->hw, &wl->sdio_irq_work);
 }
 
 int wl12xx_sdio_request_irq(struct device *child,
@@ -257,6 +253,7 @@ static void wl12xx_sdio_free_irq(struct device *child)
 {
 	struct wl12xx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 
 	printk("releasing sdio irq\n");
 	sdio_claim_host(func);
@@ -265,6 +262,8 @@ static void wl12xx_sdio_free_irq(struct device *child)
 	glue->thread_fn = NULL;
 	glue->irq_cookie = NULL;
 	sdio_release_host(func);
+
+	flush_work(&wl->sdio_irq_work);
 }
 
 
