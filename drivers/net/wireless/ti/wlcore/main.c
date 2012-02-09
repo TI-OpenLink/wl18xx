@@ -59,6 +59,9 @@
 static char *fwlog_param;
 static bool bug_on_recovery;
 static bool no_recovery;
+static char *plt_fw_name;
+static char *sr_fw_name;
+static char *mr_fw_name;
 
 static void __wl1271_op_remove_interface(struct wl1271 *wl,
 					 struct ieee80211_vif *vif,
@@ -959,6 +962,14 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		goto out;
 
 	/* TODO: make sure the lower driver has set things up correctly */
+
+	/* override fw names if passed as module parameter */
+	if (plt_fw_name)
+		wl->plt_fw_name = plt_fw_name;
+	if (sr_fw_name)
+		wl->sr_fw_name = sr_fw_name;
+	if (mr_fw_name)
+		wl->mr_fw_name = mr_fw_name;
 
 	ret = wl1271_setup(wl);
 	if (ret < 0)
@@ -1882,6 +1893,10 @@ static bool wl12xx_need_fw_change(struct ieee80211_hw *hw,
 {
 	struct wl1271 *wl = hw->priv;
 	u8 open_count;
+
+	/* don't change fw if we have a single firmware for both SR and MR */
+	if (!wl->mr_fw_name || !strcmp(wl->sr_fw_name, wl->mr_fw_name))
+		return false;
 
 	if (ieee80211_suspending(hw))
 		return false;
@@ -5280,6 +5295,18 @@ MODULE_PARM_DESC(bug_on_recovery, "BUG() on fw recovery");
 
 module_param(no_recovery, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(no_recovery, "Prevent HW recovery. FW will remain stuck.");
+
+module_param(plt_fw_name, charp, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(plt_fw_name,
+		  "FW name for PLT mode (eg. ti-connectivity/my-plt-fw.bin");
+
+module_param(sr_fw_name, charp, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(sr_fw_name,
+		  "FW name for single-role (eg. ti-connectivity/my-sr-fw.bin");
+
+module_param(mr_fw_name, charp, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(mr_fw_name,
+		  "FW name for multi-role (eg. ti-connectivity/my-mr-fw.bin");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
