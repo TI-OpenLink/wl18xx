@@ -142,6 +142,24 @@
 #define CHIP_ID_185x_PG10              (0x06030101)
 #define CHIP_ID_185x_PG20              (0x06030111)
 
+/* wl18xx OCP bridge */
+#define WL18XX_PHY_HRAM_RD_EN_PER_RAM	0x0095380C
+#define WL18XX_PDSP_CONTROL_REG		0x00964400
+#define WL18XX_FDSP_RAM			0x00940100
+#define WL18XX_FDSP_RAM_VAL		0xA5A5A5A5
+#define WL18XX_PRCM_BT_PWR_RST		0xA0240A
+#define WL18XX_IP_SEL_OV_EN		0xA021FE
+#define WL18XX_IP_OV_EN			0xA021FC
+#define WL18XX_WL_PHY_PWR_REQ		0x400
+#define WL18XX_BT_PWR_REQ		0x7800
+#define WL18XX_BT_WL_PHY_PWR_REQ	0x7C00
+#define WL18XX_RM_OVERRIDE		0
+#define WL18XX_H_RAM_ENABLED		0x3F
+#define WL18XX_PDSP_ENABLE		0x00000007
+#define WL18XX_PDSP_DISABLE		0
+#define WL18XX_PDSP_DISABLE		0
+#define WL18XX_ACCESS_OCP_MAX_RETRIES	10
+
 /*
  * Host Command Interrupt. Setting this bit masks
  * the interrupt that the host issues to inform

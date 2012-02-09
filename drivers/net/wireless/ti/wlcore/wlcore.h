@@ -91,6 +91,7 @@ enum wlcore_partitions {
 	PART_DRPW,
 	PART_TOP_PRCM_ELP_SOC,
 	PART_PHY_INIT,
+	PART_PHY_PDSP_WA,
 
 	PART_TABLE_LEN,
 };
