@@ -958,10 +958,6 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 	if (wl1271_set_block_size(wl))
 		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
-	ret = wl->ops->identify_chip(wl);
-	if (ret < 0)
-		goto out;
-
 	/* TODO: make sure the lower driver has set things up correctly */
 
 	/* override fw names if passed as module parameter */
@@ -4794,12 +4790,6 @@ static int wl1271_register_hw(struct wl1271 *wl)
 	if (wl->mac80211_registered)
 		return 0;
 
-	ret = wl12xx_get_hw_info(wl);
-	if (ret < 0) {
-		wl1271_error("couldn't get hw info");
-		goto out;
-	}
-
 	ret = wl1271_fetch_nvs(wl);
 	if (ret == 0) {
 		/* NOTE: The wl->nvs->nvs element must be first, in
@@ -5215,6 +5205,16 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 
 	}
 	disable_irq(wl->irq);
+
+	ret = wl12xx_get_hw_info(wl);
+	if (ret < 0) {
+		wl1271_error("couldn't get hw info");
+		goto out;
+	}
+
+	ret = wl->ops->identify_chip(wl);
+	if (ret < 0)
+		goto out;
 
 	ret = wl1271_init_ieee80211(wl);
 	if (ret)
