@@ -20,6 +20,7 @@
 #include <plat/cpu.h>
 #include <plat/irqs.h>
 #include <plat/prcm.h>
+#include <plat/irqs.h>
 
 #include "iomap.h"
 #include "common.h"
