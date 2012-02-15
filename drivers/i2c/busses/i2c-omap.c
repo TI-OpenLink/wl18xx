@@ -979,6 +979,8 @@ static const struct of_device_id omap_i2c_of_match[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, omap_i2c_of_match);
+#else
+static const struct of_device_id *omap_i2c_of_match = NULL;
 #endif
 
 static int __devinit
