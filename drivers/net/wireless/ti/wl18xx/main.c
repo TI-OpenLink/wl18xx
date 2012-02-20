@@ -1258,8 +1258,6 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 
 	wl->enable_11a = enable_11a_param;
 
-	wl1271_info("wl18xx driver version: %s", wl18xx_git_head);
-
 	return wlcore_probe(wl, pdev);
 }
 
@@ -1281,6 +1279,8 @@ static struct platform_driver wl18xx_driver = {
 
 static int __init wl18xx_init(void)
 {
+	wl1271_info("wl18xx driver version: %s", wl18xx_git_head);
+
 	return platform_driver_register(&wl18xx_driver);
 }
 module_init(wl18xx_init);
