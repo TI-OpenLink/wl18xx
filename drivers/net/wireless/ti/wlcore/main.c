@@ -5435,7 +5435,7 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	}
 
 	wl1271_info("driver version: %s", wlcore_git_head);
-	wl1271_info("compilation time: %s", wlcore_timestamp);
+	wl1271_info("timestamp: %s", wlcore_timestamp);
 	goto out;
 
 out_hw_pg_ver:
