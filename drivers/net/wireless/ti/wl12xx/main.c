@@ -1504,7 +1504,6 @@ static int __devinit wl12xx_probe(struct platform_device *pdev)
 		else
 			wl1271_error("Invalid tcxo parameter %s", tcxo_param);
 	}
-	wl1271_info("wl12xx driver version: %s", wl12xx_git_head);
 	return wlcore_probe(wl, pdev);
 }
 
@@ -1526,6 +1525,8 @@ static struct platform_driver wl12xx_driver = {
 
 static int __init wl12xx_init(void)
 {
+	wl1271_info("wl12xx driver version: %s", wl12xx_git_head);
+
 	return platform_driver_register(&wl12xx_driver);
 }
 module_init(wl12xx_init);
