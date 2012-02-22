@@ -70,6 +70,7 @@ struct wlcore_ops {
 					  struct wl12xx_vif *wlvif);
 	s8 (*get_pg_ver)(struct wl1271 *wl);
 	void (*get_mac)(struct wl1271 *wl);
+	int (*debugfs_init)(struct wl1271 *wl, struct dentry *rootdir);
 };
 
 enum wlcore_partitions {
@@ -117,6 +118,15 @@ enum wlcore_registers {
 	REG_RAW_FW_STATUS_ADDR,
 
 	REG_TABLE_LEN,
+};
+
+struct wl1271_stats {
+	void *fw_stats;
+	unsigned long fw_stats_update;
+	size_t fw_stats_len;
+
+	unsigned int retry_count;
+	unsigned int excessive_retries;
 };
 
 struct wl1271 {
