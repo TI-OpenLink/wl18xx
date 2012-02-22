@@ -3241,14 +3241,15 @@ static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl, u32 rates,
 				      skb->data,
 				      skb->len, 0,
 				      rates);
-
 	dev_kfree_skb(skb);
 
-	if (ret == 0) {
-		wl1271_debug(DEBUG_AP, "probe response updated");
-		set_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags);
-	}
+	if (ret < 0)
+		goto out;
 
+	wl1271_debug(DEBUG_AP, "probe response updated");
+	set_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags);
+
+out:
 	return ret;
 }
 
