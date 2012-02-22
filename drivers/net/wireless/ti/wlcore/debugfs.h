@@ -35,6 +35,8 @@ void wl1271_debugfs_exit(struct wl1271 *wl);
 void wl1271_debugfs_reset(struct wl1271 *wl);
 void wl1271_debugfs_update_stats(struct wl1271 *wl);
 
+#define DEBUGFS_FORMAT_BUFFER_SIZE 256
+
 #define DEBUGFS_READONLY_FILE(name, fmt, value...)			\
 static ssize_t name## _read(struct file *file, char __user *userbuf,	\
 			    size_t count, loff_t *ppos)			\
@@ -87,7 +89,32 @@ static const struct file_operations sub## _ ##name## _ops = {		\
 	.llseek	= generic_file_llseek,					\
 };
 
-#define DEBUGFS_FWSTATS_ADD(sub, name)				\
+#define DEBUGFS_FWSTATS_FILE_ARRAY(sub, name, len, struct_type)		\
+static ssize_t sub## _ ##name## _read(struct file *file,		\
+				      char __user *userbuf,		\
+				      size_t count, loff_t *ppos)	\
+{									\
+	struct wl1271 *wl = file->private_data;				\
+	struct struct_type *stats = wl->stats.fw_stats;			\
+	char buf[DEBUGFS_FORMAT_BUFFER_SIZE] = "";			\
+	int res, i;							\
+									\
+	wl1271_debugfs_update_stats(wl);				\
+									\
+	for (i = 0; i < len; i++)					\
+		res = snprintf(buf, sizeof(buf), "%s[%d] = %d\n",	\
+			       buf, i, stats->sub.name[i]);		\
+									\
+	return wl1271_format_buffer(userbuf, count, ppos, "%s", buf);	\
+}									\
+									\
+static const struct file_operations sub## _ ##name## _ops = {		\
+	.read = sub## _ ##name## _read,					\
+	.open = wl1271_open_file_generic,				\
+	.llseek	= generic_file_llseek,					\
+};
+
+#define DEBUGFS_FWSTATS_ADD(sub, name)					\
 	DEBUGFS_ADD(sub## _ ##name, stats)
 
 
