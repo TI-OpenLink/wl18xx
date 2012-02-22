@@ -40,6 +40,7 @@
 #include "cmd.h"
 #include "acx.h"
 #include "version.h"
+#include "debugfs.h"
 
 static char *fref_param;
 static char *tcxo_param;
@@ -1375,6 +1376,11 @@ static void wl12xx_get_mac(struct wl1271 *wl)
 		wl12xx_get_fuse_mac(wl);
 }
 
+static int wl12xx_debugfs_init(struct wl1271 *wl, struct dentry *rootdir)
+{
+	return wl12xx_debugfs_add_files(wl, rootdir);
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.identify_fw	= wl12xx_identify_fw,
@@ -1397,6 +1403,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.ap_get_mimo_wide_rate_mask = NULL,
 	.get_pg_ver	= wl12xx_get_pg_ver,
 	.get_mac	= wl12xx_get_mac,
+	.debugfs_init	= wl12xx_debugfs_init,
 };
 
 struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
@@ -1438,6 +1445,7 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
 	wl->hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
 	wl->fw_status_priv_len = 0;
+	wl->stats.fw_stats_len = sizeof(struct wl12xx_acx_statistics);
 	memcpy(&wl->ht_cap, &wl12xx_ht_cap, sizeof(wl12xx_ht_cap));
 	wl12xx_conf_init(wl);
 
