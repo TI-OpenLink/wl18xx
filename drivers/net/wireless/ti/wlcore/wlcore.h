@@ -293,6 +293,8 @@ struct wl1271 {
 
 	bool enable_11a;
 
+	int sleep_auth;
+
 	struct list_head list;
 
 	/* Most recently reported noise in dBm */

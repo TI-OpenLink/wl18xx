@@ -311,6 +311,64 @@ static const struct file_operations forced_ps_ops = {
 };
 
 
+static ssize_t sleep_auth_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	return wl1271_format_buffer(user_buf, count,
+				    ppos, "%d\n",
+				    wl->sleep_auth);
+}
+
+static ssize_t sleep_auth_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	unsigned long value;
+	int ret;
+
+	ret = kstrtoul_from_user(user_buf, count, 0, &value);
+	if (ret < 0) {
+		wl1271_warning("illegal value in sleep_auth");
+		return -EINVAL;
+	}
+
+	if (value < 0 || value > WL1271_PSM_MAX) {
+		wl1271_warning("sleep_auth must be between 0 and %d",
+			       WL1271_PSM_MAX);
+		return -ERANGE;
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (wl->state == WL1271_STATE_OFF)
+		goto out;
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wl1271_acx_sleep_auth(wl, value);
+	if (ret < 0)
+		goto out_sleep;
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations sleep_auth_ops = {
+	.read = sleep_auth_read,
+	.write = sleep_auth_write,
+	.open = wl1271_open_file_generic,
+	.llseek = default_llseek,
+};
+
+
 static ssize_t split_scan_timeout_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
 {
@@ -921,6 +979,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(beacon_filtering, rootdir);
 	DEBUGFS_ADD(dynamic_ps_timeout, rootdir);
 	DEBUGFS_ADD(forced_ps, rootdir);
+	DEBUGFS_ADD(sleep_auth, rootdir);
 	DEBUGFS_ADD(split_scan_timeout, rootdir);
 	DEBUGFS_ADD(tx_stuck, rootdir);
 
