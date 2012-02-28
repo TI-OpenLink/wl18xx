@@ -832,11 +832,12 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	/* change partitions momentarily so we can read the FW pc */
 	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
-	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x "
-		    "hint_sts: 0x%08x",
-		    wl->chip.fw_ver_str,
+	wl1271_info("Hardware recovery in progress. FW ver: %s",
+		    wl->chip.fw_ver_str);
+	wl1271_info("pc: 0x%x hint_sts: 0x%08x count: %d",
 		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY),
-		    wlcore_read_reg(wl, REG_INTERRUPT_NO_CLEAR));
+		    wlcore_read_reg(wl, REG_INTERRUPT_NO_CLEAR),
+		    ++wl->recovery_count);
 	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
 
 	BUG_ON(bug_on_recovery &&
@@ -5049,6 +5050,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->flags = 0;
 	wl->sg_enabled = true;
 	wl->sleep_auth = WL1271_PSM_CAM;
+	wl->recovery_count = 0;
 	wl->hw_pg_ver = -1;
 	wl->ap_ps_map = 0;
 	wl->ap_fw_ps_map = 0;

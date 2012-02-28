@@ -295,6 +295,8 @@ struct wl1271 {
 
 	int sleep_auth;
 
+	int recovery_count;
+
 	struct list_head list;
 
 	/* Most recently reported noise in dBm */
