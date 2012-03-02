@@ -1263,6 +1263,7 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->num_rx_desc = 16;
 	wl->normal_tx_spare = WL18XX_TX_HW_BLOCK_SPARE;
 	wl->gem_tx_spare = WL18XX_TX_HW_GEM_BLOCK_SPARE;
+	wl->tkip_extra_space = 0;
 	wl->band_rate_to_idx = wl18xx_band_rate_to_idx;
 	wl->hw_tx_rate_tbl_size = WL18XX_CONF_HW_RXTX_RATE_MAX;
 	wl->hw_min_ht_rate = WL18XX_CONF_HW_RXTX_RATE_MCS0;
