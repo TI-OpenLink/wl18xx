@@ -1376,11 +1376,6 @@ static void wl12xx_get_mac(struct wl1271 *wl)
 		wl12xx_get_fuse_mac(wl);
 }
 
-static int wl12xx_debugfs_init(struct wl1271 *wl, struct dentry *rootdir)
-{
-	return wl12xx_debugfs_add_files(wl, rootdir);
-}
-
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.identify_fw	= wl12xx_identify_fw,
@@ -1403,7 +1398,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.ap_get_mimo_wide_rate_mask = NULL,
 	.get_pg_ver	= wl12xx_get_pg_ver,
 	.get_mac	= wl12xx_get_mac,
-	.debugfs_init	= wl12xx_debugfs_init,
+	.debugfs_init	= wl12xx_debugfs_add_files,
 };
 
 struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
