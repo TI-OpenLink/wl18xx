@@ -64,6 +64,7 @@
 #define __iwl_trans_h__
 
 #include <linux/ieee80211.h>
+#include <linux/mm.h> /* for page_address */
 
 #include "iwl-shared.h"
 #include "iwl-debug.h"
@@ -121,6 +122,62 @@ struct dentry;
 #define SEQ_TO_SN(seq) (((seq) & IEEE80211_SCTL_SEQ) >> 4)
 #define SN_TO_SEQ(ssn) (((ssn) << 4) & IEEE80211_SCTL_SEQ)
 #define MAX_SN ((IEEE80211_SCTL_SEQ) >> 4)
+#define SEQ_TO_QUEUE(s)	(((s) >> 8) & 0x1f)
+#define QUEUE_TO_SEQ(q)	(((q) & 0x1f) << 8)
+#define SEQ_TO_INDEX(s)	((s) & 0xff)
+#define INDEX_TO_SEQ(i)	((i) & 0xff)
+#define SEQ_RX_FRAME	cpu_to_le16(0x8000)
+
+/**
+ * struct iwl_cmd_header
+ *
+ * This header format appears in the beginning of each command sent from the
+ * driver, and each response/notification received from uCode.
+ */
+struct iwl_cmd_header {
+	u8 cmd;		/* Command ID:  REPLY_RXON, etc. */
+	u8 flags;	/* 0:5 reserved, 6 abort, 7 internal */
+	/*
+	 * The driver sets up the sequence number to values of its choosing.
+	 * uCode does not use this value, but passes it back to the driver
+	 * when sending the response to each driver-originated command, so
+	 * the driver can match the response to the command.  Since the values
+	 * don't get used by uCode, the driver may set up an arbitrary format.
+	 *
+	 * There is one exception:  uCode sets bit 15 when it originates
+	 * the response/notification, i.e. when the response/notification
+	 * is not a direct response to a command sent by the driver.  For
+	 * example, uCode issues REPLY_RX when it sends a received frame
+	 * to the driver; it is not a direct response to any driver command.
+	 *
+	 * The Linux driver uses the following format:
+	 *
+	 *  0:7		tfd index - position within TX queue
+	 *  8:12	TX queue id
+	 *  13:14	reserved
+	 *  15		unsolicited RX or uCode-originated notification
+	 */
+	__le16 sequence;
+} __packed;
+
+
+#define FH_RSCSR_FRAME_SIZE_MSK		0x00003FFF	/* bits 0-13 */
+
+struct iwl_rx_packet {
+	/*
+	 * The first 4 bytes of the RX frame header contain both the RX frame
+	 * size and some flags.
+	 * Bit fields:
+	 * 31:    flag flush RB request
+	 * 30:    flag ignore TC (terminal counter) request
+	 * 29:    flag fast IRQ request
+	 * 28-14: Reserved
+	 * 13-00: RX frame size
+	 */
+	__le32 len_n_flags;
+	struct iwl_cmd_header hdr;
+	u8 data[];
+} __packed;
 
 /**
  * enum CMD_MODE - how to send the host commands ?
@@ -173,7 +230,9 @@ enum iwl_hcmd_dataflag {
  * struct iwl_host_cmd - Host command to the uCode
  *
  * @data: array of chunks that composes the data of the host command
- * @reply_page: pointer to the page that holds the response to the host command
+ * @resp_pkt: response packet, if %CMD_WANT_SKB was set
+ * @_rx_page_order: (internally used to free response packet)
+ * @_rx_page_addr: (internally used to free response packet)
  * @handler_status: return value of the handler of the command
  *	(put in setup_rx_handlers) - valid for SYNC mode only
  * @flags: can be CMD_*
@@ -183,7 +242,9 @@ enum iwl_hcmd_dataflag {
  */
 struct iwl_host_cmd {
 	const void *data[IWL_MAX_CMD_TFDS];
-	unsigned long reply_page;
+	struct iwl_rx_packet *resp_pkt;
+	unsigned long _rx_page_addr;
+	u32 _rx_page_order;
 	int handler_status;
 
 	u32 flags;
@@ -191,6 +252,27 @@ struct iwl_host_cmd {
 	u8 dataflags[IWL_MAX_CMD_TFDS];
 	u8 id;
 };
+
+static inline void iwl_free_resp(struct iwl_host_cmd *cmd)
+{
+	free_pages(cmd->_rx_page_addr, cmd->_rx_page_order);
+}
+
+struct iwl_rx_cmd_buffer {
+	struct page *_page;
+};
+
+static inline void *rxb_addr(struct iwl_rx_cmd_buffer *r)
+{
+	return page_address(r->_page);
+}
+
+static inline struct page *rxb_steal_page(struct iwl_rx_cmd_buffer *r)
+{
+	struct page *p = r->_page;
+	r->_page = NULL;
+	return p;
+}
 
 /**
  * struct iwl_trans_ops - transport specific operations
@@ -210,6 +292,9 @@ struct iwl_host_cmd {
  * @wake_any_queue: wake all the queues of a specfic context IWL_RXON_CTX_*
  * @stop_device:stops the whole device (embedded CPU put to reset)
  *	May sleep
+ * @wowlan_suspend: put the device into the correct mode for WoWLAN during
+ *	suspend. This is optional, if not implemented WoWLAN will not be
+ *	supported. This callback may sleep.
  * @send_cmd:send a host command
  *	May sleep only if CMD_SYNC is set
  * @tx: send an skb
@@ -217,7 +302,7 @@ struct iwl_host_cmd {
  * @reclaim: free packet until ssn. Returns a list of freed packets.
  *	Must be atomic
  * @tx_agg_alloc: allocate resources for a TX BA session
- *	May sleep
+ *	Must be atomic
  * @tx_agg_setup: setup a tx queue for AMPDU - will be called once the HW is
  *	ready and a successful ADDBA response has been received.
  *	May sleep
@@ -243,9 +328,11 @@ struct iwl_trans_ops {
 
 	int (*start_hw)(struct iwl_trans *iwl_trans);
 	void (*stop_hw)(struct iwl_trans *iwl_trans);
-	int (*start_fw)(struct iwl_trans *trans, struct fw_img *fw);
+	int (*start_fw)(struct iwl_trans *trans, const struct fw_img *fw);
 	void (*fw_alive)(struct iwl_trans *trans);
 	void (*stop_device)(struct iwl_trans *trans);
+
+	void (*wowlan_suspend)(struct iwl_trans *trans);
 
 	void (*wake_any_queue)(struct iwl_trans *trans,
 			       enum iwl_rxon_context_id ctx,
@@ -284,14 +371,6 @@ struct iwl_trans_ops {
 	u32 (*read32)(struct iwl_trans *trans, u32 ofs);
 };
 
-/* Opaque calibration results */
-struct iwl_calib_result {
-	struct list_head list;
-	size_t cmd_len;
-	struct iwl_calib_hdr hdr;
-	/* data follows */
-};
-
 /**
  * enum iwl_trans_state - state of the transport layer
  *
@@ -309,38 +388,28 @@ enum iwl_trans_state {
  * @ops - pointer to iwl_trans_ops
  * @op_mode - pointer to the op_mode
  * @shrd - pointer to iwl_shared which holds shared data from the upper layer
- * @hcmd_lock: protects HCMD
  * @reg_lock - protect hw register access
  * @dev - pointer to struct device * that represents the device
- * @irq - the irq number for the device
  * @hw_id: a u32 with the ID of the device / subdevice.
  *	Set during transport allocation.
  * @hw_id_str: a string with info about HW ID. Set during transport allocation.
- * @ucode_write_complete: indicates that the ucode has been copied.
  * @nvm_device_type: indicates OTP or eeprom
  * @pm_support: set to true in start_hw if link pm is supported
- * @calib_results: list head for init calibration results
  */
 struct iwl_trans {
 	const struct iwl_trans_ops *ops;
 	struct iwl_op_mode *op_mode;
 	struct iwl_shared *shrd;
 	enum iwl_trans_state state;
-	spinlock_t hcmd_lock;
 	spinlock_t reg_lock;
 
 	struct device *dev;
-	unsigned int irq;
 	u32 hw_rev;
 	u32 hw_id;
 	char hw_id_str[52];
 
-	u8 ucode_write_complete;
-
 	int    nvm_device_type;
 	bool pm_support;
-
-	struct list_head calib_results;
 
 	/* pointer to trans specific struct */
 	/*Ensure that this pointer will always be aligned to sizeof pointer */
@@ -382,7 +451,8 @@ static inline void iwl_trans_fw_alive(struct iwl_trans *trans)
 	trans->state = IWL_TRANS_FW_ALIVE;
 }
 
-static inline int iwl_trans_start_fw(struct iwl_trans *trans, struct fw_img *fw)
+static inline int iwl_trans_start_fw(struct iwl_trans *trans,
+				     const struct fw_img *fw)
 {
 	might_sleep();
 
@@ -396,6 +466,12 @@ static inline void iwl_trans_stop_device(struct iwl_trans *trans)
 	trans->ops->stop_device(trans);
 
 	trans->state = IWL_TRANS_NO_FW;
+}
+
+static inline void iwl_trans_wowlan_suspend(struct iwl_trans *trans)
+{
+	might_sleep();
+	trans->ops->wowlan_suspend(trans);
 }
 
 static inline void iwl_trans_wake_any_queue(struct iwl_trans *trans,
@@ -417,9 +493,6 @@ static inline int iwl_trans_send_cmd(struct iwl_trans *trans,
 
 	return trans->ops->send_cmd(trans, cmd);
 }
-
-int iwl_trans_send_cmd_pdu(struct iwl_trans *trans, u8 id,
-			   u32 flags, u16 len, const void *data);
 
 static inline int iwl_trans_tx(struct iwl_trans *trans, struct sk_buff *skb,
 		struct iwl_device_cmd *dev_cmd, enum iwl_rxon_context_id ctx,
@@ -456,8 +529,6 @@ static inline int iwl_trans_tx_agg_disable(struct iwl_trans *trans,
 static inline int iwl_trans_tx_agg_alloc(struct iwl_trans *trans,
 					 int sta_id, int tid)
 {
-	might_sleep();
-
 	if (trans->state != IWL_TRANS_FW_ALIVE)
 		IWL_ERR(trans, "%s bad state = %d", __func__, trans->state);
 
@@ -539,14 +610,6 @@ static inline u32 iwl_trans_read32(struct iwl_trans *trans, u32 ofs)
 {
 	return trans->ops->read32(trans, ofs);
 }
-
-/*****************************************************
-* Utils functions
-******************************************************/
-int iwl_send_calib_results(struct iwl_trans *trans);
-int iwl_calib_set(struct iwl_trans *trans,
-		  const struct iwl_calib_hdr *cmd, int len);
-void iwl_calib_free_results(struct iwl_trans *trans);
 
 /*****************************************************
 * Transport layers implementations + their allocation function

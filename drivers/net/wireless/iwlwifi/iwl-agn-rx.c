@@ -131,26 +131,27 @@ const char *get_cmd_string(u8 cmd)
  ******************************************************************************/
 
 static int iwlagn_rx_reply_error(struct iwl_priv *priv,
-			       struct iwl_rx_mem_buffer *rxb,
+			       struct iwl_rx_cmd_buffer *rxb,
 			       struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	struct iwl_error_resp *err_resp = (void *)pkt->data;
 
 	IWL_ERR(priv, "Error Reply type 0x%08X cmd %s (0x%02X) "
 		"seq 0x%04X ser 0x%08X\n",
-		le32_to_cpu(pkt->u.err_resp.error_type),
-		get_cmd_string(pkt->u.err_resp.cmd_id),
-		pkt->u.err_resp.cmd_id,
-		le16_to_cpu(pkt->u.err_resp.bad_cmd_seq_num),
-		le32_to_cpu(pkt->u.err_resp.error_info));
+		le32_to_cpu(err_resp->error_type),
+		get_cmd_string(err_resp->cmd_id),
+		err_resp->cmd_id,
+		le16_to_cpu(err_resp->bad_cmd_seq_num),
+		le32_to_cpu(err_resp->error_info));
 	return 0;
 }
 
-static int iwlagn_rx_csa(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb,
+static int iwlagn_rx_csa(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb,
 			       struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_csa_notification *csa = &(pkt->u.csa_notif);
+	struct iwl_csa_notification *csa = (void *)pkt->data;
 	/*
 	 * MULTI-FIXME
 	 * See iwlagn_mac_channel_switch.
@@ -177,11 +178,11 @@ static int iwlagn_rx_csa(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb,
 
 
 static int iwlagn_rx_spectrum_measure_notif(struct iwl_priv *priv,
-					  struct iwl_rx_mem_buffer *rxb,
+					  struct iwl_rx_cmd_buffer *rxb,
 					  struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_spectrum_notification *report = &(pkt->u.spectrum_notif);
+	struct iwl_spectrum_notification *report = (void *)pkt->data;
 
 	if (!report->state) {
 		IWL_DEBUG_11H(priv,
@@ -195,12 +196,12 @@ static int iwlagn_rx_spectrum_measure_notif(struct iwl_priv *priv,
 }
 
 static int iwlagn_rx_pm_sleep_notif(struct iwl_priv *priv,
-				  struct iwl_rx_mem_buffer *rxb,
+				  struct iwl_rx_cmd_buffer *rxb,
 				  struct iwl_device_cmd *cmd)
 {
 #ifdef CONFIG_IWLWIFI_DEBUG
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_sleep_notification *sleep = &(pkt->u.sleep_notif);
+	struct iwl_sleep_notification *sleep = (void *)pkt->data;
 	IWL_DEBUG_RX(priv, "sleep mode: %d, src: %d\n",
 		     sleep->pm_sleep_mode, sleep->pm_wakeup_src);
 #endif
@@ -208,7 +209,7 @@ static int iwlagn_rx_pm_sleep_notif(struct iwl_priv *priv,
 }
 
 static int iwlagn_rx_pm_debug_statistics_notif(struct iwl_priv *priv,
-					     struct iwl_rx_mem_buffer *rxb,
+					     struct iwl_rx_cmd_buffer *rxb,
 					     struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
@@ -217,16 +218,16 @@ static int iwlagn_rx_pm_debug_statistics_notif(struct iwl_priv *priv,
 	IWL_DEBUG_RADIO(priv, "Dumping %d bytes of unhandled "
 			"notification for %s:\n", len,
 			get_cmd_string(pkt->hdr.cmd));
-	iwl_print_hex_dump(priv, IWL_DL_RADIO, pkt->u.raw, len);
+	iwl_print_hex_dump(priv, IWL_DL_RADIO, pkt->data, len);
 	return 0;
 }
 
 static int iwlagn_rx_beacon_notif(struct iwl_priv *priv,
-				struct iwl_rx_mem_buffer *rxb,
+				struct iwl_rx_cmd_buffer *rxb,
 				struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwlagn_beacon_notif *beacon = (void *)pkt->u.raw;
+	struct iwlagn_beacon_notif *beacon = (void *)pkt->data;
 #ifdef CONFIG_IWLWIFI_DEBUG
 	u16 status = le16_to_cpu(beacon->beacon_notify_hdr.status.status);
 	u8 rate = iwl_hw_get_rate(beacon->beacon_notify_hdr.rate_n_flags);
@@ -265,6 +266,8 @@ static bool iwlagn_good_ack_health(struct iwl_priv *priv,
 
 	if (priv->agg_tids_count)
 		return true;
+
+	lockdep_assert_held(&priv->statistics.lock);
 
 	old = &priv->statistics.tx;
 
@@ -318,7 +321,7 @@ static bool iwlagn_good_plcp_health(struct iwl_priv *priv,
 				 unsigned int msecs)
 {
 	int delta;
-	int threshold = cfg(priv)->base_params->plcp_delta_threshold;
+	int threshold = priv->plcp_delta_threshold;
 
 	if (threshold == IWL_MAX_PLCP_ERR_THRESHOLD_DISABLE) {
 		IWL_DEBUG_RADIO(priv, "plcp_err check disabled\n");
@@ -487,7 +490,7 @@ iwlagn_accumulative_statistics(struct iwl_priv *priv,
 #endif
 
 static int iwlagn_rx_statistics(struct iwl_priv *priv,
-			      struct iwl_rx_mem_buffer *rxb,
+			      struct iwl_rx_cmd_buffer *rxb,
 			      struct iwl_device_cmd *cmd)
 {
 	unsigned long stamp = jiffies;
@@ -509,9 +512,11 @@ static int iwlagn_rx_statistics(struct iwl_priv *priv,
 	IWL_DEBUG_RX(priv, "Statistics notification received (%d bytes).\n",
 		     len);
 
+	spin_lock(&priv->statistics.lock);
+
 	if (len == sizeof(struct iwl_bt_notif_statistics)) {
 		struct iwl_bt_notif_statistics *stats;
-		stats = &pkt->u.stats_bt;
+		stats = (void *)&pkt->data;
 		flag = &stats->flag;
 		common = &stats->general.common;
 		rx_non_phy = &stats->rx.general.common;
@@ -529,7 +534,7 @@ static int iwlagn_rx_statistics(struct iwl_priv *priv,
 #endif
 	} else if (len == sizeof(struct iwl_notif_statistics)) {
 		struct iwl_notif_statistics *stats;
-		stats = &pkt->u.stats;
+		stats = (void *)&pkt->data;
 		flag = &stats->flag;
 		common = &stats->general.common;
 		rx_non_phy = &stats->rx.general;
@@ -542,6 +547,7 @@ static int iwlagn_rx_statistics(struct iwl_priv *priv,
 		WARN_ONCE(1, "len %d doesn't match BT (%zu) or normal (%zu)\n",
 			  len, sizeof(struct iwl_bt_notif_statistics),
 			  sizeof(struct iwl_notif_statistics));
+		spin_unlock(&priv->statistics.lock);
 		return 0;
 	}
 
@@ -585,16 +591,20 @@ static int iwlagn_rx_statistics(struct iwl_priv *priv,
 	}
 	if (cfg(priv)->lib->temperature && change)
 		cfg(priv)->lib->temperature(priv);
+
+	spin_unlock(&priv->statistics.lock);
+
 	return 0;
 }
 
 static int iwlagn_rx_reply_statistics(struct iwl_priv *priv,
-				    struct iwl_rx_mem_buffer *rxb,
+				    struct iwl_rx_cmd_buffer *rxb,
 				    struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	struct iwl_notif_statistics *stats = (void *)pkt->data;
 
-	if (le32_to_cpu(pkt->u.stats.flag) & UCODE_STATISTICS_CLEAR_MSK) {
+	if (le32_to_cpu(stats->flag) & UCODE_STATISTICS_CLEAR_MSK) {
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 		memset(&priv->accum_stats, 0,
 			sizeof(priv->accum_stats));
@@ -612,11 +622,12 @@ static int iwlagn_rx_reply_statistics(struct iwl_priv *priv,
 /* Handle notification from uCode that card's power state is changing
  * due to software, hardware, or critical temperature RFKILL */
 static int iwlagn_rx_card_state_notif(struct iwl_priv *priv,
-				    struct iwl_rx_mem_buffer *rxb,
+				    struct iwl_rx_cmd_buffer *rxb,
 				    struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	u32 flags = le32_to_cpu(pkt->u.card_state_notif.flags);
+	struct iwl_card_state_notif *card_state_notif = (void *)pkt->data;
+	u32 flags = le32_to_cpu(card_state_notif->flags);
 	unsigned long status = priv->shrd->status;
 
 	IWL_DEBUG_RF_KILL(priv, "Card state received: HW:%s SW:%s CT:%s\n",
@@ -665,14 +676,13 @@ static int iwlagn_rx_card_state_notif(struct iwl_priv *priv,
 }
 
 static int iwlagn_rx_missed_beacon_notif(struct iwl_priv *priv,
-				       struct iwl_rx_mem_buffer *rxb,
+				       struct iwl_rx_cmd_buffer *rxb,
 				       struct iwl_device_cmd *cmd)
 
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_missed_beacon_notif *missed_beacon;
+	struct iwl_missed_beacon_notif *missed_beacon = (void *)pkt->data;
 
-	missed_beacon = &pkt->u.missed_beacon;
 	if (le32_to_cpu(missed_beacon->consecutive_missed_beacons) >
 	    priv->missed_beacon_threshold) {
 		IWL_DEBUG_CALIB(priv,
@@ -690,13 +700,13 @@ static int iwlagn_rx_missed_beacon_notif(struct iwl_priv *priv,
 /* Cache phy data (Rx signal strength, etc) for HT frame (REPLY_RX_PHY_CMD).
  * This will be used later in iwl_rx_reply_rx() for REPLY_RX_MPDU_CMD. */
 static int iwlagn_rx_reply_rx_phy(struct iwl_priv *priv,
-				struct iwl_rx_mem_buffer *rxb,
+				struct iwl_rx_cmd_buffer *rxb,
 				struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
 
 	priv->last_phy_res_valid = true;
-	memcpy(&priv->last_phy_res, pkt->u.raw,
+	memcpy(&priv->last_phy_res, pkt->data,
 	       sizeof(struct iwl_rx_phy_res));
 	return 0;
 }
@@ -757,12 +767,14 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
 					struct ieee80211_hdr *hdr,
 					u16 len,
 					u32 ampdu_status,
-					struct iwl_rx_mem_buffer *rxb,
+					struct iwl_rx_cmd_buffer *rxb,
 					struct ieee80211_rx_status *stats)
 {
 	struct sk_buff *skb;
 	__le16 fc = hdr->frame_control;
 	struct iwl_rxon_context *ctx;
+	struct page *p;
+	int offset;
 
 	/* We only process data packets if the interface is open */
 	if (unlikely(!priv->is_open)) {
@@ -782,7 +794,9 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
 		return;
 	}
 
-	skb_add_rx_frag(skb, 0, rxb->page, (void *)hdr - rxb_addr(rxb), len);
+	offset = (void *)hdr - rxb_addr(rxb);
+	p = rxb_steal_page(rxb);
+	skb_add_rx_frag(skb, 0, p, offset, len);
 
 	iwl_update_stats(priv, false, fc, len);
 
@@ -809,7 +823,6 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
 
 	ieee80211_rx(priv->hw, skb);
-	rxb->page = NULL;
 }
 
 static u32 iwlagn_translate_rx_status(struct iwl_priv *priv, u32 decrypt_in)
@@ -915,7 +928,7 @@ static int iwlagn_calc_rssi(struct iwl_priv *priv,
 /* Called for REPLY_RX (legacy ABG frames), or
  * REPLY_RX_MPDU_CMD (HT high-throughput N frames). */
 static int iwlagn_rx_reply_rx(struct iwl_priv *priv,
-			    struct iwl_rx_mem_buffer *rxb,
+			    struct iwl_rx_cmd_buffer *rxb,
 			    struct iwl_device_cmd *cmd)
 {
 	struct ieee80211_hdr *header;
@@ -938,12 +951,12 @@ static int iwlagn_rx_reply_rx(struct iwl_priv *priv,
 	 * received.
 	 */
 	if (pkt->hdr.cmd == REPLY_RX) {
-		phy_res = (struct iwl_rx_phy_res *)pkt->u.raw;
-		header = (struct ieee80211_hdr *)(pkt->u.raw + sizeof(*phy_res)
+		phy_res = (struct iwl_rx_phy_res *)pkt->data;
+		header = (struct ieee80211_hdr *)(pkt->data + sizeof(*phy_res)
 				+ phy_res->cfg_phy_cnt);
 
 		len = le16_to_cpu(phy_res->byte_count);
-		rx_pkt_status = *(__le32 *)(pkt->u.raw + sizeof(*phy_res) +
+		rx_pkt_status = *(__le32 *)(pkt->data + sizeof(*phy_res) +
 				phy_res->cfg_phy_cnt + len);
 		ampdu_status = le32_to_cpu(rx_pkt_status);
 	} else {
@@ -952,10 +965,10 @@ static int iwlagn_rx_reply_rx(struct iwl_priv *priv,
 			return 0;
 		}
 		phy_res = &priv->last_phy_res;
-		amsdu = (struct iwl_rx_mpdu_res_start *)pkt->u.raw;
-		header = (struct ieee80211_hdr *)(pkt->u.raw + sizeof(*amsdu));
+		amsdu = (struct iwl_rx_mpdu_res_start *)pkt->data;
+		header = (struct ieee80211_hdr *)(pkt->data + sizeof(*amsdu));
 		len = le16_to_cpu(amsdu->byte_count);
-		rx_pkt_status = *(__le32 *)(pkt->u.raw + sizeof(*amsdu) + len);
+		rx_pkt_status = *(__le32 *)(pkt->data + sizeof(*amsdu) + len);
 		ampdu_status = iwlagn_translate_rx_status(priv,
 						le32_to_cpu(rx_pkt_status));
 	}
@@ -1035,12 +1048,12 @@ static int iwlagn_rx_reply_rx(struct iwl_priv *priv,
 }
 
 static int iwlagn_rx_noa_notification(struct iwl_priv *priv,
-				      struct iwl_rx_mem_buffer *rxb,
+				      struct iwl_rx_cmd_buffer *rxb,
 				      struct iwl_device_cmd *cmd)
 {
 	struct iwl_wipan_noa_data *new_data, *old_data;
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_wipan_noa_notification *noa_notif = (void *)pkt->u.raw;
+	struct iwl_wipan_noa_notification *noa_notif = (void *)pkt->data;
 
 	/* no condition -- we're in softirq */
 	old_data = rcu_dereference_protected(priv->noa_data, true);
@@ -1086,7 +1099,7 @@ static int iwlagn_rx_noa_notification(struct iwl_priv *priv,
  */
 void iwl_setup_rx_handlers(struct iwl_priv *priv)
 {
-	int (**handlers)(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb,
+	int (**handlers)(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb,
 			       struct iwl_device_cmd *cmd);
 
 	handlers = priv->rx_handlers;
@@ -1131,9 +1144,7 @@ void iwl_setup_rx_handlers(struct iwl_priv *priv)
 	priv->rx_handlers[REPLY_TX] = iwlagn_rx_reply_tx;
 
 	/* set up notification wait support */
-	spin_lock_init(&priv->shrd->notif_wait_lock);
-	INIT_LIST_HEAD(&priv->shrd->notif_waits);
-	init_waitqueue_head(&priv->shrd->notif_waitq);
+	iwl_notification_wait_init(&priv->notif_wait);
 
 	/* Set up BT Rx handlers */
 	if (cfg(priv)->lib->bt_rx_handler_setup)
@@ -1141,8 +1152,8 @@ void iwl_setup_rx_handlers(struct iwl_priv *priv)
 
 }
 
-int iwl_rx_dispatch(struct iwl_op_mode *op_mode, struct iwl_rx_mem_buffer *rxb,
-		     struct iwl_device_cmd *cmd)
+int iwl_rx_dispatch(struct iwl_op_mode *op_mode, struct iwl_rx_cmd_buffer *rxb,
+		    struct iwl_device_cmd *cmd)
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
 	struct iwl_priv *priv = IWL_OP_MODE_GET_DVM(op_mode);
@@ -1153,28 +1164,10 @@ int iwl_rx_dispatch(struct iwl_op_mode *op_mode, struct iwl_rx_mem_buffer *rxb,
 	 * even if the RX handler consumes the RXB we have
 	 * access to it in the notification wait entry.
 	 */
-	if (!list_empty(&priv->shrd->notif_waits)) {
-		struct iwl_notification_wait *w;
-
-		spin_lock(&priv->shrd->notif_wait_lock);
-		list_for_each_entry(w, &priv->shrd->notif_waits, list) {
-			if (w->cmd != pkt->hdr.cmd)
-				continue;
-			IWL_DEBUG_RX(priv,
-				"Notif: %s, 0x%02x - wake the callers up\n",
-				get_cmd_string(pkt->hdr.cmd),
-				pkt->hdr.cmd);
-			w->triggered = true;
-			if (w->fn)
-				w->fn(trans(priv), pkt, w->fn_data);
-		}
-		spin_unlock(&priv->shrd->notif_wait_lock);
-
-		wake_up_all(&priv->shrd->notif_waitq);
-	}
+	iwl_notification_wait_notify(&priv->notif_wait, pkt);
 
 	if (priv->pre_rx_handler &&
-	    priv->shrd->ucode_owner == IWL_OWNERSHIP_TM)
+	    priv->ucode_owner == IWL_OWNERSHIP_TM)
 		priv->pre_rx_handler(priv, rxb);
 	else {
 		/* Based on type of command response or notification,
