@@ -165,7 +165,7 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
 		return wl12xx_tx_get_hlid_ap(wl, wlvif, skb);
-
+/*
 	if ((test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) ||
 	     test_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags)) &&
 	    !ieee80211_is_auth(hdr->frame_control) &&
@@ -173,6 +173,8 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		return wlvif->sta.hlid;
 	else
 		return wlvif->dev_hlid;
+*/
+	return wlvif->sta.hlid;
 }
 
 unsigned int wlcore_calc_packet_alignment(struct wl1271 *wl,
