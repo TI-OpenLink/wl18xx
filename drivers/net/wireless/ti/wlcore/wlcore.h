@@ -395,6 +395,7 @@ struct wl1271 {
 	u32 stats_tx_aggr_fw_buffer_full;
 	u32 stats_tx_aggr_other;
 	u32 stats_tx_aggr_no_data;
+	u32 aggr_n_packets_counter[WLCORE_AGGR_MAX_PACKETS];
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

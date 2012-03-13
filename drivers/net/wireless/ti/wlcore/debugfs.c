@@ -372,16 +372,32 @@ static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
+	char *buf;
+	int ret, i, size;
+	size_t len = 16384;
 
-	return wl1271_format_buffer(user_buf, count,
-				    ppos, "buffer_full = %d\n"
-				    "fw_buffer_full = %d\n"
-				    "other = %d\n"
-				    "no_data = %d\n",
-				    wl->stats_tx_aggr_buffer_full,
-				    wl->stats_tx_aggr_fw_buffer_full,
-				    wl->stats_tx_aggr_other,
-				    wl->stats_tx_aggr_no_data);
+	buf = kmalloc(len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	size =  snprintf(buf, len, "buffer_full\t= %d\n"
+			 "fw_buffer_full\t= %d\n"
+			 "other\t\t= %d\n"
+			 "no_data\t\t= %d\n",
+			 wl->stats_tx_aggr_buffer_full,
+			 wl->stats_tx_aggr_fw_buffer_full,
+			 wl->stats_tx_aggr_other,
+			 wl->stats_tx_aggr_no_data);
+
+	for (i = 0; i < WLCORE_AGGR_MAX_PACKETS; i++)
+		if (wl->aggr_n_packets_counter[i])
+			size += snprintf(buf, len, "%s[%d] = %d\n", buf, i,
+					 wl->aggr_n_packets_counter[i]);
+
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, size);
+
+	kfree(buf);
+	return ret;
 }
 
 static ssize_t stats_tx_aggr_write(struct file *file,
@@ -389,6 +405,7 @@ static ssize_t stats_tx_aggr_write(struct file *file,
 				size_t count, loff_t *ppos)
 {
 	struct wl1271 *wl = file->private_data;
+	int i;
 
 	mutex_lock(&wl->mutex);
 
@@ -399,6 +416,9 @@ static ssize_t stats_tx_aggr_write(struct file *file,
 	wl->stats_tx_aggr_fw_buffer_full = 0;
 	wl->stats_tx_aggr_other = 0;
 	wl->stats_tx_aggr_no_data = 0;
+	for (i = 0; i < WLCORE_AGGR_MAX_PACKETS; i++)
+		wl->aggr_n_packets_counter[i] = 0;
+
 out:
 	mutex_unlock(&wl->mutex);
 	return count;

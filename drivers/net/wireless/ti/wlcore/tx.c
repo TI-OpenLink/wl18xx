@@ -670,6 +670,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 	struct wl1271_tx_hw_descr *desc;
 	u32 buf_offset = 0;
 	bool sent_packets = false;
+	int n_aggr_packets = 0;
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	int ret;
 
@@ -697,6 +698,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 					  buf_offset, true);
 			sent_packets = true;
 			buf_offset = 0;
+			wl->aggr_n_packets_counter[n_aggr_packets]++;
 			continue;
 		} else if (ret == -EBUSY) {
 			/*
@@ -722,6 +724,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 		}
 		buf_offset += ret;
 		wl->tx_packets_count++;
+		n_aggr_packets++;
 		if (has_data) {
 			desc = (struct wl1271_tx_hw_descr *) skb->data;
 			__set_bit(desc->hlid, active_hlids);
@@ -735,6 +738,7 @@ out_ack:
 		wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 				  buf_offset, true);
 		sent_packets = true;
+		wl->aggr_n_packets_counter[n_aggr_packets]++;
 	}
 	if (sent_packets) {
 		/*
