@@ -451,6 +451,90 @@ static const struct file_operations sleep_auth_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	char *buf;
+	int ret, i;
+	size_t len = 32768, size = 0;
+	u32 total_buffer_full = 0, total_fw_buffer_full= 0;
+	u32 total_no_data = 0, total_other = 0;
+
+	buf = kmalloc(len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	buf[0] = '\0';
+
+	mutex_lock(&wl->mutex);
+
+	for (i = 0; i < WLCORE_AGGR_MAX_PACKETS; i++) {
+		total_buffer_full += wl->aggr_pkts_reason[i].buffer_full;
+		total_fw_buffer_full += wl->aggr_pkts_reason[i].fw_buffer_full;
+		total_other += wl->aggr_pkts_reason[i].other;
+		total_no_data += wl->aggr_pkts_reason[i].no_data;
+		wl->aggr_pkts_reason[i].total =
+			wl->aggr_pkts_reason[i].buffer_full +
+			wl->aggr_pkts_reason[i].fw_buffer_full +
+			wl->aggr_pkts_reason[i].other +
+			wl->aggr_pkts_reason[i].no_data;
+		if (wl->aggr_pkts_reason[i].total)
+			snprintf(buf, len, "%s[%d] total %d\n"
+				 "\tbuffer_full\t= %d\n"
+				 "\tfw_buffer_full\t= %d\n"
+				 "\tother\t\t= %d\n"
+				 "\tno_data\t\t= %d\n", buf, i,
+				 wl->aggr_pkts_reason[i].total,
+				 wl->aggr_pkts_reason[i].buffer_full,
+				 wl->aggr_pkts_reason[i].fw_buffer_full,
+				 wl->aggr_pkts_reason[i].other,
+				 wl->aggr_pkts_reason[i].no_data);
+	}
+
+	mutex_unlock(&wl->mutex);
+
+	size =  snprintf(buf, len, "%sTotals:\n"
+			 "\tbuffer_full\t= %d\n"
+			 "\tfw_buffer_full\t= %d\n"
+			 "\tother\t\t= %d\n"
+			 "\tno_data\t\t= %d\n",
+			 buf,
+			 total_buffer_full,
+			 total_fw_buffer_full,
+			 total_other,
+			 total_no_data);
+
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, size);
+
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t stats_tx_aggr_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	mutex_lock(&wl->mutex);
+
+	if (wl->state == WL1271_STATE_OFF)
+		goto out;
+
+	memset(wl->aggr_pkts_reason, 0, sizeof(wl->aggr_pkts_reason));
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations stats_tx_aggr_ops = {
+	.read = stats_tx_aggr_read,
+	.write = stats_tx_aggr_write,
+	.open = wl1271_open_file_generic,
+	.llseek = default_llseek,
+};
 
 static ssize_t split_scan_timeout_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
@@ -1126,6 +1210,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(dynamic_ps_timeout, rootdir);
 	DEBUGFS_ADD(forced_ps, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
+	DEBUGFS_ADD(stats_tx_aggr, rootdir);
 	DEBUGFS_ADD(split_scan_timeout, rootdir);
 	DEBUGFS_ADD(tx_stuck, rootdir);
 	DEBUGFS_ADD(tx_ba_win_size, rootdir);

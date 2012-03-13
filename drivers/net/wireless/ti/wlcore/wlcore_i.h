@@ -86,6 +86,9 @@
 
 #define WL1271_AGGR_BUFFER_SIZE (5 * PAGE_SIZE)
 
+#define WLCORE_AGGR_MAX_PACKETS	(WL1271_AGGR_BUFFER_SIZE /	\
+				 sizeof(struct ieee80211_hdr))
+
 enum wl1271_state {
 	WL1271_STATE_OFF,
 	WL1271_STATE_ON,
