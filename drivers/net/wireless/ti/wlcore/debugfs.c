@@ -368,6 +368,48 @@ static const struct file_operations sleep_auth_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	return wl1271_format_buffer(user_buf, count,
+				    ppos, "buffer_full = %d\n"
+				    "fw_buffer_full = %d\n"
+				    "other = %d\n"
+				    "no_data = %d\n",
+				    wl->stats_tx_aggr_buffer_full,
+				    wl->stats_tx_aggr_fw_buffer_full,
+				    wl->stats_tx_aggr_other,
+				    wl->stats_tx_aggr_no_data);
+}
+
+static ssize_t stats_tx_aggr_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	mutex_lock(&wl->mutex);
+
+	if (wl->state == WL1271_STATE_OFF)
+		goto out;
+
+	wl->stats_tx_aggr_buffer_full = 0;
+	wl->stats_tx_aggr_fw_buffer_full = 0;
+	wl->stats_tx_aggr_other = 0;
+	wl->stats_tx_aggr_no_data = 0;
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations stats_tx_aggr_ops = {
+	.read = stats_tx_aggr_read,
+	.write = stats_tx_aggr_write,
+	.open = wl1271_open_file_generic,
+	.llseek = default_llseek,
+};
 
 static ssize_t split_scan_timeout_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
@@ -1025,6 +1067,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(dynamic_ps_timeout, rootdir);
 	DEBUGFS_ADD(forced_ps, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
+	DEBUGFS_ADD(stats_tx_aggr, rootdir);
 	DEBUGFS_ADD(split_scan_timeout, rootdir);
 	DEBUGFS_ADD(tx_stuck, rootdir);
 	DEBUGFS_ADD(tx_ba_win_size, rootdir);

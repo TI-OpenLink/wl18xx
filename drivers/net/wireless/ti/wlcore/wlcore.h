@@ -390,6 +390,11 @@ struct wl1271 {
 
 	/* the current channel type */
 	enum nl80211_channel_type channel_type;
+
+	u32 stats_tx_aggr_buffer_full;
+	u32 stats_tx_aggr_fw_buffer_full;
+	u32 stats_tx_aggr_other;
+	u32 stats_tx_aggr_no_data;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
