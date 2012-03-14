@@ -2125,6 +2125,8 @@ deinit:
 						&wlvif->ap.ucast_rate_idx[i]);
 	}
 
+	dev_kfree_skb(wlvif->probereq);
+	wlvif->probereq = NULL;
 	wl12xx_tx_reset_wlvif(wl, wlvif);
 	wl1271_free_ap_keys(wl, wlvif);
 	if (wl->last_wlvif == wlvif)
