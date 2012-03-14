@@ -693,12 +693,11 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, wlvif, skb);
-			wl->stats_tx_aggr_buffer_full++;
 			wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 					  buf_offset, true);
 			sent_packets = true;
 			buf_offset = 0;
-			wl->aggr_n_packets_counter[n_aggr_packets]++;
+			wl->aggr_pkts_reason[n_aggr_packets].buffer_full++;
 			continue;
 		} else if (ret == -EBUSY) {
 			/*
@@ -708,7 +707,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			wl1271_skb_queue_head(wl, wlvif, skb);
 			/* No work left, avoid scheduling redundant tx work */
 			set_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
-			wl->stats_tx_aggr_fw_buffer_full++;
+			wl->aggr_pkts_reason[n_aggr_packets].fw_buffer_full++;
 			goto out_ack;
 		} else if (ret < 0) {
 			if (wl12xx_is_dummy_packet(wl, skb))
@@ -719,7 +718,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 				wl1271_skb_queue_head(wl, wlvif, skb);
 			else
 				ieee80211_free_txskb(wl->hw, skb);
-			wl->stats_tx_aggr_other++;
+			wl->aggr_pkts_reason[n_aggr_packets].other++;
 			goto out_ack;
 		}
 		buf_offset += ret;
@@ -731,14 +730,14 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 		}
 	}
 
-	wl->stats_tx_aggr_no_data++;
+	if (buf_offset)
+		wl->aggr_pkts_reason[n_aggr_packets].no_data++;
 
 out_ack:
 	if (buf_offset) {
 		wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 				  buf_offset, true);
 		sent_packets = true;
-		wl->aggr_n_packets_counter[n_aggr_packets]++;
 	}
 	if (sent_packets) {
 		/*
