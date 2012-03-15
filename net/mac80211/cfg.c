@@ -2113,6 +2113,7 @@ static int ieee80211_remain_on_channel_hw(struct ieee80211_local *local,
 					  enum nl80211_channel_type chantype,
 					  unsigned int duration, u64 *cookie)
 {
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	int ret;
 	u32 random_cookie;
 
@@ -2129,7 +2130,7 @@ static int ieee80211_remain_on_channel_hw(struct ieee80211_local *local,
 	local->hw_roc_channel = chan;
 	local->hw_roc_channel_type = chantype;
 	local->hw_roc_duration = duration;
-	ret = drv_remain_on_channel(local, chan, chantype, duration);
+	ret = drv_remain_on_channel(local, sdata, chan, chantype, duration);
 	if (ret) {
 		local->hw_roc_channel = NULL;
 		local->hw_roc_cookie = 0;
