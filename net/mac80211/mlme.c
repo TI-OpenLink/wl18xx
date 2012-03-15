@@ -3018,7 +3018,6 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 	struct ieee80211_bss *bss = (void *)cbss->priv;
-	struct sta_info *sta;
 	bool have_sta = false;
 	int err;
 	int ht_cfreq;
@@ -3034,12 +3033,6 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 		rcu_read_lock();
 		have_sta = sta_info_get(sdata, cbss->bssid);
 		rcu_read_unlock();
-	}
-
-	if (!have_sta) {
-		sta = sta_info_alloc(sdata, cbss->bssid, GFP_KERNEL);
-		if (!sta)
-			return -ENOMEM;
 	}
 
 	mutex_lock(&local->mtx);
@@ -3113,9 +3106,14 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 	ieee80211_hw_config(local, 0);
 
 	if (!have_sta) {
+		struct sta_info *sta;
 		u32 rates = 0, basic_rates = 0;
 		bool have_higher_than_11mbit;
 		int min_rate = INT_MAX, min_rate_index = -1;
+
+		sta = sta_info_alloc(sdata, cbss->bssid, GFP_KERNEL);
+		if (!sta)
+			return -ENOMEM;
 
 		ieee80211_get_rates(sband, bss->supp_rates,
 				    bss->supp_rates_len,
@@ -3150,13 +3148,6 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 
 		memcpy(ifmgd->bssid, cbss->bssid, ETH_ALEN);
 
-		/* tell driver about BSSID and basic rates */
-		ieee80211_bss_info_change_notify(sdata,
-			BSS_CHANGED_BSSID | BSS_CHANGED_BASIC_RATES);
-
-		if (assoc)
-			sta_info_pre_move_state(sta, IEEE80211_STA_AUTH);
-
 		err = sta_info_insert(sta);
 		sta = NULL;
 		if (err) {
@@ -3165,6 +3156,13 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 			       sdata->name, err);
 			return err;
 		}
+
+		/* tell driver about BSSID and basic rates */
+		ieee80211_bss_info_change_notify(sdata,
+			BSS_CHANGED_BSSID | BSS_CHANGED_BASIC_RATES);
+
+		if (assoc)
+			sta_info_move_state(sta, IEEE80211_STA_AUTH);
 	} else
 		WARN_ON_ONCE(compare_ether_addr(ifmgd->bssid, cbss->bssid));
 

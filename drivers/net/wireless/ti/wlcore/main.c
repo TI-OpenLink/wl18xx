@@ -3717,51 +3717,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
-	if (changed & BSS_CHANGED_BSSID) {
-		u32 rates;
-		wl1271_debug(DEBUG_MAC80211,
-		     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x",
-		     bss_conf->bssid, bss_conf->aid, bss_conf->beacon_int,
-		     bss_conf->basic_rates);
-
-		wlvif->beacon_int = 100;
-		rates = bss_conf->basic_rates;
-		wlvif->basic_rate_set =
-			wl1271_tx_enabled_rates_get(wl, rates,
-						    wlvif->band);
-		wlvif->basic_rate =
-			wl1271_tx_min_rate_get(wl,
-					       wlvif->basic_rate_set);
-/*
-		if (sta_rate_set)
-			wlvif->rate_set =
-				wl1271_tx_enabled_rates_get(wl,
-							sta_rate_set,
-							wlvif->band);
-*/
-		wlvif->rate_set = 0x1eff;
-		wlvif->ssid_len = 7;
-		memcpy(wlvif->ssid, "offline", wlvif->ssid_len);
-
-		ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-		if (ret < 0)
-			goto out;
-
-		if (!is_zero_ether_addr(bss_conf->bssid)) {
-			ret = wl12xx_cmd_build_null_data(wl, wlvif);
-			if (ret < 0)
-				goto out;
-
-			ret = wl1271_build_qos_null_data(wl, vif);
-			if (ret < 0)
-				goto out;
-
-			/* Need to update the BSSID (for filtering etc) */
-			do_join = true;
-		}
-	}
-
-	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_HT)) {
+	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)) {
 		rcu_read_lock();
 		sta = ieee80211_find_sta(vif, bss_conf->bssid);
 		if (!sta)
@@ -3778,6 +3734,51 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 
 sta_not_found:
 		rcu_read_unlock();
+	}
+
+	if (changed & BSS_CHANGED_BSSID) {
+		u32 rates;
+		wl1271_debug(DEBUG_MAC80211,
+		     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x sta_rate_set: 0x%x (%d)",
+		     bss_conf->bssid, bss_conf->aid, bss_conf->beacon_int,
+		     bss_conf->basic_rates, sta_rate_set, sta_exists);
+
+		wlvif->beacon_int = 100;
+		rates = bss_conf->basic_rates;
+		wlvif->basic_rate_set =
+			wl1271_tx_enabled_rates_get(wl, rates,
+						    wlvif->band);
+		wlvif->basic_rate =
+			wl1271_tx_min_rate_get(wl,
+					       wlvif->basic_rate_set);
+
+		if (sta_rate_set)
+			wlvif->rate_set =
+				wl1271_tx_enabled_rates_get(wl,
+							sta_rate_set,
+							wlvif->band);
+
+/*
+		wlvif->rate_set = 0x1eff;
+		wlvif->ssid_len = 7;
+		memcpy(wlvif->ssid, "offline", wlvif->ssid_len);
+*/
+		ret = wl1271_acx_sta_rate_policies(wl, wlvif);
+		if (ret < 0)
+			goto out;
+
+		if (!is_zero_ether_addr(bss_conf->bssid)) {
+			ret = wl12xx_cmd_build_null_data(wl, wlvif);
+			if (ret < 0)
+				goto out;
+
+			ret = wl1271_build_qos_null_data(wl, vif);
+			if (ret < 0)
+				goto out;
+
+			/* Need to update the BSSID (for filtering etc) */
+			do_join = true;
+		}
 	}
 
 	if ((changed & BSS_CHANGED_ASSOC)) {
