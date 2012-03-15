@@ -3138,6 +3138,7 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 
 		sta->sta.supp_rates[cbss->channel->band] = rates;
 		sdata->vif.bss_conf.basic_rates = basic_rates;
+		sdata->vif.bss_conf.beacon_int = cbss->beacon_interval;
 
 		/* cf. IEEE 802.11 9.2.12 */
 		if (local->oper_channel->band == IEEE80211_BAND_2GHZ &&
