@@ -2327,10 +2327,10 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	/* clear encryption type */
 	wlvif->encryption_type = KEY_NONE;
-
+#if 0
 	if (set_assoc)
 		set_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags);
-
+#endif
 	if (is_ibss)
 		ret = wl12xx_cmd_role_start_ibss(wl, wlvif);
 	else
@@ -2369,10 +2369,8 @@ out:
 	return ret;
 }
 
-static int wl1271_unjoin(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+static void wl1271_unjoin(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
-	int ret;
-
 	if (test_and_clear_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags)) {
 		struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 
@@ -2381,16 +2379,15 @@ static int wl1271_unjoin(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	}
 
 	/* to stop listening to a channel, we disconnect */
+	/*
 	ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
 	if (ret < 0)
 		goto out;
+	*/
 
 	/* reset TX security counters on a clean disconnect */
 	wlvif->tx_security_last_seq_lsb = 0;
 	wlvif->tx_security_seq = 0;
-
-out:
-	return ret;
 }
 
 static void wl1271_set_band_rate(struct wl1271 *wl, struct wl12xx_vif *wlvif)
@@ -3680,8 +3677,10 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			ibss_joined = true;
 		} else {
 			if (test_and_clear_bit(WLVIF_FLAG_IBSS_JOINED,
-					       &wlvif->flags))
-				wl1271_unjoin(wl, wlvif);
+					       &wlvif->flags)) {
+				wl1271_unjoin(wl, wlvif);				
+				wl12xx_cmd_role_stop_sta(wl, wlvif);
+			}
 		}
 	}
 
@@ -3717,7 +3716,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
-	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)) {
+	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT)) {
 		rcu_read_lock();
 		sta = ieee80211_find_sta(vif, bss_conf->bssid);
 		if (!sta)
@@ -3737,37 +3736,37 @@ sta_not_found:
 	}
 
 	if (changed & BSS_CHANGED_BSSID) {
-		u32 rates;
-		wl1271_debug(DEBUG_MAC80211,
-		     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x sta_rate_set: 0x%x (%d)",
-		     bss_conf->bssid, bss_conf->aid, bss_conf->beacon_int,
-		     bss_conf->basic_rates, sta_rate_set, sta_exists);
+		if (!is_zero_ether_addr(bss_conf->bssid)) {
+			u32 rates;
+			wl1271_debug(DEBUG_MAC80211,
+			     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x sta_rate_set: 0x%x (%d)",
+			     bss_conf->bssid, bss_conf->aid, bss_conf->beacon_int,
+			     bss_conf->basic_rates, sta_rate_set, sta_exists);
 
-		wlvif->beacon_int = 100;
-		rates = bss_conf->basic_rates;
-		wlvif->basic_rate_set =
-			wl1271_tx_enabled_rates_get(wl, rates,
-						    wlvif->band);
-		wlvif->basic_rate =
-			wl1271_tx_min_rate_get(wl,
-					       wlvif->basic_rate_set);
+			wlvif->beacon_int = bss_conf->beacon_int;
+			rates = bss_conf->basic_rates;
+			wlvif->basic_rate_set =
+				wl1271_tx_enabled_rates_get(wl, rates,
+							    wlvif->band);
+			wlvif->basic_rate =
+				wl1271_tx_min_rate_get(wl,
+						       wlvif->basic_rate_set);
 
-		if (sta_rate_set)
-			wlvif->rate_set =
-				wl1271_tx_enabled_rates_get(wl,
-							sta_rate_set,
-							wlvif->band);
+			if (sta_rate_set)
+				wlvif->rate_set =
+					wl1271_tx_enabled_rates_get(wl,
+								sta_rate_set,
+								wlvif->band);
 
 /*
-		wlvif->rate_set = 0x1eff;
-		wlvif->ssid_len = 7;
-		memcpy(wlvif->ssid, "offline", wlvif->ssid_len);
+			wlvif->ssid_len = 7;
+			memcpy(wlvif->ssid, "offline", wlvif->ssid_len);
 */
-		ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-		if (ret < 0)
-			goto out;
+			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
+			if (ret < 0)
+				goto out;
 
-		if (!is_zero_ether_addr(bss_conf->bssid)) {
+
 			ret = wl12xx_cmd_build_null_data(wl, wlvif);
 			if (ret < 0)
 				goto out;
@@ -3778,38 +3777,34 @@ sta_not_found:
 
 			/* Need to update the BSSID (for filtering etc) */
 			do_join = true;
+		} else {
+			/* revert back to minimum rates for the current band */
+			wl1271_set_band_rate(wl, wlvif);
+			wlvif->basic_rate =
+				wl1271_tx_min_rate_get(wl,
+						       wlvif->basic_rate_set);
+			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
+			if (ret < 0)
+				goto out;
+
+			/* TODO: use some flag instead? */
+			if (!is_ibss &&
+			    wlvif->sta.hlid == WL12XX_INVALID_LINK_ID) {
+				ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
+				if (ret < 0)
+					goto out;
+			}
 		}
 	}
 
 	if ((changed & BSS_CHANGED_ASSOC)) {
 		if (bss_conf->assoc) {
-			u32 rates;
 			int ieoffset;
 			wlvif->aid = bss_conf->aid;
 			wlvif->channel_type = bss_conf->channel_type;
 			wlvif->beacon_int = bss_conf->beacon_int;
-			do_join = true;
-			set_assoc = true;
 
-			/*
-			 * use basic rates from AP, and determine lowest rate
-			 * to use with control frames.
-			 */
-			rates = bss_conf->basic_rates;
-			wlvif->basic_rate_set =
-				wl1271_tx_enabled_rates_get(wl, rates,
-							    wlvif->band);
-			wlvif->basic_rate =
-				wl1271_tx_min_rate_get(wl,
-						       wlvif->basic_rate_set);
-			if (sta_rate_set)
-				wlvif->rate_set =
-					wl1271_tx_enabled_rates_get(wl,
-								sta_rate_set,
-								wlvif->band);
-			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-			if (ret < 0)
-				goto out;
+			set_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags);
 
 			/*
 			 * with wl1271, we don't need to update the
@@ -3836,64 +3831,30 @@ sta_not_found:
 			ret = wl1271_acx_conn_monit_params(wl, wlvif, true);
 			if (ret < 0)
 				goto out;
-		} else {
-			/* use defaults when not associated */
+		} else {		
 			bool was_assoc =
 			    !!test_and_clear_bit(WLVIF_FLAG_STA_ASSOCIATED,
 						 &wlvif->flags);
-			bool was_ifup =
-			    !!test_and_clear_bit(WLVIF_FLAG_STA_STATE_SENT,
-						 &wlvif->flags);
+
+			/* use defaults when not associated */
 			wlvif->aid = 0;
 
 			/* free probe-request template */
 			dev_kfree_skb(wlvif->probereq);
 			wlvif->probereq = NULL;
 
-			/* revert back to minimum rates for the current band */
-			wl1271_set_band_rate(wl, wlvif);
-			wlvif->basic_rate =
-				wl1271_tx_min_rate_get(wl,
-						       wlvif->basic_rate_set);
-			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-			if (ret < 0)
-				goto out;
-
 			/* disable connection monitor features */
 			ret = wl1271_acx_conn_monit_params(wl, wlvif, false);
+			if (ret < 0)
+				goto out;
 
 			/* Disable the keep-alive feature */
 			ret = wl1271_acx_keep_alive_mode(wl, wlvif, false);
 			if (ret < 0)
 				goto out;
 
-			/* restore the bssid filter and go to dummy bssid */
-			if (was_assoc) {
-				/*
-				 * we might have to disable roc, if there was
-				 * no IF_OPER_UP notification.
-				 */
-				if (!was_ifup) {
-					ret = wl12xx_croc(wl, wlvif->role_id);
-					if (ret < 0)
-						goto out;
-				}
-				/*
-				 * (we also need to disable roc in case of
-				 * roaming on the same channel. until we will
-				 * have a better flow...)
-				 */
-				if (test_bit(wlvif->dev_role_id, wl->roc_map)) {
-					ret = wl12xx_croc(wl,
-							  wlvif->dev_role_id);
-					if (ret < 0)
-						goto out;
-				}
-
+			if (was_assoc)
 				wl1271_unjoin(wl, wlvif);
-				if (!bss_conf->idle)
-					wl12xx_start_dev(wl, wlvif);
-			}
 		}
 	}
 
@@ -4277,6 +4238,7 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	bool is_sta = wlvif->bss_type == BSS_TYPE_STA_BSS;
 	int ret;
 
+	wl1271_info("is_sta: %d old:%d new:%d", is_sta, old_state, new_state);
 	wl_sta = (struct wl1271_station *)sta->drv_priv;
 	hlid = wl_sta->hlid;
 
