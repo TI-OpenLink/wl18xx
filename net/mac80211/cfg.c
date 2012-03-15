@@ -2186,7 +2186,7 @@ static int ieee80211_start_roc_work(struct ieee80211_local *local,
 	if (!duration)
 		duration = 10;
 
-	ret = drv_remain_on_channel(local, channel, channel_type, duration);
+	ret = drv_remain_on_channel(local, sdata, channel, channel_type, duration);
 	if (ret) {
 		kfree(roc);
 		return ret;
