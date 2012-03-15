@@ -3790,6 +3790,10 @@ sta_not_found:
 			/* TODO: use some flag instead? */
 			if (!is_ibss &&
 			    wlvif->sta.hlid == WL12XX_INVALID_LINK_ID) {
+				/* TODO: should be in userspace */
+				if (test_bit(wlvif->role_id, wl->roc_map))
+					wl12xx_croc(wl, wlvif->role_id);
+
 				ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
 				if (ret < 0)
 					goto out;
@@ -3798,6 +3802,9 @@ sta_not_found:
 	}
 
 	if ((changed & BSS_CHANGED_ASSOC)) {
+		/* TODO: we have to make sure we start sta role before this
+		 * notification (e.g. we'll have a problem with reconfig)
+		 */
 		if (bss_conf->assoc) {
 			int ieoffset;
 			wlvif->aid = bss_conf->aid;
@@ -3831,6 +3838,9 @@ sta_not_found:
 			ret = wl1271_acx_conn_monit_params(wl, wlvif, true);
 			if (ret < 0)
 				goto out;
+
+			if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
+				wl12xx_set_authorized(wl, wlvif);
 		} else {		
 			bool was_assoc =
 			    !!test_and_clear_bit(WLVIF_FLAG_STA_ASSOCIATED,
@@ -3893,18 +3903,6 @@ sta_not_found:
 		/* ROC until connected (after EAPOL exchange) */
 		if (!is_ibss) {
 			ret = wl12xx_roc(wl, wlvif, wlvif->role_id);
-			if (ret < 0)
-				goto out;
-
-			if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
-				wl12xx_set_authorized(wl, wlvif);
-		}
-		/*
-		 * stop device role if started (we might already be in
-		 * STA/IBSS role).
-		 */
-		if (wl12xx_dev_role_started(wlvif)) {
-			ret = wl12xx_stop_dev(wl, wlvif);
 			if (ret < 0)
 				goto out;
 		}
