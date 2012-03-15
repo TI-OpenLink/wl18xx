@@ -3595,12 +3595,30 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
+	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)) {
+		rcu_read_lock();
+		sta = ieee80211_find_sta(vif, bss_conf->bssid);
+		if (!sta)
+			goto sta_not_found;
+
+		/* save the supp_rates of the ap */
+		sta_rate_set = sta->supp_rates[wl->hw->conf.channel->band];
+		if (sta->ht_cap.ht_supported)
+			sta_rate_set |=
+			    (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
+		sta_ht_cap = sta->ht_cap;
+		sta_exists = true;
+
+sta_not_found:
+		rcu_read_unlock();
+	}
+
 	if (changed & BSS_CHANGED_BSSID) {
 		u32 rates;
 		wl1271_debug(DEBUG_MAC80211,
-		     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x",
+		     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x sta_rate_set: 0x%x (%d)",
 		     bss_conf->bssid, bss_conf->aid, bss_conf->beacon_int,
-		     bss_conf->basic_rates);
+		     bss_conf->basic_rates, sta_rate_set, sta_exists);
 
 		wlvif->beacon_int = 100;
 		rates = bss_conf->basic_rates;
@@ -3610,17 +3628,18 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->basic_rate =
 			wl1271_tx_min_rate_get(wl,
 					       wlvif->basic_rate_set);
-/*
+
 		if (sta_rate_set)
 			wlvif->rate_set =
 				wl1271_tx_enabled_rates_get(wl,
 							sta_rate_set,
 							wlvif->band);
-*/
+
+/*
 		wlvif->rate_set = 0x1eff;
 		wlvif->ssid_len = 7;
 		memcpy(wlvif->ssid, "offline", wlvif->ssid_len);
-
+*/
 		ret = wl1271_acx_sta_rate_policies(wl, wlvif);
 		if (ret < 0)
 			goto out;
@@ -3637,24 +3656,6 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			/* Need to update the BSSID (for filtering etc) */
 			do_join = true;
 		}
-	}
-
-	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_HT)) {
-		rcu_read_lock();
-		sta = ieee80211_find_sta(vif, bss_conf->bssid);
-		if (!sta)
-			goto sta_not_found;
-
-		/* save the supp_rates of the ap */
-		sta_rate_set = sta->supp_rates[wl->hw->conf.channel->band];
-		if (sta->ht_cap.ht_supported)
-			sta_rate_set |=
-			    (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
-		sta_ht_cap = sta->ht_cap;
-		sta_exists = true;
-
-sta_not_found:
-		rcu_read_unlock();
 	}
 
 	if ((changed & BSS_CHANGED_ASSOC)) {
