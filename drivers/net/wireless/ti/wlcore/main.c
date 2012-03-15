@@ -3890,24 +3890,8 @@ sta_not_found:
 			goto out;
 		}
 
-		/* ROC until connected (after EAPOL exchange) */
-		if (!is_ibss) {
-			ret = wl12xx_roc(wl, wlvif, wlvif->role_id);
-			if (ret < 0)
-				goto out;
-
-			if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
-				wl12xx_set_authorized(wl, wlvif);
-		}
-		/*
-		 * stop device role if started (we might already be in
-		 * STA/IBSS role).
-		 */
-		if (wl12xx_dev_role_started(wlvif)) {
-			ret = wl12xx_stop_dev(wl, wlvif);
-			if (ret < 0)
-				goto out;
-		}
+		if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
+			wl12xx_set_authorized(wl, wlvif);
 	}
 
 	/* Handle new association with HT. Do this after join. */
@@ -4238,7 +4222,6 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	bool is_sta = wlvif->bss_type == BSS_TYPE_STA_BSS;
 	int ret;
 
-	wl1271_info("is_sta: %d old:%d new:%d", is_sta, old_state, new_state);
 	wl_sta = (struct wl1271_station *)sta->drv_priv;
 	hlid = wl_sta->hlid;
 
