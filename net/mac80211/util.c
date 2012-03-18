@@ -815,7 +815,7 @@ void ieee80211_set_wmm_default(struct ieee80211_sub_if_data *sdata,
 
 	memset(&qparam, 0, sizeof(qparam));
 
-	use_11b = (local->hw.conf.channel->band == IEEE80211_BAND_2GHZ) &&
+	use_11b = (sdata->vif.bss_conf.channel->band == IEEE80211_BAND_2GHZ) &&
 		 !(sdata->flags & IEEE80211_SDATA_OPERATING_GMODE);
 
 	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
@@ -890,7 +890,7 @@ void ieee80211_sta_def_wmm_params(struct ieee80211_sub_if_data *sdata,
 		if ((supp_rates[i] & 0x7f) * 5 > 110)
 			have_higher_than_11mbit = 1;
 
-	if (local->hw.conf.channel->band == IEEE80211_BAND_2GHZ &&
+	if (sdata->vif.bss_conf.channel->band == IEEE80211_BAND_2GHZ &&
 	    have_higher_than_11mbit)
 		sdata->flags |= IEEE80211_SDATA_OPERATING_GMODE;
 	else
@@ -1090,10 +1090,10 @@ struct sk_buff *ieee80211_build_probe_req(struct ieee80211_sub_if_data *sdata,
 		chan = 0;
 	else
 		chan = ieee80211_frequency_to_channel(
-			local->hw.conf.channel->center_freq);
+			sdata->vif.bss_conf.channel->center_freq);
 
 	buf_len = ieee80211_build_preq_ies(local, buf, ie, ie_len,
-					   local->hw.conf.channel->band,
+					   sdata->vif.bss_conf.channel->band,
 					   ratemask, chan);
 
 	skb = ieee80211_probereq_get(&local->hw, &sdata->vif,
@@ -1736,7 +1736,7 @@ int ieee80211_add_srates_ie(struct ieee80211_vif *vif,
 	u8 i, rates, *pos;
 	u32 basic_rates = vif->bss_conf.basic_rates;
 
-	sband = local->hw.wiphy->bands[local->hw.conf.channel->band];
+	sband = local->hw.wiphy->bands[sdata->vif.bss_conf.channel->band];
 	rates = sband->n_bitrates;
 	if (rates > 8)
 		rates = 8;
@@ -1768,7 +1768,7 @@ int ieee80211_add_ext_srates_ie(struct ieee80211_vif *vif,
 	u8 i, exrates, *pos;
 	u32 basic_rates = vif->bss_conf.basic_rates;
 
-	sband = local->hw.wiphy->bands[local->hw.conf.channel->band];
+	sband = local->hw.wiphy->bands[sdata->vif.bss_conf.channel->band];
 	exrates = sband->n_bitrates;
 	if (exrates > 8)
 		exrates -= 8;

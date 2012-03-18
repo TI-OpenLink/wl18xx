@@ -335,7 +335,7 @@ static struct sta_info *mesh_peer_init(struct ieee80211_sub_if_data *sdata,
 				       struct ieee802_11_elems *elems)
 {
 	struct ieee80211_local *local = sdata->local;
-	enum ieee80211_band band = local->oper_channel->band;
+	enum ieee80211_band band = sdata->oper_channel->band;
 	struct ieee80211_supported_band *sband;
 	u32 rates, basic_rates = 0;
 	struct sta_info *sta;
@@ -400,7 +400,6 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
 	sta = mesh_peer_init(sdata, hw_addr, elems);
 	if (!sta)
 		goto out;
-
 	if (mesh_peer_accepts_plinks(elems) &&
 	    sta->plink_state == NL80211_PLINK_LISTEN &&
 	    sdata->u.mesh.accepting_plinks &&

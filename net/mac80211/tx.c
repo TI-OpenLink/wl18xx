@@ -1143,7 +1143,7 @@ ieee80211_tx_prepare(struct ieee80211_sub_if_data *sdata,
 	tx->skb = skb;
 	tx->local = local;
 	tx->sdata = sdata;
-	tx->channel = local->hw.conf.channel;
+	tx->channel = sdata->vif.bss_conf.channel;
 	__skb_queue_head_init(&tx->skbs);
 
 	/*
@@ -1414,7 +1414,7 @@ static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
 		goto out;
 	}
 
-	tx.channel = local->hw.conf.channel;
+	tx.channel = sdata->vif.bss_conf.channel;
 	info->band = tx.channel->band;
 
 	/* set up hw_queue value early */
@@ -2314,7 +2314,7 @@ struct sk_buff *ieee80211_beacon_get_tim(struct ieee80211_hw *hw,
 	struct ieee80211_if_ap *ap = NULL;
 	struct beacon_data *beacon;
 	struct ieee80211_supported_band *sband;
-	enum ieee80211_band band = local->hw.conf.channel->band;
+	enum ieee80211_band band;
 	struct ieee80211_tx_rate_control txrc;
 
 	sband = local->hw.wiphy->bands[band];
@@ -2322,6 +2322,7 @@ struct sk_buff *ieee80211_beacon_get_tim(struct ieee80211_hw *hw,
 	rcu_read_lock();
 
 	sdata = vif_to_sdata(vif);
+	band = sdata->vif.bss_conf.channel;
 
 	if (!ieee80211_sdata_running(sdata))
 		goto out;
@@ -2721,7 +2722,7 @@ ieee80211_get_buffered_bc(struct ieee80211_hw *hw,
 	info = IEEE80211_SKB_CB(skb);
 
 	tx.flags |= IEEE80211_TX_PS_BUFFERED;
-	tx.channel = local->hw.conf.channel;
+	tx.channel = sdata->vif.bss_conf.channel;
 	info->band = tx.channel->band;
 
 	if (invoke_tx_handlers(&tx))
