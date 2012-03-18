@@ -139,23 +139,27 @@ static void ieee80211_work_work(struct work_struct *work)
 	ieee80211_recalc_idle(local);
 
 	list_for_each_entry_safe(wk, tmp, &local->work_list, list) {
+		struct ieee80211_sub_if_data *sdata = wk->sdata;
 		bool started = wk->started;
 
+		WARN_ON_ONCE(!sdata);
+
 		/* mark work as started if it's on the current off-channel */
-		if (!started && local->tmp_channel &&
-		    wk->chan == local->tmp_channel &&
+		if (!started && sdata->tmp_channel &&
+		    wk->chan == sdata->tmp_channel &&
 		    wk->chan_type == local->tmp_channel_type) {
 			started = true;
 			wk->timeout = jiffies;
 		}
 
-		if (!started && !local->tmp_channel) {
+		if (!started && !sdata->tmp_channel) {
 			ieee80211_offchannel_stop_vifs(local, true);
 
-			local->tmp_channel = wk->chan;
+			sdata->tmp_channel = wk->chan;
 			local->tmp_channel_type = wk->chan_type;
 
 			ieee80211_hw_config(local, 0);
+			ieee80211_bss_info_change_notify(sdata, 0);
 
 			started = true;
 			wk->timeout = jiffies;
@@ -212,15 +216,24 @@ static void ieee80211_work_work(struct work_struct *work)
 	list_for_each_entry(wk, &local->work_list, list) {
 		if (!wk->started)
 			continue;
-		if (wk->chan != local->tmp_channel ||
+		if (wk->chan != wk->sdata->tmp_channel ||
 		    wk->chan_type != local->tmp_channel_type)
 			continue;
+		/* TODO: this is clearly broken... */
 		remain_off_channel = true;
 	}
 
-	if (!remain_off_channel && local->tmp_channel) {
-		local->tmp_channel = NULL;
-		ieee80211_hw_config(local, 0);
+//	if (!remain_off_channel && local->tmp_channel) {
+	if (!remain_off_channel) {
+		struct ieee80211_sub_if_data *sdata = wk->sdata;
+		list_for_each_entry(sdata, &local->interfaces, list) {
+			if (!sdata->tmp_channel)
+				continue;
+
+			sdata->tmp_channel = NULL;
+			//ieee80211_hw_config(local, 0);
+			ieee80211_bss_info_change_notify(sdata, 0);
+		}
 
 		ieee80211_offchannel_return(local, true);
 

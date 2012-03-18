@@ -473,6 +473,7 @@ static int ieee80211_do_open(struct net_device *dev, bool coming_up)
 
 	if (hw_reconf_flags)
 		ieee80211_hw_config(local, hw_reconf_flags);
+	//ieee80211_bss_info_change_notify(sdata, 0);
 
 	ieee80211_recalc_ps(local, -1);
 

@@ -103,6 +103,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 
 	might_sleep();
 
+#if 0
 	offchannel_flag = local->hw.conf.flags & IEEE80211_CONF_OFFCHANNEL;
 	if (local->scan_channel) {
 		chan = local->scan_channel;
@@ -135,7 +136,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		local->hw.conf.channel_type = channel_type;
 		changed |= IEEE80211_CONF_CHANGE_CHANNEL;
 	}
-
+#endif
 	if (!conf_is_ht(&local->hw.conf)) {
 		/*
 		 * mac80211.h documents that this is only valid
@@ -147,7 +148,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		local->hw.conf.smps_mode = local->smps_mode;
 		changed |= IEEE80211_CONF_CHANGE_SMPS;
 	}
-
+#if 0
 	if (test_bit(SCAN_SW_SCANNING, &local->scanning) ||
 	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
 	    test_bit(SCAN_HW_SCANNING, &local->scanning))
@@ -165,7 +166,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		changed |= IEEE80211_CONF_CHANGE_POWER;
 		local->hw.conf.power_level = power;
 	}
-
+#endif
 	if (changed && local->open_count) {
 		ret = drv_config(local, changed);
 		/*
@@ -188,12 +189,57 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 	return ret;
 }
 
+static bool ieee80211_update_channel(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_channel *chan;
+	enum nl80211_channel_type channel_type;
+	bool offchannel_flag;
+	int changed = 0;
+
+	/* check for channel changes here... */
+	offchannel_flag = local->hw.conf.flags & IEEE80211_CONF_OFFCHANNEL;
+	if (local->scan_channel) {
+		chan = local->scan_channel;
+		/* If scanning on oper channel, use whatever channel-type
+		 * is currently in use.
+		 */
+		if (chan == sdata->oper_channel)
+			channel_type = local->_oper_channel_type;
+		else
+			channel_type = NL80211_CHAN_NO_HT;
+	} else if (sdata->tmp_channel) {
+		chan = sdata->tmp_channel;
+		channel_type = local->tmp_channel_type;
+	} else {
+		chan = sdata->oper_channel;
+		channel_type = local->_oper_channel_type;
+	}
+
+	if (chan != sdata->oper_channel ||
+	    channel_type != local->_oper_channel_type)
+		local->hw.conf.flags |= IEEE80211_CONF_OFFCHANNEL;
+	else
+		local->hw.conf.flags &= ~IEEE80211_CONF_OFFCHANNEL;
+
+	offchannel_flag ^= local->hw.conf.flags & IEEE80211_CONF_OFFCHANNEL;
+
+	if (offchannel_flag || chan != sdata->vif.bss_conf.channel ||
+	    channel_type != local->hw.conf.channel_type) {
+		sdata->vif.bss_conf.channel = chan;
+		local->hw.conf.channel_type = channel_type;
+		changed |= BSS_CHANGED_CHANNEL;
+	}
+
+	return changed;
+}
 void ieee80211_bss_info_change_notify(struct ieee80211_sub_if_data *sdata,
 				      u32 changed)
 {
 	struct ieee80211_local *local = sdata->local;
 	static const u8 zero[ETH_ALEN] = { 0 };
 
+	changed |= ieee80211_update_channel(sdata);
 	if (!changed)
 		return;
 

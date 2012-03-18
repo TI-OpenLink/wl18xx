@@ -1722,7 +1722,8 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	/* Update driver if changes were actually made. */
 	if ((old_oper != sdata->oper_channel) ||
 	    (old_oper_type != local->_oper_channel_type))
-		ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
+		ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);
+		//ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
 
 	if (sdata && sdata->vif.type != NL80211_IFTYPE_MONITOR &&
 	    old_vif_oper_type != sdata->vif.bss_conf.channel_type)
@@ -2259,7 +2260,7 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
 			IEEE80211_TX_CTL_REQ_TX_STATUS;
 
 	/* Check that we are on the requested channel for transmission */
-	if (chan != local->tmp_channel &&
+	if (chan != sdata->tmp_channel &&
 	    chan != sdata->oper_channel)
 		is_offchan = true;
 	if (channel_type_valid &&

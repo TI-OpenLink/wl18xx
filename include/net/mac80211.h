@@ -190,6 +190,8 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_IDLE		= 1<<14,
 	BSS_CHANGED_SSID		= 1<<15,
 	BSS_CHANGED_AP_PROBE_RESP	= 1<<16,
+	BSS_CHANGED_CHANNEL		= 1<<17,
+
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };

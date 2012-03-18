@@ -729,6 +729,7 @@ struct ieee80211_sub_if_data {
 	u8  rc_rateidx_mcs_mask[IEEE80211_NUM_BANDS][IEEE80211_HT_MCS_MASK_LEN];
 
 	struct ieee80211_channel *oper_channel;
+	struct ieee80211_channel *tmp_channel;
 
 	union {
 		struct ieee80211_if_ap ap;
@@ -999,7 +1000,7 @@ struct ieee80211_local {
 	struct ieee80211_channel *oper_channel, *csa_channel;
 
 	/* Temporary remain-on-channel for off-channel operations */
-	struct ieee80211_channel *tmp_channel;
+	//struct ieee80211_channel *tmp_channel;
 	enum nl80211_channel_type tmp_channel_type;
 
 	/* SNMP counters */
