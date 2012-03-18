@@ -243,6 +243,9 @@ struct wl1271 {
 	struct wl1271_scan scan;
 	struct delayed_work scan_complete_work;
 
+	struct ieee80211_vif *roc_vif;
+	struct delayed_work roc_complete_work;
+
 	bool sched_scanning;
 
 	/* The current band */

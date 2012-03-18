@@ -290,7 +290,9 @@ static int wl12xx_get_new_session_id(struct wl1271 *wl,
 }
 
 static int wl12xx_cmd_role_start_dev(struct wl1271 *wl,
-				     struct wl12xx_vif *wlvif)
+				     struct wl12xx_vif *wlvif,
+				     enum ieee80211_band band,
+				     int channel)
 {
 	struct wl12xx_cmd_role_start *cmd;
 	int ret;
@@ -304,9 +306,9 @@ static int wl12xx_cmd_role_start_dev(struct wl1271 *wl,
 	wl1271_debug(DEBUG_CMD, "cmd role start dev %d", wlvif->dev_role_id);
 
 	cmd->role_id = wlvif->dev_role_id;
-	if (wlvif->band == IEEE80211_BAND_5GHZ)
+	if (band == IEEE80211_BAND_5GHZ)
 		cmd->band = WLCORE_BAND_5GHZ;
-	cmd->channel = wlvif->channel;
+	cmd->channel = channel;
 
 	if (wlvif->dev_hlid == WL12XX_INVALID_LINK_ID) {
 		ret = wl12xx_allocate_link(wl, wlvif, &wlvif->dev_hlid);
@@ -1586,14 +1588,14 @@ int wl12xx_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 role_id)
 	ret = wl12xx_cmd_roc(wl, wlvif, role_id);
 	if (ret < 0)
 		goto out;
-
+/*
 	ret = wl1271_cmd_wait_for_event(wl,
 					REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID);
 	if (ret < 0) {
 		wl1271_error("cmd roc event completion error");
 		goto out;
 	}
-
+*/
 	__set_bit(role_id, wl->roc_map);
 out:
 	return ret;
@@ -1686,7 +1688,8 @@ out:
 }
 
 /* start dev role and roc on its channel */
-int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+		     enum ieee80211_band band, int channel)
 {
 	int ret;
 
@@ -1694,7 +1697,7 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		      wlvif->bss_type == BSS_TYPE_IBSS)))
 		return -EINVAL;
 
-	ret = wl12xx_cmd_role_start_dev(wl, wlvif);
+	ret = wl12xx_cmd_role_start_dev(wl, wlvif, band, channel);
 	if (ret < 0)
 		goto out;
 
