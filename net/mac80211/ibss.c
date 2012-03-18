@@ -91,7 +91,8 @@ static void __ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
 		WARN_ON(!ieee80211_set_channel_type(local, sdata,
 						    NL80211_CHAN_HT20));
 	}
-	ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
+	//ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
+	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);;
 
 	sband = local->hw.wiphy->bands[chan->band];
 
