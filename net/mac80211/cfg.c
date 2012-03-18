@@ -973,7 +973,7 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	u32 mask, set;
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 
 	mask = params->sta_flags_mask;
 	set = params->sta_flags_set;
@@ -1088,7 +1088,7 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 					rates |= BIT(j);
 			}
 		}
-		sta->sta.supp_rates[local->oper_channel->band] = rates;
+		sta->sta.supp_rates[sdata->oper_channel->band] = rates;
 	}
 
 	if (params->ht_capa)
@@ -1672,7 +1672,7 @@ static int ieee80211_change_bss(struct wiphy *wiphy,
 		u32 rates = 0;
 		struct ieee80211_local *local = wiphy_priv(wiphy);
 		struct ieee80211_supported_band *sband =
-			wiphy->bands[local->oper_channel->band];
+			wiphy->bands[sdata->oper_channel->band];
 
 		for (i = 0; i < params->basic_rates_len; i++) {
 			int rate = (params->basic_rates[i] & 0x7f) * 5;
@@ -1834,7 +1834,7 @@ static int ieee80211_assoc(struct wiphy *wiphy, struct net_device *dev,
 	case CHAN_MODE_HOPPING:
 		return -EBUSY;
 	case CHAN_MODE_FIXED:
-		if (local->oper_channel == req->bss->channel)
+		if (sdata->oper_channel == req->bss->channel)
 			break;
 		return -EBUSY;
 	case CHAN_MODE_UNDEFINED:
@@ -1868,7 +1868,7 @@ static int ieee80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	case CHAN_MODE_FIXED:
 		if (!params->channel_fixed)
 			return -EBUSY;
-		if (local->oper_channel == params->channel)
+		if (sdata->oper_channel == params->channel)
 			break;
 		return -EBUSY;
 	case CHAN_MODE_UNDEFINED:
@@ -2620,7 +2620,7 @@ static u16 ieee80211_get_tdls_sta_capab(struct ieee80211_sub_if_data *sdata)
 	u16 capab;
 
 	capab = 0;
-	if (local->oper_channel->band != IEEE80211_BAND_2GHZ)
+	if (sdata->oper_channel->band != IEEE80211_BAND_2GHZ)
 		return capab;
 
 	if (!(local->hw.flags & IEEE80211_HW_2GHZ_SHORT_SLOT_INCAPABLE))
