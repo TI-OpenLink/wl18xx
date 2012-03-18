@@ -1314,6 +1314,7 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 
 	/* reconfigure hardware */
 	ieee80211_hw_config(local, ~0);
+	ieee80211_bss_info_change_notify(sdata, 0);
 
 	ieee80211_configure_filter(local);
 
