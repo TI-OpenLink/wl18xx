@@ -108,7 +108,7 @@ static struct sta_info *mesh_plink_alloc(struct ieee80211_sub_if_data *sdata,
 
 	set_sta_flag(sta, WLAN_STA_WME);
 
-	sta->sta.supp_rates[local->hw.conf.channel->band] = rates;
+	sta->sta.supp_rates[sdata->vif.bss_conf.channel->band] = rates;
 	if (elems->ht_cap_elem)
 		ieee80211_ht_cap_ie_to_sta_ht_cap(sdata, sband,
 						  elems->ht_cap_elem,
@@ -303,7 +303,7 @@ void mesh_neighbour_update(u8 *hw_addr, u32 rates,
 	}
 
 	sta->last_rx = jiffies;
-	sta->sta.supp_rates[local->hw.conf.channel->band] = rates;
+	sta->sta.supp_rates[sdata->vif.bss_conf.channel->band] = rates;
 	if (mesh_peer_accepts_plinks(elems) &&
 			sta->plink_state == NL80211_PLINK_LISTEN &&
 			sdata->u.mesh.accepting_plinks &&
