@@ -923,7 +923,7 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	u32 mask, set;
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 
 	mask = params->sta_flags_mask;
 	set = params->sta_flags_set;
@@ -1038,7 +1038,7 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 					rates |= BIT(j);
 			}
 		}
-		sta->sta.supp_rates[local->oper_channel->band] = rates;
+		sta->sta.supp_rates[sdata->oper_channel->band] = rates;
 	}
 
 	if (params->ht_capa)
@@ -1608,7 +1608,7 @@ static int ieee80211_change_bss(struct wiphy *wiphy,
 		u32 rates = 0;
 		struct ieee80211_local *local = wiphy_priv(wiphy);
 		struct ieee80211_supported_band *sband =
-			wiphy->bands[local->oper_channel->band];
+			wiphy->bands[sdata->oper_channel->band];
 
 		for (i = 0; i < params->basic_rates_len; i++) {
 			int rate = (params->basic_rates[i] & 0x7f) * 5;
@@ -1690,11 +1690,17 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	if (netdev)
 		sdata = IEEE80211_DEV_TO_SUB_IF(netdev);
 
+	/* don't allow global channel. TODO: fix */
+	if (!netdev) {
+		printk("TEMP. we currently don't support global channel\n");
+		return -EINVAL;
+	}
+
 	switch (ieee80211_get_channel_mode(local, NULL)) {
 	case CHAN_MODE_HOPPING:
 		return -EBUSY;
 	case CHAN_MODE_FIXED:
-		if (local->oper_channel != chan)
+		if (sdata && sdata->oper_channel != chan)
 			return -EBUSY;
 		if (!sdata && local->_oper_channel_type == channel_type)
 			return 0;
@@ -1710,11 +1716,11 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	if (!ieee80211_set_channel_type(local, sdata, channel_type))
 		return -EBUSY;
 
-	old_oper = local->oper_channel;
-	local->oper_channel = chan;
+	old_oper = sdata->oper_channel;
+	sdata->oper_channel = chan;
 
 	/* Update driver if changes were actually made. */
-	if ((old_oper != local->oper_channel) ||
+	if ((old_oper != sdata->oper_channel) ||
 	    (old_oper_type != local->_oper_channel_type))
 		ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
 
@@ -1812,7 +1818,7 @@ static int ieee80211_assoc(struct wiphy *wiphy, struct net_device *dev,
 	case CHAN_MODE_HOPPING:
 		return -EBUSY;
 	case CHAN_MODE_FIXED:
-		if (local->oper_channel == req->bss->channel)
+		if (sdata->oper_channel == req->bss->channel)
 			break;
 		return -EBUSY;
 	case CHAN_MODE_UNDEFINED:
@@ -1846,7 +1852,7 @@ static int ieee80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	case CHAN_MODE_FIXED:
 		if (!params->channel_fixed)
 			return -EBUSY;
-		if (local->oper_channel == params->channel)
+		if (sdata->oper_channel == params->channel)
 			break;
 		return -EBUSY;
 	case CHAN_MODE_UNDEFINED:
@@ -2254,7 +2260,7 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
 
 	/* Check that we are on the requested channel for transmission */
 	if (chan != local->tmp_channel &&
-	    chan != local->oper_channel)
+	    chan != sdata->oper_channel)
 		is_offchan = true;
 	if (channel_type_valid &&
 	    (channel_type != local->tmp_channel_type &&
@@ -2519,7 +2525,7 @@ static u16 ieee80211_get_tdls_sta_capab(struct ieee80211_sub_if_data *sdata)
 	u16 capab;
 
 	capab = 0;
-	if (local->oper_channel->band != IEEE80211_BAND_2GHZ)
+	if (sdata->oper_channel->band != IEEE80211_BAND_2GHZ)
 		return capab;
 
 	if (!(local->hw.flags & IEEE80211_HW_2GHZ_SHORT_SLOT_INCAPABLE))

@@ -351,7 +351,7 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 
 	lockdep_assert_held(&ifmgd->mtx);
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 
 	if (assoc_data->supp_rates_len) {
 		/*
@@ -472,7 +472,7 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 		*pos++ = WLAN_EID_PWR_CAPABILITY;
 		*pos++ = 2;
 		*pos++ = 0; /* min tx power */
-		*pos++ = local->oper_channel->max_power; /* max tx power */
+		*pos++ = sdata->oper_channel->max_power; /* max tx power */
 
 		/* 2. supported channels */
 		/* TODO: get this in reg domain format */
@@ -510,7 +510,7 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 
 	if (!(ifmgd->flags & IEEE80211_STA_DISABLE_11N))
 		ieee80211_add_ht_ie(sdata, skb, assoc_data->ht_operation_ie,
-				    sband, local->oper_channel, ifmgd->ap_smps);
+				    sband, sdata->oper_channel, ifmgd->ap_smps);
 
 	/* if present, add any custom non-vendor IEs that go after HT */
 	if (assoc_data->ie_len && assoc_data->ie) {
@@ -678,18 +678,18 @@ static void ieee80211_chswitch_work(struct work_struct *work)
 	if (!ifmgd->associated)
 		goto out;
 
-	sdata->local->oper_channel = sdata->local->csa_channel;
+	sdata->oper_channel = sdata->local->csa_channel;
 	if (!sdata->local->ops->channel_switch) {
 		/* call "hw_config" only if doing sw channel switch */
 		ieee80211_hw_config(sdata->local,
 			IEEE80211_CONF_CHANGE_CHANNEL);
 	} else {
 		/* update the device channel directly */
-		sdata->vif.bss_conf.channel = sdata->local->oper_channel;
+		sdata->vif.bss_conf.channel = sdata->oper_channel;
 	}
 
 	/* XXX: shouldn't really modify cfg80211-owned data! */
-	ifmgd->associated->channel = sdata->local->oper_channel;
+	ifmgd->associated->channel = sdata->oper_channel;
 
 	ieee80211_wake_queues_by_reason(&sdata->local->hw,
 					IEEE80211_QUEUE_STOP_REASON_CSA);
@@ -714,7 +714,7 @@ void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success)
 		 * good handling of this situation, possibly we
 		 * should just drop the association.
 		 */
-		sdata->local->csa_channel = sdata->local->oper_channel;
+		sdata->local->csa_channel = sdata->oper_channel;
 	}
 
 	ieee80211_queue_work(&sdata->local->hw, &ifmgd->chswitch_work);
@@ -2021,7 +2021,7 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 		return false;
 	}
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 
 	if (elems.ht_cap_elem && !(ifmgd->flags & IEEE80211_STA_DISABLE_11N))
 		ieee80211_ht_cap_ie_to_sta_ht_cap(sdata, sband,
@@ -3102,7 +3102,7 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 						    channel_type));
 	}
 
-	local->oper_channel = cbss->channel;
+	sdata->oper_channel = cbss->channel;
 	ieee80211_hw_config(local, 0);
 
 	if (!have_sta) {
@@ -3141,7 +3141,7 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 		sdata->vif.bss_conf.beacon_int = cbss->beacon_interval;
 
 		/* cf. IEEE 802.11 9.2.12 */
-		if (local->oper_channel->band == IEEE80211_BAND_2GHZ &&
+		if (sdata->oper_channel->band == IEEE80211_BAND_2GHZ &&
 		    have_higher_than_11mbit)
 			sdata->flags |= IEEE80211_SDATA_OPERATING_GMODE;
 		else

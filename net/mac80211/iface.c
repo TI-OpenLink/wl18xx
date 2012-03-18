@@ -355,6 +355,9 @@ static int ieee80211_do_open(struct net_device *dev, bool coming_up)
 		}
 	}
 
+	/* copy the default channel */
+	sdata->oper_channel = local->oper_channel;
+
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_AP_VLAN:
 		/* no need to tell driver, but set carrier */
@@ -1132,7 +1135,7 @@ int ieee80211_if_change_type(struct ieee80211_sub_if_data *sdata,
 		return 0;
 
 	/* Setting ad-hoc mode on non-IBSS channel is not supported. */
-	if (sdata->local->oper_channel->flags & IEEE80211_CHAN_NO_IBSS &&
+	if (sdata->oper_channel->flags & IEEE80211_CHAN_NO_IBSS &&
 	    type == NL80211_IFTYPE_ADHOC)
 		return -EOPNOTSUPP;
 

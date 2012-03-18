@@ -80,7 +80,7 @@ static void __ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
 
 	sdata->drop_unencrypted = capability & WLAN_CAPABILITY_PRIVACY ? 1 : 0;
 
-	local->oper_channel = chan;
+	sdata->oper_channel = chan;
 	channel_type = ifibss->channel_type;
 	if (channel_type > NL80211_CHAN_HT20 &&
 	    !cfg80211_can_beacon_sec_chan(local->hw.wiphy, chan, channel_type))
@@ -497,7 +497,7 @@ static void ieee80211_rx_bss_info(struct ieee80211_sub_if_data *sdata,
 		goto put_bss;
 
 	/* different channel */
-	if (cbss->channel != local->oper_channel)
+	if (cbss->channel != sdata->oper_channel)
 		goto put_bss;
 
 	/* different SSID */
@@ -779,7 +779,7 @@ static void ieee80211_sta_find_ibss(struct ieee80211_sub_if_data *sdata)
 
 		if (time_after(jiffies, ifibss->ibss_join_req +
 			       IEEE80211_IBSS_JOIN_TIMEOUT)) {
-			if (!(local->oper_channel->flags & IEEE80211_CHAN_NO_IBSS)) {
+			if (!(sdata->oper_channel->flags & IEEE80211_CHAN_NO_IBSS)) {
 				ieee80211_sta_create_ibss(sdata);
 				return;
 			}
@@ -1089,7 +1089,7 @@ int ieee80211_ibss_join(struct ieee80211_sub_if_data *sdata,
 
 	/* fix ourselves to that channel now already */
 	if (params->channel_fixed) {
-		sdata->local->oper_channel = params->channel;
+		sdata->oper_channel = params->channel;
 		if (!ieee80211_set_channel_type(sdata->local, sdata,
 					       params->channel_type)) {
 			mutex_unlock(&sdata->u.ibss.mtx);

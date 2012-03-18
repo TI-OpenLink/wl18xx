@@ -2317,12 +2317,12 @@ struct sk_buff *ieee80211_beacon_get_tim(struct ieee80211_hw *hw,
 	enum ieee80211_band band;
 	struct ieee80211_tx_rate_control txrc;
 
+	sdata = vif_to_sdata(vif);
+	band = sdata->vif.bss_conf.channel->band;
+
 	sband = local->hw.wiphy->bands[band];
 
 	rcu_read_lock();
-
-	sdata = vif_to_sdata(vif);
-	band = sdata->vif.bss_conf.channel;
 
 	if (!ieee80211_sdata_running(sdata))
 		goto out;

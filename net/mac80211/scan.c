@@ -231,7 +231,7 @@ ieee80211_scan_rx(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
 	if (bss)
 		ieee80211_rx_bss_put(sdata->local, bss);
 
-	if (channel == sdata->local->oper_channel)
+	if (channel == sdata->oper_channel)
 		return RX_CONTINUE;
 
 	dev_kfree_skb(skb);

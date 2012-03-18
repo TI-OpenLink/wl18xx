@@ -371,7 +371,7 @@ int mesh_add_ht_cap_ie(struct sk_buff *skb,
 	struct ieee80211_supported_band *sband;
 	u8 *pos;
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 	if (!sband->ht_cap.ht_supported ||
 	    local->_oper_channel_type == NL80211_CHAN_NO_HT)
 		return 0;
@@ -389,7 +389,7 @@ int mesh_add_ht_oper_ie(struct sk_buff *skb,
 			struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_local *local = sdata->local;
-	struct ieee80211_channel *channel = local->oper_channel;
+	struct ieee80211_channel *channel = sdata->oper_channel;
 	enum nl80211_channel_type channel_type = local->_oper_channel_type;
 	struct ieee80211_supported_band *sband =
 				local->hw.wiphy->bands[channel->band];
