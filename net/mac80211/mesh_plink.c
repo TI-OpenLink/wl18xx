@@ -93,7 +93,7 @@ static struct sta_info *mesh_plink_alloc(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_supported_band *sband;
 	struct sta_info *sta;
 
-	sband = local->hw.wiphy->bands[local->oper_channel->band];
+	sband = local->hw.wiphy->bands[sdata->oper_channel->band];
 
 	if (local->num_sta >= MESH_MAX_PLINKS)
 		return NULL;

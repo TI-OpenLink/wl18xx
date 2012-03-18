@@ -168,6 +168,9 @@ IEEE80211_IF_FILE(rc_rateidx_mcs_mask_5ghz,
 IEEE80211_IF_FILE(flags, flags, HEX);
 IEEE80211_IF_FILE(state, state, LHEX);
 IEEE80211_IF_FILE(channel_type, vif.bss_conf.channel_type, DEC);
+IEEE80211_IF_FILE(channel, vif.bss_conf.channel->center_freq, DEC);
+IEEE80211_IF_FILE(oper_channel, oper_channel->center_freq, DEC);
+
 
 /* STA attributes */
 IEEE80211_IF_FILE(bssid, u.mgd.bssid, MAC);
@@ -520,6 +523,8 @@ IEEE80211_IF_FILE(rssi_threshold, u.mesh.mshcfg.rssi_threshold, DEC);
 static void add_common_files(struct ieee80211_sub_if_data *sdata)
 {
 	DEBUGFS_ADD(drop_unencrypted);
+	DEBUGFS_ADD(channel);
+	DEBUGFS_ADD(oper_channel);
 	DEBUGFS_ADD(rc_rateidx_mask_2ghz);
 	DEBUGFS_ADD(rc_rateidx_mask_5ghz);
 	DEBUGFS_ADD(rc_rateidx_mcs_mask_2ghz);
