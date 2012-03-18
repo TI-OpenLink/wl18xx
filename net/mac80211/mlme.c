@@ -672,8 +672,9 @@ static void ieee80211_chswitch_work(struct work_struct *work)
 	sdata->oper_channel = sdata->local->csa_channel;
 	if (!sdata->local->ops->channel_switch) {
 		/* call "hw_config" only if doing sw channel switch */
-		ieee80211_hw_config(sdata->local,
-			IEEE80211_CONF_CHANGE_CHANNEL);
+		//ieee80211_hw_config(sdata->local,
+		//	IEEE80211_CONF_CHANGE_CHANNEL);
+		ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);
 	} else {
 		/* update the device channel directly */
 		sdata->vif.bss_conf.channel = sdata->oper_channel;
@@ -1555,7 +1556,7 @@ static void ieee80211_mgd_probe_ap(struct ieee80211_sub_if_data *sdata,
 
 	mutex_lock(&sdata->local->mtx);
 
-	if (sdata->local->tmp_channel || sdata->local->scanning) {
+	if (sdata->tmp_channel || sdata->local->scanning) {
 		mutex_unlock(&sdata->local->mtx);
 		goto out;
 	}
@@ -3101,7 +3102,8 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 	}
 
 	sdata->oper_channel = cbss->channel;
-	ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
+	//ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
+	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);
 
 	if (sta) {
 		u32 rates = 0, basic_rates = 0;
