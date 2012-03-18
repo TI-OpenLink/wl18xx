@@ -2395,7 +2395,7 @@ static void wl1271_set_band_rate(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	wlvif->basic_rate_set = wlvif->bitrate_masks[wlvif->band];
 	wlvif->rate_set = wlvif->basic_rate_set;
 }
-
+#if 0
 static int wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				  bool idle)
 {
@@ -2439,7 +2439,7 @@ static int wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 out:
 	return ret;
 }
-
+#endif
 static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     struct ieee80211_conf *conf, u32 changed)
 {
@@ -2481,7 +2481,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			if (ret < 0)
 				wl1271_warning("rate policy for channel "
 					       "failed %d", ret);
-
+#if 0
 			/*
 			 * change the ROC channel. do it only if we are
 			 * not idle. otherwise, CROC will be called
@@ -2499,6 +2499,7 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				if (ret < 0)
 					return ret;
 			}
+#endif
 		}
 	}
 
@@ -3789,7 +3790,7 @@ sta_not_found:
 
 			/* TODO: use some flag instead? */
 			if (!is_ibss &&
-			    wlvif->sta.hlid == WL12XX_INVALID_LINK_ID) {
+			    wlvif->sta.hlid != WL12XX_INVALID_LINK_ID) {
 				/* TODO: should be in userspace */
 				if (test_bit(wlvif->role_id, wl->roc_map))
 					wl12xx_croc(wl, wlvif->role_id);
@@ -4513,6 +4514,114 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
+static int wl12xx_op_remain_on_channel(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_channel *chan,
+				       enum nl80211_channel_type channel_type,
+				       int duration)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271 *wl = hw->priv;
+	int channel, ret = 0;
+
+	channel = ieee80211_frequency_to_channel(chan->center_freq);
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 roc %d (%d)",
+		     channel, wlvif->role_id);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state == WL1271_STATE_OFF))
+		goto out;
+
+	/* return EBUSY if we can't ROC right now */
+	if (WARN_ON(wl->roc_vif ||
+/*		    wl->scan.state != WL1271_SCAN_STATE_IDLE || */
+		    find_first_bit(wl->roc_map,
+				   WL12XX_MAX_ROLES) < WL12XX_MAX_ROLES)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	/*
+	 * make sure the vif has dev role.
+	 * TODO: handle others vifs as well (?)
+	 */
+	if (!(wlvif->bss_type == BSS_TYPE_STA_BSS ||
+	      wlvif->bss_type == BSS_TYPE_IBSS)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wl12xx_start_dev(wl, wlvif, chan->band, channel);
+	if (ret < 0)
+		goto out_sleep;
+
+	wl->roc_vif = vif;
+	ieee80211_queue_delayed_work(hw, &wl->roc_complete_work,
+				     msecs_to_jiffies(duration));
+	//ieee80211_ready_on_channel(hw);
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+	return ret;
+}
+
+void wl1271_roc_complete_work(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wl1271 *wl;
+	struct wl12xx_vif *wlvif;
+	int ret;
+
+	dwork = container_of(work, struct delayed_work, work);
+	wl = container_of(dwork, struct wl1271, roc_complete_work);
+
+	wl1271_debug(DEBUG_MAC80211, "roc complete");
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(!wl->roc_vif))
+		goto out;
+
+	wlvif = wl12xx_vif_to_data(wl->roc_vif);
+
+	if (unlikely(wl->state == WL1271_STATE_OFF ||
+		     !test_bit(WLVIF_FLAG_INITIALIZED, &wlvif->flags)))
+		goto out;
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	wl12xx_stop_dev(wl, wlvif);
+	wl->roc_vif = NULL;
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	ieee80211_remain_on_channel_expired(wl->hw);
+}
+static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
+{
+	struct wl1271 *wl = hw->priv;
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 croc");
+
+	/* TODO: per-vif */
+	wl1271_tx_flush(wl);
+
+	cancel_delayed_work_sync(&wl->roc_complete_work);	
+
+	return 0;
+}
+
 static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4704,6 +4813,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_bitrate_mask = wl12xx_set_bitrate_mask,
 	.channel_switch = wl12xx_op_channel_switch,
 	.set_default_key_idx = wl1271_op_set_default_key_idx,
+	.remain_on_channel = wl12xx_op_remain_on_channel,
+	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
@@ -5060,6 +5171,8 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	wl->hw->wiphy->max_sched_scan_ie_len = WL1271_CMD_TEMPL_MAX_SIZE -
 		sizeof(struct ieee80211_header);
 
+	wl->hw->wiphy->max_remain_on_channel_duration = 5000;
+
 	wl->hw->wiphy->flags |= WIPHY_FLAG_AP_UAPSD |
 				WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
 
@@ -5153,6 +5266,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
+	INIT_DELAYED_WORK(&wl->roc_complete_work, wl1271_roc_complete_work);
 	INIT_DELAYED_WORK(&wl->tx_watchdog_work, wl12xx_tx_watchdog_work);
 	INIT_DELAYED_WORK(&wl->connection_loss_work,
 			  wl1271_connection_loss_work);
