@@ -296,6 +296,9 @@ struct ieee80211_bss_conf {
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
 	size_t ssid_len;
 	bool hidden_ssid;
+
+	struct ieee80211_channel *channel;
+	enum nl80211_channel_type channel_type1;
 };
 
 /**
