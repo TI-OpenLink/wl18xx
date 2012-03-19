@@ -355,9 +355,6 @@ static int ieee80211_do_open(struct net_device *dev, bool coming_up)
 		}
 	}
 
-	/* copy the default channel */
-	sdata->oper_channel = local->oper_channel;
-
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_AP_VLAN:
 		/* no need to tell driver, but set carrier */
@@ -978,6 +975,7 @@ static void ieee80211_setup_sdata(struct ieee80211_sub_if_data *sdata,
 	/* and set some type-dependent values */
 	sdata->vif.type = type;
 	sdata->vif.p2p = false;
+	sdata->vif.bss_conf.channel = sdata->oper_channel;
 	sdata->dev->netdev_ops = &ieee80211_dataif_ops;
 	sdata->wdev.iftype = type;
 
@@ -1323,6 +1321,8 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 #ifdef CONFIG_INET
 	sdata->arp_filter_state = true;
 #endif
+	/* copy the default channel */
+	sdata->oper_channel = local->oper_channel;
 
 	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++)
 		skb_queue_head_init(&sdata->fragments[i].skb_list);

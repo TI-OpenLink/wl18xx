@@ -1700,8 +1700,8 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	case CHAN_MODE_HOPPING:
 		return -EBUSY;
 	case CHAN_MODE_FIXED:
-		if (sdata && sdata->oper_channel != chan)
-			return -EBUSY;
+//		if (sdata && sdata->oper_channel != chan)
+//			return -EBUSY;
 		if (!sdata && local->_oper_channel_type == channel_type)
 			return 0;
 		break;
