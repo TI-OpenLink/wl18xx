@@ -2084,6 +2084,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		goto out;
 	}
 
+#if 0
 	if (wl12xx_need_fw_change(wl, vif_count, true)) {
 		wl12xx_force_active_psm(wl);
 		set_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags);
@@ -2091,7 +2092,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		wl1271_recovery_work(&wl->recovery_work);
 		return 0;
 	}
-
+#endif
 	/*
 	 * TODO: after the nvs issue will be solved, move this block
 	 * to start(), and make sure here the driver is ON.
