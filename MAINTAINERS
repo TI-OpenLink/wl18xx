@@ -1247,7 +1247,6 @@ ATHEROS ATH5K WIRELESS DRIVER
 M:	Jiri Slaby <jirislaby@gmail.com>
 M:	Nick Kossifidis <mickflemm@gmail.com>
 M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
-M:	Bob Copeland <me@bobcopeland.com>
 L:	linux-wireless@vger.kernel.org
 L:	ath5k-devel@lists.ath5k.org
 W:	http://wireless.kernel.org/en/users/Drivers/ath5k
@@ -1518,8 +1517,8 @@ M:	Gustavo Padovan <gustavo@padovan.org>
 M:	Johan Hedberg <johan.hedberg@gmail.com>
 L:	linux-bluetooth@vger.kernel.org
 W:	http://www.bluez.org/
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth.git
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jh/bluetooth.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git
 S:	Maintained
 F:	drivers/bluetooth/
 
@@ -1529,8 +1528,8 @@ M:	Gustavo Padovan <gustavo@padovan.org>
 M:	Johan Hedberg <johan.hedberg@gmail.com>
 L:	linux-bluetooth@vger.kernel.org
 W:	http://www.bluez.org/
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth.git
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jh/bluetooth.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git
 S:	Maintained
 F:	net/bluetooth/
 F:	include/net/bluetooth/
