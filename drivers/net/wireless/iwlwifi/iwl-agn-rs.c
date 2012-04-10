@@ -2166,7 +2166,7 @@ static void rs_stay_in_table(struct iwl_lq_sta *lq_sta, bool force_search)
 		    (lq_sta->total_success > lq_sta->max_success_limit) ||
 		    ((!lq_sta->search_better_tbl) && (lq_sta->flush_timer)
 		     && (flush_interval_passed))) {
-			IWL_DEBUG_RATE(priv, "LQ: stay is expired %d %d %d\n:",
+			IWL_DEBUG_RATE(priv, "LQ: stay is expired %d %d %d\n",
 				     lq_sta->total_failed,
 				     lq_sta->total_success,
 				     flush_interval_passed);
@@ -2677,7 +2677,6 @@ out:
  *       which requires station table entry to exist).
  */
 static void rs_initialize_lq(struct iwl_priv *priv,
-			     struct ieee80211_conf *conf,
 			     struct ieee80211_sta *sta,
 			     struct iwl_lq_sta *lq_sta)
 {
@@ -2912,7 +2911,7 @@ void iwl_rs_rate_init(struct iwl_priv *priv, struct ieee80211_sta *sta, u8 sta_i
 	lq_sta->dbg_fixed_rate = 0;
 #endif
 
-	rs_initialize_lq(priv, conf, sta, lq_sta);
+	rs_initialize_lq(priv, sta, lq_sta);
 }
 
 static void rs_fill_link_cmd(struct iwl_priv *priv,
@@ -3084,11 +3083,6 @@ static void rs_free_sta(void *priv_r, struct ieee80211_sta *sta,
 }
 
 #ifdef CONFIG_MAC80211_DEBUGFS
-static int open_file_generic(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
 static void rs_dbgfs_set_mcs(struct iwl_lq_sta *lq_sta,
 			     u32 *rate_n_flags, int index)
 {
@@ -3227,7 +3221,7 @@ static ssize_t rs_sta_dbgfs_scale_table_read(struct file *file,
 static const struct file_operations rs_sta_dbgfs_scale_table_ops = {
 	.write = rs_sta_dbgfs_scale_table_write,
 	.read = rs_sta_dbgfs_scale_table_read,
-	.open = open_file_generic,
+	.open = simple_open,
 	.llseek = default_llseek,
 };
 static ssize_t rs_sta_dbgfs_stats_table_read(struct file *file,
@@ -3270,7 +3264,7 @@ static ssize_t rs_sta_dbgfs_stats_table_read(struct file *file,
 
 static const struct file_operations rs_sta_dbgfs_stats_table_ops = {
 	.read = rs_sta_dbgfs_stats_table_read,
-	.open = open_file_generic,
+	.open = simple_open,
 	.llseek = default_llseek,
 };
 
@@ -3296,7 +3290,7 @@ static ssize_t rs_sta_dbgfs_rate_scale_data_read(struct file *file,
 
 static const struct file_operations rs_sta_dbgfs_rate_scale_data_ops = {
 	.read = rs_sta_dbgfs_rate_scale_data_read,
-	.open = open_file_generic,
+	.open = simple_open,
 	.llseek = default_llseek,
 };
 

@@ -298,8 +298,6 @@ static const char *command_types[] = {
 };
 #endif
 
-#define WEXT_USECHANNELS 1
-
 static const long ipw2100_frequencies[] = {
 	2412, 2417, 2422, 2427,
 	2432, 2437, 2442, 2447,
@@ -3457,11 +3455,8 @@ static int ipw2100_msg_allocate(struct ipw2100_priv *priv)
 	priv->msg_buffers =
 	    kmalloc(IPW_COMMAND_POOL_SIZE * sizeof(struct ipw2100_tx_packet),
 		    GFP_KERNEL);
-	if (!priv->msg_buffers) {
-		printk(KERN_ERR DRV_NAME ": %s: PCI alloc failed for msg "
-		       "buffers.\n", priv->net_dev->name);
+	if (!priv->msg_buffers)
 		return -ENOMEM;
-	}
 
 	for (i = 0; i < IPW_COMMAND_POOL_SIZE; i++) {
 		v = pci_alloc_consistent(priv->pci_dev,

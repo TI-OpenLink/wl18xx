@@ -65,6 +65,13 @@
 
 #include "iwl-dev.h"
 
+/* The first 11 queues (0-10) are used otherwise */
+#define IWLAGN_FIRST_AMPDU_QUEUE	11
+
+/* AUX (TX during scan dwell) queue */
+#define IWL_AUX_QUEUE		10
+
+
 struct iwl_ucode_capabilities;
 
 extern struct ieee80211_ops iwlagn_hw_ops;
@@ -84,13 +91,11 @@ void iwl_free_skb(struct iwl_op_mode *op_mode, struct sk_buff *skb);
 int __must_check iwl_rx_dispatch(struct iwl_op_mode *op_mode,
 				 struct iwl_rx_cmd_buffer *rxb,
 				 struct iwl_device_cmd *cmd);
-void iwl_stop_sw_queue(struct iwl_op_mode *op_mode, u8 ac);
-void iwl_wake_sw_queue(struct iwl_op_mode *op_mode, u8 ac);
 void iwl_set_hw_rfkill_state(struct iwl_op_mode *op_mode, bool state);
-void iwl_stop_sw_queue(struct iwl_op_mode *op_mode, u8 ac);
-void iwl_nic_error(struct iwl_op_mode *op_mode);
 
 bool iwl_check_for_ct_kill(struct iwl_priv *priv);
+
+void iwlagn_lift_passive_no_rx(struct iwl_priv *priv);
 
 /* MAC80211 */
 struct ieee80211_hw *iwl_alloc_all(void);
@@ -116,10 +121,6 @@ void iwlagn_config_ht40(struct ieee80211_conf *conf,
 			struct iwl_rxon_context *ctx);
 
 /* uCode */
-int iwlagn_rx_calib_result(struct iwl_priv *priv,
-			    struct iwl_rx_cmd_buffer *rxb,
-			    struct iwl_device_cmd *cmd);
-void iwl_init_context(struct iwl_priv *priv, u32 ucode_flags);
 int iwl_send_bt_env(struct iwl_priv *priv, u8 action, u8 type);
 void iwl_send_prio_tbl(struct iwl_priv *priv);
 int iwl_init_alive_start(struct iwl_priv *priv);
@@ -130,6 +131,9 @@ int iwl_send_calib_results(struct iwl_priv *priv);
 int iwl_calib_set(struct iwl_priv *priv,
 		  const struct iwl_calib_hdr *cmd, int len);
 void iwl_calib_free_results(struct iwl_priv *priv);
+void iwlagn_fw_error(struct iwl_priv *priv, bool ondemand);
+int iwl_dump_nic_event_log(struct iwl_priv *priv, bool full_log,
+			    char **buf, bool display);
 
 /* lib */
 int iwlagn_send_tx_power(struct iwl_priv *priv);
@@ -141,8 +145,7 @@ int iwlagn_send_beacon_cmd(struct iwl_priv *priv);
 #ifdef CONFIG_PM_SLEEP
 int iwlagn_send_patterns(struct iwl_priv *priv,
 			 struct cfg80211_wowlan *wowlan);
-int iwlagn_suspend(struct iwl_priv *priv,
-		   struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan);
+int iwlagn_suspend(struct iwl_priv *priv, struct cfg80211_wowlan *wowlan);
 #endif
 
 /* rx */
@@ -237,6 +240,8 @@ int iwl_add_station_common(struct iwl_priv *priv, struct iwl_rxon_context *ctx,
 			   struct ieee80211_sta *sta, u8 *sta_id_r);
 int iwl_remove_station(struct iwl_priv *priv, const u8 sta_id,
 		       const u8 *addr);
+void iwl_deactivate_station(struct iwl_priv *priv, const u8 sta_id,
+			    const u8 *addr);
 u8 iwl_prep_station(struct iwl_priv *priv, struct iwl_rxon_context *ctx,
 		    const u8 *addr, bool is_ap, struct ieee80211_sta *sta);
 
@@ -256,37 +261,6 @@ static inline int iwl_sta_id(struct ieee80211_sta *sta)
 		return IWL_INVALID_STATION;
 
 	return ((struct iwl_station_priv *)sta->drv_priv)->sta_id;
-}
-
-/**
- * iwl_sta_id_or_broadcast - return sta_id or broadcast sta
- * @priv: iwl priv
- * @context: the current context
- * @sta: mac80211 station
- *
- * In certain circumstances mac80211 passes a station pointer
- * that may be %NULL, for example during TX or key setup. In
- * that case, we need to use the broadcast station, so this
- * inline wraps that pattern.
- */
-static inline int iwl_sta_id_or_broadcast(struct iwl_priv *priv,
-					  struct iwl_rxon_context *context,
-					  struct ieee80211_sta *sta)
-{
-	int sta_id;
-
-	if (!sta)
-		return context->bcast_sta_id;
-
-	sta_id = iwl_sta_id(sta);
-
-	/*
-	 * mac80211 should not be passing a partially
-	 * initialised station!
-	 */
-	WARN_ON(sta_id == IWL_INVALID_STATION);
-
-	return sta_id;
 }
 
 int iwlagn_alloc_bcast_station(struct iwl_priv *priv,
@@ -338,7 +312,6 @@ static inline __le32 iwl_hw_set_rate_n_flags(u8 rate, u32 flags)
 }
 
 /* eeprom */
-void iwl_eeprom_enhanced_txpower(struct iwl_priv *priv);
 void iwl_eeprom_get_mac(const struct iwl_shared *shrd, u8 *mac);
 
 extern int iwl_alive_start(struct iwl_priv *priv);
@@ -387,52 +360,51 @@ static inline void iwl_print_rx_config_cmd(struct iwl_priv *priv,
 
 /* status checks */
 
-static inline int iwl_is_ready(struct iwl_shared *shrd)
+static inline int iwl_is_ready(struct iwl_priv *priv)
 {
 	/* The adapter is 'ready' if READY and GEO_CONFIGURED bits are
 	 * set but EXIT_PENDING is not */
-	return test_bit(STATUS_READY, &shrd->status) &&
-	       test_bit(STATUS_GEO_CONFIGURED, &shrd->status) &&
-	       !test_bit(STATUS_EXIT_PENDING, &shrd->status);
+	return test_bit(STATUS_READY, &priv->status) &&
+	       test_bit(STATUS_GEO_CONFIGURED, &priv->status) &&
+	       !test_bit(STATUS_EXIT_PENDING, &priv->status);
 }
 
-static inline int iwl_is_alive(struct iwl_shared *shrd)
+static inline int iwl_is_alive(struct iwl_priv *priv)
 {
-	return test_bit(STATUS_ALIVE, &shrd->status);
+	return test_bit(STATUS_ALIVE, &priv->status);
 }
 
-static inline int iwl_is_init(struct iwl_shared *shrd)
+static inline int iwl_is_rfkill(struct iwl_priv *priv)
 {
-	return test_bit(STATUS_INIT, &shrd->status);
+	return test_bit(STATUS_RF_KILL_HW, &priv->status);
 }
 
-static inline int iwl_is_rfkill_hw(struct iwl_shared *shrd)
+static inline int iwl_is_ctkill(struct iwl_priv *priv)
 {
-	return test_bit(STATUS_RF_KILL_HW, &shrd->status);
+	return test_bit(STATUS_CT_KILL, &priv->status);
 }
 
-static inline int iwl_is_rfkill(struct iwl_shared *shrd)
+static inline int iwl_is_ready_rf(struct iwl_priv *priv)
 {
-	return iwl_is_rfkill_hw(shrd);
-}
-
-static inline int iwl_is_ctkill(struct iwl_shared *shrd)
-{
-	return test_bit(STATUS_CT_KILL, &shrd->status);
-}
-
-static inline int iwl_is_ready_rf(struct iwl_shared *shrd)
-{
-	if (iwl_is_rfkill(shrd))
+	if (iwl_is_rfkill(priv))
 		return 0;
 
-	return iwl_is_ready(shrd);
+	return iwl_is_ready(priv);
+}
+
+static inline void iwl_dvm_set_pmi(struct iwl_priv *priv, bool state)
+{
+	if (state)
+		set_bit(STATUS_POWER_PMI, &priv->status);
+	else
+		clear_bit(STATUS_POWER_PMI, &priv->status);
+	iwl_trans_set_pmi(trans(priv), state);
 }
 
 #ifdef CONFIG_IWLWIFI_DEBUG
 #define IWL_DEBUG_QUIET_RFKILL(m, fmt, args...)	\
 do {									\
-	if (!iwl_is_rfkill((m)->shrd))					\
+	if (!iwl_is_rfkill((m)))					\
 		IWL_ERR(m, fmt, ##args);				\
 	else								\
 		__iwl_err(trans(m)->dev, true,				\
@@ -442,7 +414,7 @@ do {									\
 #else
 #define IWL_DEBUG_QUIET_RFKILL(m, fmt, args...)	\
 do {									\
-	if (!iwl_is_rfkill((m)->shrd))					\
+	if (!iwl_is_rfkill((m)))					\
 		IWL_ERR(m, fmt, ##args);				\
 	else								\
 		__iwl_err(trans(m)->dev, true, true, fmt, ##args);	\

@@ -7,7 +7,9 @@
 
 static inline void check_sdata_in_driver(struct ieee80211_sub_if_data *sdata)
 {
-	WARN_ON(!(sdata->flags & IEEE80211_SDATA_IN_DRIVER));
+	WARN(!(sdata->flags & IEEE80211_SDATA_IN_DRIVER),
+	     "%s:  Failed check-sdata-in-driver check, flags: 0x%x\n",
+	     sdata->dev->name, sdata->flags);
 }
 
 static inline struct ieee80211_sub_if_data *
@@ -165,41 +167,6 @@ static inline void drv_bss_info_changed(struct ieee80211_local *local,
 	trace_drv_bss_info_changed(local, sdata, info, changed);
 	if (local->ops->bss_info_changed)
 		local->ops->bss_info_changed(&local->hw, &sdata->vif, info, changed);
-	trace_drv_return_void(local);
-}
-
-static inline int drv_tx_sync(struct ieee80211_local *local,
-			      struct ieee80211_sub_if_data *sdata,
-			      const u8 *bssid,
-			      enum ieee80211_tx_sync_type type)
-{
-	int ret = 0;
-
-	might_sleep();
-
-	check_sdata_in_driver(sdata);
-
-	trace_drv_tx_sync(local, sdata, bssid, type);
-	if (local->ops->tx_sync)
-		ret = local->ops->tx_sync(&local->hw, &sdata->vif,
-					  bssid, type);
-	trace_drv_return_int(local, ret);
-	return ret;
-}
-
-static inline void drv_finish_tx_sync(struct ieee80211_local *local,
-				      struct ieee80211_sub_if_data *sdata,
-				      const u8 *bssid,
-				      enum ieee80211_tx_sync_type type)
-{
-	might_sleep();
-
-	check_sdata_in_driver(sdata);
-
-	trace_drv_finish_tx_sync(local, sdata, bssid, type);
-	if (local->ops->finish_tx_sync)
-		local->ops->finish_tx_sync(&local->hw, &sdata->vif,
-					   bssid, type);
 	trace_drv_return_void(local);
 }
 

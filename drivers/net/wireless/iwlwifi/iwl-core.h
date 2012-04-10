@@ -77,12 +77,6 @@ struct iwl_cmd;
 struct iwl_lib_ops {
 	/* set hw dependent parameters */
 	void (*set_hw_params)(struct iwl_priv *priv);
-	/* setup BT Rx handler */
-	void (*bt_rx_handler_setup)(struct iwl_priv *priv);
-	/* setup BT related deferred work */
-	void (*bt_setup_deferred_work)(struct iwl_priv *priv);
-	/* cancel deferred work */
-	void (*cancel_deferred_work)(struct iwl_priv *priv);
 	int (*set_channel_switch)(struct iwl_priv *priv,
 				  struct ieee80211_channel_switch *ch_switch);
 	/* device specific configuration */
@@ -95,46 +89,16 @@ struct iwl_lib_ops {
 	void (*temperature)(struct iwl_priv *priv);
 };
 
-/*
- * @advanced_bt_coexist: support advanced bt coexist
- * @bt_init_traffic_load: specify initial bt traffic load
- * @bt_prio_boost: default bt priority boost value
- * @agg_time_limit: maximum number of uSec in aggregation
- * @bt_sco_disable: uCode should not response to BT in SCO/ESCO mode
- */
-struct iwl_bt_params {
-	bool advanced_bt_coexist;
-	u8 bt_init_traffic_load;
-	u8 bt_prio_boost;
-	u16 agg_time_limit;
-	bool bt_sco_disable;
-	bool bt_session_2;
-};
-/*
- * @use_rts_for_aggregation: use rts/cts protection for HT traffic
- */
-struct iwl_ht_params {
-	const bool ht_greenfield_support; /* if used set to true */
-	bool use_rts_for_aggregation;
-	enum ieee80211_smps_mode smps_mode;
-};
-
 /***************************
  *   L i b                 *
  ***************************/
 
-void iwl_set_rxon_hwcrypto(struct iwl_priv *priv, struct iwl_rxon_context *ctx,
-			   int hw_decrypt);
-int iwl_check_rxon_cmd(struct iwl_priv *priv, struct iwl_rxon_context *ctx);
-int iwl_full_rxon_required(struct iwl_priv *priv, struct iwl_rxon_context *ctx);
 void iwl_set_rxon_channel(struct iwl_priv *priv, struct ieee80211_channel *ch,
 			 struct iwl_rxon_context *ctx);
 void iwl_set_flags_for_band(struct iwl_priv *priv,
 			    struct iwl_rxon_context *ctx,
 			    enum ieee80211_band band,
 			    struct ieee80211_vif *vif);
-u8 iwl_get_single_channel_number(struct iwl_priv *priv,
-				  enum ieee80211_band band);
 void iwl_set_rxon_ht(struct iwl_priv *priv, struct iwl_ht_config *ht_conf);
 bool iwl_is_ht40_tx_allowed(struct iwl_priv *priv,
 			    struct iwl_rxon_context *ctx,
@@ -234,18 +198,9 @@ u32 iwl_usecs_to_beacons(struct iwl_priv *priv, u32 usec, u32 beacon_interval);
 __le32 iwl_add_beacon_time(struct iwl_priv *priv, u32 base,
 			   u32 addon, u32 beacon_interval);
 
-
-/*****************************************************
-*  GEOS
-******************************************************/
-int iwl_init_geos(struct iwl_priv *priv);
-void iwl_free_geos(struct iwl_priv *priv);
-
 extern void iwl_send_bt_config(struct iwl_priv *priv);
 extern int iwl_send_statistics_request(struct iwl_priv *priv,
 				       u8 flags, bool clear);
-
-int iwl_send_rxon_timing(struct iwl_priv *priv, struct iwl_rxon_context *ctx);
 
 static inline const struct ieee80211_supported_band *iwl_get_hw_mode(
 			struct iwl_priv *priv, enum ieee80211_band band)

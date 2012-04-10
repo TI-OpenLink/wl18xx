@@ -13,6 +13,7 @@
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
 #include <linux/list.h>
+#include <linux/bug.h>
 #include <linux/netlink.h>
 #include <linux/skbuff.h>
 #include <linux/nl80211.h>
@@ -619,8 +620,10 @@ struct sta_bss_parameters {
  * @llid: mesh local link id
  * @plid: mesh peer link id
  * @plink_state: mesh peer link state
- * @signal: signal strength of last received packet in dBm
- * @signal_avg: signal strength average in dBm
+ * @signal: the signal strength, type depends on the wiphy's signal_type
+	NOTE: For CFG80211_SIGNAL_TYPE_MBM, value is expressed in _dBm_.
+ * @signal_avg: avg signal strength, type depends on the wiphy's signal_type
+	NOTE: For CFG80211_SIGNAL_TYPE_MBM, value is expressed in _dBm_.
  * @txrate: current unicast bitrate from this station
  * @rxrate: current unicast bitrate to this station
  * @rx_packets: packets received from this station
@@ -1203,6 +1206,8 @@ struct cfg80211_ibss_params {
  * @key_idx: index of WEP key for shared key authentication
  * @key: WEP key for shared key authentication
  * @flags:  See &enum cfg80211_assoc_req_flags
+ * @bg_scan_period:  Background scan period in seconds
+ *   or -1 to indicate that default value is to be used.
  * @ht_capa:  HT Capabilities over-rides.  Values set in ht_capa_mask
  *   will be used in ht_capa.  Un-supported values will be ignored.
  * @ht_capa_mask:  The bits of ht_capa which are to be used.
@@ -1220,6 +1225,7 @@ struct cfg80211_connect_params {
 	const u8 *key;
 	u8 key_len, key_idx;
 	u32 flags;
+	int bg_scan_period;
 	struct ieee80211_ht_cap ht_capa;
 	struct ieee80211_ht_cap ht_capa_mask;
 };
@@ -2694,7 +2700,7 @@ cfg80211_inform_bss_frame(struct wiphy *wiphy,
  * @wiphy: the wiphy reporting the BSS
  * @channel: The channel the frame was received on
  * @bssid: the BSSID of the BSS
- * @timestamp: the TSF timestamp sent by the peer
+ * @tsf: the TSF sent by the peer in the beacon/probe response (or 0)
  * @capability: the capability field sent by the peer
  * @beacon_interval: the beacon interval announced by the peer
  * @ie: additional IEs sent by the peer
@@ -2710,9 +2716,8 @@ cfg80211_inform_bss_frame(struct wiphy *wiphy,
 struct cfg80211_bss * __must_check
 cfg80211_inform_bss(struct wiphy *wiphy,
 		    struct ieee80211_channel *channel,
-		    const u8 *bssid,
-		    u64 timestamp, u16 capability, u16 beacon_interval,
-		    const u8 *ie, size_t ielen,
+		    const u8 *bssid, u64 tsf, u16 capability,
+		    u16 beacon_interval, const u8 *ie, size_t ielen,
 		    s32 signal, gfp_t gfp);
 
 struct cfg80211_bss *cfg80211_get_bss(struct wiphy *wiphy,

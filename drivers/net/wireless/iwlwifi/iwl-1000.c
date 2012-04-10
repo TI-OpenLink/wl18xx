@@ -96,9 +96,8 @@ static void iwl1000_nic_config(struct iwl_priv *priv)
 				~APMG_SVR_VOLTAGE_CONFIG_BIT_MSK);
 }
 
-static struct iwl_sensitivity_ranges iwl1000_sensitivity = {
+static const struct iwl_sensitivity_ranges iwl1000_sensitivity = {
 	.min_nrg_cck = 95,
-	.max_nrg_cck = 0, /* not used, set to 0 */
 	.auto_corr_min_ofdm = 90,
 	.auto_corr_min_ofdm_mrc = 170,
 	.auto_corr_min_ofdm_x1 = 120,
@@ -123,8 +122,6 @@ static struct iwl_sensitivity_ranges iwl1000_sensitivity = {
 
 static void iwl1000_hw_set_hw_params(struct iwl_priv *priv)
 {
-	hw_params(priv).max_txq_num = cfg(priv)->base_params->num_of_queues;
-
 	hw_params(priv).ht40_channel =  BIT(IEEE80211_BAND_2GHZ);
 
 	hw_params(priv).tx_chains_num =
@@ -160,7 +157,6 @@ static struct iwl_lib_ops iwl1000_lib = {
 
 static const struct iwl_base_params iwl1000_base_params = {
 	.num_of_queues = IWLAGN_NUM_QUEUES,
-	.num_of_ampdu_queues = IWLAGN_NUM_AMPDU_QUEUES,
 	.eeprom_size = OTP_LOW_IMAGE_SIZE,
 	.pll_cfg_val = CSR50_ANA_PLL_CFG_VAL,
 	.max_ll_items = OTP_MAX_LL_ITEMS_1000,

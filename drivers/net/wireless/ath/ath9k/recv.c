@@ -982,8 +982,6 @@ static int ath9k_rx_skb_preprocess(struct ath_common *common,
 {
 	struct ath_hw *ah = common->ah;
 
-	memset(rx_status, 0, sizeof(struct ieee80211_rx_status));
-
 	/*
 	 * everything but the rate is checked here, the rate check is done
 	 * separately to avoid doing two lookups for a rate for each frame.
@@ -1841,6 +1839,8 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (sc->sc_flags & SC_OP_RXFLUSH)
 			goto requeue_drop_frag;
 
+		memset(rxs, 0, sizeof(struct ieee80211_rx_status));
+
 		rxs->mactime = (tsf & ~0xffffffffULL) | rs.rs_tstamp;
 		if (rs.rs_tstamp > tsf_lower &&
 		    unlikely(rs.rs_tstamp - tsf_lower > 0x10000000))
@@ -1855,6 +1855,10 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (retval)
 			goto requeue_drop_frag;
 
+		if (rs.is_mybeacon) {
+			sc->hw_busy_count = 0;
+			ath_start_rx_poll(sc, 3);
+		}
 		/* Ensure we always have an skb to requeue once we are done
 		 * processing the current buffer's skb */
 		requeue_skb = ath_rxbuf_alloc(common, common->rx_bufsize, GFP_ATOMIC);
@@ -1913,12 +1917,12 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (sc->rx.frag) {
 			int space = skb->len - skb_tailroom(hdr_skb);
 
-			sc->rx.frag = NULL;
-
 			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
 				dev_kfree_skb(skb);
 				goto requeue_drop_frag;
 			}
+
+			sc->rx.frag = NULL;
 
 			skb_copy_from_linear_data(skb, skb_put(hdr_skb, skb->len),
 						  skb->len);

@@ -75,9 +75,8 @@ static void iwl5000_nic_config(struct iwl_priv *priv)
 				~APMG_PS_CTRL_EARLY_PWR_OFF_RESET_DIS);
 }
 
-static struct iwl_sensitivity_ranges iwl5000_sensitivity = {
+static const struct iwl_sensitivity_ranges iwl5000_sensitivity = {
 	.min_nrg_cck = 100,
-	.max_nrg_cck = 0, /* not used, set to 0 */
 	.auto_corr_min_ofdm = 90,
 	.auto_corr_min_ofdm_mrc = 170,
 	.auto_corr_min_ofdm_x1 = 105,
@@ -102,7 +101,6 @@ static struct iwl_sensitivity_ranges iwl5000_sensitivity = {
 
 static struct iwl_sensitivity_ranges iwl5150_sensitivity = {
 	.min_nrg_cck = 95,
-	.max_nrg_cck = 0, /* not used, set to 0 */
 	.auto_corr_min_ofdm = 90,
 	.auto_corr_min_ofdm_mrc = 170,
 	.auto_corr_min_ofdm_x1 = 105,
@@ -158,8 +156,6 @@ static void iwl5000_set_ct_threshold(struct iwl_priv *priv)
 
 static void iwl5000_hw_set_hw_params(struct iwl_priv *priv)
 {
-	hw_params(priv).max_txq_num = cfg(priv)->base_params->num_of_queues;
-
 	hw_params(priv).ht40_channel =  BIT(IEEE80211_BAND_2GHZ) |
 					BIT(IEEE80211_BAND_5GHZ);
 
@@ -176,8 +172,6 @@ static void iwl5000_hw_set_hw_params(struct iwl_priv *priv)
 
 static void iwl5150_hw_set_hw_params(struct iwl_priv *priv)
 {
-	hw_params(priv).max_txq_num = cfg(priv)->base_params->num_of_queues;
-
 	hw_params(priv).ht40_channel =  BIT(IEEE80211_BAND_2GHZ) |
 					BIT(IEEE80211_BAND_5GHZ);
 
@@ -314,7 +308,6 @@ static struct iwl_lib_ops iwl5150_lib = {
 static const struct iwl_base_params iwl5000_base_params = {
 	.eeprom_size = IWLAGN_EEPROM_IMG_SIZE,
 	.num_of_queues = IWLAGN_NUM_QUEUES,
-	.num_of_ampdu_queues = IWLAGN_NUM_AMPDU_QUEUES,
 	.pll_cfg_val = CSR50_ANA_PLL_CFG_VAL,
 	.led_compensation = 51,
 	.plcp_delta_threshold = IWL_MAX_PLCP_ERR_LONG_THRESHOLD_DEF,

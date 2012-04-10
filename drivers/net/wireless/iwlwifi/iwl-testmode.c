@@ -125,6 +125,8 @@ struct nla_policy iwl_testmode_gnl_msg_policy[IWL_TM_ATTR_MAX] = {
 	[IWL_TM_ATTR_FW_TYPE] = { .type = NLA_U32, },
 	[IWL_TM_ATTR_FW_INST_SIZE] = { .type = NLA_U32, },
 	[IWL_TM_ATTR_FW_DATA_SIZE] = { .type = NLA_U32, },
+
+	[IWL_TM_ATTR_ENABLE_NOTIFICATION] = {.type = NLA_FLAG, },
 };
 
 /*
@@ -183,7 +185,8 @@ static void iwl_testmode_ucode_rx_pkt(struct iwl_priv *priv,
 		return;
 	}
 	NLA_PUT_U32(skb, IWL_TM_ATTR_COMMAND, IWL_TM_CMD_DEV2APP_UCODE_RX_PKT);
-	NLA_PUT(skb, IWL_TM_ATTR_UCODE_RX_PKT, length, data);
+	/* the length doesn't include len_n_flags field, so add it manually */
+	NLA_PUT(skb, IWL_TM_ATTR_UCODE_RX_PKT, length + sizeof(__le32), data);
 	cfg80211_testmode_event(skb, GFP_ATOMIC);
 	return;
 
@@ -194,7 +197,7 @@ nla_put_failure:
 
 void iwl_testmode_init(struct iwl_priv *priv)
 {
-	priv->pre_rx_handler = iwl_testmode_ucode_rx_pkt;
+	priv->pre_rx_handler = NULL;
 	priv->testmode_trace.trace_enabled = false;
 	priv->testmode_mem.read_in_progress = false;
 }
@@ -417,10 +420,13 @@ nla_put_failure:
 static int iwl_testmode_cfg_init_calib(struct iwl_priv *priv)
 {
 	struct iwl_notification_wait calib_wait;
+	static const u8 calib_complete[] = {
+		CALIBRATION_COMPLETE_NOTIFICATION
+	};
 	int ret;
 
 	iwl_init_notification_wait(&priv->notif_wait, &calib_wait,
-				   CALIBRATION_COMPLETE_NOTIFICATION,
+				   calib_complete, ARRAY_SIZE(calib_complete),
 				   NULL, NULL);
 	ret = iwl_init_alive_start(priv);
 	if (ret) {
@@ -463,6 +469,7 @@ static int iwl_testmode_driver(struct ieee80211_hw *hw, struct nlattr **tb)
 	unsigned char *rsp_data_ptr = NULL;
 	int status = 0, rsp_data_len = 0;
 	u32 devid, inst_size = 0, data_size = 0;
+	const struct fw_img *img;
 
 	switch (nla_get_u32(tb[IWL_TM_ATTR_COMMAND])) {
 	case IWL_TM_CMD_APP2DEV_GET_DEVICENAME:
@@ -491,6 +498,7 @@ static int iwl_testmode_driver(struct ieee80211_hw *hw, struct nlattr **tb)
 
 	case IWL_TM_CMD_APP2DEV_CFG_INIT_CALIB:
 		iwl_testmode_cfg_init_calib(priv);
+		priv->ucode_loaded = false;
 		iwl_trans_stop_device(trans);
 		break;
 
@@ -509,6 +517,7 @@ static int iwl_testmode_driver(struct ieee80211_hw *hw, struct nlattr **tb)
 
 	case IWL_TM_CMD_APP2DEV_LOAD_WOWLAN_FW:
 		iwl_scan_cancel_timeout(priv, 200);
+		priv->ucode_loaded = false;
 		iwl_trans_stop_device(trans);
 		status = iwl_load_ucode_wait_alive(priv, IWL_UCODE_WOWLAN);
 		if (status) {
@@ -588,27 +597,15 @@ static int iwl_testmode_driver(struct ieee80211_hw *hw, struct nlattr **tb)
 			IWL_ERR(priv, "Memory allocation fail\n");
 			return -ENOMEM;
 		}
-		switch (priv->shrd->ucode_type) {
-		case IWL_UCODE_REGULAR:
-			inst_size = priv->fw->ucode_rt.code.len;
-			data_size = priv->fw->ucode_rt.data.len;
-			break;
-		case IWL_UCODE_INIT:
-			inst_size = priv->fw->ucode_init.code.len;
-			data_size = priv->fw->ucode_init.data.len;
-			break;
-		case IWL_UCODE_WOWLAN:
-			inst_size = priv->fw->ucode_wowlan.code.len;
-			data_size = priv->fw->ucode_wowlan.data.len;
-			break;
-		case IWL_UCODE_NONE:
+		if (!priv->ucode_loaded) {
 			IWL_ERR(priv, "No uCode has not been loaded\n");
-			break;
-		default:
-			IWL_ERR(priv, "Unsupported uCode type\n");
-			break;
+			return -EINVAL;
+		} else {
+			img = &priv->fw->img[priv->cur_ucode];
+			inst_size = img->sec[IWL_UCODE_SECTION_INST].len;
+			data_size = img->sec[IWL_UCODE_SECTION_DATA].len;
 		}
-		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_TYPE, priv->shrd->ucode_type);
+		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_TYPE, priv->cur_ucode);
 		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_INST_SIZE, inst_size);
 		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_DATA_SIZE, data_size);
 		status = cfg80211_testmode_reply(skb);
@@ -713,7 +710,7 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
-static int iwl_testmode_trace_dump(struct ieee80211_hw *hw, struct nlattr **tb,
+static int iwl_testmode_trace_dump(struct ieee80211_hw *hw,
 				   struct sk_buff *skb,
 				   struct netlink_callback *cb)
 {
@@ -770,9 +767,13 @@ static int iwl_testmode_ownership(struct ieee80211_hw *hw, struct nlattr **tb)
 	}
 
 	owner = nla_get_u8(tb[IWL_TM_ATTR_UCODE_OWNER]);
-	if ((owner == IWL_OWNERSHIP_DRIVER) || (owner == IWL_OWNERSHIP_TM))
+	if (owner == IWL_OWNERSHIP_DRIVER) {
 		priv->ucode_owner = owner;
-	else {
+		priv->pre_rx_handler = NULL;
+	} else if (owner == IWL_OWNERSHIP_TM) {
+		priv->pre_rx_handler = iwl_testmode_ucode_rx_pkt;
+		priv->ucode_owner = owner;
+	} else {
 		IWL_ERR(priv, "Invalid owner\n");
 		return -EINVAL;
 	}
@@ -905,9 +906,9 @@ static int iwl_testmode_indirect_mem(struct ieee80211_hw *hw,
 	}
 }
 
-static int iwl_testmode_buffer_dump(struct ieee80211_hw *hw, struct nlattr **tb,
-				   struct sk_buff *skb,
-				   struct netlink_callback *cb)
+static int iwl_testmode_buffer_dump(struct ieee80211_hw *hw,
+				    struct sk_buff *skb,
+				    struct netlink_callback *cb)
 {
 	struct iwl_priv *priv = IWL_MAC80211_GET_DVM(hw);
 	int idx, length;
@@ -935,6 +936,20 @@ static int iwl_testmode_buffer_dump(struct ieee80211_hw *hw, struct nlattr **tb,
 
  nla_put_failure:
 	return -ENOBUFS;
+}
+
+static int iwl_testmode_notifications(struct ieee80211_hw *hw,
+	struct nlattr **tb)
+{
+	struct iwl_priv *priv = IWL_MAC80211_GET_DVM(hw);
+	bool enable;
+
+	enable = nla_get_flag(tb[IWL_TM_ATTR_ENABLE_NOTIFICATION]);
+	if (enable)
+		priv->pre_rx_handler = iwl_testmode_ucode_rx_pkt;
+	else
+		priv->pre_rx_handler = NULL;
+	return 0;
 }
 
 
@@ -1022,6 +1037,12 @@ int iwlagn_mac_testmode_cmd(struct ieee80211_hw *hw, void *data, int len)
 		result = iwl_testmode_indirect_mem(hw, tb);
 		break;
 
+	case IWL_TM_CMD_APP2DEV_NOTIFICATIONS:
+		IWL_DEBUG_INFO(priv, "testmode notifications cmd "
+			"to driver\n");
+		result = iwl_testmode_notifications(hw, tb);
+		break;
+
 	default:
 		IWL_ERR(priv, "Unknown testmode command\n");
 		result = -ENOSYS;
@@ -1067,11 +1088,11 @@ int iwlagn_mac_testmode_dump(struct ieee80211_hw *hw, struct sk_buff *skb,
 	switch (cmd) {
 	case IWL_TM_CMD_APP2DEV_READ_TRACE:
 		IWL_DEBUG_INFO(priv, "uCode trace cmd to driver\n");
-		result = iwl_testmode_trace_dump(hw, tb, skb, cb);
+		result = iwl_testmode_trace_dump(hw, skb, cb);
 		break;
 	case IWL_TM_CMD_APP2DEV_INDIRECT_BUFFER_DUMP:
 		IWL_DEBUG_INFO(priv, "testmode sram dump cmd to driver\n");
-		result = iwl_testmode_buffer_dump(hw, tb, skb, cb);
+		result = iwl_testmode_buffer_dump(hw, skb, cb);
 		break;
 	default:
 		result = -EINVAL;

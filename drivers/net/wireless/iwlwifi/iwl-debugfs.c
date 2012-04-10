@@ -84,17 +84,11 @@ static ssize_t iwl_dbgfs_##name##_write(struct file *file,              \
 					size_t count, loff_t *ppos);
 
 
-static int iwl_dbgfs_open_file_generic(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
 #define DEBUGFS_READ_FILE_OPS(name)                                     \
 	DEBUGFS_READ_FUNC(name);                                        \
 static const struct file_operations iwl_dbgfs_##name##_ops = {          \
 	.read = iwl_dbgfs_##name##_read,                       		\
-	.open = iwl_dbgfs_open_file_generic,                    	\
+	.open = simple_open,						\
 	.llseek = generic_file_llseek,					\
 };
 
@@ -102,7 +96,7 @@ static const struct file_operations iwl_dbgfs_##name##_ops = {          \
 	DEBUGFS_WRITE_FUNC(name);                                       \
 static const struct file_operations iwl_dbgfs_##name##_ops = {          \
 	.write = iwl_dbgfs_##name##_write,                              \
-	.open = iwl_dbgfs_open_file_generic,                    	\
+	.open = simple_open,						\
 	.llseek = generic_file_llseek,					\
 };
 
@@ -113,7 +107,7 @@ static const struct file_operations iwl_dbgfs_##name##_ops = {          \
 static const struct file_operations iwl_dbgfs_##name##_ops = {          \
 	.write = iwl_dbgfs_##name##_write,                              \
 	.read = iwl_dbgfs_##name##_read,                                \
-	.open = iwl_dbgfs_open_file_generic,                            \
+	.open = simple_open,						\
 	.llseek = generic_file_llseek,					\
 };
 
@@ -230,15 +224,18 @@ static ssize_t iwl_dbgfs_sram_read(struct file *file,
 	int pos = 0;
 	int sram;
 	struct iwl_priv *priv = file->private_data;
+	const struct fw_img *img;
 	size_t bufsz;
 
 	/* default is to dump the entire data segment */
 	if (!priv->dbgfs_sram_offset && !priv->dbgfs_sram_len) {
 		priv->dbgfs_sram_offset = 0x800000;
-		if (priv->shrd->ucode_type == IWL_UCODE_INIT)
-			priv->dbgfs_sram_len = priv->fw->ucode_init.data.len;
-		else
-			priv->dbgfs_sram_len = priv->fw->ucode_rt.data.len;
+		if (!priv->ucode_loaded) {
+			IWL_ERR(priv, "No uCode has been loadded.\n");
+			return -EINVAL;
+		}
+		img = &priv->fw->img[priv->cur_ucode];
+		priv->dbgfs_sram_len = img->sec[IWL_UCODE_SECTION_DATA].len;
 	}
 	len = priv->dbgfs_sram_len;
 
@@ -335,13 +332,14 @@ static ssize_t iwl_dbgfs_wowlan_sram_read(struct file *file,
 					  size_t count, loff_t *ppos)
 {
 	struct iwl_priv *priv = file->private_data;
+	const struct fw_img *img = &priv->fw->img[IWL_UCODE_WOWLAN];
 
 	if (!priv->wowlan_sram)
 		return -ENODATA;
 
 	return simple_read_from_buffer(user_buf, count, ppos,
 				       priv->wowlan_sram,
-				       priv->fw->ucode_wowlan.data.len);
+				       img->sec[IWL_UCODE_SECTION_DATA].len);
 }
 static ssize_t iwl_dbgfs_stations_read(struct file *file, char __user *user_buf,
 					size_t count, loff_t *ppos)
@@ -371,14 +369,19 @@ static ssize_t iwl_dbgfs_stations_read(struct file *file, char __user *user_buf,
 				 i, station->sta.sta.addr,
 				 station->sta.station_flags_msk);
 		pos += scnprintf(buf + pos, bufsz - pos,
-				"TID\tseq_num\trate_n_flags\n");
+				"TID seqno  next_rclmd "
+				"rate_n_flags state txq\n");
 
 		for (j = 0; j < IWL_MAX_TID_COUNT; j++) {
 			tid_data = &priv->tid_data[i][j];
 			pos += scnprintf(buf + pos, bufsz - pos,
-				"%d:\t%#x\t%#x",
+				"%d:  0x%.4x 0x%.4x     0x%.8x   "
+				"%d     %.2d",
 				j, tid_data->seq_number,
-				tid_data->agg.rate_n_flags);
+				tid_data->next_reclaimed,
+				tid_data->agg.rate_n_flags,
+				tid_data->agg.state,
+				tid_data->agg.txq_id);
 
 			if (tid_data->agg.wait_for_ba)
 				pos += scnprintf(buf + pos, bufsz - pos,
@@ -454,7 +457,7 @@ static ssize_t iwl_dbgfs_channels_read(struct file *file, char __user *user_buf,
 	char *buf;
 	ssize_t ret;
 
-	if (!test_bit(STATUS_GEO_CONFIGURED, &priv->shrd->status))
+	if (!test_bit(STATUS_GEO_CONFIGURED, &priv->status))
 		return -EAGAIN;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
@@ -525,36 +528,30 @@ static ssize_t iwl_dbgfs_status_read(struct file *file,
 
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_HCMD_ACTIVE:\t %d\n",
 		test_bit(STATUS_HCMD_ACTIVE, &priv->shrd->status));
-	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_INT_ENABLED:\t %d\n",
-		test_bit(STATUS_INT_ENABLED, &priv->shrd->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_RF_KILL_HW:\t %d\n",
-		test_bit(STATUS_RF_KILL_HW, &priv->shrd->status));
+		test_bit(STATUS_RF_KILL_HW, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_CT_KILL:\t\t %d\n",
-		test_bit(STATUS_CT_KILL, &priv->shrd->status));
-	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_INIT:\t\t %d\n",
-		test_bit(STATUS_INIT, &priv->shrd->status));
+		test_bit(STATUS_CT_KILL, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_ALIVE:\t\t %d\n",
-		test_bit(STATUS_ALIVE, &priv->shrd->status));
+		test_bit(STATUS_ALIVE, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_READY:\t\t %d\n",
-		test_bit(STATUS_READY, &priv->shrd->status));
-	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_TEMPERATURE:\t %d\n",
-		test_bit(STATUS_TEMPERATURE, &priv->shrd->status));
+		test_bit(STATUS_READY, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_GEO_CONFIGURED:\t %d\n",
-		test_bit(STATUS_GEO_CONFIGURED, &priv->shrd->status));
+		test_bit(STATUS_GEO_CONFIGURED, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_EXIT_PENDING:\t %d\n",
-		test_bit(STATUS_EXIT_PENDING, &priv->shrd->status));
+		test_bit(STATUS_EXIT_PENDING, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_STATISTICS:\t %d\n",
-		test_bit(STATUS_STATISTICS, &priv->shrd->status));
+		test_bit(STATUS_STATISTICS, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_SCANNING:\t %d\n",
-		test_bit(STATUS_SCANNING, &priv->shrd->status));
+		test_bit(STATUS_SCANNING, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_SCAN_ABORTING:\t %d\n",
-		test_bit(STATUS_SCAN_ABORTING, &priv->shrd->status));
+		test_bit(STATUS_SCAN_ABORTING, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_SCAN_HW:\t\t %d\n",
-		test_bit(STATUS_SCAN_HW, &priv->shrd->status));
+		test_bit(STATUS_SCAN_HW, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_POWER_PMI:\t %d\n",
-		test_bit(STATUS_POWER_PMI, &priv->shrd->status));
+		test_bit(STATUS_POWER_PMI, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_FW_ERROR:\t %d\n",
-		test_bit(STATUS_FW_ERROR, &priv->shrd->status));
+		test_bit(STATUS_FW_ERROR, &priv->status));
 	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
 }
 
@@ -756,7 +753,7 @@ static ssize_t iwl_dbgfs_sleep_level_override_write(struct file *file,
 	if (value != -1 && (value < 0 || value >= IWL_POWER_NUM))
 		return -EINVAL;
 
-	if (!iwl_is_ready_rf(priv->shrd))
+	if (!iwl_is_ready_rf(priv))
 		return -EAGAIN;
 
 	priv->power_data.debug_sleep_level_override = value;
@@ -834,7 +831,7 @@ static ssize_t iwl_dbgfs_traffic_log_read(struct file *file,
 
 	char *buf;
 	int bufsz = ((IWL_TRAFFIC_ENTRIES * IWL_TRAFFIC_ENTRY_SIZE * 64) * 2) +
-		(hw_params(priv).max_txq_num * 32 * 8) + 400;
+		(cfg(priv)->base_params->num_of_queues * 32 * 8) + 400;
 	const u8 *ptr;
 	ssize_t ret;
 
@@ -951,7 +948,7 @@ static ssize_t iwl_dbgfs_ucode_rx_stats_read(struct file *file,
 	struct statistics_rx_non_phy *delta_general, *max_general;
 	struct statistics_rx_ht_phy *ht, *accum_ht, *delta_ht, *max_ht;
 
-	if (!iwl_is_alive(priv->shrd))
+	if (!iwl_is_alive(priv))
 		return -EAGAIN;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
@@ -1380,7 +1377,7 @@ static ssize_t iwl_dbgfs_ucode_tx_stats_read(struct file *file,
 	ssize_t ret;
 	struct statistics_tx *tx, *accum_tx, *delta_tx, *max_tx;
 
-	if (!iwl_is_alive(priv->shrd))
+	if (!iwl_is_alive(priv))
 		return -EAGAIN;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
@@ -1582,7 +1579,7 @@ static ssize_t iwl_dbgfs_ucode_general_stats_read(struct file *file,
 	struct statistics_dbg *dbg, *accum_dbg, *delta_dbg, *max_dbg;
 	struct statistics_div *div, *accum_div, *delta_div, *max_div;
 
-	if (!iwl_is_alive(priv->shrd))
+	if (!iwl_is_alive(priv))
 		return -EAGAIN;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
@@ -1701,7 +1698,7 @@ static ssize_t iwl_dbgfs_ucode_bt_stats_read(struct file *file,
 	ssize_t ret;
 	struct statistics_bt_activity *bt, *accum_bt;
 
-	if (!iwl_is_alive(priv->shrd))
+	if (!iwl_is_alive(priv))
 		return -EAGAIN;
 
 	if (!priv->bt_enable_flag)
@@ -1794,7 +1791,7 @@ static ssize_t iwl_dbgfs_reply_tx_error_read(struct file *file,
 		(sizeof(struct reply_agg_tx_error_statistics) * 24) + 200;
 	ssize_t ret;
 
-	if (!iwl_is_alive(priv->shrd))
+	if (!iwl_is_alive(priv))
 		return -EAGAIN;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
@@ -2152,7 +2149,7 @@ static ssize_t iwl_dbgfs_ucode_tracing_write(struct file *file,
 
 	if (trace) {
 		priv->event_log.ucode_trace = true;
-		if (iwl_is_alive(priv->shrd)) {
+		if (iwl_is_alive(priv)) {
 			/* start collecting data now */
 			mod_timer(&priv->ucode_trace, jiffies);
 		}
@@ -2342,7 +2339,7 @@ static ssize_t iwl_dbgfs_txfifo_flush_write(struct file *file,
 	if (sscanf(buf, "%d", &flush) != 1)
 		return -EINVAL;
 
-	if (iwl_is_rfkill(priv->shrd))
+	if (iwl_is_rfkill(priv))
 		return -EFAULT;
 
 	iwlagn_dev_txfifo_flush(priv, IWL_DROP_ALL);
@@ -2481,6 +2478,44 @@ static ssize_t iwl_dbgfs_echo_test_write(struct file *file,
 	return count;
 }
 
+static ssize_t iwl_dbgfs_log_event_read(struct file *file,
+					 char __user *user_buf,
+					 size_t count, loff_t *ppos)
+{
+	struct iwl_priv *priv = file->private_data;
+	char *buf;
+	int pos = 0;
+	ssize_t ret = -ENOMEM;
+
+	ret = pos = iwl_dump_nic_event_log(priv, true, &buf, true);
+	if (buf) {
+		ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+		kfree(buf);
+	}
+	return ret;
+}
+
+static ssize_t iwl_dbgfs_log_event_write(struct file *file,
+					const char __user *user_buf,
+					size_t count, loff_t *ppos)
+{
+	struct iwl_priv *priv = file->private_data;
+	u32 event_log_flag;
+	char buf[8];
+	int buf_size;
+
+	memset(buf, 0, sizeof(buf));
+	buf_size = min(count, sizeof(buf) -  1);
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	if (sscanf(buf, "%d", &event_log_flag) != 1)
+		return -EFAULT;
+	if (event_log_flag == 1)
+		iwl_dump_nic_event_log(priv, true, NULL, false);
+
+	return count;
+}
+
 DEBUGFS_READ_FILE_OPS(rx_statistics);
 DEBUGFS_READ_FILE_OPS(tx_statistics);
 DEBUGFS_READ_WRITE_FILE_OPS(traffic_log);
@@ -2505,6 +2540,7 @@ DEBUGFS_READ_FILE_OPS(bt_traffic);
 DEBUGFS_READ_WRITE_FILE_OPS(protection_mode);
 DEBUGFS_READ_FILE_OPS(reply_tx_error);
 DEBUGFS_WRITE_FILE_OPS(echo_test);
+DEBUGFS_READ_WRITE_FILE_OPS(log_event);
 
 /*
  * Create the debugfs files and directories
@@ -2568,6 +2604,8 @@ int iwl_dbgfs_register(struct iwl_priv *priv, const char *name)
 	DEBUGFS_ADD_FILE(rxon_filter_flags, dir_debug, S_IWUSR);
 	DEBUGFS_ADD_FILE(wd_timeout, dir_debug, S_IWUSR);
 	DEBUGFS_ADD_FILE(echo_test, dir_debug, S_IWUSR);
+	DEBUGFS_ADD_FILE(log_event, dir_debug, S_IWUSR | S_IRUSR);
+
 	if (iwl_advanced_bt_coexist(priv))
 		DEBUGFS_ADD_FILE(bt_traffic, dir_debug, S_IRUSR);
 

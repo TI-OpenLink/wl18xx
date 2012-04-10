@@ -392,23 +392,23 @@ int iwl_power_set_mode(struct iwl_priv *priv, struct iwl_powertable_cmd *cmd,
 	if (!memcmp(&priv->power_data.sleep_cmd, cmd, sizeof(*cmd)) && !force)
 		return 0;
 
-	if (!iwl_is_ready_rf(priv->shrd))
+	if (!iwl_is_ready_rf(priv))
 		return -EIO;
 
 	/* scan complete use sleep_power_next, need to be updated */
 	memcpy(&priv->power_data.sleep_cmd_next, cmd, sizeof(*cmd));
-	if (test_bit(STATUS_SCANNING, &priv->shrd->status) && !force) {
+	if (test_bit(STATUS_SCANNING, &priv->status) && !force) {
 		IWL_DEBUG_INFO(priv, "Defer power set mode while scanning\n");
 		return 0;
 	}
 
 	if (cmd->flags & IWL_POWER_DRIVER_ALLOW_SLEEP_MSK)
-		set_bit(STATUS_POWER_PMI, &priv->shrd->status);
+		iwl_dvm_set_pmi(priv, true);
 
 	ret = iwl_set_power(priv, cmd);
 	if (!ret) {
 		if (!(cmd->flags & IWL_POWER_DRIVER_ALLOW_SLEEP_MSK))
-			clear_bit(STATUS_POWER_PMI, &priv->shrd->status);
+			iwl_dvm_set_pmi(priv, false);
 
 		if (update_chains)
 			iwl_update_chain_flags(priv);
