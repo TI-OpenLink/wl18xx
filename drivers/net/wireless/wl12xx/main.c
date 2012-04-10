@@ -276,14 +276,21 @@ static struct conf_drv_settings default_conf = {
 		.split_scan_timeout           = 50000,
 	},
 	.sched_scan = {
-		/* sched_scan requires dwell times in TU instead of TU/1000 */
-		.min_dwell_time_active = 30,
-		.max_dwell_time_active = 60,
-		.dwell_time_passive    = 100,
-		.dwell_time_dfs        = 150,
-		.num_probe_reqs        = 2,
-		.rssi_threshold        = -90,
-		.snr_threshold         = 0,
+		/*
+		 * Values are in TU/1000 but since sched scan FW command
+		 * params are in TUs rounding up may occur.
+		 */
+		.base_dwell_time              = 7500,
+		.max_dwell_time_delta         = 22500,
+		/* based on 250bits per probe @1Mbps */
+		.dwell_time_delta_per_probe   = 2000,
+		/* based on 250bits per probe @6Mbps (plus a bit more) */
+		.dwell_time_delta_per_probe_5 = 350,
+		.dwell_time_passive           = 100000,
+		.dwell_time_dfs               = 150000,
+		.num_probe_reqs               = 2,
+		.rssi_threshold               = -90,
+		.snr_threshold                = 0,
 	},
 	.rf = {
 		.tx_per_channel_power_compensation_2 = {
@@ -1652,14 +1659,12 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl,
 {
 	int ret = 0;
 
-	mutex_lock(&wl->mutex);
-
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-		goto out_unlock;
+		goto out;
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
-		goto out_unlock;
+		goto out;
 
 	ret = wl1271_acx_wake_up_conditions(wl, wlvif,
 				    wl->conf.conn.suspend_wake_up_event,
@@ -1668,11 +1673,9 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl,
 	if (ret < 0)
 		wl1271_error("suspend: set wake up conditions failed: %d", ret);
 
-
 	wl1271_ps_elp_sleep(wl);
 
-out_unlock:
-	mutex_unlock(&wl->mutex);
+out:
 	return ret;
 
 }
@@ -1682,20 +1685,17 @@ static int wl1271_configure_suspend_ap(struct wl1271 *wl,
 {
 	int ret = 0;
 
-	mutex_lock(&wl->mutex);
-
 	if (!test_bit(WLVIF_FLAG_AP_STARTED, &wlvif->flags))
-		goto out_unlock;
+		goto out;
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
-		goto out_unlock;
+		goto out;
 
 	ret = wl1271_acx_beacon_filter_opt(wl, wlvif, true);
 
 	wl1271_ps_elp_sleep(wl);
-out_unlock:
-	mutex_unlock(&wl->mutex);
+out:
 	return ret;
 
 }
@@ -1720,10 +1720,9 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 	if ((!is_ap) && (!is_sta))
 		return;
 
-	mutex_lock(&wl->mutex);
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
-		goto out;
+		return;
 
 	if (is_sta) {
 		ret = wl1271_acx_wake_up_conditions(wl, wlvif,
@@ -1739,8 +1738,6 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 	}
 
 	wl1271_ps_elp_sleep(wl);
-out:
-	mutex_unlock(&wl->mutex);
 }
 
 static int wl1271_op_suspend(struct ieee80211_hw *hw,
@@ -1755,6 +1752,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 
 	wl1271_tx_flush(wl);
 
+	mutex_lock(&wl->mutex);
 	wl->wow_enabled = true;
 	wl12xx_for_each_wlvif(wl, wlvif) {
 		ret = wl1271_configure_suspend(wl, wlvif);
@@ -1763,6 +1761,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 			return ret;
 		}
 	}
+	mutex_unlock(&wl->mutex);
 	/* flush any remaining work */
 	wl1271_debug(DEBUG_MAC80211, "flushing remaining works");
 
@@ -1812,10 +1811,13 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 		wl1271_irq(0, wl);
 		wl1271_enable_interrupts(wl);
 	}
+
+	mutex_lock(&wl->mutex);
 	wl12xx_for_each_wlvif(wl, wlvif) {
 		wl1271_configure_resume(wl, wlvif);
 	}
 	wl->wow_enabled = false;
+	mutex_unlock(&wl->mutex);
 
 	return 0;
 }
@@ -2360,10 +2362,12 @@ deinit:
 		for (i = 0; i < CONF_TX_MAX_AC_COUNT; i++)
 			wl12xx_free_rate_policy(wl,
 						&wlvif->ap.ucast_rate_idx[i]);
+		wl1271_free_ap_keys(wl, wlvif);
 	}
 
+	dev_kfree_skb(wlvif->probereq);
+	wlvif->probereq = NULL;
 	wl12xx_tx_reset_wlvif(wl, wlvif);
-	wl1271_free_ap_keys(wl, wlvif);
 	if (wl->last_wlvif == wlvif)
 		wl->last_wlvif = NULL;
 	list_del(&wlvif->list);
@@ -3791,8 +3795,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
-	if (changed & BSS_CHANGED_BSSID &&
-	    (is_ibss || bss_conf->assoc))
+	if (changed & BSS_CHANGED_BSSID)
 		if (!is_zero_ether_addr(bss_conf->bssid)) {
 			ret = wl12xx_cmd_build_null_data(wl, wlvif);
 			if (ret < 0)
@@ -3801,9 +3804,6 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 			ret = wl1271_build_qos_null_data(wl, vif);
 			if (ret < 0)
 				goto out;
-
-			/* Need to update the BSSID (for filtering etc) */
-			do_join = true;
 		}
 
 	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_HT)) {
@@ -3830,6 +3830,7 @@ sta_not_found:
 			int ieoffset;
 			wlvif->aid = bss_conf->aid;
 			wlvif->beacon_int = bss_conf->beacon_int;
+			do_join = true;
 			set_assoc = true;
 
 			/*
@@ -5383,7 +5384,16 @@ static struct ieee80211_hw *wl1271_alloc_hw(void)
 		goto err_dummy_packet;
 	}
 
+	wl->mbox = kmalloc(sizeof(*wl->mbox), GFP_DMA);
+	if (!wl->mbox) {
+		ret = -ENOMEM;
+		goto err_fwlog;
+	}
+
 	return hw;
+
+err_fwlog:
+	free_page((unsigned long)wl->fwlog);
 
 err_dummy_packet:
 	dev_kfree_skb(wl->dummy_packet);
