@@ -19,6 +19,20 @@
 /* Data structures */
 
 /**
+ * enum mesh_config_capab_flags - mesh config IE capability flags
+ *
+ * @MESHCONF_CAPAB_ACCEPT_PLINKS: STA is willing to establish
+ * additional mesh peerings with other mesh STAs
+ * @MESHCONF_CAPAB_FORWARDING: the STA forwards MSDUs
+ * @MESHCONF_CAPAB_TBTT_ADJUSTING: TBTT adjustment procedure is ongoing
+ */
+enum mesh_config_capab_flags {
+	MESHCONF_CAPAB_ACCEPT_PLINKS = BIT(0),
+	MESHCONF_CAPAB_FORWARDING = BIT(3),
+	MESHCONF_CAPAB_TBTT_ADJUSTING = BIT(5),
+};
+
+/**
  * enum mesh_path_flags - mac80211 mesh path flags
  *
  *
@@ -56,12 +70,15 @@ enum mesh_path_flags {
  * @MESH_WORK_GROW_MPP_TABLE: the mesh portals table is full and needs to
  * grow
  * @MESH_WORK_ROOT: the mesh root station needs to send a frame
+ * @MESH_WORK_DRIFT_ADJUST: time to compensate for clock drift relative to other
+ * mesh nodes
  */
 enum mesh_deferred_task_flags {
 	MESH_WORK_HOUSEKEEPING,
 	MESH_WORK_GROW_MPATH_TABLE,
 	MESH_WORK_GROW_MPP_TABLE,
 	MESH_WORK_ROOT,
+	MESH_WORK_DRIFT_ADJUST,
 };
 
 /**
@@ -206,7 +223,7 @@ int ieee80211_new_mesh_header(struct ieee80211s_hdr *meshhdr,
 int mesh_rmc_check(u8 *addr, struct ieee80211s_hdr *mesh_hdr,
 		struct ieee80211_sub_if_data *sdata);
 bool mesh_matches_local(struct ieee802_11_elems *ie,
-		struct ieee80211_sub_if_data *sdata);
+			struct ieee80211_sub_if_data *sdata, u32 basic_rates);
 void mesh_ids_set_default(struct ieee80211_if_mesh *mesh);
 void mesh_mgmt_ies_add(struct sk_buff *skb,
 		struct ieee80211_sub_if_data *sdata);
@@ -234,6 +251,7 @@ void ieee80211_mesh_init_sdata(struct ieee80211_sub_if_data *sdata);
 void ieee80211_start_mesh(struct ieee80211_sub_if_data *sdata);
 void ieee80211_stop_mesh(struct ieee80211_sub_if_data *sdata);
 void ieee80211_mesh_root_setup(struct ieee80211_if_mesh *ifmsh);
+struct ieee80211_mesh_sync_ops *ieee80211_mesh_sync_ops_get(u8 method);
 
 /* Mesh paths */
 int mesh_nexthop_lookup(struct sk_buff *skb,
@@ -327,6 +345,7 @@ void ieee80211_mesh_quiesce(struct ieee80211_sub_if_data *sdata);
 void ieee80211_mesh_restart(struct ieee80211_sub_if_data *sdata);
 void mesh_plink_quiesce(struct sta_info *sta);
 void mesh_plink_restart(struct sta_info *sta);
+void mesh_sync_adjust_tbtt(struct ieee80211_sub_if_data *sdata);
 #else
 #define mesh_allocated	0
 static inline void
