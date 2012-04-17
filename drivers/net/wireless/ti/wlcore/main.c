@@ -4024,25 +4024,6 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 		wl1271_tx_work_locked(wl);
 		wlvif->band = bss_conf->channel->band;
 		wlvif->channel = channel;
-
-		if (!is_ap) {
-			/*
-			 * FIXME: the mac80211 should really provide a fixed
-			 * rate to use here. for now, just use the smallest
-			 * possible rate for the band as a fixed rate for
-			 * association frames and other control messages.
-			 */
-			if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-				wl1271_set_band_rate(wl, wlvif);
-
-			wlvif->basic_rate =
-				wl1271_tx_min_rate_get(wl,
-						       wlvif->basic_rate_set);
-			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-			if (ret < 0)
-				wl1271_warning("rate policy for channel "
-					       "failed %d", ret);
-		}
 	}
 
 	if (unlikely(wl->state == WL1271_STATE_OFF))
