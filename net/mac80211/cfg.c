@@ -950,9 +950,11 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 	}
 
 	if (mask & BIT(NL80211_STA_FLAG_AUTHORIZED)) {
-		if (set & BIT(NL80211_STA_FLAG_AUTHORIZED))
+		if (set & BIT(NL80211_STA_FLAG_AUTHORIZED)) {
 			ret = sta_info_move_state(sta, IEEE80211_STA_AUTHORIZED);
-		else if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
+//			if (!ret && sdata->vif.type == NL80211_IFTYPE_STATION)
+//				__ieee80211_cancel_priority(sdata);
+		} else if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
 			ret = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
 		if (ret)
 			return ret;

@@ -1518,6 +1518,7 @@ int ieee80211_wk_remain_on_channel(struct ieee80211_sub_if_data *sdata,
 int ieee80211_wk_cancel_remain_on_channel(
 	struct ieee80211_sub_if_data *sdata, u64 cookie);
 
+int __ieee80211_set_priority(struct ieee80211_sub_if_data *sdata);
 int __ieee80211_cancel_priority(struct ieee80211_sub_if_data *sdata);
 
 /* channel management */

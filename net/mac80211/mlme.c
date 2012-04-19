@@ -1730,6 +1730,7 @@ static void ieee80211_destroy_auth_data(struct ieee80211_sub_if_data *sdata,
 	if (!assoc) {
 		sta_info_destroy_addr(sdata, auth_data->bss->bssid);
 
+		//__ieee80211_cancel_priority(sdata);
 		memset(sdata->u.mgd.bssid, 0, ETH_ALEN);
 		ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BSSID);
 	}
@@ -1956,6 +1957,7 @@ static void ieee80211_destroy_assoc_data(struct ieee80211_sub_if_data *sdata,
 	if (!assoc) {
 		sta_info_destroy_addr(sdata, assoc_data->bss->bssid);
 
+		//__ieee80211_cancel_priority(sdata);
 		memset(sdata->u.mgd.bssid, 0, ETH_ALEN);
 		ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BSSID);
 	}
@@ -2042,8 +2044,11 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	err = sta_info_move_state(sta, IEEE80211_STA_AUTH);
 	if (!err)
 		err = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
-	if (!err && !(ifmgd->flags & IEEE80211_STA_CONTROL_PORT))
+	if (!err && !(ifmgd->flags & IEEE80211_STA_CONTROL_PORT)) {
 		err = sta_info_move_state(sta, IEEE80211_STA_AUTHORIZED);
+//		if (!err)
+//			__ieee80211_cancel_priority(sdata);
+	}
 	if (err) {
 		printk(KERN_DEBUG
 		       "%s: failed to move station %pM to desired state\n",
@@ -3247,6 +3252,9 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 	err = ieee80211_prep_connection(sdata, req->bss, false);
 	if (err)
 		goto err_clear;
+
+	/* set priority for this interface until authorization */
+	//__ieee80211_set_priority(sdata);
 
 	err = ieee80211_probe_auth(sdata);
 	if (err) {
