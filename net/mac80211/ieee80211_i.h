@@ -1502,6 +1502,7 @@ int ieee80211_add_ext_srates_ie(struct ieee80211_sub_if_data *sdata,
 int ieee80211_add_virtual_monitor(struct ieee80211_local *local);
 void ieee80211_del_virtual_monitor(struct ieee80211_local *local);
 
+int __ieee80211_set_priority(struct ieee80211_sub_if_data *sdata);
 int __ieee80211_cancel_priority(struct ieee80211_sub_if_data *sdata);
 
 /* channel management */
