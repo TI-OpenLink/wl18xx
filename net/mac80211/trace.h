@@ -996,6 +996,18 @@ DEFINE_EVENT(local_only_evt, drv_cancel_remain_on_channel,
 	TP_ARGS(local)
 );
 
+DEFINE_EVENT(local_sdata_evt, drv_set_priority,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata),
+	TP_ARGS(local, sdata)
+);
+
+DEFINE_EVENT(local_sdata_evt, drv_cancel_priority,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata),
+	TP_ARGS(local, sdata)
+);
+
 TRACE_EVENT(drv_offchannel_tx,
 	TP_PROTO(struct ieee80211_local *local, struct sk_buff *skb,
 		 struct ieee80211_channel *chan,
