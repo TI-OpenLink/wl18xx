@@ -374,6 +374,7 @@ struct ieee80211_mgd_auth_data {
 
 	u8 key[WLAN_KEY_LEN_WEP104];
 	u8 key_len, key_idx;
+	bool priority;
 	bool done;
 
 	size_t ie_len;
@@ -1081,6 +1082,8 @@ struct ieee80211_local {
 	struct work_struct hw_roc_start, hw_roc_done;
 	unsigned long hw_roc_start_time;
 
+	struct ieee80211_sub_if_data *prio_sdata;
+
 	struct idr ack_status_frames;
 	spinlock_t ack_status_lock;
 
@@ -1489,6 +1492,8 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
 			       struct ieee80211_channel *channel,
 			       enum nl80211_channel_type channel_type,
 			       u16 prot_mode);
+
+int __ieee80211_cancel_priority(struct ieee80211_sub_if_data *sdata);
 
 /* channel management */
 enum ieee80211_chan_mode {

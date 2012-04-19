@@ -737,6 +737,38 @@ static inline int drv_cancel_remain_on_channel(struct ieee80211_local *local)
 	return ret;
 }
 
+static inline int drv_set_priority(struct ieee80211_local *local,
+				   struct ieee80211_sub_if_data *sdata)
+{
+	int ret = -EOPNOTSUPP;
+
+	might_sleep();
+	check_sdata_in_driver(sdata);
+
+	trace_drv_set_priority(local, sdata);
+	if (local->ops->set_priority)
+		ret = local->ops->set_priority(&local->hw, &sdata->vif);
+	trace_drv_return_int(local, ret);
+
+	return ret;
+}
+
+static inline int drv_cancel_priority(struct ieee80211_local *local,
+				      struct ieee80211_sub_if_data *sdata)
+{
+	int ret = -EOPNOTSUPP;
+
+	might_sleep();
+	check_sdata_in_driver(sdata);
+
+	trace_drv_cancel_priority(local, sdata);
+	if (local->ops->cancel_priority)
+		ret = local->ops->cancel_priority(&local->hw, &sdata->vif);
+	trace_drv_return_int(local, ret);
+
+	return ret;
+}
+
 static inline int drv_set_ringparam(struct ieee80211_local *local,
 				    u32 tx, u32 rx)
 {
