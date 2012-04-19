@@ -2351,6 +2351,10 @@ struct ieee80211_ops {
 				 enum nl80211_channel_type channel_type,
 				 int duration);
 	int (*cancel_remain_on_channel)(struct ieee80211_hw *hw);
+	int (*set_priority)(struct ieee80211_hw *hw,
+			    struct ieee80211_vif *vif);
+	int (*cancel_priority)(struct ieee80211_hw *hw,
+			       struct ieee80211_vif *vif);
 	int (*set_ringparam)(struct ieee80211_hw *hw, u32 tx, u32 rx);
 	void (*get_ringparam)(struct ieee80211_hw *hw,
 			      u32 *tx, u32 *tx_max, u32 *rx, u32 *rx_max);

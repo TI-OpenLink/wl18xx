@@ -522,6 +522,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 	if (local->scan_sdata == sdata)
 		ieee80211_scan_cancel(local);
 
+	if (local->prio_sdata == sdata)
+		__ieee80211_cancel_priority(sdata);
+
 	/*
 	 * Stop TX on this interface first.
 	 */

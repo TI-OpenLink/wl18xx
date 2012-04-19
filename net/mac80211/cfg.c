@@ -2892,6 +2892,52 @@ static int ieee80211_probe_client(struct wiphy *wiphy, struct net_device *dev,
 	return 0;
 }
 
+int __ieee80211_set_priority(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_local *local = sdata->local;
+	int ret;
+
+	if (local->prio_sdata) {
+		if (local->prio_sdata == sdata)
+			return 0;
+		else
+			return -EBUSY;
+	}
+
+	ret = drv_set_priority(local, sdata);
+	if (!ret)
+		local->prio_sdata = sdata;
+
+	return ret;
+}
+int __ieee80211_cancel_priority(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_local *local = sdata->local;
+	int ret;
+
+	if (!local->prio_sdata || local->prio_sdata != sdata)
+		return 0;
+
+	ret = drv_cancel_priority(local, sdata);
+	if (!ret)
+		local->prio_sdata = NULL;
+
+	return ret;
+}
+
+static int ieee80211_set_priority(struct wiphy *wiphy,
+				      struct net_device *dev)
+{
+	return __ieee80211_set_priority(IEEE80211_DEV_TO_SUB_IF(dev));
+}
+
+static int ieee80211_cancel_priority(struct wiphy *wiphy,
+				     struct net_device *dev)
+{
+	return __ieee80211_cancel_priority(IEEE80211_DEV_TO_SUB_IF(dev));
+}
+
+
 static struct ieee80211_channel *
 ieee80211_wiphy_get_channel(struct wiphy *wiphy,
 			    enum nl80211_channel_type *type)
@@ -2963,6 +3009,8 @@ struct cfg80211_ops mac80211_config_ops = {
 	.set_bitrate_mask = ieee80211_set_bitrate_mask,
 	.remain_on_channel = ieee80211_remain_on_channel,
 	.cancel_remain_on_channel = ieee80211_cancel_remain_on_channel,
+	.set_priority = ieee80211_set_priority,
+	.cancel_priority = ieee80211_cancel_priority,
 	.mgmt_tx = ieee80211_mgmt_tx,
 	.mgmt_tx_cancel_wait = ieee80211_mgmt_tx_cancel_wait,
 	.set_cqm_rssi_config = ieee80211_set_cqm_rssi_config,
