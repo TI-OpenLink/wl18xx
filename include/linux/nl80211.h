@@ -722,6 +722,9 @@ enum nl80211_commands {
 
 	NL80211_CMD_ROAMING_SUPPORT,
 
+	NL80211_CMD_SET_PRIORITY,
+	NL80211_CMD_CANCEL_PRIORITY,
+
 	/* add new commands above here */
 
 	/* used to define NL80211_CMD_MAX below */
