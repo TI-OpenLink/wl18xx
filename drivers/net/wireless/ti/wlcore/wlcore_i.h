@@ -436,6 +436,8 @@ struct wl12xx_vif {
 	/* wme calculation parameters */
 	struct wl1271_tx_wme_tokens_calc wme_calc_params[IEEE80211_MAX_QUEUES];
 
+	bool pending_roc;
+
 	/*
 	 * This struct must be last!
 	 * data that has to be saved acrossed reconfigs (e.g. recovery)
