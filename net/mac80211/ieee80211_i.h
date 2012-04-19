@@ -1496,6 +1496,7 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
 			       enum nl80211_channel_type channel_type,
 			       u16 prot_mode);
 
+int __ieee80211_set_priority(struct ieee80211_sub_if_data *sdata);
 int __ieee80211_cancel_priority(struct ieee80211_sub_if_data *sdata);
 
 /* channel management */
