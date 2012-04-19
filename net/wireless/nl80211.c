@@ -5471,6 +5471,28 @@ static int nl80211_cancel_remain_on_channel(struct sk_buff *skb,
 	return rdev->ops->cancel_remain_on_channel(&rdev->wiphy, dev, cookie);
 }
 
+static int nl80211_set_priority(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+
+	if (!rdev->ops->set_priority)
+		return -EOPNOTSUPP;
+
+	return rdev->ops->set_priority(&rdev->wiphy, dev);
+}
+
+static int nl80211_cancel_priority(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+
+	if (!rdev->ops->cancel_priority)
+		return -EOPNOTSUPP;
+
+	return rdev->ops->cancel_priority(&rdev->wiphy, dev);
+}
+
 static u32 rateset_to_mask(struct ieee80211_supported_band *sband,
 			   u8 *rates, u8 rates_len)
 {
@@ -6906,6 +6928,22 @@ static struct genl_ops nl80211_ops[] = {
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
+				  NL80211_FLAG_NEED_RTNL,
+	},
+	{
+		.cmd = NL80211_CMD_SET_PRIORITY,
+		.doit = nl80211_set_priority,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
+	{
+		.cmd = NL80211_CMD_CANCEL_PRIORITY,
+		.doit = nl80211_cancel_priority,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
 				  NL80211_FLAG_NEED_RTNL,
 	},
 

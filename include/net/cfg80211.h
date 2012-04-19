@@ -1672,6 +1672,11 @@ struct cfg80211_ops {
 					    struct net_device *dev,
 					    u64 cookie);
 
+	int	(*set_priority)(struct wiphy *wiphy,
+				struct net_device *dev);
+	int	(*cancel_priority)(struct wiphy *wiphy,
+				   struct net_device *dev);
+
 	int	(*mgmt_tx)(struct wiphy *wiphy, struct net_device *dev,
 			  struct ieee80211_channel *chan, bool offchan,
 			  enum nl80211_channel_type channel_type,
