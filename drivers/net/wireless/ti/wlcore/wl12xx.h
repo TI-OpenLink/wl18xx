@@ -424,6 +424,8 @@ struct wl12xx_vif {
 	/* does the current role use GEM for encryption (AP or STA) */
 	bool is_gem;
 
+	bool pending_roc;
+
 	/*
 	 * This struct must be last!
 	 * data that has to be saved acrossed reconfigs (e.g. recovery)
