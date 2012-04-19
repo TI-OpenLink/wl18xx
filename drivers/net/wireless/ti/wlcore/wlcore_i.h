@@ -421,6 +421,8 @@ struct wl12xx_vif {
 	struct work_struct rx_streaming_disable_work;
 	struct timer_list rx_streaming_timer;
 
+	bool pending_roc;
+
 	/*
 	 * This struct must be last!
 	 * data that has to be saved acrossed reconfigs (e.g. recovery)

@@ -82,7 +82,7 @@ static int wl12xx_set_authorized(struct wl1271 *wl,
 	if (ret < 0)
 		return ret;
 
-	wl12xx_croc(wl, wlvif->role_id);
+	//wl12xx_croc(wl, wlvif->role_id);
 
 	wl1271_info("Association completed.");
 	return 0;
@@ -2339,6 +2339,12 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (ret < 0)
 		goto out;
 
+	if (wlvif->pending_roc) {
+		/* TODO: check for active scans, etc. */
+		wl12xx_roc(wl, wlvif, wlvif->role_id);
+		wlvif->pending_roc = false;
+	}
+
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 		goto out;
 
@@ -3793,9 +3799,10 @@ sta_not_found:
 			if (!is_ibss &&
 			    wlvif->sta.hlid != WL12XX_INVALID_LINK_ID) {
 				/* TODO: should be in userspace */
+				/*
 				if (test_bit(wlvif->role_id, wl->roc_map))
 					wl12xx_croc(wl, wlvif->role_id);
-
+				*/
 				ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
 				if (ret < 0)
 					goto out;
@@ -3903,11 +3910,13 @@ sta_not_found:
 		}
 
 		/* ROC until connected (after EAPOL exchange) */
+		/*
 		if (!is_ibss) {
 			ret = wl12xx_roc(wl, wlvif, wlvif->role_id);
 			if (ret < 0)
 				goto out;
 		}
+		*/
 	}
 
 	/* Handle new association with HT. Do this after join. */
@@ -4635,6 +4644,92 @@ static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
 	return 0;
 }
 
+static bool wl12xx_role_started(struct wl12xx_vif *wlvif)
+{
+	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
+	    wlvif->bss_type == BSS_TYPE_IBSS)
+		return wlvif->sta.hlid != WL12XX_INVALID_LINK_ID;
+
+	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
+		return wlvif->ap.bcast_hlid != WL12XX_INVALID_LINK_ID;
+
+	return false;
+}
+static int wl12xx_op_set_priority(struct ieee80211_hw *hw,
+				  struct ieee80211_vif *vif)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271 *wl = hw->priv;
+	int ret;
+
+	wl1271_debug(DEBUG_MAC80211,
+		     "mac80211 set priority role %d channel %d",
+		     wlvif->role_id, wlvif->channel);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state == WL1271_STATE_OFF)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	/* TODO: check for other rocs/pending_rocs */
+
+	if (!wl12xx_role_started(wlvif)) {
+		wlvif->pending_roc = true;
+		goto out_sleep;
+	}
+
+	ret = wl12xx_roc(wl, wlvif, wlvif->role_id);
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return ret;
+}
+
+static int wl12xx_op_cancel_priority(struct ieee80211_hw *hw,
+				     struct ieee80211_vif *vif)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271 *wl = hw->priv;
+	int ret;
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 cancel priority role %d",
+		     wlvif->role_id);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state == WL1271_STATE_OFF)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	if (wlvif->pending_roc) {
+		wlvif->pending_roc = false;
+		goto out_sleep;
+	}
+
+	ret = wl12xx_croc(wl, wlvif->role_id);
+
+out_sleep:
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return 0;
+}
+
 static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4828,6 +4923,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_default_key_idx = wl1271_op_set_default_key_idx,
 	.remain_on_channel = wl12xx_op_remain_on_channel,
 	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
+	.set_priority = wl12xx_op_set_priority,
+	.cancel_priority = wl12xx_op_cancel_priority,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
