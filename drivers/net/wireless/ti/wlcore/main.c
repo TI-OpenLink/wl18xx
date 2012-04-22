@@ -3798,11 +3798,11 @@ sta_not_found:
 			/* TODO: use some flag instead? */
 			if (!is_ibss &&
 			    wlvif->sta.hlid != WL12XX_INVALID_LINK_ID) {
-				/* TODO: should be in userspace */
-				/*
-				if (test_bit(wlvif->role_id, wl->roc_map))
+
+				if (test_bit(wlvif->role_id, wl->roc_map)) {
 					wl12xx_croc(wl, wlvif->role_id);
-				*/
+					wlvif->pending_roc = true;
+				}
 				ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
 				if (ret < 0)
 					goto out;
