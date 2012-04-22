@@ -328,6 +328,9 @@ static int ieee80211_do_open(struct net_device *dev, bool coming_up)
 		break;
 	}
 
+	/* copy the default channel */
+	sdata->oper_channel = local->oper_channel;
+
 	if (local->open_count == 0) {
 		res = drv_start(local);
 		if (res)
@@ -1327,9 +1330,6 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 #ifdef CONFIG_INET
 	sdata->arp_filter_state = true;
 #endif
-	/* copy the default channel */
-	sdata->oper_channel = local->oper_channel;
-
 	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++)
 		skb_queue_head_init(&sdata->fragments[i].skb_list);
 
