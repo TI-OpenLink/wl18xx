@@ -26,6 +26,15 @@
 
 #define WL18XX_CMD_MAX_SIZE          740
 
+struct wl18xx_phy_addresses {
+	u32 phy_hram_rd_en;
+	u32 pdsp_ctrl_reg;
+	u32 pdsp_ram;
+	u32 prcm_bt_pwr_rst;
+	u32 ip_sel_ov_en;
+	u32 ip_ov_en;
+};
+
 struct wl18xx_priv {
 	/* buffer for sending commands to FW */
 	u8 cmd_buf[WL18XX_CMD_MAX_SIZE];
@@ -36,6 +45,8 @@ struct wl18xx_priv {
 	u8 last_fw_rls_idx;
 
 	u8 board_type;
+
+	struct wl18xx_phy_addresses phy_addresses;
 };
 
 #define WL18XX_FW_MAX_TX_STATUS_DESC 33

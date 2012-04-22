@@ -55,6 +55,7 @@ static int low_band_component_type = -1;
 static int high_band_component = -1;
 static int high_band_component_type = -1;
 static int pwr_limit_reference_11_abg = -1;
+static bool disable_yield_fix = true;
 
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
@@ -545,10 +546,28 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 	},
 	[PART_PHY_PDSP_WA] = {
 		.mem  = { .start = 0x00940100, .size  = 0x00000200 },
-		.reg  = { .start = 0x00953000, .size  = 0x00012000 },
+		.reg  = { .start = 0x00953000, .size  = 0x00018000 },
 		.mem2 = { .start = 0x00000000, .size  = 0x00000000 },
 		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
 	},
+};
+
+static const struct wl18xx_phy_addresses wl18xx_phy_addresses_pg1 = {
+	.phy_hram_rd_en = WL18XX_PHY_HRAM_RD_EN_PER_RAM,
+	.pdsp_ctrl_reg = WL18XX_PDSP_CONTROL_REG_PG1,
+	.pdsp_ram = WL18XX_FDSP_RAM,
+	.prcm_bt_pwr_rst = WL18XX_PRCM_BT_PWR_RST,
+	.ip_sel_ov_en = WL18XX_IP_SEL_OV_EN,
+	.ip_ov_en = WL18XX_IP_OV_EN,
+};
+
+static const struct wl18xx_phy_addresses wl18xx_phy_addresses_pg2 = {
+	.phy_hram_rd_en = WL18XX_PHY_HRAM_RD_EN_PER_RAM,
+	.pdsp_ctrl_reg = WL18XX_PDSP_CONTROL_REG_PG2,
+	.pdsp_ram = WL18XX_FDSP_RAM,
+	.prcm_bt_pwr_rst = WL18XX_PRCM_BT_PWR_RST,
+	.ip_sel_ov_en = WL18XX_IP_SEL_OV_EN,
+	.ip_ov_en = WL18XX_IP_OV_EN,
 };
 
 static const int wl18xx_rtable[REG_TABLE_LEN] = {
@@ -589,8 +608,24 @@ static const struct wl18xx_clk_cfg wl18xx_clk_table[NUM_CLOCK_CONFIGS] = {
 static int wl18xx_identify_chip(struct wl1271 *wl)
 {
 	int ret = 0;
+	struct wl18xx_priv *priv = wl->priv;
 
 	switch (wl->chip.id) {
+	case CHIP_ID_185x_PG20:
+		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG20)",
+				 wl->chip.id);
+		wl->sr_fw_name = WL18XX_FW_NAME;
+		/* wl18xx uses the same firmware for PLT */
+		wl->plt_fw_name = WL18XX_FW_NAME;
+		wl->quirks |= WLCORE_QUIRK_NO_ELP |
+				  WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
+				  WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
+
+		memcpy(&priv->phy_addresses, &wl18xx_phy_addresses_pg2,
+			sizeof(struct wl18xx_phy_addresses));
+
+		/* TODO: need to blocksize alignment for RX/TX separately? */
+		break;
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
 			     wl->chip.id);
@@ -600,6 +635,9 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
+
+		memcpy(&priv->phy_addresses, &wl18xx_phy_addresses_pg1,
+			sizeof(struct wl18xx_phy_addresses));
 
 		/* PG 1.0 has some problems with MCS_13, so disable it */
 		wl->ht_cap.mcs.rx_mask[1] &= ~BIT(5);
@@ -669,17 +707,19 @@ static void wl18xx_boot_soft_reset(struct wl1271 *wl)
 static int wl18xx_pdsp_reset(struct wl1271 *wl)
 {
 	int status;
+	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_phy_addresses *phy_addr = &priv->phy_addresses;
 
 	wl1271_debug(DEBUG_BOOT, "reset PDSP");
 
-	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_ENABLE);
-	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_DISABLE);
-	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_ENABLE);
-	wl1271_write32(wl, WL18XX_PDSP_CONTROL_REG, WL18XX_PDSP_DISABLE);
+	wl1271_write32(wl, phy_addr->pdsp_ctrl_reg, WL18XX_PDSP_ENABLE);
+	wl1271_write32(wl, phy_addr->pdsp_ctrl_reg, WL18XX_PDSP_DISABLE);
+	wl1271_write32(wl, phy_addr->pdsp_ctrl_reg, WL18XX_PDSP_ENABLE);
+	wl1271_write32(wl, phy_addr->pdsp_ctrl_reg, WL18XX_PDSP_DISABLE);
 
 	/* validate PDSP reset */
-	wl1271_write32(wl, WL18XX_FDSP_RAM, WL18XX_FDSP_RAM_VAL);
-	status = wl1271_read32(wl, WL18XX_FDSP_RAM);
+	wl1271_write32(wl, phy_addr->pdsp_ram, WL18XX_FDSP_RAM_VAL);
+	status = wl1271_read32(wl, phy_addr->pdsp_ram);
 	if (status == WL18XX_FDSP_RAM_VAL) {
 		wl1271_debug(DEBUG_BOOT, "OCP bridge ready");
 		return 0;
@@ -691,11 +731,13 @@ static int wl18xx_pdsp_reset(struct wl1271 *wl)
 static int wl18xx_phy_core_reset(struct wl1271 *wl)
 {
 	int ocp_state;
+	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_phy_addresses *phy_addr = &priv->phy_addresses;
 
 	wl1271_debug(DEBUG_BOOT, "reset wl phy core");
 
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
-	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	ocp_state = wl1271_read32(wl, phy_addr->phy_hram_rd_en);
 	if (!ocp_state)
 		return -EIO;
 
@@ -704,11 +746,11 @@ static int wl18xx_phy_core_reset(struct wl1271 *wl)
 
 	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
 
-	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_WL_PHY_PWR_REQ);
-	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_sel_ov_en, WL18XX_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_ov_en, WL18XX_WL_PHY_PWR_REQ);
 
-	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_RM_OVERRIDE);
-	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, phy_addr->ip_sel_ov_en, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, phy_addr->ip_ov_en, WL18XX_RM_OVERRIDE);
 
 	return -EAGAIN;
 }
@@ -716,11 +758,13 @@ static int wl18xx_phy_core_reset(struct wl1271 *wl)
 static int wl18xx_bt_core_reset(struct wl1271 *wl)
 {
 	int ocp_state, status;
+	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_phy_addresses *phy_addr = &priv->phy_addresses;
 
 	wl1271_debug(DEBUG_BOOT, "reset bt core");
 
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
-	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	ocp_state = wl1271_read32(wl, phy_addr->phy_hram_rd_en);
 	if (!ocp_state)
 		return -EIO;
 
@@ -729,24 +773,27 @@ static int wl18xx_bt_core_reset(struct wl1271 *wl)
 
 	wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
 	/* check if BT is disabled */
-	status = wl18xx_top_reg_read(wl, WL18XX_PRCM_BT_PWR_RST);
+	status = wl18xx_top_reg_read(wl, phy_addr->prcm_bt_pwr_rst);
 	if (status != 0)
 		return -EACCES;
 
-	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_WL_PHY_PWR_REQ);
-	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_BT_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_sel_ov_en, WL18XX_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_ov_en, WL18XX_BT_PWR_REQ);
 
-	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_BT_WL_PHY_PWR_REQ);
-	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_BT_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_sel_ov_en,
+			WL18XX_BT_WL_PHY_PWR_REQ);
+	wl18xx_top_reg_write(wl, phy_addr->ip_ov_en, WL18XX_BT_WL_PHY_PWR_REQ);
 
-	wl18xx_top_reg_write(wl, WL18XX_IP_SEL_OV_EN, WL18XX_RM_OVERRIDE);
-	wl18xx_top_reg_write(wl, WL18XX_IP_OV_EN, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, phy_addr->ip_sel_ov_en, WL18XX_RM_OVERRIDE);
+	wl18xx_top_reg_write(wl, phy_addr->ip_ov_en, WL18XX_RM_OVERRIDE);
 	return -EAGAIN;
 }
 
 static int wl18xx_release_ocp_bridge(struct wl1271 *wl)
 {
 	int ocp_state, i, status;
+	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_phy_addresses *phy_addr = &priv->phy_addresses;
 
 	wl1271_debug(DEBUG_BOOT, "release OCP bridge");
 
@@ -769,7 +816,7 @@ static int wl18xx_release_ocp_bridge(struct wl1271 *wl)
 	}
 
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_PDSP_WA]);
-	ocp_state = wl1271_read32(wl, WL18XX_PHY_HRAM_RD_EN_PER_RAM);
+	ocp_state = wl1271_read32(wl, phy_addr->phy_hram_rd_en);
 	if (ocp_state == WL18XX_H_RAM_ENABLED)
 		goto out;
 
@@ -784,13 +831,23 @@ out:
 static int wl18xx_pre_boot(struct wl1271 *wl)
 {
 	wl18xx_set_clk(wl);
+	int ret;
 
-	if (wl->chip.id == CHIP_ID_185x_PG10) {
-		int ret = wl18xx_release_ocp_bridge(wl);
+	if (wl->chip.id == CHIP_ID_185x_PG20) {
+		if (disable_yield_fix)
+			goto elp_wakeup;
+		ret = wl18xx_release_ocp_bridge(wl);
 		if (ret < 0)
 			return ret;
 	}
 
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		ret = wl18xx_release_ocp_bridge(wl);
+		if (ret < 0)
+			return ret;
+	}
+
+elp_wakeup:
 	/* Continue the ELP wake up sequence */
 	wl1271_write32(wl, WL18XX_WELP_ARM_COMMAND, WELP_ARM_COMMAND_VAL);
 	udelay(500);
@@ -1420,6 +1477,10 @@ MODULE_PARM_DESC(high_band_component_type, "High band component type: u8 "
 module_param(pwr_limit_reference_11_abg, uint, S_IRUSR);
 MODULE_PARM_DESC(pwr_limit_reference_11_abg, "Power limit reference: u8 "
 		 "(default is 0xc8)");
+
+module_param(disable_yield_fix, bool, S_IRUSR);
+MODULE_PARM_DESC(disable_yield_fix, "disable yield issue workaround: bool "
+		 "(default is false)");
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
