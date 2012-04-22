@@ -189,13 +189,13 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 	return ret;
 }
 
-static bool ieee80211_update_channel(struct ieee80211_sub_if_data *sdata)
+static u32 ieee80211_update_channel(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_channel *chan;
 	enum nl80211_channel_type channel_type;
 	bool offchannel_flag;
-	int changed = 0;
+	u32 changed = 0;
 
 	/* check for channel changes here... */
 	offchannel_flag = local->hw.conf.flags & IEEE80211_CONF_OFFCHANNEL;
