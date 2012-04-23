@@ -57,6 +57,10 @@ static int high_band_component_type = -1;
 static int pwr_limit_reference_11_abg = -1;
 static bool disable_yield_fix = true;
 static bool enable_pad_last_frame = true;
+static int Psat = -1;
+static int low_power_val = 0xff;
+static int med_power_val = 0xff;
+static int high_power_val = 0xff;
 
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
@@ -510,6 +514,10 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.enable_tx_low_pwr_on_siso_rdl	= 0x00,
 		.rx_profile			= 0x00,
 		.pwr_limit_reference_11_abg	= 0xc8,
+		.Psat				= 0,
+		.low_power_val			= 0x00,
+		.med_power_val			= 0x0a,
+		.high_power_val			= 0x1e,
 	},
 };
 
@@ -926,6 +934,11 @@ static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 		phy->secondary_clock_setting_time;
 	params.pwr_limit_reference_11_abg =
 		phy->pwr_limit_reference_11_abg;
+
+	params.Psat = phy->Psat;
+	params.low_power_val = phy->low_power_val;
+	params.med_power_val = phy->med_power_val;
+	params.high_power_val = phy->high_power_val;
 
 	params.board_type = priv->board_type;
 
@@ -1398,6 +1411,26 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 		priv->conf.phy.pwr_limit_reference_11_abg =
 			pwr_limit_reference_11_abg;
 
+	if (Psat == -1)
+		Psat = priv->conf.phy.Psat;
+	else
+		priv->conf.phy.Psat = Psat;
+
+	if (low_power_val == 0xff)
+		low_power_val = priv->conf.phy.low_power_val;
+	else
+		priv->conf.phy.low_power_val = low_power_val;
+
+	if (med_power_val == 0xff)
+		med_power_val = priv->conf.phy.med_power_val;
+	else
+		priv->conf.phy.med_power_val = med_power_val;
+
+	if (high_power_val == 0xff)
+		high_power_val = priv->conf.phy.high_power_val;
+	else
+		priv->conf.phy.high_power_val = high_power_val;
+
 	if (!checksum_param) {
 		wl18xx_ops.set_rx_csum = NULL;
 		wl18xx_ops.init_vif = NULL;
@@ -1493,6 +1526,22 @@ MODULE_PARM_DESC(disable_yield_fix, "disable yield issue workaround: bool "
 module_param(enable_pad_last_frame, bool, S_IRUSR);
 MODULE_PARM_DESC(enable_pad_last_frame, "enable last sdio packet padding: "
 		"bool (default is true)");
+
+module_param(Psat, uint, S_IRUSR);
+MODULE_PARM_DESC(Psat, "Psat: u8 "
+		 "(default is 0)");
+
+module_param(low_power_val, uint, S_IRUSR);
+MODULE_PARM_DESC(low_power_val, "low_power_val: u8 "
+		 "(default is 0x00)");
+
+module_param(med_power_val, uint, S_IRUSR);
+MODULE_PARM_DESC(med_power_val, "med_power_val: u8 "
+		 "(default is 0x0a)");
+
+module_param(high_power_val, uint, S_IRUSR);
+MODULE_PARM_DESC(high_power_val, "high_power_val: u8 "
+		 "(default is 0x1e)");
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
