@@ -1379,6 +1379,14 @@ static void wl12xx_get_mac(struct wl1271 *wl)
 		wl12xx_get_fuse_mac(wl);
 }
 
+static int wl12xx_get_spare_blocks(struct wl1271 *wl, bool is_gem)
+{
+	if (is_gem)
+		return WL12XX_TX_HW_BLOCK_GEM_SPARE;
+
+	return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip	= wl12xx_identify_chip,
 	.identify_fw	= wl12xx_identify_fw,
@@ -1402,6 +1410,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.get_pg_ver	= wl12xx_get_pg_ver,
 	.get_mac	= wl12xx_get_mac,
 	.debugfs_init	= wl12xx_debugfs_add_files,
+	.get_spare_blocks = wl12xx_get_spare_blocks,
 };
 
 struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
@@ -1437,8 +1446,6 @@ int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->rtable = wl12xx_rtable;
 	wl->num_tx_desc = 16;
 	wl->num_rx_desc = 8;
-	wl->normal_tx_spare = WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
-	wl->gem_tx_spare = WL12XX_TX_HW_BLOCK_GEM_SPARE;
 	wl->band_rate_to_idx = wl12xx_band_rate_to_idx;
 	wl->hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
 	wl->hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
