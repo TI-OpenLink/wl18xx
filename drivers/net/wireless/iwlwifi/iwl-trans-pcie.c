@@ -68,12 +68,15 @@
 #include <linux/bitops.h>
 #include <linux/gfp.h>
 
+#include "iwl-drv.h"
 #include "iwl-trans.h"
 #include "iwl-trans-pcie-int.h"
 #include "iwl-csr.h"
 #include "iwl-prph.h"
 #include "iwl-eeprom.h"
 #include "iwl-agn-hw.h"
+/* FIXME: need to abstract out TX command (once we know what it looks like) */
+#include "iwl-commands.h"
 
 #define IWL_MASK(lo, hi) ((1 << (hi)) | ((1 << (hi)) - (1 << (lo))))
 
@@ -980,15 +983,13 @@ static int iwl_trans_pcie_start_fw(struct iwl_trans *trans,
 		return -EIO;
 	}
 
-	/* If platform's RF_KILL switch is NOT set to KILL */
-	hw_rfkill = !(iwl_read32(trans, CSR_GP_CNTRL) &
-				CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW);
-	iwl_op_mode_hw_rf_kill(trans->op_mode, hw_rfkill);
+	iwl_enable_rfkill_int(trans);
 
-	if (hw_rfkill) {
-		iwl_enable_rfkill_int(trans);
+	/* If platform's RF_KILL switch is NOT set to KILL */
+	hw_rfkill = iwl_is_rfkill_set(trans);
+	iwl_op_mode_hw_rf_kill(trans->op_mode, hw_rfkill);
+	if (hw_rfkill)
 		return -ERFKILL;
-	}
 
 	iwl_write32(trans, CSR_INT, 0xFFFFFFFF);
 
@@ -1212,6 +1213,8 @@ static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)
 	iwl_disable_interrupts(trans);
 	spin_unlock_irqrestore(&trans_pcie->irq_lock, flags);
 
+	iwl_enable_rfkill_int(trans);
+
 	/* wait to make sure we flush pending tasklet*/
 	synchronize_irq(trans_pcie->irq);
 	tasklet_kill(&trans_pcie->irq_tasklet);
@@ -1422,8 +1425,10 @@ static int iwl_trans_pcie_start_hw(struct iwl_trans *trans)
 
 	iwl_apm_init(trans);
 
-	hw_rfkill = !(iwl_read32(trans, CSR_GP_CNTRL) &
-				CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW);
+	/* From now on, the op_mode will be kept updated about RF kill state */
+	iwl_enable_rfkill_int(trans);
+
+	hw_rfkill = iwl_is_rfkill_set(trans);
 	iwl_op_mode_hw_rf_kill(trans->op_mode, hw_rfkill);
 
 	return err;
@@ -1436,14 +1441,37 @@ error:
 	return err;
 }
 
-static void iwl_trans_pcie_stop_hw(struct iwl_trans *trans)
+static void iwl_trans_pcie_stop_hw(struct iwl_trans *trans,
+				   bool op_mode_leaving)
 {
+	bool hw_rfkill;
+	unsigned long flags;
+	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+
 	iwl_apm_stop(trans);
+
+	spin_lock_irqsave(&trans_pcie->irq_lock, flags);
+	iwl_disable_interrupts(trans);
+	spin_unlock_irqrestore(&trans_pcie->irq_lock, flags);
 
 	iwl_write32(trans, CSR_INT, 0xFFFFFFFF);
 
-	/* Even if we stop the HW, we still want the RF kill interrupt */
-	iwl_enable_rfkill_int(trans);
+	if (!op_mode_leaving) {
+		/*
+		 * Even if we stop the HW, we still want the RF kill
+		 * interrupt
+		 */
+		iwl_enable_rfkill_int(trans);
+
+		/*
+		 * Check again since the RF kill state may have changed while
+		 * all the interrupts were disabled, in this case we couldn't
+		 * receive the RF kill interrupt and update the state in the
+		 * op_mode.
+		 */
+		hw_rfkill = iwl_is_rfkill_set(trans);
+		iwl_op_mode_hw_rf_kill(trans->op_mode, hw_rfkill);
+	}
 }
 
 static void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
@@ -1520,7 +1548,7 @@ static void iwl_trans_pcie_configure(struct iwl_trans *trans,
 	trans_pcie->command_names = trans_cfg->command_names;
 }
 
-static void iwl_trans_pcie_free(struct iwl_trans *trans)
+void iwl_trans_pcie_free(struct iwl_trans *trans)
 {
 	struct iwl_trans_pcie *trans_pcie =
 		IWL_TRANS_GET_PCIE_TRANS(trans);
@@ -1562,15 +1590,13 @@ static int iwl_trans_pcie_resume(struct iwl_trans *trans)
 {
 	bool hw_rfkill;
 
-	hw_rfkill = !(iwl_read32(trans, CSR_GP_CNTRL) &
-				CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW);
+	iwl_enable_rfkill_int(trans);
 
-	if (hw_rfkill)
-		iwl_enable_rfkill_int(trans);
-	else
-		iwl_enable_interrupts(trans);
-
+	hw_rfkill = iwl_is_rfkill_set(trans);
 	iwl_op_mode_hw_rf_kill(trans->op_mode, hw_rfkill);
+
+	if (!hw_rfkill)
+		iwl_enable_interrupts(trans);
 
 	return 0;
 }
@@ -1802,10 +1828,9 @@ static ssize_t iwl_dbgfs_tx_queue_read(struct file *file,
 
 	bufsz = sizeof(char) * 64 * trans->cfg->base_params->num_of_queues;
 
-	if (!trans_pcie->txq) {
-		IWL_ERR(trans, "txq not ready\n");
+	if (!trans_pcie->txq)
 		return -EAGAIN;
-	}
+
 	buf = kzalloc(bufsz, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -1866,10 +1891,8 @@ static ssize_t iwl_dbgfs_interrupt_read(struct file *file,
 	ssize_t ret;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
-	if (!buf) {
-		IWL_ERR(trans, "Can not allocate Buffer\n");
+	if (!buf)
 		return -ENOMEM;
-	}
 
 	pos += scnprintf(buf + pos, bufsz - pos,
 			"Interrupt Statistics Report:\n");
@@ -2020,7 +2043,7 @@ static int iwl_trans_pcie_dbgfs_register(struct iwl_trans *trans,
 
 #endif /*CONFIG_IWLWIFI_DEBUGFS */
 
-const struct iwl_trans_ops trans_ops_pcie = {
+static const struct iwl_trans_ops trans_ops_pcie = {
 	.start_hw = iwl_trans_pcie_start_hw,
 	.stop_hw = iwl_trans_pcie_stop_hw,
 	.fw_alive = iwl_trans_pcie_fw_alive,
@@ -2036,8 +2059,6 @@ const struct iwl_trans_ops trans_ops_pcie = {
 
 	.tx_agg_disable = iwl_trans_pcie_tx_agg_disable,
 	.tx_agg_setup = iwl_trans_pcie_tx_agg_setup,
-
-	.free = iwl_trans_pcie_free,
 
 	.dbgfs_register = iwl_trans_pcie_dbgfs_register,
 

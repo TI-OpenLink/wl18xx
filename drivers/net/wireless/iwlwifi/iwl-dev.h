@@ -38,6 +38,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 
+#include "iwl-fw.h"
 #include "iwl-eeprom.h"
 #include "iwl-csr.h"
 #include "iwl-debug.h"
@@ -47,7 +48,6 @@
 #include "iwl-agn-rs.h"
 #include "iwl-agn-tt.h"
 #include "iwl-trans.h"
-#include "iwl-shared.h"
 #include "iwl-op-mode.h"
 #include "iwl-notif-wait.h"
 
@@ -506,44 +506,6 @@ struct reply_agg_tx_error_statistics {
 	u32 unknown;
 };
 
-/* management statistics */
-enum iwl_mgmt_stats {
-	MANAGEMENT_ASSOC_REQ = 0,
-	MANAGEMENT_ASSOC_RESP,
-	MANAGEMENT_REASSOC_REQ,
-	MANAGEMENT_REASSOC_RESP,
-	MANAGEMENT_PROBE_REQ,
-	MANAGEMENT_PROBE_RESP,
-	MANAGEMENT_BEACON,
-	MANAGEMENT_ATIM,
-	MANAGEMENT_DISASSOC,
-	MANAGEMENT_AUTH,
-	MANAGEMENT_DEAUTH,
-	MANAGEMENT_ACTION,
-	MANAGEMENT_MAX,
-};
-/* control statistics */
-enum iwl_ctrl_stats {
-	CONTROL_BACK_REQ =  0,
-	CONTROL_BACK,
-	CONTROL_PSPOLL,
-	CONTROL_RTS,
-	CONTROL_CTS,
-	CONTROL_ACK,
-	CONTROL_CFEND,
-	CONTROL_CFENDACK,
-	CONTROL_MAX,
-};
-
-struct traffic_stats {
-#ifdef CONFIG_IWLWIFI_DEBUGFS
-	u32 mgmt[MANAGEMENT_MAX];
-	u32 ctrl[CONTROL_MAX];
-	u32 data_cnt;
-	u64 data_bytes;
-#endif
-};
-
 /*
  * schedule the timer to wake up every UCODE_TRACE_PERIOD milliseconds
  * to perform continuous uCode event logging operation if enabled
@@ -570,24 +532,7 @@ struct iwl_event_log {
 	int wraps_more_count;
 };
 
-/*
- * This is the threshold value of plcp error rate per 100mSecs.  It is
- * used to set and check for the validity of plcp_delta.
- */
-#define IWL_MAX_PLCP_ERR_THRESHOLD_MIN	(1)
-#define IWL_MAX_PLCP_ERR_THRESHOLD_DEF	(50)
-#define IWL_MAX_PLCP_ERR_LONG_THRESHOLD_DEF	(100)
-#define IWL_MAX_PLCP_ERR_EXT_LONG_THRESHOLD_DEF	(200)
-#define IWL_MAX_PLCP_ERR_THRESHOLD_MAX	(255)
-#define IWL_MAX_PLCP_ERR_THRESHOLD_DISABLE	(0)
-
 #define IWL_DELAY_NEXT_FORCE_RF_RESET  (HZ*3)
-
-/* TX queue watchdog timeouts in mSecs */
-#define IWL_WATCHHDOG_DISABLED	(0)
-#define IWL_DEF_WD_TIMEOUT	(2000)
-#define IWL_LONG_WD_TIMEOUT	(10000)
-#define IWL_MAX_WD_TIMEOUT	(120000)
 
 /* BT Antenna Coupling Threshold (dB) */
 #define IWL_BT_ANTENNA_COUPLING_THRESHOLD	(35)
@@ -782,9 +727,9 @@ struct iwl_priv {
 
 	unsigned long transport_queue_stop;
 	bool passive_no_rx;
-#define IWL_INVALID_AC	0xff
-	u8 queue_to_ac[IWL_MAX_HW_QUEUES];
-	atomic_t ac_stop_count[IEEE80211_NUM_ACS];
+#define IWL_INVALID_MAC80211_QUEUE	0xff
+	u8 queue_to_mac80211[IWL_MAX_HW_QUEUES];
+	atomic_t queue_stop_count[IWL_MAX_HW_QUEUES];
 
 	unsigned long agg_q_alloc[BITS_TO_LONGS(IWL_MAX_HW_QUEUES)];
 
@@ -892,10 +837,6 @@ struct iwl_priv {
 	u8 retry_rate;
 
 	int activity_timer_active;
-
-	/* counts mgmt, ctl, and data packets */
-	struct traffic_stats tx_stats;
-	struct traffic_stats rx_stats;
 
 	struct iwl_power_mgr power_data;
 	struct iwl_tt_mgmt thermal_throttle;
@@ -1016,10 +957,6 @@ struct iwl_priv {
 
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 	/* debugfs */
-	u16 tx_traffic_idx;
-	u16 rx_traffic_idx;
-	u8 *tx_traffic;
-	u8 *rx_traffic;
 	struct dentry *debugfs_dir;
 	u32 dbgfs_sram_offset, dbgfs_sram_len;
 	bool disable_ht40;
@@ -1064,7 +1001,6 @@ struct iwl_priv {
 }; /*iwl_priv */
 
 extern struct kmem_cache *iwl_tx_cmd_pool;
-extern struct iwl_mod_params iwlagn_mod_params;
 
 static inline struct iwl_rxon_context *
 iwl_rxon_ctx_from_vif(struct ieee80211_vif *vif)

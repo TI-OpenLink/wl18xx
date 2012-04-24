@@ -37,12 +37,12 @@
 #include "iwl-eeprom.h"
 #include "iwl-dev.h"
 #include "iwl-agn.h"
-#include "iwl-core.h"
 #include "iwl-io.h"
 #include "iwl-commands.h"
 #include "iwl-debug.h"
 #include "iwl-power.h"
 #include "iwl-trans.h"
+#include "iwl-modparams.h"
 
 /*
  * Setting power level allows the card to go to sleep when not busy.
@@ -308,10 +308,10 @@ static void iwl_power_build_cmd(struct iwl_priv *priv,
 				     priv->power_data.debug_sleep_level_override,
 				     dtimper);
 	else {
-		if (iwlagn_mod_params.power_level > IWL_POWER_INDEX_1 &&
-		    iwlagn_mod_params.power_level <= IWL_POWER_INDEX_5)
+		if (iwlwifi_mod_params.power_level > IWL_POWER_INDEX_1 &&
+		    iwlwifi_mod_params.power_level <= IWL_POWER_INDEX_5)
 			iwl_static_sleep_cmd(priv, cmd,
-				iwlagn_mod_params.power_level, dtimper);
+				iwlwifi_mod_params.power_level, dtimper);
 		else
 			iwl_static_sleep_cmd(priv, cmd,
 				IWL_POWER_INDEX_1, dtimper);

@@ -301,6 +301,11 @@ iwl_trans_pcie_get_trans(struct iwl_trans_pcie *trans_pcie)
 			    trans_specific);
 }
 
+struct iwl_trans *iwl_trans_pcie_alloc(struct pci_dev *pdev,
+				       const struct pci_device_id *ent,
+				       const struct iwl_cfg *cfg);
+void iwl_trans_pcie_free(struct iwl_trans *trans);
+
 /*****************************************************
 * RX
 ******************************************************/
@@ -428,6 +433,12 @@ trans_pcie_get_cmd_string(struct iwl_trans_pcie *trans_pcie, u8 cmd)
 	if (!trans_pcie->command_names || !trans_pcie->command_names[cmd])
 		return "UNKNOWN";
 	return trans_pcie->command_names[cmd];
+}
+
+static inline bool iwl_is_rfkill_set(struct iwl_trans *trans)
+{
+	return !(iwl_read32(trans, CSR_GP_CNTRL) &
+		CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW);
 }
 
 #endif /* __iwl_trans_int_pcie_h__ */

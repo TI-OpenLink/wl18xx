@@ -36,10 +36,10 @@
 #include <asm/unaligned.h>
 
 #include "iwl-dev.h"
-#include "iwl-core.h"
 #include "iwl-agn.h"
 #include "iwl-io.h"
 #include "iwl-trans.h"
+#include "iwl-modparams.h"
 
 /* Throughput		OFF time(ms)	ON time (ms)
  *	>300			25		25
@@ -174,7 +174,7 @@ static int iwl_led_blink_set(struct led_classdev *led_cdev,
 
 void iwl_leds_init(struct iwl_priv *priv)
 {
-	int mode = iwlagn_mod_params.led_mode;
+	int mode = iwlwifi_mod_params.led_mode;
 	int ret;
 
 	if (mode == IWL_LED_DISABLE) {
