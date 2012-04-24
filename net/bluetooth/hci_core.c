@@ -1194,7 +1194,7 @@ struct link_key *hci_find_link_key(struct hci_dev *hdev, bdaddr_t *bdaddr)
 }
 
 static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
-						u8 key_type, u8 old_key_type)
+			       u8 key_type, u8 old_key_type)
 {
 	/* Legacy key */
 	if (key_type < 0x03)

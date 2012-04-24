@@ -2425,17 +2425,16 @@ static int stop_discovery(struct sock *sk, struct hci_dev *hdev, void *data,
 							NAME_PENDING);
 		if (!e) {
 			mgmt_pending_remove(cmd);
-			err = cmd_complete(sk, hdev->id,
-						MGMT_OP_STOP_DISCOVERY, 0,
-						&mgmt_cp->type,
-						sizeof(mgmt_cp->type));
+			err = cmd_complete(sk, hdev->id, MGMT_OP_STOP_DISCOVERY,
+					   0, &mgmt_cp->type,
+					   sizeof(mgmt_cp->type));
 			hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
 			goto unlock;
 		}
 
 		bacpy(&cp.bdaddr, &e->data.bdaddr);
 		err = hci_send_cmd(hdev, HCI_OP_REMOTE_NAME_REQ_CANCEL,
-					sizeof(cp), &cp);
+				   sizeof(cp), &cp);
 
 		break;
 
@@ -2959,7 +2958,8 @@ int mgmt_write_scan_failed(struct hci_dev *hdev, u8 scan, u8 status)
 	return 0;
 }
 
-int mgmt_new_link_key(struct hci_dev *hdev, struct link_key *key, bool persistent)
+int mgmt_new_link_key(struct hci_dev *hdev, struct link_key *key,
+		      bool persistent)
 {
 	struct mgmt_ev_new_link_key ev;
 
