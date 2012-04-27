@@ -155,9 +155,14 @@ struct hci_dev {
 	__u16		hci_rev;
 	__u8		lmp_ver;
 	__u16		manufacturer;
-	__le16		lmp_subver;
+	__u16		lmp_subver;
 	__u16		voice_setting;
 	__u8		io_capability;
+	__s8		inq_tx_power;
+	__u16		devid_source;
+	__u16		devid_vendor;
+	__u16		devid_product;
+	__u16		devid_version;
 
 	__u16		pkt_type;
 	__u16		esco_type;
@@ -263,7 +268,6 @@ struct hci_dev {
 
 	struct dentry		*debugfs;
 
-	struct device		*parent;
 	struct device		dev;
 
 	struct rfkill		*rfkill;
@@ -314,6 +318,7 @@ struct hci_conn {
 
 	__u8		remote_cap;
 	__u8		remote_auth;
+	bool		flush_key;
 
 	unsigned int	sent;
 
@@ -672,8 +677,8 @@ int hci_add_link_key(struct hci_dev *hdev, struct hci_conn *conn, int new_key,
 		     bdaddr_t *bdaddr, u8 *val, u8 type, u8 pin_len);
 struct smp_ltk *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8]);
 int hci_add_ltk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type, u8 type,
-		int new_key, u8 authenticated, u8 tk[16], u8 enc_size, u16 ediv,
-		u8 rand[8]);
+		int new_key, u8 authenticated, u8 tk[16], u8 enc_size,
+		__le16 ediv, u8 rand[8]);
 struct smp_ltk *hci_find_ltk_by_addr(struct hci_dev *hdev, bdaddr_t *bdaddr,
 				     u8 addr_type);
 int hci_remove_ltk(struct hci_dev *hdev, bdaddr_t *bdaddr);
@@ -693,8 +698,6 @@ struct adv_entry *hci_find_adv_entry(struct hci_dev *hdev, bdaddr_t *bdaddr);
 int hci_add_adv_entry(struct hci_dev *hdev,
 					struct hci_ev_le_advertising_info *ev);
 
-void hci_del_off_timer(struct hci_dev *hdev);
-
 void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb);
 
 int hci_recv_frame(struct sk_buff *skb);
@@ -708,7 +711,7 @@ void hci_conn_init_sysfs(struct hci_conn *conn);
 void hci_conn_add_sysfs(struct hci_conn *conn);
 void hci_conn_del_sysfs(struct hci_conn *conn);
 
-#define SET_HCIDEV_DEV(hdev, pdev) ((hdev)->parent = (pdev))
+#define SET_HCIDEV_DEV(hdev, pdev) ((hdev)->dev.parent = (pdev))
 
 /* ----- LMP capabilities ----- */
 #define lmp_rswitch_capable(dev)   ((dev)->features[0] & LMP_RSWITCH)
@@ -963,7 +966,6 @@ void hci_sock_dev_event(struct hci_dev *hdev, int event);
 #define MGMT_ADDR_BREDR			0x00
 #define MGMT_ADDR_LE_PUBLIC		0x01
 #define MGMT_ADDR_LE_RANDOM		0x02
-#define MGMT_ADDR_INVALID		0xff
 
 #define DISCOV_TYPE_BREDR		(BIT(MGMT_ADDR_BREDR))
 #define DISCOV_TYPE_LE			(BIT(MGMT_ADDR_LE_PUBLIC) | \
@@ -980,7 +982,7 @@ int mgmt_discoverable(struct hci_dev *hdev, u8 discoverable);
 int mgmt_connectable(struct hci_dev *hdev, u8 connectable);
 int mgmt_write_scan_failed(struct hci_dev *hdev, u8 scan, u8 status);
 int mgmt_new_link_key(struct hci_dev *hdev, struct link_key *key,
-		      u8 persistent);
+		      bool persistent);
 int mgmt_device_connected(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 			  u8 addr_type, u32 flags, u8 *name, u8 name_len,
 			  u8 *dev_class);
@@ -1073,5 +1075,6 @@ int hci_do_inquiry(struct hci_dev *hdev, u8 length);
 int hci_cancel_inquiry(struct hci_dev *hdev);
 int hci_le_scan(struct hci_dev *hdev, u8 type, u16 interval, u16 window,
 		int timeout);
+int hci_cancel_le_scan(struct hci_dev *hdev);
 
 #endif /* __HCI_CORE_H */

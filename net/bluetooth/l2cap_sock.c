@@ -148,9 +148,13 @@ static int l2cap_sock_listen(struct socket *sock, int backlog)
 
 	lock_sock(sk);
 
-	if ((sock->type != SOCK_SEQPACKET && sock->type != SOCK_STREAM)
-			|| sk->sk_state != BT_BOUND) {
+	if (sk->sk_state != BT_BOUND) {
 		err = -EBADFD;
+		goto done;
+	}
+
+	if (sk->sk_type != SOCK_SEQPACKET && sk->sk_type != SOCK_STREAM) {
+		err = -EINVAL;
 		goto done;
 	}
 
@@ -927,12 +931,16 @@ static void l2cap_sock_state_change_cb(void *data, int state)
 }
 
 static struct sk_buff *l2cap_sock_alloc_skb_cb(struct l2cap_chan *chan,
-					       unsigned long len, int nb,
-					       int *err)
+					       unsigned long len, int nb)
 {
-	struct sock *sk = chan->sk;
+	struct sk_buff *skb;
+	int err;
 
-	return bt_skb_send_alloc(sk, len, nb, err);
+	skb = bt_skb_send_alloc(chan->sk, len, nb, &err);
+	if (!skb)
+		return (ERR_PTR(err));
+
+	return skb;
 }
 
 static struct l2cap_ops l2cap_chan_ops = {
@@ -1006,13 +1014,8 @@ static void l2cap_sock_init(struct sock *sk, struct sock *parent)
 		} else {
 			chan->mode = L2CAP_MODE_BASIC;
 		}
-		chan->max_tx = L2CAP_DEFAULT_MAX_TX;
-		chan->fcs  = L2CAP_FCS_CRC16;
-		chan->tx_win = L2CAP_DEFAULT_TX_WINDOW;
-		chan->tx_win_max = L2CAP_DEFAULT_TX_WINDOW;
-		chan->sec_level = BT_SECURITY_LOW;
-		chan->flags = 0;
-		set_bit(FLAG_FORCE_ACTIVE, &chan->flags);
+
+		l2cap_chan_set_defaults(chan);
 	}
 
 	/* Default config options */
@@ -1048,11 +1051,13 @@ static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int p
 	sk->sk_protocol = proto;
 	sk->sk_state = BT_OPEN;
 
-	chan = l2cap_chan_create(sk);
+	chan = l2cap_chan_create();
 	if (!chan) {
 		l2cap_sock_kill(sk);
 		return NULL;
 	}
+
+	chan->sk = sk;
 
 	l2cap_pi(sk)->chan = chan;
 
