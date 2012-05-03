@@ -96,7 +96,7 @@ struct iwl_phy_db {
 	u32 channel_size;
 
 	/* for an access to the logger */
-	const struct iwl_shared *shrd;
+	struct device *dev;
 };
 
 enum iwl_phy_db_section_type {
@@ -108,7 +108,13 @@ enum iwl_phy_db_section_type {
 	IWL_PHY_DB_MAX
 };
 
-struct iwl_phy_db *iwl_phy_db_init(struct iwl_shared *shrd);
+/* for parsing of tx power channel group data that comes from the firmware*/
+struct iwl_phy_db_chg_txp {
+	__le32 space;
+	__le16 max_channel_idx;
+} __packed;
+
+struct iwl_phy_db *iwl_phy_db_init(struct device *dev);
 
 void iwl_phy_db_free(struct iwl_phy_db *phy_db);
 

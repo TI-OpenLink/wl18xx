@@ -988,7 +988,7 @@ mwifiex_cmd_802_11_subsc_evt(struct mwifiex_private *priv,
 		rssi_tlv->abs_value = subsc_evt_cfg->bcn_h_rssi_cfg.abs_value;
 		rssi_tlv->evt_freq = subsc_evt_cfg->bcn_h_rssi_cfg.evt_freq;
 
-		dev_dbg(priv->adapter->dev, "Cfg Beacon Low Rssi event, "
+		dev_dbg(priv->adapter->dev, "Cfg Beacon High Rssi event, "
 			"RSSI:-%d dBm, Freq:%d\n",
 			subsc_evt_cfg->bcn_h_rssi_cfg.abs_value,
 			subsc_evt_cfg->bcn_h_rssi_cfg.evt_freq);
@@ -1293,7 +1293,7 @@ int mwifiex_sta_init_cmd(struct mwifiex_private *priv, u8 first_sta)
 	if (ret)
 		return -1;
 
-	if (first_sta) {
+	if (first_sta && (priv->adapter->iface_type != MWIFIEX_USB)) {
 		/* Enable auto deep sleep */
 		auto_ds.auto_ds = DEEP_SLEEP_ON;
 		auto_ds.idle_time = DEEP_SLEEP_IDLE_TIME;

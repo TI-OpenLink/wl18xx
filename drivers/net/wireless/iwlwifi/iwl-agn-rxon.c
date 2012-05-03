@@ -27,10 +27,76 @@
 #include <linux/etherdevice.h>
 #include "iwl-dev.h"
 #include "iwl-agn.h"
-#include "iwl-core.h"
 #include "iwl-agn-calib.h"
 #include "iwl-trans.h"
-#include "iwl-shared.h"
+#include "iwl-modparams.h"
+
+/*
+ * initialize rxon structure with default values from eeprom
+ */
+void iwl_connection_init_rx_config(struct iwl_priv *priv,
+				   struct iwl_rxon_context *ctx)
+{
+	const struct iwl_channel_info *ch_info;
+
+	memset(&ctx->staging, 0, sizeof(ctx->staging));
+
+	if (!ctx->vif) {
+		ctx->staging.dev_type = ctx->unused_devtype;
+	} else
+	switch (ctx->vif->type) {
+	case NL80211_IFTYPE_AP:
+		ctx->staging.dev_type = ctx->ap_devtype;
+		break;
+
+	case NL80211_IFTYPE_STATION:
+		ctx->staging.dev_type = ctx->station_devtype;
+		ctx->staging.filter_flags = RXON_FILTER_ACCEPT_GRP_MSK;
+		break;
+
+	case NL80211_IFTYPE_ADHOC:
+		ctx->staging.dev_type = ctx->ibss_devtype;
+		ctx->staging.flags = RXON_FLG_SHORT_PREAMBLE_MSK;
+		ctx->staging.filter_flags = RXON_FILTER_BCON_AWARE_MSK |
+						  RXON_FILTER_ACCEPT_GRP_MSK;
+		break;
+
+	default:
+		IWL_ERR(priv, "Unsupported interface type %d\n",
+			ctx->vif->type);
+		break;
+	}
+
+#if 0
+	/* TODO:  Figure out when short_preamble would be set and cache from
+	 * that */
+	if (!hw_to_local(priv->hw)->short_preamble)
+		ctx->staging.flags &= ~RXON_FLG_SHORT_PREAMBLE_MSK;
+	else
+		ctx->staging.flags |= RXON_FLG_SHORT_PREAMBLE_MSK;
+#endif
+
+	ch_info = iwl_get_channel_info(priv, priv->band,
+				       le16_to_cpu(ctx->active.channel));
+
+	if (!ch_info)
+		ch_info = &priv->channel_info[0];
+
+	ctx->staging.channel = cpu_to_le16(ch_info->channel);
+	priv->band = ch_info->band;
+
+	iwl_set_flags_for_band(priv, ctx, priv->band, ctx->vif);
+
+	/* clear both MIX and PURE40 mode flag */
+	ctx->staging.flags &= ~(RXON_FLG_CHANNEL_MODE_MIXED |
+					RXON_FLG_CHANNEL_MODE_PURE_40);
+	if (ctx->vif)
+		memcpy(ctx->staging.node_addr, ctx->vif->addr, ETH_ALEN);
+
+	ctx->staging.ofdm_ht_single_stream_basic_rates = 0xff;
+	ctx->staging.ofdm_ht_dual_stream_basic_rates = 0xff;
+	ctx->staging.ofdm_ht_triple_stream_basic_rates = 0xff;
+}
 
 static int iwlagn_disable_bss(struct iwl_priv *priv,
 			      struct iwl_rxon_context *ctx,
@@ -105,8 +171,7 @@ static int iwlagn_disconn_pan(struct iwl_priv *priv,
 	return ret;
 }
 
-static void iwlagn_update_qos(struct iwl_priv *priv,
-			      struct iwl_rxon_context *ctx)
+void iwlagn_update_qos(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 {
 	int ret;
 
@@ -133,8 +198,8 @@ static void iwlagn_update_qos(struct iwl_priv *priv,
 		IWL_DEBUG_QUIET_RFKILL(priv, "Failed to update QoS\n");
 }
 
-static int iwlagn_update_beacon(struct iwl_priv *priv,
-				struct ieee80211_vif *vif)
+int iwlagn_update_beacon(struct iwl_priv *priv,
+			 struct ieee80211_vif *vif)
 {
 	lockdep_assert_held(&priv->mutex);
 
@@ -335,6 +400,64 @@ static int iwlagn_rxon_disconn(struct iwl_priv *priv,
 	return 0;
 }
 
+static int iwl_set_tx_power(struct iwl_priv *priv, s8 tx_power, bool force)
+{
+	int ret;
+	s8 prev_tx_power;
+	bool defer;
+	struct iwl_rxon_context *ctx = &priv->contexts[IWL_RXON_CTX_BSS];
+
+	if (priv->calib_disabled & IWL_TX_POWER_CALIB_DISABLED)
+		return 0;
+
+	lockdep_assert_held(&priv->mutex);
+
+	if (priv->tx_power_user_lmt == tx_power && !force)
+		return 0;
+
+	if (tx_power < IWLAGN_TX_POWER_TARGET_POWER_MIN) {
+		IWL_WARN(priv,
+			 "Requested user TXPOWER %d below lower limit %d.\n",
+			 tx_power,
+			 IWLAGN_TX_POWER_TARGET_POWER_MIN);
+		return -EINVAL;
+	}
+
+	if (tx_power > priv->tx_power_device_lmt) {
+		IWL_WARN(priv,
+			"Requested user TXPOWER %d above upper limit %d.\n",
+			 tx_power, priv->tx_power_device_lmt);
+		return -EINVAL;
+	}
+
+	if (!iwl_is_ready_rf(priv))
+		return -EIO;
+
+	/* scan complete and commit_rxon use tx_power_next value,
+	 * it always need to be updated for newest request */
+	priv->tx_power_next = tx_power;
+
+	/* do not set tx power when scanning or channel changing */
+	defer = test_bit(STATUS_SCANNING, &priv->status) ||
+		memcmp(&ctx->active, &ctx->staging, sizeof(ctx->staging));
+	if (defer && !force) {
+		IWL_DEBUG_INFO(priv, "Deferring tx power set\n");
+		return 0;
+	}
+
+	prev_tx_power = priv->tx_power_user_lmt;
+	priv->tx_power_user_lmt = tx_power;
+
+	ret = iwlagn_send_tx_power(priv);
+
+	/* if fail to set tx_power, restore the orig. tx power */
+	if (ret) {
+		priv->tx_power_user_lmt = prev_tx_power;
+		priv->tx_power_next = prev_tx_power;
+	}
+	return ret;
+}
+
 static int iwlagn_rxon_connect(struct iwl_priv *priv,
 			       struct iwl_rxon_context *ctx)
 {
@@ -402,9 +525,9 @@ static int iwlagn_rxon_connect(struct iwl_priv *priv,
 	}
 
 	if (ctx->vif && ctx->vif->type == NL80211_IFTYPE_STATION &&
-	    cfg(priv)->ht_params && cfg(priv)->ht_params->smps_mode)
+	    priv->cfg->ht_params && priv->cfg->ht_params->smps_mode)
 		ieee80211_request_smps(ctx->vif,
-				       cfg(priv)->ht_params->smps_mode);
+				       priv->cfg->ht_params->smps_mode);
 
 	return 0;
 }
@@ -501,6 +624,148 @@ int iwlagn_set_pan_params(struct iwl_priv *priv)
 	return ret;
 }
 
+static void _iwl_set_rxon_ht(struct iwl_priv *priv,
+			     struct iwl_ht_config *ht_conf,
+			     struct iwl_rxon_context *ctx)
+{
+	struct iwl_rxon_cmd *rxon = &ctx->staging;
+
+	if (!ctx->ht.enabled) {
+		rxon->flags &= ~(RXON_FLG_CHANNEL_MODE_MSK |
+			RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK |
+			RXON_FLG_HT40_PROT_MSK |
+			RXON_FLG_HT_PROT_MSK);
+		return;
+	}
+
+	/* FIXME: if the definition of ht.protection changed, the "translation"
+	 * will be needed for rxon->flags
+	 */
+	rxon->flags |= cpu_to_le32(ctx->ht.protection <<
+				   RXON_FLG_HT_OPERATING_MODE_POS);
+
+	/* Set up channel bandwidth:
+	 * 20 MHz only, 20/40 mixed or pure 40 if ht40 ok */
+	/* clear the HT channel mode before set the mode */
+	rxon->flags &= ~(RXON_FLG_CHANNEL_MODE_MSK |
+			 RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK);
+	if (iwl_is_ht40_tx_allowed(priv, ctx, NULL)) {
+		/* pure ht40 */
+		if (ctx->ht.protection ==
+		    IEEE80211_HT_OP_MODE_PROTECTION_20MHZ) {
+			rxon->flags |= RXON_FLG_CHANNEL_MODE_PURE_40;
+			/*
+			 * Note: control channel is opposite of extension
+			 * channel
+			 */
+			switch (ctx->ht.extension_chan_offset) {
+			case IEEE80211_HT_PARAM_CHA_SEC_ABOVE:
+				rxon->flags &=
+					~RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK;
+				break;
+			case IEEE80211_HT_PARAM_CHA_SEC_BELOW:
+				rxon->flags |=
+					RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK;
+				break;
+			}
+		} else {
+			/*
+			 * Note: control channel is opposite of extension
+			 * channel
+			 */
+			switch (ctx->ht.extension_chan_offset) {
+			case IEEE80211_HT_PARAM_CHA_SEC_ABOVE:
+				rxon->flags &=
+					~(RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK);
+				rxon->flags |= RXON_FLG_CHANNEL_MODE_MIXED;
+				break;
+			case IEEE80211_HT_PARAM_CHA_SEC_BELOW:
+				rxon->flags |= RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK;
+				rxon->flags |= RXON_FLG_CHANNEL_MODE_MIXED;
+				break;
+			case IEEE80211_HT_PARAM_CHA_SEC_NONE:
+			default:
+				/*
+				 * channel location only valid if in Mixed
+				 * mode
+				 */
+				IWL_ERR(priv,
+					"invalid extension channel offset\n");
+				break;
+			}
+		}
+	} else {
+		rxon->flags |= RXON_FLG_CHANNEL_MODE_LEGACY;
+	}
+
+	iwlagn_set_rxon_chain(priv, ctx);
+
+	IWL_DEBUG_ASSOC(priv, "rxon flags 0x%X operation mode :0x%X "
+			"extension channel offset 0x%x\n",
+			le32_to_cpu(rxon->flags), ctx->ht.protection,
+			ctx->ht.extension_chan_offset);
+}
+
+void iwl_set_rxon_ht(struct iwl_priv *priv, struct iwl_ht_config *ht_conf)
+{
+	struct iwl_rxon_context *ctx;
+
+	for_each_context(priv, ctx)
+		_iwl_set_rxon_ht(priv, ht_conf, ctx);
+}
+
+/**
+ * iwl_set_rxon_channel - Set the band and channel values in staging RXON
+ * @ch: requested channel as a pointer to struct ieee80211_channel
+
+ * NOTE:  Does not commit to the hardware; it sets appropriate bit fields
+ * in the staging RXON flag structure based on the ch->band
+ */
+void iwl_set_rxon_channel(struct iwl_priv *priv, struct ieee80211_channel *ch,
+			 struct iwl_rxon_context *ctx)
+{
+	enum ieee80211_band band = ch->band;
+	u16 channel = ch->hw_value;
+
+	if ((le16_to_cpu(ctx->staging.channel) == channel) &&
+	    (priv->band == band))
+		return;
+
+	ctx->staging.channel = cpu_to_le16(channel);
+	if (band == IEEE80211_BAND_5GHZ)
+		ctx->staging.flags &= ~RXON_FLG_BAND_24G_MSK;
+	else
+		ctx->staging.flags |= RXON_FLG_BAND_24G_MSK;
+
+	priv->band = band;
+
+	IWL_DEBUG_INFO(priv, "Staging channel set to %d [%d]\n", channel, band);
+
+}
+
+void iwl_set_flags_for_band(struct iwl_priv *priv,
+			    struct iwl_rxon_context *ctx,
+			    enum ieee80211_band band,
+			    struct ieee80211_vif *vif)
+{
+	if (band == IEEE80211_BAND_5GHZ) {
+		ctx->staging.flags &=
+		    ~(RXON_FLG_BAND_24G_MSK | RXON_FLG_AUTO_DETECT_MSK
+		      | RXON_FLG_CCK_MSK);
+		ctx->staging.flags |= RXON_FLG_SHORT_SLOT_MSK;
+	} else {
+		/* Copied from iwl_post_associate() */
+		if (vif && vif->bss_conf.use_short_slot)
+			ctx->staging.flags |= RXON_FLG_SHORT_SLOT_MSK;
+		else
+			ctx->staging.flags &= ~RXON_FLG_SHORT_SLOT_MSK;
+
+		ctx->staging.flags |= RXON_FLG_BAND_24G_MSK;
+		ctx->staging.flags |= RXON_FLG_AUTO_DETECT_MSK;
+		ctx->staging.flags &= ~RXON_FLG_CCK_MSK;
+	}
+}
+
 static void iwl_set_rxon_hwcrypto(struct iwl_priv *priv,
 				  struct iwl_rxon_context *ctx, int hw_decrypt)
 {
@@ -594,8 +859,8 @@ static int iwl_check_rxon_cmd(struct iwl_priv *priv,
  * or is clearing the RXON_FILTER_ASSOC_MSK, then return 1 to indicate that
  * a new tune (full RXON command, rather than RXON_ASSOC cmd) is required.
  */
-static int iwl_full_rxon_required(struct iwl_priv *priv,
-				  struct iwl_rxon_context *ctx)
+int iwl_full_rxon_required(struct iwl_priv *priv,
+			   struct iwl_rxon_context *ctx)
 {
 	const struct iwl_rxon_cmd *staging = &ctx->staging;
 	const struct iwl_rxon_cmd *active = &ctx->active;
@@ -649,6 +914,124 @@ static int iwl_full_rxon_required(struct iwl_priv *priv,
 	return 0;
 }
 
+#ifdef CONFIG_IWLWIFI_DEBUG
+void iwl_print_rx_config_cmd(struct iwl_priv *priv,
+			     enum iwl_rxon_context_id ctxid)
+{
+	struct iwl_rxon_context *ctx = &priv->contexts[ctxid];
+	struct iwl_rxon_cmd *rxon = &ctx->staging;
+
+	IWL_DEBUG_RADIO(priv, "RX CONFIG:\n");
+	iwl_print_hex_dump(priv, IWL_DL_RADIO, (u8 *) rxon, sizeof(*rxon));
+	IWL_DEBUG_RADIO(priv, "u16 channel: 0x%x\n",
+			le16_to_cpu(rxon->channel));
+	IWL_DEBUG_RADIO(priv, "u32 flags: 0x%08X\n",
+			le32_to_cpu(rxon->flags));
+	IWL_DEBUG_RADIO(priv, "u32 filter_flags: 0x%08x\n",
+			le32_to_cpu(rxon->filter_flags));
+	IWL_DEBUG_RADIO(priv, "u8 dev_type: 0x%x\n", rxon->dev_type);
+	IWL_DEBUG_RADIO(priv, "u8 ofdm_basic_rates: 0x%02x\n",
+			rxon->ofdm_basic_rates);
+	IWL_DEBUG_RADIO(priv, "u8 cck_basic_rates: 0x%02x\n",
+			rxon->cck_basic_rates);
+	IWL_DEBUG_RADIO(priv, "u8[6] node_addr: %pM\n", rxon->node_addr);
+	IWL_DEBUG_RADIO(priv, "u8[6] bssid_addr: %pM\n", rxon->bssid_addr);
+	IWL_DEBUG_RADIO(priv, "u16 assoc_id: 0x%x\n",
+			le16_to_cpu(rxon->assoc_id));
+}
+#endif
+
+static void iwl_calc_basic_rates(struct iwl_priv *priv,
+				 struct iwl_rxon_context *ctx)
+{
+	int lowest_present_ofdm = 100;
+	int lowest_present_cck = 100;
+	u8 cck = 0;
+	u8 ofdm = 0;
+
+	if (ctx->vif) {
+		struct ieee80211_supported_band *sband;
+		unsigned long basic = ctx->vif->bss_conf.basic_rates;
+		int i;
+
+		sband = priv->hw->wiphy->bands[priv->hw->conf.channel->band];
+
+		for_each_set_bit(i, &basic, BITS_PER_LONG) {
+			int hw = sband->bitrates[i].hw_value;
+			if (hw >= IWL_FIRST_OFDM_RATE) {
+				ofdm |= BIT(hw - IWL_FIRST_OFDM_RATE);
+				if (lowest_present_ofdm > hw)
+					lowest_present_ofdm = hw;
+			} else {
+				BUILD_BUG_ON(IWL_FIRST_CCK_RATE != 0);
+
+				cck |= BIT(hw);
+				if (lowest_present_cck > hw)
+					lowest_present_cck = hw;
+			}
+		}
+	}
+
+	/*
+	 * Now we've got the basic rates as bitmaps in the ofdm and cck
+	 * variables. This isn't sufficient though, as there might not
+	 * be all the right rates in the bitmap. E.g. if the only basic
+	 * rates are 5.5 Mbps and 11 Mbps, we still need to add 1 Mbps
+	 * and 6 Mbps because the 802.11-2007 standard says in 9.6:
+	 *
+	 *    [...] a STA responding to a received frame shall transmit
+	 *    its Control Response frame [...] at the highest rate in the
+	 *    BSSBasicRateSet parameter that is less than or equal to the
+	 *    rate of the immediately previous frame in the frame exchange
+	 *    sequence ([...]) and that is of the same modulation class
+	 *    ([...]) as the received frame. If no rate contained in the
+	 *    BSSBasicRateSet parameter meets these conditions, then the
+	 *    control frame sent in response to a received frame shall be
+	 *    transmitted at the highest mandatory rate of the PHY that is
+	 *    less than or equal to the rate of the received frame, and
+	 *    that is of the same modulation class as the received frame.
+	 *
+	 * As a consequence, we need to add all mandatory rates that are
+	 * lower than all of the basic rates to these bitmaps.
+	 */
+
+	if (IWL_RATE_24M_INDEX < lowest_present_ofdm)
+		ofdm |= IWL_RATE_24M_MASK >> IWL_FIRST_OFDM_RATE;
+	if (IWL_RATE_12M_INDEX < lowest_present_ofdm)
+		ofdm |= IWL_RATE_12M_MASK >> IWL_FIRST_OFDM_RATE;
+	/* 6M already there or needed so always add */
+	ofdm |= IWL_RATE_6M_MASK >> IWL_FIRST_OFDM_RATE;
+
+	/*
+	 * CCK is a bit more complex with DSSS vs. HR/DSSS vs. ERP.
+	 * Note, however:
+	 *  - if no CCK rates are basic, it must be ERP since there must
+	 *    be some basic rates at all, so they're OFDM => ERP PHY
+	 *    (or we're in 5 GHz, and the cck bitmap will never be used)
+	 *  - if 11M is a basic rate, it must be ERP as well, so add 5.5M
+	 *  - if 5.5M is basic, 1M and 2M are mandatory
+	 *  - if 2M is basic, 1M is mandatory
+	 *  - if 1M is basic, that's the only valid ACK rate.
+	 * As a consequence, it's not as complicated as it sounds, just add
+	 * any lower rates to the ACK rate bitmap.
+	 */
+	if (IWL_RATE_11M_INDEX < lowest_present_ofdm)
+		ofdm |= IWL_RATE_11M_MASK >> IWL_FIRST_CCK_RATE;
+	if (IWL_RATE_5M_INDEX < lowest_present_ofdm)
+		ofdm |= IWL_RATE_5M_MASK >> IWL_FIRST_CCK_RATE;
+	if (IWL_RATE_2M_INDEX < lowest_present_ofdm)
+		ofdm |= IWL_RATE_2M_MASK >> IWL_FIRST_CCK_RATE;
+	/* 1M already there or needed so always add */
+	cck |= IWL_RATE_1M_MASK >> IWL_FIRST_CCK_RATE;
+
+	IWL_DEBUG_RATE(priv, "Set basic rates cck:0x%.2x ofdm:0x%.2x\n",
+		       cck, ofdm);
+
+	/* "basic_rates" is a misnomer here -- should be called ACK rates */
+	ctx->staging.cck_basic_rates = cck;
+	ctx->staging.ofdm_basic_rates = ofdm;
+}
+
 /**
  * iwlagn_commit_rxon - commit staging_rxon to hardware
  *
@@ -688,11 +1071,14 @@ int iwlagn_commit_rxon(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 	/* always get timestamp with Rx frame */
 	ctx->staging.flags |= RXON_FLG_TSF2HOST_MSK;
 
+	/* recalculate basic rates */
+	iwl_calc_basic_rates(priv, ctx);
+
 	/*
 	 * force CTS-to-self frames protection if RTS-CTS is not preferred
 	 * one aggregation protection method
 	 */
-	if (!hw_params(priv).use_rts_for_aggregation)
+	if (!priv->hw_params.use_rts_for_aggregation)
 		ctx->staging.flags |= RXON_FLG_SELF_CTS_EN;
 
 	if ((ctx->vif && ctx->vif->bss_conf.use_short_slot) ||
@@ -744,7 +1130,7 @@ int iwlagn_commit_rxon(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 		return 0;
 	}
 
-	iwl_set_rxon_hwcrypto(priv, ctx, !iwlagn_mod_params.sw_crypto);
+	iwl_set_rxon_hwcrypto(priv, ctx, !iwlwifi_mod_params.sw_crypto);
 
 	IWL_DEBUG_INFO(priv,
 		       "Going to commit RXON\n"
@@ -876,13 +1262,6 @@ int iwlagn_mac_config(struct ieee80211_hw *hw, u32 changed)
 		}
 
 		iwl_update_bcast_stations(priv);
-
-		/*
-		 * The list of supported rates and rate mask can be different
-		 * for each band; since the band may have changed, reset
-		 * the rate mask to what mac80211 lists.
-		 */
-		iwl_set_rate(priv);
 	}
 
 	if (changed & (IEEE80211_CONF_CHANGE_PS |
@@ -911,9 +1290,9 @@ int iwlagn_mac_config(struct ieee80211_hw *hw, u32 changed)
 	return ret;
 }
 
-static void iwlagn_check_needed_chains(struct iwl_priv *priv,
-				       struct iwl_rxon_context *ctx,
-				       struct ieee80211_bss_conf *bss_conf)
+void iwlagn_check_needed_chains(struct iwl_priv *priv,
+				struct iwl_rxon_context *ctx,
+				struct ieee80211_bss_conf *bss_conf)
 {
 	struct ieee80211_vif *vif = ctx->vif;
 	struct iwl_rxon_context *tmp;
@@ -1005,10 +1384,13 @@ static void iwlagn_check_needed_chains(struct iwl_priv *priv,
 	ht_conf->single_chain_sufficient = !need_multiple;
 }
 
-static void iwlagn_chain_noise_reset(struct iwl_priv *priv)
+void iwlagn_chain_noise_reset(struct iwl_priv *priv)
 {
 	struct iwl_chain_noise_data *data = &priv->chain_noise_data;
 	int ret;
+
+	if (!(priv->calib_disabled & IWL_CHAIN_NOISE_CALIB_DISABLED))
+		return;
 
 	if ((data->state == IWL_CHAIN_NOISE_ALIVE) &&
 	    iwl_is_any_associated(priv)) {
@@ -1162,8 +1544,7 @@ void iwlagn_bss_info_changed(struct ieee80211_hw *hw,
 			iwl_power_update_mode(priv, false);
 
 		/* Enable RX differential gain and sensitivity calibrations */
-		if (!priv->disable_chain_noise_cal)
-			iwlagn_chain_noise_reset(priv);
+		iwlagn_chain_noise_reset(priv);
 		priv->start_calib = 1;
 	}
 

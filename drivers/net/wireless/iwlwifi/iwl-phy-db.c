@@ -65,14 +65,13 @@
 #include <linux/string.h>
 
 #include "iwl-debug.h"
-#include "iwl-shared.h"
 #include "iwl-dev.h"
 
 #include "iwl-phy-db.h"
 
 #define CHANNEL_NUM_SIZE	4	/* num of channels in calib_ch size */
 
-struct iwl_phy_db *iwl_phy_db_init(struct iwl_shared *shrd)
+struct iwl_phy_db *iwl_phy_db_init(struct device *dev)
 {
 	struct iwl_phy_db *phy_db = kzalloc(sizeof(struct iwl_phy_db),
 					    GFP_KERNEL);
@@ -80,7 +79,7 @@ struct iwl_phy_db *iwl_phy_db_init(struct iwl_shared *shrd)
 	if (!phy_db)
 		return phy_db;
 
-	phy_db->shrd = shrd;
+	phy_db->dev = dev;
 
 	/* TODO: add default values of the phy db. */
 	return phy_db;
@@ -228,8 +227,24 @@ static u16 channel_id_to_papd(u16 ch_id)
 
 static u16 channel_id_to_txp(struct iwl_phy_db *phy_db, u16 ch_id)
 {
-	/* TODO David*/
-	return 0;
+	struct iwl_phy_db_chg_txp *txp_chg;
+	int i;
+	u8 ch_index = ch_id_to_ch_index(ch_id);
+	if (ch_index == 0xff)
+		return 0xff;
+
+	for (i = 0; i < IWL_NUM_TXP_CH_GROUPS; i++) {
+		txp_chg = (void *)phy_db->calib_ch_group_txp[i].data;
+		if (!txp_chg)
+			return 0xff;
+		/*
+		 * Looking for the first channel group that its max channel is
+		 * higher then wanted channel.
+		 */
+		if (le16_to_cpu(txp_chg->max_channel_idx) >= ch_index)
+			return i;
+	}
+	return 0xff;
 }
 
 int iwl_phy_db_get_section_data(struct iwl_phy_db *phy_db,

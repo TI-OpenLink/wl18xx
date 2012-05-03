@@ -139,6 +139,8 @@ struct l2cap_conninfo {
 
 #define L2CAP_CTRL_TXSEQ_SHIFT		1
 #define L2CAP_CTRL_SUPER_SHIFT		2
+#define L2CAP_CTRL_POLL_SHIFT		4
+#define L2CAP_CTRL_FINAL_SHIFT		7
 #define L2CAP_CTRL_REQSEQ_SHIFT		8
 #define L2CAP_CTRL_SAR_SHIFT		14
 
@@ -152,9 +154,11 @@ struct l2cap_conninfo {
 #define L2CAP_EXT_CTRL_FINAL		0x00000002
 #define L2CAP_EXT_CTRL_FRAME_TYPE	0x00000001 /* I- or S-Frame */
 
+#define L2CAP_EXT_CTRL_FINAL_SHIFT	1
 #define L2CAP_EXT_CTRL_REQSEQ_SHIFT	2
 #define L2CAP_EXT_CTRL_SAR_SHIFT	16
 #define L2CAP_EXT_CTRL_SUPER_SHIFT	16
+#define L2CAP_EXT_CTRL_POLL_SHIFT	18
 #define L2CAP_EXT_CTRL_TXSEQ_SHIFT	18
 
 /* L2CAP Supervisory Function */
@@ -186,6 +190,8 @@ struct l2cap_hdr {
 #define L2CAP_FCS_SIZE		2
 #define L2CAP_SDULEN_SIZE	2
 #define L2CAP_PSMLEN_SIZE	2
+#define L2CAP_ENH_CTRL_SIZE	2
+#define L2CAP_EXT_CTRL_SIZE	4
 
 struct l2cap_cmd_hdr {
 	__u8       code;
@@ -401,6 +407,16 @@ struct l2cap_conn_param_update_rsp {
 #define L2CAP_CONN_PARAM_REJECTED	0x0001
 
 /* ----- L2CAP channels and connections ----- */
+struct l2cap_seq_list {
+	__u16	head;
+	__u16	tail;
+	__u16	mask;
+	__u16	*list;
+};
+
+#define L2CAP_SEQ_LIST_CLEAR	0xFFFF
+#define L2CAP_SEQ_LIST_TAIL	0x8000
+
 struct srej_list {
 	__u16	tx_seq;
 	struct list_head list;
@@ -446,6 +462,9 @@ struct l2cap_chan {
 	__u16		monitor_timeout;
 	__u16		mps;
 
+	__u8		tx_state;
+	__u8		rx_state;
+
 	unsigned long	conf_state;
 	unsigned long	conn_state;
 	unsigned long	flags;
@@ -456,9 +475,11 @@ struct l2cap_chan {
 	__u16		buffer_seq;
 	__u16		buffer_seq_srej;
 	__u16		srej_save_reqseq;
+	__u16		last_acked_seq;
 	__u16		frames_sent;
 	__u16		unacked_frames;
 	__u8		retry_count;
+	__u16		srej_queue_next;
 	__u8		num_acked;
 	__u16		sdu_len;
 	struct sk_buff	*sdu;
@@ -490,6 +511,8 @@ struct l2cap_chan {
 	struct sk_buff		*tx_send_head;
 	struct sk_buff_head	tx_q;
 	struct sk_buff_head	srej_q;
+	struct l2cap_seq_list	srej_list;
+	struct l2cap_seq_list	retrans_list;
 	struct list_head	srej_l;
 
 	struct list_head	list;
@@ -508,8 +531,7 @@ struct l2cap_ops {
 	void			(*close) (void *data);
 	void			(*state_change) (void *data, int state);
 	struct sk_buff		*(*alloc_skb) (struct l2cap_chan *chan,
-					unsigned long len, int nb, int *err);
-
+					unsigned long len, int nb);
 };
 
 struct l2cap_conn {
@@ -600,6 +622,44 @@ enum {
 	FLAG_EFS_ENABLE,
 };
 
+enum {
+	L2CAP_TX_STATE_XMIT,
+	L2CAP_TX_STATE_WAIT_F,
+};
+
+enum {
+	L2CAP_RX_STATE_RECV,
+	L2CAP_RX_STATE_SREJ_SENT,
+};
+
+enum {
+	L2CAP_TXSEQ_EXPECTED,
+	L2CAP_TXSEQ_EXPECTED_SREJ,
+	L2CAP_TXSEQ_UNEXPECTED,
+	L2CAP_TXSEQ_UNEXPECTED_SREJ,
+	L2CAP_TXSEQ_DUPLICATE,
+	L2CAP_TXSEQ_DUPLICATE_SREJ,
+	L2CAP_TXSEQ_INVALID,
+	L2CAP_TXSEQ_INVALID_IGNORE,
+};
+
+enum {
+	L2CAP_EV_DATA_REQUEST,
+	L2CAP_EV_LOCAL_BUSY_DETECTED,
+	L2CAP_EV_LOCAL_BUSY_CLEAR,
+	L2CAP_EV_RECV_REQSEQ_AND_FBIT,
+	L2CAP_EV_RECV_FBIT,
+	L2CAP_EV_RETRANS_TO,
+	L2CAP_EV_MONITOR_TO,
+	L2CAP_EV_EXPLICIT_POLL,
+	L2CAP_EV_RECV_IFRAME,
+	L2CAP_EV_RECV_RR,
+	L2CAP_EV_RECV_REJ,
+	L2CAP_EV_RECV_RNR,
+	L2CAP_EV_RECV_SREJ,
+	L2CAP_EV_RECV_FRAME,
+};
+
 static inline void l2cap_chan_hold(struct l2cap_chan *c)
 {
 	atomic_inc(&c->refcnt);
@@ -622,21 +682,26 @@ static inline void l2cap_chan_unlock(struct l2cap_chan *chan)
 }
 
 static inline void l2cap_set_timer(struct l2cap_chan *chan,
-					struct delayed_work *work, long timeout)
+				   struct delayed_work *work, long timeout)
 {
 	BT_DBG("chan %p state %s timeout %ld", chan,
-					state_to_string(chan->state), timeout);
+	       state_to_string(chan->state), timeout);
 
+	/* If delayed work cancelled do not hold(chan)
+	   since it is already done with previous set_timer */
 	if (!cancel_delayed_work(work))
 		l2cap_chan_hold(chan);
+
 	schedule_delayed_work(work, timeout);
 }
 
 static inline bool l2cap_clear_timer(struct l2cap_chan *chan,
-					struct delayed_work *work)
+				     struct delayed_work *work)
 {
 	bool ret;
 
+	/* put(chan) if delayed work cancelled otherwise it
+	   is done in delayed work function */
 	ret = cancel_delayed_work(work);
 	if (ret)
 		l2cap_chan_put(chan);
@@ -852,7 +917,7 @@ int __l2cap_wait_ack(struct sock *sk);
 int l2cap_add_psm(struct l2cap_chan *chan, bdaddr_t *src, __le16 psm);
 int l2cap_add_scid(struct l2cap_chan *chan,  __u16 scid);
 
-struct l2cap_chan *l2cap_chan_create(struct sock *sk);
+struct l2cap_chan *l2cap_chan_create(void);
 void l2cap_chan_close(struct l2cap_chan *chan, int reason);
 void l2cap_chan_destroy(struct l2cap_chan *chan);
 int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid,
@@ -861,5 +926,6 @@ int l2cap_chan_send(struct l2cap_chan *chan, struct msghdr *msg, size_t len,
 								u32 priority);
 void l2cap_chan_busy(struct l2cap_chan *chan, int busy);
 int l2cap_chan_check_security(struct l2cap_chan *chan);
+void l2cap_chan_set_defaults(struct l2cap_chan *chan);
 
 #endif /* __L2CAP_H */

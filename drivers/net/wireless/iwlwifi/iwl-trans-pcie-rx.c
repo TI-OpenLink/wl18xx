@@ -140,7 +140,7 @@ void iwl_rx_queue_update_write_ptr(struct iwl_trans *trans,
 	if (q->need_update == 0)
 		goto exit_unlock;
 
-	if (cfg(trans)->base_params->shadow_reg_enable) {
+	if (trans->cfg->base_params->shadow_reg_enable) {
 		/* shadow register enabled */
 		/* Device expects a multiple of 8 */
 		q->write_actual = (q->write & ~0x7);
@@ -150,7 +150,7 @@ void iwl_rx_queue_update_write_ptr(struct iwl_trans *trans,
 			IWL_TRANS_GET_PCIE_TRANS(trans);
 
 		/* If power-saving is in use, make sure device is awake */
-		if (test_bit(STATUS_POWER_PMI, &trans_pcie->status)) {
+		if (test_bit(STATUS_TPOWER_PMI, &trans_pcie->status)) {
 			reg = iwl_read32(trans, CSR_UCODE_DRV_GP1);
 
 			if (reg & CSR_UCODE_DRV_GP1_BIT_MAC_SLEEP) {
@@ -274,17 +274,17 @@ static void iwlagn_rx_allocate(struct iwl_trans *trans, gfp_t priority)
 		if (rxq->free_count > RX_LOW_WATERMARK)
 			gfp_mask |= __GFP_NOWARN;
 
-		if (hw_params(trans).rx_page_order > 0)
+		if (trans_pcie->rx_page_order > 0)
 			gfp_mask |= __GFP_COMP;
 
 		/* Alloc a new receive buffer */
 		page = alloc_pages(gfp_mask,
-				  hw_params(trans).rx_page_order);
+				  trans_pcie->rx_page_order);
 		if (!page) {
 			if (net_ratelimit())
 				IWL_DEBUG_INFO(trans, "alloc_pages failed, "
 					   "order: %d\n",
-					   hw_params(trans).rx_page_order);
+					   trans_pcie->rx_page_order);
 
 			if ((rxq->free_count <= RX_LOW_WATERMARK) &&
 			    net_ratelimit())
@@ -303,7 +303,7 @@ static void iwlagn_rx_allocate(struct iwl_trans *trans, gfp_t priority)
 
 		if (list_empty(&rxq->rx_used)) {
 			spin_unlock_irqrestore(&rxq->lock, flags);
-			__free_pages(page, hw_params(trans).rx_page_order);
+			__free_pages(page, trans_pcie->rx_page_order);
 			return;
 		}
 		element = rxq->rx_used.next;
@@ -316,7 +316,7 @@ static void iwlagn_rx_allocate(struct iwl_trans *trans, gfp_t priority)
 		rxb->page = page;
 		/* Get physical address of the RB */
 		rxb->page_dma = dma_map_page(trans->dev, page, 0,
-				PAGE_SIZE << hw_params(trans).rx_page_order,
+				PAGE_SIZE << trans_pcie->rx_page_order,
 				DMA_FROM_DEVICE);
 		/* dma address must be no more than 36 bits */
 		BUG_ON(rxb->page_dma & ~DMA_BIT_MASK(36));
@@ -367,7 +367,7 @@ static void iwl_rx_handle_rxbuf(struct iwl_trans *trans,
 	struct iwl_tx_queue *txq = &trans_pcie->txq[trans_pcie->cmd_queue];
 	unsigned long flags;
 	bool page_stolen = false;
-	int max_len = PAGE_SIZE << hw_params(trans).rx_page_order;
+	int max_len = PAGE_SIZE << trans_pcie->rx_page_order;
 	u32 offset = 0;
 
 	if (WARN_ON(!rxb))
@@ -393,8 +393,9 @@ static void iwl_rx_handle_rxbuf(struct iwl_trans *trans,
 			break;
 
 		IWL_DEBUG_RX(trans, "cmd at offset %d: %s (0x%.2x)\n",
-			     rxcb._offset, get_cmd_string(pkt->hdr.cmd),
-			     pkt->hdr.cmd);
+			rxcb._offset,
+			trans_pcie_get_cmd_string(trans_pcie, pkt->hdr.cmd),
+			pkt->hdr.cmd);
 
 		len = le32_to_cpu(pkt->len_n_flags) & FH_RSCSR_FRAME_SIZE_MSK;
 		len += sizeof(u32); /* account for status word */
@@ -424,7 +425,7 @@ static void iwl_rx_handle_rxbuf(struct iwl_trans *trans,
 		cmd_index = get_cmd_index(&txq->q, index);
 
 		if (reclaim)
-			cmd = txq->cmd[cmd_index];
+			cmd = txq->entries[cmd_index].cmd;
 		else
 			cmd = NULL;
 
@@ -452,7 +453,7 @@ static void iwl_rx_handle_rxbuf(struct iwl_trans *trans,
 
 	/* page was stolen from us -- free our reference */
 	if (page_stolen) {
-		__free_pages(rxb->page, hw_params(trans).rx_page_order);
+		__free_pages(rxb->page, trans_pcie->rx_page_order);
 		rxb->page = NULL;
 	}
 
@@ -463,7 +464,7 @@ static void iwl_rx_handle_rxbuf(struct iwl_trans *trans,
 	if (rxb->page != NULL) {
 		rxb->page_dma =
 			dma_map_page(trans->dev, rxb->page, 0,
-				PAGE_SIZE << hw_params(trans).rx_page_order,
+				PAGE_SIZE << trans_pcie->rx_page_order,
 				DMA_FROM_DEVICE);
 		list_add_tail(&rxb->list, &rxq->rx_free);
 		rxq->free_count++;
@@ -542,19 +543,17 @@ static void iwl_rx_handle(struct iwl_trans *trans)
 static void iwl_irq_handle_error(struct iwl_trans *trans)
 {
 	/* W/A for WiFi/WiMAX coex and WiMAX own the RF */
-	if (cfg(trans)->internal_wimax_coex &&
+	if (trans->cfg->internal_wimax_coex &&
 	    (!(iwl_read_prph(trans, APMG_CLK_CTRL_REG) &
 			APMS_CLK_VAL_MRB_FUNC_MODE) ||
 	     (iwl_read_prph(trans, APMG_PS_CTRL_REG) &
 			APMG_PS_CTRL_VAL_RESET_REQ))) {
-		/*
-		 * Keep the restart process from trying to send host
-		 * commands by clearing the ready bit.
-		 */
-		clear_bit(STATUS_READY, &trans->shrd->status);
-		clear_bit(STATUS_HCMD_ACTIVE, &trans->shrd->status);
+		struct iwl_trans_pcie *trans_pcie;
+
+		trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+		clear_bit(STATUS_HCMD_ACTIVE, &trans_pcie->status);
+		iwl_op_mode_wimax_active(trans->op_mode);
 		wake_up(&trans->wait_command_queue);
-		IWL_ERR(trans, "RF is used by WiMAX\n");
 		return;
 	}
 
@@ -649,8 +648,7 @@ void iwl_irq_tasklet(struct iwl_trans *trans)
 	if (inta & CSR_INT_BIT_RF_KILL) {
 		bool hw_rfkill;
 
-		hw_rfkill = !(iwl_read32(trans, CSR_GP_CNTRL) &
-				CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW);
+		hw_rfkill = iwl_is_rfkill_set(trans);
 		IWL_WARN(trans, "RF_KILL bit toggled to %s.\n",
 				hw_rfkill ? "disable radio" : "enable radio");
 
@@ -681,7 +679,7 @@ void iwl_irq_tasklet(struct iwl_trans *trans)
 	if (inta & CSR_INT_BIT_WAKEUP) {
 		IWL_DEBUG_ISR(trans, "Wakeup interrupt\n");
 		iwl_rx_queue_update_write_ptr(trans, &trans_pcie->rxq);
-		for (i = 0; i < cfg(trans)->base_params->num_of_queues; i++)
+		for (i = 0; i < trans->cfg->base_params->num_of_queues; i++)
 			iwl_txq_update_write_ptr(trans,
 						 &trans_pcie->txq[i]);
 

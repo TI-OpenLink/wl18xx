@@ -69,6 +69,7 @@ struct sk_buff;
 struct iwl_device_cmd;
 struct iwl_rx_cmd_buffer;
 struct iwl_fw;
+struct iwl_cfg;
 
 /**
  * DOC: Operational mode - what is it ?
@@ -125,9 +126,11 @@ struct iwl_fw;
  * @cmd_queue_full: Called when the command queue gets full. Must be atomic.
  * @nic_config: configure NIC, called before firmware is started.
  *	May sleep
+ * @wimax_active: invoked when WiMax becomes active.  Must be atomic.
  */
 struct iwl_op_mode_ops {
 	struct iwl_op_mode *(*start)(struct iwl_trans *trans,
+				     const struct iwl_cfg *cfg,
 				     const struct iwl_fw *fw);
 	void (*stop)(struct iwl_op_mode *op_mode);
 	int (*rx)(struct iwl_op_mode *op_mode, struct iwl_rx_cmd_buffer *rxb,
@@ -139,6 +142,7 @@ struct iwl_op_mode_ops {
 	void (*nic_error)(struct iwl_op_mode *op_mode);
 	void (*cmd_queue_full)(struct iwl_op_mode *op_mode);
 	void (*nic_config)(struct iwl_op_mode *op_mode);
+	void (*wimax_active)(struct iwl_op_mode *op_mode);
 };
 
 /**
@@ -207,6 +211,11 @@ static inline void iwl_op_mode_nic_config(struct iwl_op_mode *op_mode)
 {
 	might_sleep();
 	op_mode->ops->nic_config(op_mode);
+}
+
+static inline void iwl_op_mode_wimax_active(struct iwl_op_mode *op_mode)
+{
+	op_mode->ops->wimax_active(op_mode);
 }
 
 /*****************************************************

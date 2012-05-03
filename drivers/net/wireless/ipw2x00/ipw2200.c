@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <net/cfg80211-wext.h>
 #include "ipw2200.h"
+#include "ipw.h"
 
 
 #ifndef KBUILD_EXTMOD
@@ -2191,6 +2192,7 @@ static int __ipw_send_cmd(struct ipw_priv *priv, struct host_cmd *cmd)
 {
 	int rc = 0;
 	unsigned long flags;
+	unsigned long now, end;
 
 	spin_lock_irqsave(&priv->lock, flags);
 	if (priv->status & STATUS_HCMD_ACTIVE) {
@@ -2232,10 +2234,20 @@ static int __ipw_send_cmd(struct ipw_priv *priv, struct host_cmd *cmd)
 	}
 	spin_unlock_irqrestore(&priv->lock, flags);
 
+	now = jiffies;
+	end = now + HOST_COMPLETE_TIMEOUT;
+again:
 	rc = wait_event_interruptible_timeout(priv->wait_command_queue,
 					      !(priv->
 						status & STATUS_HCMD_ACTIVE),
-					      HOST_COMPLETE_TIMEOUT);
+					      end - now);
+	if (rc < 0) {
+		now = jiffies;
+		if (time_before(now, end))
+			goto again;
+		rc = 0;
+	}
+
 	if (rc == 0) {
 		spin_lock_irqsave(&priv->lock, flags);
 		if (priv->status & STATUS_HCMD_ACTIVE) {
@@ -3657,8 +3669,7 @@ static int ipw_load(struct ipw_priv *priv)
 		priv->rxq = NULL;
 	}
 	ipw_tx_queue_free(priv);
-	if (raw)
-		release_firmware(raw);
+	release_firmware(raw);
 #ifdef CONFIG_PM
 	fw_loaded = 0;
 	raw = NULL;
@@ -11432,20 +11443,6 @@ static void ipw_bg_down(struct work_struct *work)
 	mutex_unlock(&priv->mutex);
 }
 
-/* Called by register_netdev() */
-static int ipw_net_init(struct net_device *dev)
-{
-	int rc = 0;
-	struct ipw_priv *priv = libipw_priv(dev);
-
-	mutex_lock(&priv->mutex);
-	if (ipw_up(priv))
-		rc = -EIO;
-	mutex_unlock(&priv->mutex);
-
-	return rc;
-}
-
 static int ipw_wdev_init(struct net_device *dev)
 {
 	int i, rc = 0;
@@ -11532,6 +11529,9 @@ static int ipw_wdev_init(struct net_device *dev)
 
 		wdev->wiphy->bands[IEEE80211_BAND_5GHZ] = a_band;
 	}
+
+	wdev->wiphy->cipher_suites = ipw_cipher_suites;
+	wdev->wiphy->n_cipher_suites = ARRAY_SIZE(ipw_cipher_suites);
 
 	set_wiphy_dev(wdev->wiphy, &priv->pci_dev->dev);
 
@@ -11711,7 +11711,6 @@ static void ipw_prom_free(struct ipw_priv *priv)
 #endif
 
 static const struct net_device_ops ipw_netdev_ops = {
-	.ndo_init		= ipw_net_init,
 	.ndo_open		= ipw_net_open,
 	.ndo_stop		= ipw_net_stop,
 	.ndo_set_rx_mode	= ipw_net_set_multicast_list,
@@ -11838,17 +11837,24 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
 		goto out_release_irq;
 	}
 
-	mutex_unlock(&priv->mutex);
-	err = register_netdev(net_dev);
-	if (err) {
-		IPW_ERROR("failed to register network device\n");
+	if (ipw_up(priv)) {
+		mutex_unlock(&priv->mutex);
+		err = -EIO;
 		goto out_remove_sysfs;
 	}
+
+	mutex_unlock(&priv->mutex);
 
 	err = ipw_wdev_init(net_dev);
 	if (err) {
 		IPW_ERROR("failed to register wireless device\n");
-		goto out_unregister_netdev;
+		goto out_remove_sysfs;
+	}
+
+	err = register_netdev(net_dev);
+	if (err) {
+		IPW_ERROR("failed to register network device\n");
+		goto out_unregister_wiphy;
 	}
 
 #ifdef CONFIG_IPW2200_PROMISCUOUS
@@ -11857,10 +11863,8 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
 		if (err) {
 			IPW_ERROR("Failed to register promiscuous network "
 				  "device (error %d).\n", err);
-			wiphy_unregister(priv->ieee->wdev.wiphy);
-			kfree(priv->ieee->a_band.channels);
-			kfree(priv->ieee->bg_band.channels);
-			goto out_unregister_netdev;
+			unregister_netdev(priv->net_dev);
+			goto out_unregister_wiphy;
 		}
 	}
 #endif
@@ -11872,8 +11876,10 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
 
 	return 0;
 
-      out_unregister_netdev:
-	unregister_netdev(priv->net_dev);
+      out_unregister_wiphy:
+	wiphy_unregister(priv->ieee->wdev.wiphy);
+	kfree(priv->ieee->a_band.channels);
+	kfree(priv->ieee->bg_band.channels);
       out_remove_sysfs:
 	sysfs_remove_group(&pdev->dev.kobj, &ipw_attribute_group);
       out_release_irq:

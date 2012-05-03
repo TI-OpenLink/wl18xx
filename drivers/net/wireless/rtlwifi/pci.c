@@ -34,6 +34,7 @@
 #include "ps.h"
 #include "efuse.h"
 #include <linux/export.h>
+#include <linux/kmemleak.h>
 
 static const u16 pcibridge_vendors[PCI_BRIDGE_VENDOR_MAX] = {
 	PCI_VENDOR_ID_INTEL,
@@ -1099,6 +1100,7 @@ static int _rtl_pci_init_rx_ring(struct ieee80211_hw *hw)
 			u32 bufferaddress;
 			if (!skb)
 				return 0;
+			kmemleak_not_leak(skb);
 			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
 
 			/*skb->dev = dev; */
@@ -1941,6 +1943,7 @@ void rtl_pci_disconnect(struct pci_dev *pdev)
 		rtl_deinit_deferred_work(hw);
 		rtlpriv->intf_ops->adapter_stop(hw);
 	}
+	rtlpriv->cfg->ops->disable_interrupt(hw);
 
 	/*deinit rfkill */
 	rtl_deinit_rfkill(hw);

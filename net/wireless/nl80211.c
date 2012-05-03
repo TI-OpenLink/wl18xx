@@ -1501,6 +1501,19 @@ static int nl80211_send_iface(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 		    rdev->devlist_generation ^
 			(cfg80211_rdev_list_generation << 2));
 
+	if (rdev->ops->get_channel) {
+		struct ieee80211_channel *chan;
+		enum nl80211_channel_type channel_type;
+
+		chan = rdev->ops->get_channel(&rdev->wiphy, &channel_type);
+		if (chan) {
+			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ,
+				    chan->center_freq);
+			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE,
+				    channel_type);
+		}
+	}
+
 	return genlmsg_end(msg, hdr);
 
  nla_put_failure:
@@ -3322,6 +3335,8 @@ static int nl80211_get_mesh_config(struct sk_buff *skb,
 			cur_params.dot11MeshForwarding);
 	NLA_PUT_U32(msg, NL80211_MESHCONF_RSSI_THRESHOLD,
 			cur_params.rssi_threshold);
+	NLA_PUT_U32(msg, NL80211_MESHCONF_HT_OPMODE,
+			cur_params.ht_opmode);
 	nla_nest_end(msg, pinfoattr);
 	genlmsg_end(msg, hdr);
 	return genlmsg_reply(msg, info);
@@ -3356,6 +3371,7 @@ static const struct nla_policy nl80211_meshconf_params_policy[NL80211_MESHCONF_A
 	[NL80211_MESHCONF_GATE_ANNOUNCEMENTS] = { .type = NLA_U8 },
 	[NL80211_MESHCONF_FORWARDING] = { .type = NLA_U8 },
 	[NL80211_MESHCONF_RSSI_THRESHOLD] = { .type = NLA_U32},
+	[NL80211_MESHCONF_HT_OPMODE] = { .type = NLA_U16},
 };
 
 static const struct nla_policy
@@ -3453,6 +3469,8 @@ do {\
 			mask, NL80211_MESHCONF_FORWARDING, nla_get_u8);
 	FILL_IN_MESH_PARAM_IF_SET(tb, cfg, rssi_threshold,
 			mask, NL80211_MESHCONF_RSSI_THRESHOLD, nla_get_u32);
+	FILL_IN_MESH_PARAM_IF_SET(tb, cfg, ht_opmode,
+			mask, NL80211_MESHCONF_HT_OPMODE, nla_get_u16);
 	if (mask_out)
 		*mask_out = mask;
 
@@ -5564,6 +5582,9 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 				sband,
 				nla_data(tb[NL80211_TXRATE_LEGACY]),
 				nla_len(tb[NL80211_TXRATE_LEGACY]));
+			if ((mask.control[band].legacy == 0) &&
+			    nla_len(tb[NL80211_TXRATE_LEGACY]))
+				return -EINVAL;
 		}
 		if (tb[NL80211_TXRATE_MCS]) {
 			if (!ht_rateset_to_mask(

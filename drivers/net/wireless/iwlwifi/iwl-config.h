@@ -60,134 +60,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *****************************************************************************/
-#ifndef __iwl_shared_h__
-#define __iwl_shared_h__
+#ifndef __IWL_CONFIG_H__
+#define __IWL_CONFIG_H__
 
 #include <linux/types.h>
-#include <linux/spinlock.h>
-#include <linux/gfp.h>
 #include <net/mac80211.h>
 
-#include "iwl-commands.h"
-#include "iwl-fw.h"
 
-/**
- * DOC: shared area - role and goal
- *
- * The shared area contains all the data exported by the upper layer to the
- * other layers. Since the bus and transport layer shouldn't dereference
- * iwl_priv, all the data needed by the upper layer and the transport / bus
- * layer must be here.
- * The shared area also holds pointer to all the other layers. This allows a
- * layer to call a function from another layer.
- *
- * NOTE: All the layers hold a pointer to the shared area which must be shrd.
- *	A few macros assume that (_m)->shrd points to the shared area no matter
- *	what _m is.
- *
- * gets notifications about enumeration, suspend, resume.
- * For the moment, the bus layer is not a linux kernel module as itself, and
- * the module_init function of the driver must call the bus specific
- * registration functions. These functions are listed at the end of this file.
- * For the moment, there is only one implementation of this interface: PCI-e.
- * This implementation is iwl-pci.c
- */
-
-struct iwl_priv;
-struct iwl_trans;
-struct iwl_sensitivity_ranges;
-struct iwl_trans_ops;
-
-#define DRV_NAME        "iwlwifi"
-#define IWLWIFI_VERSION "in-tree:"
-#define DRV_COPYRIGHT	"Copyright(c) 2003-2012 Intel Corporation"
-#define DRV_AUTHOR     "<ilw@linux.intel.com>"
-
-extern struct iwl_mod_params iwlagn_mod_params;
-
-#define IWL_DISABLE_HT_ALL	BIT(0)
-#define IWL_DISABLE_HT_TXAGG	BIT(1)
-#define IWL_DISABLE_HT_RXAGG	BIT(2)
-
-/**
- * struct iwl_mod_params
- *
- * Holds the module parameters
- *
- * @sw_crypto: using hardware encryption, default = 0
- * @disable_11n: disable 11n capabilities, default = 0,
- *	use IWL_DISABLE_HT_* constants
- * @amsdu_size_8K: enable 8K amsdu size, default = 1
- * @antenna: both antennas (use diversity), default = 0
- * @restart_fw: restart firmware, default = 1
- * @plcp_check: enable plcp health check, default = true
- * @ack_check: disable ack health check, default = false
- * @wd_disable: enable stuck queue check, default = 0
- * @bt_coex_active: enable bt coex, default = true
- * @led_mode: system default, default = 0
- * @no_sleep_autoadjust: disable autoadjust, default = true
- * @power_save: disable power save, default = false
- * @power_level: power level, default = 1
- * @debug_level: levels are IWL_DL_*
- * @ant_coupling: antenna coupling in dB, default = 0
- * @bt_ch_announce: BT channel inhibition, default = enable
- * @wanted_ucode_alternative: ucode alternative to use, default = 1
- * @auto_agg: enable agg. without check, default = true
- */
-struct iwl_mod_params {
-	int sw_crypto;
-	unsigned int disable_11n;
-	int amsdu_size_8K;
-	int antenna;
-	int restart_fw;
-	bool plcp_check;
-	bool ack_check;
-	int  wd_disable;
-	bool bt_coex_active;
-	int led_mode;
-	bool no_sleep_autoadjust;
-	bool power_save;
-	int power_level;
-	u32 debug_level;
-	int ant_coupling;
-	bool bt_ch_announce;
-	int wanted_ucode_alternative;
-	bool auto_agg;
-};
-
-/**
- * struct iwl_hw_params
- *
- * Holds the module parameters
- *
- * @tx_chains_num: Number of TX chains
- * @rx_chains_num: Number of RX chains
- * @valid_tx_ant: usable antennas for TX
- * @valid_rx_ant: usable antennas for RX
- * @ht40_channel: is 40MHz width possible: BIT(IEEE80211_BAND_XXX)
- * @sku: sku read from EEPROM
- * @rx_page_order: Rx buffer page order
- * @ct_kill_threshold: temperature threshold - in hw dependent unit
- * @ct_kill_exit_threshold: when to reeable the device - in hw dependent unit
- *	relevant for 1000, 6000 and up
- * @wd_timeout: TX queues watchdog timeout
- * @struct iwl_sensitivity_ranges: range of sensitivity values
- * @use_rts_for_aggregation: use rts/cts protection for HT traffic
- */
-struct iwl_hw_params {
-	u8  tx_chains_num;
-	u8  rx_chains_num;
-	u8  valid_tx_ant;
-	u8  valid_rx_ant;
-	u8  ht40_channel;
-	bool use_rts_for_aggregation;
-	u16 sku;
-	u32 rx_page_order;
-	u32 ct_kill_threshold;
-	u32 ct_kill_exit_threshold;
-	unsigned int wd_timeout;
-
-	const struct iwl_sensitivity_ranges *sens;
+enum iwl_device_family {
+	IWL_DEVICE_FAMILY_UNDEFINED,
+	IWL_DEVICE_FAMILY_1000,
+	IWL_DEVICE_FAMILY_100,
+	IWL_DEVICE_FAMILY_2000,
+	IWL_DEVICE_FAMILY_2030,
+	IWL_DEVICE_FAMILY_105,
+	IWL_DEVICE_FAMILY_135,
+	IWL_DEVICE_FAMILY_5000,
+	IWL_DEVICE_FAMILY_5150,
+	IWL_DEVICE_FAMILY_6000,
+	IWL_DEVICE_FAMILY_6000i,
+	IWL_DEVICE_FAMILY_6005,
+	IWL_DEVICE_FAMILY_6030,
+	IWL_DEVICE_FAMILY_6050,
+	IWL_DEVICE_FAMILY_6150,
 };
 
 /*
@@ -207,6 +102,34 @@ enum iwl_led_mode {
 };
 
 /*
+ * This is the threshold value of plcp error rate per 100mSecs.  It is
+ * used to set and check for the validity of plcp_delta.
+ */
+#define IWL_MAX_PLCP_ERR_THRESHOLD_MIN		1
+#define IWL_MAX_PLCP_ERR_THRESHOLD_DEF		50
+#define IWL_MAX_PLCP_ERR_LONG_THRESHOLD_DEF	100
+#define IWL_MAX_PLCP_ERR_EXT_LONG_THRESHOLD_DEF	200
+#define IWL_MAX_PLCP_ERR_THRESHOLD_MAX		255
+#define IWL_MAX_PLCP_ERR_THRESHOLD_DISABLE	0
+
+/* TX queue watchdog timeouts in mSecs */
+#define IWL_WATCHHDOG_DISABLED	0
+#define IWL_DEF_WD_TIMEOUT	2000
+#define IWL_LONG_WD_TIMEOUT	10000
+#define IWL_MAX_WD_TIMEOUT	120000
+
+/* Antenna presence definitions */
+#define	ANT_NONE	0x0
+#define	ANT_A		BIT(0)
+#define	ANT_B		BIT(1)
+#define ANT_C		BIT(2)
+#define	ANT_AB		(ANT_A | ANT_B)
+#define	ANT_AC		(ANT_A | ANT_C)
+#define ANT_BC		(ANT_B | ANT_C)
+#define ANT_ABC		(ANT_A | ANT_B | ANT_C)
+
+
+/*
  * @max_ll_items: max number of OTP blocks
  * @shadow_ram_support: shadow support for OTP memory
  * @led_compensation: compensate on the led on/off time per HW according
@@ -223,7 +146,6 @@ enum iwl_led_mode {
  * @shadow_reg_enable: HW shadhow register bit
  * @hd_v2: v2 of enhanced sensitivity value, used for 2000 series and up
  * @no_idle_support: do not support idle mode
- * wd_disable: disable watchdog timer
  */
 struct iwl_base_params {
 	int eeprom_size;
@@ -243,7 +165,6 @@ struct iwl_base_params {
 	const bool shadow_reg_enable;
 	const bool hd_v2;
 	const bool no_idle_support;
-	const bool wd_disable;
 };
 
 /*
@@ -287,7 +208,6 @@ struct iwl_ht_params {
  * @eeprom_ver: EEPROM version
  * @eeprom_calib_ver: EEPROM calibration version
  * @lib: pointer to the lib ops
- * @additional_nic_config: additional nic configuration
  * @base_params: pointer to basic parameters
  * @ht_params: point to ht patameters
  * @bt_params: pointer to bt parameters
@@ -311,14 +231,13 @@ struct iwl_cfg {
 	const unsigned int ucode_api_max;
 	const unsigned int ucode_api_ok;
 	const unsigned int ucode_api_min;
+	const enum iwl_device_family device_family;
 	const u32 max_data_size;
 	const u32 max_inst_size;
 	u8   valid_tx_ant;
 	u8   valid_rx_ant;
 	u16  eeprom_ver;
 	u16  eeprom_calib_ver;
-	const struct iwl_lib_ops *lib;
-	void (*additional_nic_config)(struct iwl_priv *priv);
 	/* params not likely to change within a device family */
 	const struct iwl_base_params *base_params;
 	/* params likely to change within a device family */
@@ -333,77 +252,4 @@ struct iwl_cfg {
 	const bool temp_offset_v2;
 };
 
-/**
- * struct iwl_shared - shared fields for all the layers of the driver
- *
- * @status: STATUS_*
- * @wowlan: are we running wowlan uCode
- * @bus: pointer to the bus layer data
- * @cfg: see struct iwl_cfg
- * @priv: pointer to the upper layer data
- * @trans: pointer to the transport layer data
- * @nic: pointer to the nic data
- * @hw_params: see struct iwl_hw_params
- * @lock: protect general shared data
- * @eeprom: pointer to the eeprom/OTP image
- */
-struct iwl_shared {
-	unsigned long status;
-
-	const struct iwl_cfg *cfg;
-	struct iwl_trans *trans;
-	void *drv;
-	struct iwl_hw_params hw_params;
-
-	/* eeprom -- this is in the card's little endian byte order */
-	u8 *eeprom;
-
-};
-
-/*Whatever _m is (iwl_trans, iwl_priv, these macros will work */
-#define cfg(_m)		((_m)->shrd->cfg)
-#define trans(_m)	((_m)->shrd->trans)
-#define hw_params(_m)	((_m)->shrd->hw_params)
-
-static inline bool iwl_have_debug_level(u32 level)
-{
-	return iwlagn_mod_params.debug_level & level;
-}
-
-enum iwl_rxon_context_id {
-	IWL_RXON_CTX_BSS,
-	IWL_RXON_CTX_PAN,
-
-	NUM_IWL_RXON_CTX
-};
-
-int iwlagn_hw_valid_rtc_data_addr(u32 addr);
-const char *get_cmd_string(u8 cmd);
-
-#define IWL_CMD(x) case x: return #x
-
-/*****************************************************
-* DRIVER STATUS FUNCTIONS
-******************************************************/
-#define STATUS_HCMD_ACTIVE	0	/* host command in progress */
-/* 1 is unused (used to be STATUS_HCMD_SYNC_ACTIVE) */
-#define STATUS_INT_ENABLED	2
-#define STATUS_RF_KILL_HW	3
-#define STATUS_CT_KILL		4
-#define STATUS_INIT		5
-#define STATUS_ALIVE		6
-#define STATUS_READY		7
-#define STATUS_TEMPERATURE	8
-#define STATUS_GEO_CONFIGURED	9
-#define STATUS_EXIT_PENDING	10
-#define STATUS_STATISTICS	12
-#define STATUS_SCANNING		13
-#define STATUS_SCAN_ABORTING	14
-#define STATUS_SCAN_HW		15
-#define STATUS_POWER_PMI	16
-#define STATUS_FW_ERROR		17
-#define STATUS_DEVICE_ENABLED	18
-#define STATUS_CHANNEL_SWITCH_PENDING 19
-#define STATUS_SCAN_COMPLETE	20
-
-#endif /* #__iwl_shared_h__ */
+#endif /* __IWL_CONFIG_H__ */
