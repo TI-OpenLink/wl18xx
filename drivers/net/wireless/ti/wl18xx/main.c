@@ -577,7 +577,8 @@ static const struct wl18xx_clk_cfg wl18xx_clk_table[NUM_CLOCK_CONFIGS] = {
 };
 
 /* TODO: maybe move to a new header file? */
-#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw.bin"
+#define WL18XX_FW_PG1_NAME "ti-connectivity/wl18xx-fw.bin"
+#define WL18XX_FW_PG2_NAME "ti-connectivity/wl18xx-fw.pg2.bin"
 
 static int wl18xx_identify_chip(struct wl1271 *wl)
 {
@@ -587,9 +588,9 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 	case CHIP_ID_185x_PG20:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG20)",
 				 wl->chip.id);
-		wl->sr_fw_name = WL18XX_FW_NAME;
+		wl->sr_fw_name = WL18XX_FW_PG2_NAME;
 		/* wl18xx uses the same firmware for PLT */
-		wl->plt_fw_name = WL18XX_FW_NAME;
+		wl->plt_fw_name = WL18XX_FW_PG2_NAME;
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
@@ -598,9 +599,9 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
 			     wl->chip.id);
-		wl->sr_fw_name = WL18XX_FW_NAME;
+		wl->sr_fw_name = WL18XX_FW_PG1_NAME;
 		/* wl18xx uses the same firmware for PLT */
-		wl->plt_fw_name = WL18XX_FW_NAME;
+		wl->plt_fw_name = WL18XX_FW_PG1_NAME;
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
 			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
@@ -1390,4 +1391,5 @@ MODULE_PARM_DESC(pwr_limit_reference_11_abg, "Power limit reference: u8 "
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
-MODULE_FIRMWARE(WL18XX_FW_NAME);
+MODULE_FIRMWARE(WL18XX_FW_PG1_NAME);
+MODULE_FIRMWARE(WL18XX_FW_PG2_NAME);
