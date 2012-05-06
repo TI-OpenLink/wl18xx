@@ -124,14 +124,14 @@ static int wl1271_get_scan_channels(struct wl1271 *wl,
 			if (!passive) {
 				if (req->min_dwell)
 					channels[j].min_duration =
-						req->min_dwell;
+						cpu_to_le32(req->min_dwell);
 				else
 					channels[j].min_duration =
 					  cpu_to_le32(c->min_dwell_time_active);
 
 				if (req->max_dwell)
 					channels[j].max_duration =
-						req->max_dwell;
+						cpu_to_le32(req->max_dwell);
 				else
 					channels[j].max_duration =
 					  cpu_to_le32(c->max_dwell_time_active);
@@ -139,7 +139,7 @@ static int wl1271_get_scan_channels(struct wl1271 *wl,
 				if ((req->min_dwell) &&
 					(wl->scan.req->n_ssids == 0))
 						channels[j].min_duration =
-							req->min_dwell;
+						    cpu_to_le32(req->min_dwell);
 				else
 					channels[j].min_duration =
 					 cpu_to_le32(c->min_dwell_time_passive);
@@ -147,7 +147,7 @@ static int wl1271_get_scan_channels(struct wl1271 *wl,
 				if ((req->max_dwell) &&
 					(wl->scan.req->n_ssids == 0))
 						channels[j].min_duration =
-							req->max_dwell;
+						    cpu_to_le32(req->max_dwell);
 				else
 					channels[j].max_duration =
 					 cpu_to_le32(c->max_dwell_time_passive);
@@ -233,11 +233,6 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 		cmd->params.n_probe_reqs = wl->scan.req->num_probe;
 	else
 		cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
-
-	if (band == IEEE80211_BAND_2GHZ)
-		cmd->params.band = WL1271_SCAN_BAND_2_4_GHZ;
-	else
-		cmd->params.band = WL1271_SCAN_BAND_5_GHZ;
 
 	if (wl->scan.ssid_len && wl->scan.ssid) {
 		cmd->params.ssid_len = wl->scan.ssid_len;
