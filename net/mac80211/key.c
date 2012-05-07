@@ -426,7 +426,7 @@ static void __ieee80211_key_destroy(struct ieee80211_key *key)
 	 * Synchronize so the TX path can no longer be using
 	 * this key before we free/remove it.
 	 */
-	synchronize_rcu();
+	/*synchronize_rcu();*/
 
 	if (key->local)
 		ieee80211_key_disable_hw_accel(key);
@@ -440,7 +440,7 @@ static void __ieee80211_key_destroy(struct ieee80211_key *key)
 		key->sdata->crypto_tx_tailroom_needed_cnt--;
 	}
 
-	kfree(key);
+/*	kfree(key);*/
 }
 
 int ieee80211_key_link(struct ieee80211_key *key,

@@ -91,6 +91,73 @@ static int sta_info_hash_del(struct ieee80211_local *local,
 	return -ENOENT;
 }
 
+static void ieee80211_free_sta(struct rcu_head* h) {
+
+	int ac, i;
+	struct tid_ampdu_tx *tid_tx;
+	struct sta_info *sta =
+			container_of(h, struct sta_info, rcu_head);
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
+	struct ieee80211_local *local = sdata->local;
+
+	if (WARN_ONCE(!sta->dead,
+			"trying to free active sta %pM\n", sta->sta.addr))
+		return;
+
+	list_del(&sta->list);
+
+
+	if (test_sta_flag(sta, WLAN_STA_PS_STA)) {
+		BUG_ON(!sdata->bss);
+
+		clear_sta_flag(sta, WLAN_STA_PS_STA);
+
+		atomic_dec(&sdata->bss->num_sta_ps);
+		sta_info_recalc_tim(sta);
+	}
+
+	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+		local->total_ps_buffered -= skb_queue_len(&sta->ps_tx_buf[ac]);
+		__skb_queue_purge(&sta->ps_tx_buf[ac]);
+		__skb_queue_purge(&sta->tx_filtered[ac]);
+	}
+
+#ifdef CONFIG_MAC80211_MESH
+	if (ieee80211_vif_is_mesh(&sdata->vif))
+		mesh_accept_plinks_update(sdata);
+#endif
+
+#ifdef CONFIG_MAC80211_MESH
+	if (ieee80211_vif_is_mesh(&sta->sdata->vif)) {
+		mesh_plink_deactivate(sta);
+		del_timer_sync(&sta->plink_timer);
+	}
+#endif
+
+	/*
+	 * Destroy aggregation state here. It would be nice to wait for the
+	 * driver to finish aggregation stop and then clean up, but for now
+	 * drivers have to handle aggregation stop being requested, followed
+	 * directly by station destruction.
+	 */
+	for (i = 0; i < STA_TID_NUM; i++) {
+		tid_tx = rcu_dereference_raw(sta->ampdu_mlme.tid_tx[i]);
+		if (!tid_tx)
+			continue;
+		__skb_queue_purge(&tid_tx->pending);
+		kfree(tid_tx);
+	}
+
+	for (i = 0; i < NUM_DEFAULT_KEYS; i++)
+		if (sta->gtk[i])
+			kfree(sta->gtk[i]);
+	if (sta->ptk)
+		kfree(sta->ptk);
+
+	sta_info_free(local, sta);
+
+}
+
 /* protected by RCU */
 struct sta_info *sta_info_get(struct ieee80211_sub_if_data *sdata,
 			      const u8 *addr)
@@ -670,6 +737,9 @@ int __must_check __sta_info_destroy(struct sta_info *sta)
 	if (!sta)
 		return -ENOENT;
 
+	if (sta->dead)
+		return -EINVAL;
+
 	local = sta->local;
 	sdata = sta->sdata;
 
@@ -688,7 +758,8 @@ int __must_check __sta_info_destroy(struct sta_info *sta)
 	if (ret)
 		return ret;
 
-	list_del(&sta->list);
+	if (sdata->vif.type != NL80211_IFTYPE_STATION)
+		list_del(&sta->list);
 
 	mutex_lock(&local->key_mtx);
 	for (i = 0; i < NUM_DEFAULT_KEYS; i++)
@@ -719,12 +790,26 @@ int __must_check __sta_info_destroy(struct sta_info *sta)
 		WARN_ON_ONCE(ret != 0);
 	}
 
+#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
+	wiphy_debug(local->hw.wiphy, "Removed STA %pM\n", sta->sta.addr);
+#endif /* CONFIG_MAC80211_VERBOSE_DEBUG */
+	cancel_work_sync(&sta->drv_unblock_wk);
+
+	cfg80211_del_sta(sdata->dev, sta->sta.addr, GFP_KERNEL);
+
+	rate_control_remove_sta_debugfs(sta);
+	ieee80211_sta_debugfs_remove(sta);
+
 	/*
 	 * At this point, after we wait for an RCU grace period,
 	 * neither mac80211 nor the driver can reference this
 	 * sta struct any more except by still existing timers
 	 * associated with this station that we clean up below.
 	 */
+
+	if(sdata->vif.type == NL80211_IFTYPE_STATION)
+		return 0;
+
 	synchronize_rcu();
 
 	if (test_sta_flag(sta, WLAN_STA_PS_STA)) {
@@ -746,16 +831,6 @@ int __must_check __sta_info_destroy(struct sta_info *sta)
 	if (ieee80211_vif_is_mesh(&sdata->vif))
 		mesh_accept_plinks_update(sdata);
 #endif
-
-#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
-	wiphy_debug(local->hw.wiphy, "Removed STA %pM\n", sta->sta.addr);
-#endif /* CONFIG_MAC80211_VERBOSE_DEBUG */
-	cancel_work_sync(&sta->drv_unblock_wk);
-
-	cfg80211_del_sta(sdata->dev, sta->sta.addr, GFP_KERNEL);
-
-	rate_control_remove_sta_debugfs(sta);
-	ieee80211_sta_debugfs_remove(sta);
 
 #ifdef CONFIG_MAC80211_MESH
 	if (ieee80211_vif_is_mesh(&sta->sdata->vif)) {
@@ -867,8 +942,14 @@ int sta_info_flush(struct ieee80211_local *local,
 	mutex_lock(&local->sta_mtx);
 	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
 		if (!sdata || sdata == sta->sdata) {
-			WARN_ON(__sta_info_destroy(sta));
-			ret++;
+			if (!sta->dead) {
+				WARN_ON(__sta_info_destroy(sta));
+				ret++;
+				if((sdata) && (sdata->vif.type == NL80211_IFTYPE_STATION) &&
+					(!list_empty(&local->sta_list)))
+					call_rcu(&sta->rcu_head, ieee80211_free_sta);
+
+			}
 		}
 	}
 	mutex_unlock(&local->sta_mtx);
