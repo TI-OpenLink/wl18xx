@@ -421,6 +421,7 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 
 	wl1271_dump(DEBUG_SCAN, "SCAN: ", cmd, sizeof(*cmd));
 
+	wl1271_info("scan size: %d", sizeof(*cmd));
 	ret = wl1271_cmd_send(wl, CMD_SCAN, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
 		wl1271_error("SCAN failed");

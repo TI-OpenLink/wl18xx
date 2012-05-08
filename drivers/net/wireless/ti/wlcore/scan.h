@@ -65,20 +65,21 @@ enum {
 	WL1271_SCAN_STATE_5GHZ_PASSIVE,
 	WL1271_SCAN_STATE_DONE
 };
-
+#if 0
 struct basic_scan_params {
 	/* Scan option flags (WL1271_SCAN_OPT_*) */
-	__le16 scan_options;
+	u8 scan_options;
 	u8 role_id;
 	/* Number of scan channels in the list (maximum 30) */
 	u8 n_ch;
 	/* This field indicates the number of probe requests to send
 	   per channel for an active scan */
 	u8 n_probe_reqs;
-	u8 tid_trigger;
+	//u8 tid_trigger;
 	u8 ssid_len;
 	u8 use_ssid_list;
 
+	/* TODO: padding */
 	/* Rate bit field for sending the probes */
 	__le32 tx_rate;
 
@@ -110,12 +111,8 @@ struct wl1271_cmd_scan {
 
 	struct basic_scan_params params;
 	struct basic_scan_channel_params channels[WL1271_SCAN_MAX_CHANNELS];
-
-	/* src mac address */
-	u8 addr[ETH_ALEN];
-	u8 padding[2];
 } __packed;
-
+#endif
 struct wl1271_cmd_trigger_scan_to {
 	struct wl1271_cmd_header header;
 
@@ -123,7 +120,7 @@ struct wl1271_cmd_trigger_scan_to {
 } __packed;
 
 #define MAX_CHANNELS_2GHZ	14
-#define MAX_CHANNELS_5GHZ	23
+#define MAX_CHANNELS_5GHZ	24
 #define MAX_CHANNELS_4GHZ	4
 
 #define SCAN_MAX_CYCLE_INTERVALS 16
@@ -165,37 +162,70 @@ struct conn_scan_ch_params {
 	u8  padding[3];
 } __packed;
 
-struct wl1271_cmd_sched_scan_config {
+struct tracking_ch_params {
+	struct conn_scan_ch_params channel;
+
+	__le32 bssid_lsb;
+	__le16 bssid_msb;
+
+	u8 padding[2];
+} __packed;
+
+enum
+{
+	SCAN_TYPE_SEARCH	= 0,
+	SCAN_TYPE_PERIODIC	= 1,
+	SCAN_TYPE_TRACKING	= 2,
+};
+
+struct wl1271_cmd_scan_params {
 	struct wl1271_cmd_header header;
 
-	__le32 intervals[SCAN_MAX_CYCLE_INTERVALS];
+	u8 role_id;
+	u8 scan_type;
 
 	s8 rssi_threshold; /* for filtering (in dBm) */
 	s8 snr_threshold;  /* for filtering (in dB) */
 
-	u8 cycles;       /* maximum number of scan cycles */
-	u8 report_after; /* report when this number of results are received */
-	u8 terminate;    /* stop scanning after reporting */
+	u8 bss_type;	   /* for filtering */
+	u8 ssid_from_list; /* use ssid from configured ssid list */
+	u8 filter;	   /* forward only results with matching ssids */
 
-	u8 tag;
-	u8 bss_type; /* for filtering */
-	u8 filter_type;
+	/*
+	 * add broadcast ssid in addition to the configured ssids.
+	 * the driver should add dummy entry for it (?).
+	 */
+	u8 add_broadcast;
 
-	u8 ssid_len;     /* For SCAN_SSID_FILTER_SPECIFIC */
+	u8 urgency;
+	u8 protect;	 /* ??? */
+	u8 n_probe_reqs;    /* Number of probes requests per channel */
+	u8 terminate_after; /* early terminate scan operation */
+
+	u8 passive[SCAN_MAX_BANDS]; /* number of passive scan channels */
+	u8 active[SCAN_MAX_BANDS];  /* number of active scan channels */
+	u8 dfs;		   /* number of dfs channels in 5ghz */
+	u8 passive_active; /* number of passive before active channels 2.4ghz */
+
+	__le16 short_cycles_sec;
+	__le16 long_cycles_sec;
+	u8 short_cycles_count;
+	u8 total_cycles; /* 0 - infinite */
+	u8 padding[2];
+
+	union {
+		struct {
+			struct conn_scan_ch_params channels_2[MAX_CHANNELS_2GHZ];
+			struct conn_scan_ch_params channels_5[MAX_CHANNELS_5GHZ];
+			struct conn_scan_ch_params channels_4[MAX_CHANNELS_4GHZ];
+		};
+		struct tracking_ch_params channels_tracking[WL1271_SCAN_MAX_CHANNELS];
+	} ;
+
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
-
-	u8 n_probe_reqs; /* Number of probes requests per channel */
-
-	u8 passive[SCAN_MAX_BANDS];
-	u8 active[SCAN_MAX_BANDS];
-
-	u8 dfs;
-
-	u8 padding[3];
-
-	struct conn_scan_ch_params channels_2[MAX_CHANNELS_2GHZ];
-	struct conn_scan_ch_params channels_5[MAX_CHANNELS_5GHZ];
-	struct conn_scan_ch_params channels_4[MAX_CHANNELS_4GHZ];
+	u8 ssid_len;	 /* For SCAN_SSID_FILTER_SPECIFIC */
+	u8 tag;
+	u8 padding1[2];
 } __packed;
 
 
@@ -235,5 +265,12 @@ struct wl1271_cmd_sched_scan_stop {
 	u8 padding[3];
 } __packed;
 
+struct wl12xx_cmd_scan_stop {
+	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 scan_type;
+	u8 padding[2];
+} __packed;
 
 #endif /* __WL1271_SCAN_H__ */
