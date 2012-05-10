@@ -215,14 +215,15 @@ struct wl1271_cmd_scan_params {
 	u8 total_cycles; /* 0xff - infinite */
 	u8 padding[2];
 
-	u8 ssid_len;     /* For SCAN_SSID_FILTER_SPECIFIC */
-	u8 tag;
-	u8 ssid[IEEE80211_MAX_SSID_LEN];
-
 	struct conn_scan_ch_params channels_2[MAX_CHANNELS_2GHZ];
 	struct conn_scan_ch_params channels_5[MAX_CHANNELS_5GHZ];
 	struct conn_scan_ch_params channels_4[MAX_CHANNELS_4GHZ];
 	struct tracking_ch_params channels_tracking[WL1271_SCAN_MAX_CHANNELS];
+
+	u8 ssid[IEEE80211_MAX_SSID_LEN];
+	u8 ssid_len;	 /* For SCAN_SSID_FILTER_SPECIFIC */
+	u8 tag;
+	u8 padding1[2];
 } __packed;
 
 
