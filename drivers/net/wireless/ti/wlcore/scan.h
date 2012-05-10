@@ -33,8 +33,10 @@ int wl1271_scan_stop(struct wl1271 *wl);
 int wl1271_scan_build_probe_req(struct wl1271 *wl,
 				const u8 *ssid, size_t ssid_len,
 				const u8 *ie, size_t ie_len, u8 band);
-void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif);
+//void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif);
+void wl12xx_scan_completed(struct wl1271 *wl);
 void wl1271_scan_complete_work(struct work_struct *work);
+/*
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				     struct wl12xx_vif *wlvif,
 				     struct cfg80211_sched_scan_request *req,
@@ -42,7 +44,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 void wl1271_scan_sched_scan_stop(struct wl1271 *wl);
 void wl1271_scan_sched_scan_results(struct wl1271 *wl);
-
+*/
 #define WL1271_SCAN_MAX_CHANNELS       24
 #define WL1271_SCAN_DEFAULT_TAG        1
 #define WL1271_SCAN_CURRENT_TX_PWR     0
@@ -204,8 +206,8 @@ struct wl1271_cmd_scan_params {
 
 	u8 passive[SCAN_MAX_BANDS]; /* number of passive scan channels */
 	u8 active[SCAN_MAX_BANDS];  /* number of active scan channels */
-	u8 dfs;			/* number of dfs channels */
-	u8 passive_active;	/* number of passive before active channels */
+	u8 dfs;		   /* number of dfs channels in 5ghz */
+	u8 passive_active; /* number of passive before active channels 2.4ghz */
 
 	__le16 short_cycles_sec;
 	__le16 long_cycles_sec;

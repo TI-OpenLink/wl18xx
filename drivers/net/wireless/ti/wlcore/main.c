@@ -3053,7 +3053,7 @@ out:
 
 	cancel_delayed_work_sync(&wl->scan_complete_work);
 }
-
+#if 0
 static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 				      struct ieee80211_vif *vif,
 				      struct cfg80211_sched_scan_request *req,
@@ -3116,7 +3116,7 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 out:
 	mutex_unlock(&wl->mutex);
 }
-
+#endif
 static int wl1271_op_set_frag_threshold(struct ieee80211_hw *hw, u32 value)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4772,8 +4772,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_key = wl1271_op_set_key,
 	.hw_scan = wl1271_op_hw_scan,
 	.cancel_hw_scan = wl1271_op_cancel_hw_scan,
-	.sched_scan_start = wl1271_op_sched_scan_start,
-	.sched_scan_stop = wl1271_op_sched_scan_stop,
+//	.sched_scan_start = wl1271_op_sched_scan_start,
+//	.sched_scan_stop = wl1271_op_sched_scan_stop,
 	.bss_info_changed = wl1271_op_bss_info_changed,
 	.set_frag_threshold = wl1271_op_set_frag_threshold,
 	.set_rts_threshold = wl1271_op_set_rts_threshold,
