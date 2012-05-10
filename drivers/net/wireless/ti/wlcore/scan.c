@@ -419,19 +419,18 @@ out:
 	return ret;
 }
 
-#if 0
 /* Returns the scan type to be used or a negative value on error */
 static int
-wl12xx_scan_sched_scan_ssid_list(struct wl1271 *wl,
-				 struct cfg80211_sched_scan_request *req)
+wl12xx_scan_set_ssid_list(struct wl1271 *wl,
+				struct cfg80211_sched_scan_request *req)
 {
 	struct wl1271_cmd_sched_scan_ssid_list *cmd = NULL;
 	struct cfg80211_match_set *sets = req->match_sets;
 	struct cfg80211_ssid *ssids = req->ssids;
 	int ret = 0, type, i, j, n_match_ssids = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd sched scan ssid list");
-
+	wl1271_debug(DEBUG_CMD, "cmd scan ssid list");
+#if 0
 	/* count the match sets that contain SSIDs */
 	for (i = 0; i < req->n_match_sets; i++)
 		if (sets[i].ssid.ssid_len > 0)
@@ -444,7 +443,7 @@ wl12xx_scan_sched_scan_ssid_list(struct wl1271 *wl,
 		type = SCAN_SSID_FILTER_ANY;
 		goto out;
 	}
-
+#endif
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
 		ret = -ENOMEM;
@@ -522,6 +521,7 @@ out:
 	return type;
 }
 
+#if 0
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				  struct wl12xx_vif *wlvif,
 				  struct cfg80211_sched_scan_request *req,
