@@ -160,8 +160,8 @@ static inline void wlcore_write_reg(struct wl1271 *wl, int reg, u32 val)
 
 static inline void wl1271_power_off(struct wl1271 *wl)
 {
-	wl->if_ops->power(wl->dev, false);
-	clear_bit(WL1271_FLAG_GPIO_POWER, &wl->flags);
+	if (test_and_clear_bit(WL1271_FLAG_GPIO_POWER, &wl->flags))
+		wl->if_ops->power(wl->dev, false);
 }
 
 static inline int wl1271_power_on(struct wl1271 *wl)
