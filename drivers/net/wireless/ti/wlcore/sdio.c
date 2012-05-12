@@ -153,6 +153,17 @@ static int wl12xx_sdio_power_on(struct wl12xx_sdio_glue *glue)
 		ret = pm_runtime_get_sync(&func->dev);
 		if (ret < 0)
 			goto out;
+		if (ret > 0) {
+			/*
+			 * Card might have been powered off manually before,
+			 * in which case the power state might be out of sync.
+			 */
+			ret = mmc_power_restore_host(func->card->host);
+			if (ret < 0) {
+				pm_runtime_put_sync(&func->dev);
+				goto out;
+			}
+		}
 	} else {
 		/* Runtime PM is disabled: power up the card manually */
 		ret = mmc_power_restore_host(func->card->host);
