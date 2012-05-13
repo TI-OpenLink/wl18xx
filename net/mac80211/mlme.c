@@ -1562,7 +1562,7 @@ static void ieee80211_mgd_probe_ap(struct ieee80211_sub_if_data *sdata,
 
 	mutex_lock(&sdata->local->mtx);
 
-	if (sdata->local->tmp_channel || sdata->local->scanning) {
+	if (sdata->tmp_channel || sdata->local->scanning) {
 		mutex_unlock(&sdata->local->mtx);
 		goto out;
 	}
