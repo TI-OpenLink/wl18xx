@@ -1381,6 +1381,13 @@ static int wl12xx_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 	return wlcore_set_key(wl, cmd, vif, sta, key_conf);
 }
 
+static u32 wl12xx_pre_pkt_send(struct wl1271 *wl,
+			       u32 buf_offset, u32 last_len)
+{
+	/* no processing required */
+	return buf_offset;
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip		= wl12xx_identify_chip,
 	.identify_fw		= wl12xx_identify_fw,
@@ -1406,6 +1413,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.debugfs_init		= wl12xx_debugfs_add_files,
 	.get_spare_blocks	= wl12xx_get_spare_blocks,
 	.set_key		= wl12xx_set_key,
+	.pre_pkt_send		= wl12xx_pre_pkt_send,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
