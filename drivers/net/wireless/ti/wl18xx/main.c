@@ -600,7 +600,7 @@ static const struct wl18xx_clk_cfg wl18xx_clk_table[NUM_CLOCK_CONFIGS] = {
 };
 
 /* TODO: maybe move to a new header file? */
-#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw.bin"
+#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw-mc.bin"
 
 static int wl18xx_identify_chip(struct wl1271 *wl)
 {
