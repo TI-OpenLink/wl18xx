@@ -673,7 +673,6 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 {
 	struct wl12xx_vif *wlvif;
 	struct sk_buff *skb;
-	struct wl1271_tx_hw_descr *desc;
 	u32 buf_offset = 0;
 	bool sent_packets = false;
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
@@ -741,8 +740,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 		buf_offset += ret;
 		wl->tx_packets_count++;
 		if (has_data) {
-			desc = (struct wl1271_tx_hw_descr *) skb->data;
-			__set_bit(desc->hlid, active_hlids);
+			__set_bit(last_desc->hlid, active_hlids);
 		}
 	}
 
