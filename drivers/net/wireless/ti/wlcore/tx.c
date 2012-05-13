@@ -178,10 +178,11 @@ u8 wl12xx_tx_get_hlid(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 unsigned int wlcore_calc_packet_alignment(struct wl1271 *wl,
 					  unsigned int packet_length)
 {
+	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME)
+		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 	if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN)
 		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
-	else
-		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
+	return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 }
 EXPORT_SYMBOL(wlcore_calc_packet_alignment);
 
@@ -337,6 +338,11 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		tx_attr |= TX_HW_ATTR_HOST_ENCRYPT;
 
 	desc->tx_attr = cpu_to_le16(tx_attr);
+
+	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
+			desc->wlcore_ctrl.ctrl =
+					desc->wlcore_ctrl.ctrl | WLCORE_TX_CTRL_PADDED;
+	}
 
 	wlcore_hw_set_tx_desc_csum(wl, desc, skb);
 	wlcore_hw_set_tx_desc_data_len(wl, desc, skb);
@@ -673,6 +679,8 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	int ret;
 
+	struct wl1271_tx_hw_descr *last_desc = NULL;
+
 	if (unlikely(wl->state == WL1271_STATE_OFF))
 		return;
 
@@ -691,7 +699,19 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 			 * Aggregation buffer is full.
 			 * Flush buffer and try again.
 			 */
+			wl1271_debug(DEBUG_TX, "Aggregation buffer is full (size=%d)"
+					" flushing buffer",
+					buf_offset);
+
 			wl1271_skb_queue_head(wl, wlvif, skb);
+
+			if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
+				last_desc->wlcore_ctrl.ctrl =
+						last_desc->wlcore_ctrl.ctrl & ~WLCORE_TX_CTRL_PADDED;
+				buf_offset = ALIGN(buf_offset,
+					WL12XX_BUS_BLOCK_SIZE);
+			}
+
 			wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 					  buf_offset, true);
 			sent_packets = true;
@@ -717,6 +737,7 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 				ieee80211_free_txskb(wl->hw, skb);
 			goto out_ack;
 		}
+		last_desc = (struct wl1271_tx_hw_descr *)(wl->aggr_buf + buf_offset);
 		buf_offset += ret;
 		wl->tx_packets_count++;
 		if (has_data) {
@@ -727,6 +748,12 @@ void wl1271_tx_work_locked(struct wl1271 *wl)
 
 out_ack:
 	if (buf_offset) {
+		if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
+			last_desc->wlcore_ctrl.ctrl =
+					last_desc->wlcore_ctrl.ctrl & ~WLCORE_TX_CTRL_PADDED;
+			buf_offset = ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
+		}
+
 		wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 				  buf_offset, true);
 		sent_packets = true;

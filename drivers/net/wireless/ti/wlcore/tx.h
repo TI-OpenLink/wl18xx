@@ -56,6 +56,9 @@
 /* Used for management frames and dummy packets */
 #define WL1271_TID_MGMT 7
 
+/* Used with WLCORE_QUIRK_TX_PAD_LAST_FRAME devices */
+#define WLCORE_TX_CTRL_PADDED	BIT(7)
+
 struct wl127x_tx_mem {
 	/*
 	 * Number of extra memory blocks to allocate for this packet
@@ -98,6 +101,19 @@ struct wl18xx_tx_mem {
 	u8 reserved;
 } __packed;
 
+struct wlcore_tx_ctrl {
+	/*
+	 * Reserved for the total number of memory blocks allocated
+	 * by the host for this packet.
+	 */
+	u8 reserved;
+
+	/*
+	 * control bits
+	 */
+	u8 ctrl;
+} __packed;
+
 /*
  * On wl128x based devices, when TX packets are aggregated, each packet
  * size must be aligned to the SDIO block size. The maximum block size
@@ -111,9 +127,10 @@ struct wl1271_tx_hw_descr {
 	/* Length of packet in words, including descriptor+header+data */
 	__le16 length;
 	union {
-		struct wl127x_tx_mem wl127x_mem;
-		struct wl128x_tx_mem wl128x_mem;
-		struct wl18xx_tx_mem wl18xx_mem;
+		struct wl127x_tx_mem	wl127x_mem;
+		struct wl128x_tx_mem	wl128x_mem;
+		struct wl18xx_tx_mem	wl18xx_mem;
+		struct wlcore_tx_ctrl	wlcore_ctrl;
 	} __packed;
 	/* Device time (in us) when the packet arrived to the driver */
 	__le32 start_time;

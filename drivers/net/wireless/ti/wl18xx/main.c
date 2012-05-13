@@ -56,6 +56,7 @@ static int high_band_component = -1;
 static int high_band_component_type = -1;
 static int pwr_limit_reference_11_abg = -1;
 static bool disable_yield_fix = true;
+static bool enable_pad_last_frame = true;
 
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
@@ -620,6 +621,10 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
 				  WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 				  WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN;
+		if (enable_pad_last_frame) {
+			wl->quirks |= WLCORE_QUIRK_TX_PAD_LAST_FRAME;
+			wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		}
 
 		memcpy(&priv->phy_addresses, &wl18xx_phy_addresses_pg2,
 			sizeof(struct wl18xx_phy_addresses));
@@ -831,9 +836,9 @@ out:
 static int wl18xx_pre_boot(struct wl1271 *wl)
 {
 	wl18xx_set_clk(wl);
-	int ret;
 
 	if (wl->chip.id == CHIP_ID_185x_PG20) {
+		int ret;
 		if (disable_yield_fix)
 			goto elp_wakeup;
 		ret = wl18xx_release_ocp_bridge(wl);
@@ -842,6 +847,7 @@ static int wl18xx_pre_boot(struct wl1271 *wl)
 	}
 
 	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		int ret;
 		ret = wl18xx_release_ocp_bridge(wl);
 		if (ret < 0)
 			return ret;
@@ -1046,7 +1052,8 @@ static int wl18xx_hw_init(struct wl1271 *wl)
 	priv->last_fw_rls_idx = 0;
 
 	/* Enable Tx SDIO padding */
-	if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN) {
+	if (wl->quirks & (WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
+					WLCORE_QUIRK_TX_PAD_LAST_FRAME)) {
 		host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
 		sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
 	}
@@ -1481,6 +1488,10 @@ MODULE_PARM_DESC(pwr_limit_reference_11_abg, "Power limit reference: u8 "
 module_param(disable_yield_fix, bool, S_IRUSR);
 MODULE_PARM_DESC(disable_yield_fix, "disable yield issue workaround: bool "
 		 "(default is false)");
+
+module_param(enable_pad_last_frame, bool, S_IRUSR);
+MODULE_PARM_DESC(enable_pad_last_frame, "enable last sdio packet padding: "
+		"bool (default is true)");
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
