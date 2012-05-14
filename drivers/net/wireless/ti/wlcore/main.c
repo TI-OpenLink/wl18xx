@@ -5424,7 +5424,7 @@ static const struct ieee80211_iface_limit wlcore_iface_limits[] = {
 static const struct ieee80211_iface_combination
 wlcore_iface_combinations[] = {
 	{
-	  .num_different_channels = 1,
+	  .num_different_channels = 2,
 	  .max_interfaces = 2,
 	  .limits = wlcore_iface_limits,
 	  .n_limits = ARRAY_SIZE(wlcore_iface_limits),
