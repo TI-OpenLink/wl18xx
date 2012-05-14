@@ -47,6 +47,9 @@ struct wl18xx_priv {
 	u8 board_type;
 
 	struct wl18xx_phy_addresses phy_addresses;
+
+	/* number of VIFs requiring extra spare mem-blocks */
+	int extra_spare_vif_count;
 };
 
 #define WL18XX_FW_MAX_TX_STATUS_DESC 33

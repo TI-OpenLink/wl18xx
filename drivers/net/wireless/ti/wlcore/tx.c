@@ -1079,6 +1079,7 @@ void wl1271_tx_flush(struct wl1271 *wl)
 out:
 	wlcore_wake_queues(wl, WLCORE_QUEUE_STOP_REASON_FLUSH);
 }
+EXPORT_SYMBOL_GPL(wl1271_tx_flush);
 
 u32 wl1271_tx_min_rate_get(struct wl1271 *wl, u32 rate_set)
 {
@@ -1139,6 +1140,7 @@ void wlcore_stop_queues(struct wl1271 *wl,
 	for (i = 0; i < NUM_TX_QUEUES; i++)
 		wlcore_stop_queue(wl, i, reason);
 }
+EXPORT_SYMBOL_GPL(wlcore_stop_queues);
 
 void wlcore_wake_queues(struct wl1271 *wl,
 			enum wlcore_queue_stop_reason reason)
@@ -1148,6 +1150,7 @@ void wlcore_wake_queues(struct wl1271 *wl,
 	for (i = 0; i < NUM_TX_QUEUES; i++)
 		wlcore_wake_queue(wl, i, reason);
 }
+EXPORT_SYMBOL_GPL(wlcore_wake_queues);
 
 void wlcore_reset_stopped_queues(struct wl1271 *wl)
 {
