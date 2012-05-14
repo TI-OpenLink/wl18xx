@@ -978,14 +978,13 @@ static void ieee80211_setup_sdata(struct ieee80211_sub_if_data *sdata,
 	/* clear type-dependent union */
 	memset(&sdata->u, 0, sizeof(sdata->u));
 
-	/* and set some type-dependent values */
-	sdata->vif.type = type;
-	sdata->vif.p2p = false;
-
 	/* copy the default channel */
 	sdata->oper_channel = sdata->local->oper_channel;
 	sdata->vif.bss_conf.channel = sdata->oper_channel;
 
+	/* and set some type-dependent values */
+	sdata->vif.type = type;
+	sdata->vif.p2p = false;
 	sdata->dev->netdev_ops = &ieee80211_dataif_ops;
 	sdata->wdev.iftype = type;
 
