@@ -2135,6 +2135,19 @@ static void ieee80211_rx_mgmt_auth(struct ieee80211_sub_if_data *sdata,
 	if (status_code != WLAN_STATUS_SUCCESS) {
 		sdata_info(sdata, "%pM denied authentication (status %d)\n",
 			   mgmt->sa, status_code);
+
+		if (status_code == WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA) {
+			/* can't auth right now, try again in 200 ms */
+			u32 ms = 200;
+			printk(KERN_DEBUG "%s: %pM rejected authentication; "
+			       "try again in %u ms\n",
+			       sdata->name, mgmt->sa, ms);
+			ifmgd->auth_data->timeout = jiffies +
+						    msecs_to_jiffies(ms);
+			run_again(sdata, ifmgd->auth_data->timeout);
+			return;
+		}
+
 		ieee80211_destroy_auth_data(sdata, false);
 		cfg80211_rx_mlme_mgmt(sdata->dev, (u8 *)mgmt, len);
 		return;
@@ -2613,6 +2626,17 @@ static void ieee80211_rx_mgmt_assoc_resp(struct ieee80211_sub_if_data *sdata,
 		assoc_data->timeout_started = true;
 		if (ms > IEEE80211_ASSOC_TIMEOUT)
 			run_again(sdata, assoc_data->timeout);
+		return;
+	}
+
+	if (status_code == WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA) {
+		/* can't assoc us right now, try again in 200 ms */
+		u32 ms = 200;
+		printk(KERN_DEBUG "%s: %pM rejected association; "
+		       "try again in %u ms\n",
+		       sdata->name, mgmt->sa, ms);
+		assoc_data->timeout = jiffies + msecs_to_jiffies(ms);
+		run_again(sdata, assoc_data->timeout);
 		return;
 	}
 
