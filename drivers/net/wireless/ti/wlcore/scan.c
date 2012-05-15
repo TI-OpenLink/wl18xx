@@ -300,7 +300,7 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 
 	cmd->tag = WL1271_SCAN_DEFAULT_TAG;
 
-	if (wl->scan.ssid_len && wl->scan.ssid) {
+	if (req->n_ssids) {
 		cmd->ssid_len = req->ssids[0].ssid_len;
 		memcpy(cmd->ssid, req->ssids[0].ssid, cmd->ssid_len);
 	}
