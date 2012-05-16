@@ -255,6 +255,10 @@ void cfg80211_send_intermediate_result(struct net_device *dev,
 	if (!rdev->im_scan_result_snd_pid || !rdev->scan_req || !cbss)
 		return;
 
+	if ((rdev->im_scan_result_min_rssi_mbm) &&
+		(rdev->im_scan_result_min_rssi_mbm > cbss->signal))
+		return;
+
 	ev = kzalloc(sizeof(*ev), GFP_ATOMIC);
 	if (!ev)
 		return;
