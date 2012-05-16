@@ -88,6 +88,7 @@ struct cfg80211_registered_device {
 
 	/* intermediate scan result pid of sender */
 	u32 im_scan_result_snd_pid;
+	s32 im_scan_result_min_rssi_mbm;
 
 	struct delayed_work dfs_update_channels_wk;
 
