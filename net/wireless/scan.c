@@ -228,6 +228,49 @@ int __cfg80211_stop_sched_scan(struct cfg80211_registered_device *rdev,
 	return err;
 }
 
+void __cfg80211_send_intermediate_result(struct net_device *dev,
+					 struct cfg80211_event *ev)
+{
+	struct wireless_dev *wdev;
+	struct cfg80211_registered_device *rdev;
+
+	if (!dev)
+		return;
+
+	wdev = dev->ieee80211_ptr;
+	rdev = wiphy_to_dev(wdev->wiphy);
+
+	if (rdev->scan_req)
+		nl80211_send_intermediate_result(rdev, dev, ev);
+}
+
+void cfg80211_send_intermediate_result(struct net_device *dev,
+				       struct cfg80211_bss *cbss)
+{
+	struct cfg80211_event *ev;
+	unsigned long flags;
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+
+	if (!rdev->im_scan_result_snd_pid || !rdev->scan_req || !cbss)
+		return;
+
+	ev = kzalloc(sizeof(*ev), GFP_ATOMIC);
+	if (!ev)
+		return;
+
+	ev->type = EVENT_IM_SCAN_RESULT;
+	ev->im.signal = cbss->signal;
+	if (cbss->bssid)
+		memcpy(ev->im.bssid, cbss->bssid, ETH_ALEN);
+
+	spin_lock_irqsave(&wdev->event_lock, flags);
+	list_add_tail(&ev->list, &wdev->event_list);
+	spin_unlock_irqrestore(&wdev->event_lock, flags);
+	queue_work(cfg80211_wq, &rdev->event_work);
+}
+EXPORT_SYMBOL(cfg80211_send_intermediate_result);
+
 int cfg80211_scan_cancel(struct cfg80211_registered_device *rdev)
 {
 	struct net_device *dev;
