@@ -1355,6 +1355,9 @@ struct cfg80211_ssid {
  * @wdev: the wireless device to scan for
  * @aborted: (internal) scan request was notified as aborted
  * @notified: (internal) scan request was notified as done or aborted
+ * @min_dwell: minimum time to wait on each channel for active scans
+ * @max_dwell: maximum time to wait on each channel for active scans
+ * @num_probe: number of probe requests to transmit on each active scan channel
  * @no_cck: used to send probe requests at non CCK rate in 2GHz band
  */
 struct cfg80211_scan_request {
@@ -1375,6 +1378,10 @@ struct cfg80211_scan_request {
 	unsigned long scan_start;
 	bool aborted, notified;
 	bool no_cck;
+
+	u32 min_dwell;
+	u32 max_dwell;
+	u8 num_probe;
 
 	/* keep last */
 	struct ieee80211_channel *channels[0];

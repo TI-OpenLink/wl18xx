@@ -334,6 +334,9 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_SAE_DATA] = { .type = NLA_BINARY, },
 	[NL80211_ATTR_VHT_CAPABILITY] = { .len = NL80211_VHT_CAPABILITY_LEN },
 	[NL80211_ATTR_SCAN_FLAGS] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_MIN_DWELL] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_MAX_DWELL] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_NUM_PROBE] = { .type = NLA_U8 },
 	[NL80211_ATTR_P2P_CTWINDOW] = { .type = NLA_U8 },
 	[NL80211_ATTR_P2P_OPPPS] = { .type = NLA_U8 },
 	[NL80211_ATTR_ACL_POLICY] = {. type = NLA_U32 },
@@ -5266,6 +5269,21 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		memcpy((void *)request->ie,
 		       nla_data(info->attrs[NL80211_ATTR_IE]),
 		       request->ie_len);
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_MIN_DWELL]) {
+		request->min_dwell =
+			nla_get_u32(info->attrs[NL80211_ATTR_SCAN_MIN_DWELL]);
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_MAX_DWELL]) {
+		request->max_dwell =
+			nla_get_u32(info->attrs[NL80211_ATTR_SCAN_MAX_DWELL]);
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_NUM_PROBE]) {
+		request->num_probe =
+			nla_get_u8(info->attrs[NL80211_ATTR_SCAN_NUM_PROBE]);
 	}
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
