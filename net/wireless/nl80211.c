@@ -365,6 +365,9 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_SCAN_FLAGS] = { .type = NLA_U32 },
 	[NL80211_ATTR_IM_SCAN_RESULT] = { .type = NLA_FLAG },
 	[NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_MIN_DWELL] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_MAX_DWELL] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCAN_NUM_PROBE] = { .type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -4497,6 +4500,21 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		}
 	} else {
 		rdev->im_scan_result_snd_pid = 0;
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_MIN_DWELL]) {
+		request->min_dwell =
+			nla_get_u32(info->attrs[NL80211_ATTR_SCAN_MIN_DWELL]);
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_MAX_DWELL]) {
+		request->max_dwell =
+			nla_get_u32(info->attrs[NL80211_ATTR_SCAN_MAX_DWELL]);
+	}
+
+	if (info->attrs[NL80211_ATTR_SCAN_NUM_PROBE]) {
+		request->num_probe =
+			nla_get_u8(info->attrs[NL80211_ATTR_SCAN_NUM_PROBE]);
 	}
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
