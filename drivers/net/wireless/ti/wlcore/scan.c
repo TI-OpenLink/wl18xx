@@ -435,7 +435,7 @@ wl12xx_scan_set_ssid_list(struct wl1271 *wl,
 	int ret = 0, type, i, j, n_match_ssids = 0;
 
 	wl1271_debug(DEBUG_CMD, "cmd scan ssid list");
-#if 0
+
 	/* count the match sets that contain SSIDs */
 	for (i = 0; i < req->n_match_sets; i++)
 		if (sets[i].ssid.ssid_len > 0)
@@ -448,7 +448,7 @@ wl12xx_scan_set_ssid_list(struct wl1271 *wl,
 		type = SCAN_SSID_FILTER_ANY;
 		goto out;
 	}
-#endif
+
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
 		ret = -ENOMEM;
@@ -526,7 +526,130 @@ out:
 	return type;
 }
 
-#if 0
+
+int wl1271_scan_sched_scan_config(struct wl1271 *wl,
+				  struct wl12xx_vif *wlvif,
+				  struct cfg80211_sched_scan_request *req,
+				  struct ieee80211_sched_scan_ies *ies)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271_cmd_scan_params *cmd;
+	struct conf_sched_scan_settings *c = &wl->conf.sched_scan;
+	int ret;
+	int filter_type;
+	bool force_passive = !req->n_ssids;
+
+	wl1271_debug(DEBUG_CMD, "cmd sched_scan scan config");
+
+	if (req->n_short_intervals > SCAN_MAX_SHORT_INTERVALS) {
+		wl1271_warning("Number of short intervals requested (%d)"
+			       "exceeds limit (%d)", req->n_short_intervals,
+			       SCAN_MAX_SHORT_INTERVALS);
+		return -EINVAL;
+	}
+
+	filter_type = wl12xx_scan_set_ssid_list(wl,req);
+	if (filter_type < 0)
+		return filter_type;
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* TODO: need to indicate WL1271_SCAN_OPT_PASSIVE?
+	if (wl->conf.scan.split_scan_timeout)
+		scan_options |= WL1271_SCAN_OPT_SPLIT_SCAN;
+	*/
+
+	cmd->role_id = wlvif->role_id;
+	/* report APs when at least 1 is found */
+	//cfg->report_after = 1;
+
+	if (WARN_ON(cmd->role_id == WL12XX_INVALID_ROLE_ID)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	cmd->scan_type = SCAN_TYPE_SEARCH;
+	cmd->rssi_threshold = c->rssi_threshold;
+	cmd->snr_threshold = c->snr_threshold;
+
+	/* don't filter on BSS type */
+	cmd->bss_type = SCAN_BSS_TYPE_ANY;
+
+	cmd->ssid_from_list = 1;
+	if (filter_type == SCAN_SSID_FILTER_LIST)
+		cmd->filter = 1;
+	cmd->add_broadcast = 0;
+
+	/* TODO: figure this ones out */
+	cmd->urgency = 0;
+	cmd->protect = 0;
+
+	cmd->n_probe_reqs = c->num_probe;
+	/* don't stop scanning automatically when something is found */
+	cmd->terminate_after = 0;
+
+	/* configure channels */
+	wlcore_set_scan_chan_params(wl, cmd, req->channels,
+				    req->n_channels, req->n_ssids);
+
+	/* TODO: check params */
+	cmd->short_cycles_sec = req->short_interval;
+	cmd->long_cycles_sec = req->long_interval;
+	cmd->short_cycles_count = req->n_short_intervals;
+	cmd->total_cycles = 0xff;
+
+	/* TODO: how to set tx rate? */
+	//cmd->params.tx_rate = cpu_to_le32(basic_rate);
+
+	cmd->tag = WL1271_SCAN_DEFAULT_TAG;
+
+	/* TODO: per-band ies? */
+	if (cmd->active[0]) {
+		u8 band = IEEE80211_BAND_2GHZ;
+		ret = wl12xx_cmd_build_probe_req(wl, wlvif,
+						 cmd->role_id, band,
+						 req->ssids[0].ssid,
+						 req->ssids[0].ssid_len,
+						 req->ie,
+						 req->ie_len);
+		if (ret < 0) {
+			wl1271_error("2.4GHz PROBE request template failed");
+			goto out;
+		}
+	}
+
+	if (cmd->active[1]) {
+		u8 band = IEEE80211_BAND_5GHZ;
+		ret = wl12xx_cmd_build_probe_req(wl, wlvif,
+						 cmd->role_id, band,
+						 req->ssids[0].ssid,
+						 req->ssids[0].ssid_len,
+						 req->ie,
+						 req->ie_len);
+		if (ret < 0) {
+			wl1271_error("5GHz PROBE request template failed");
+			goto out;
+		}
+	}
+
+	wl1271_dump(DEBUG_SCAN, "SCAN: ", cmd, sizeof(*cmd));
+
+	wl1271_info("scan size: %d", sizeof(*cmd));
+	ret = wl1271_cmd_send(wl, CMD_SCAN, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("SCAN failed");
+		goto out;
+	}
+
+out:
+	kfree(cmd);
+	return ret;
+}
+
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				  struct wl12xx_vif *wlvif,
 				  struct cfg80211_sched_scan_request *req,
@@ -625,7 +748,7 @@ out:
 	kfree(cfg);
 	return ret;
 }
-
+#if 0
 int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	struct wl1271_cmd_sched_scan_start *start;
