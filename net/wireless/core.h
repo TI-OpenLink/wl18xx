@@ -86,6 +86,7 @@ struct cfg80211_registered_device {
 
 	/* intermediate scan result pid of sender */
 	u32 im_scan_result_snd_pid;
+	s32 im_scan_result_min_rssi_mbm;
 
 	/* must be last because of the way we do wiphy_priv(),
 	 * and it should at least be aligned to NETDEV_ALIGN */

@@ -1322,6 +1322,11 @@ enum nl80211_commands {
  *	for the %NL80211_CMD_TRIGGER_SCAN command.
  *	When set: will notify on each new scan result in the cache.
  *
+ * @%NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI: Intermediate event filtering.
+ *	When set: will notify only those new scan result whose signal
+ *	strength of probe response/beacon (in dBm) is stronger than this
+ *	negative value (usually: -20 dBm > X > -95 dBm).
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1590,6 +1595,7 @@ enum nl80211_attrs {
 	NL80211_ATTR_CENTER_FREQ2,
 
 	NL80211_ATTR_IM_SCAN_RESULT,
+	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
 
 	/* add attributes here, update the policy in nl80211.c */
 
