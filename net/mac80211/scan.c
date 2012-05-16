@@ -479,6 +479,9 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
 
 		local->hw_scan_req->ssids = req->ssids;
 		local->hw_scan_req->n_ssids = req->n_ssids;
+		local->hw_scan_req->max_dwell = req->max_dwell;
+		local->hw_scan_req->min_dwell = req->min_dwell;
+		local->hw_scan_req->num_probe = req->num_probe;
 		ies = (u8 *)local->hw_scan_req +
 			sizeof(*local->hw_scan_req) +
 			req->n_channels * sizeof(req->channels[0]);
