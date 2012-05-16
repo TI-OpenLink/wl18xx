@@ -573,6 +573,11 @@
  * @NL80211_CMD_STOP_P2P_DEVICE: Stop the given P2P Device, identified by
  *	its %NL80211_ATTR_WDEV identifier.
  *
+ * @NL80211_CMD_SCAN_CANCEL: Stop currently running scan (both sw and hw).
+ *	This operation will eventually invoke %NL80211_CMD_SCAN_ABORTED
+ *	event, partial scan results will be available. Returns -ENOENT
+ *	if scan is not running.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -718,6 +723,8 @@ enum nl80211_commands {
 
 	NL80211_CMD_START_P2P_DEVICE,
 	NL80211_CMD_STOP_P2P_DEVICE,
+
+	NL80211_CMD_SCAN_CANCEL,
 
 	/* add new commands above here */
 
