@@ -40,7 +40,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				     struct cfg80211_sched_scan_request *req,
 				     struct ieee80211_sched_scan_ies *ies);
 int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif);
-void wl1271_scan_sched_scan_stop(struct wl1271 *wl);
+void wl1271_scan_sched_scan_stop(struct wl1271 *wl,  struct wl12xx_vif *wlvif);
 void wl1271_scan_sched_scan_results(struct wl1271 *wl);
 
 #define WL1271_SCAN_MAX_CHANNELS       24
@@ -188,8 +188,8 @@ struct wl1271_cmd_sched_scan_config {
 
 	u8 n_pactive_ch; /* number of pactive (passive until fw detects energy)
 			    channels in BG band */
-
-	u8 padding[2];
+	u8 role_id;
+	u8 padding[1];
 
 	struct conn_scan_ch_params channels_2[MAX_CHANNELS_2GHZ];
 	struct conn_scan_ch_params channels_5[MAX_CHANNELS_5GHZ];
@@ -216,21 +216,24 @@ struct wl1271_cmd_sched_scan_ssid_list {
 
 	u8 n_ssids;
 	struct wl1271_ssid ssids[SCHED_SCAN_MAX_SSIDS];
-	u8 padding[3];
+	u8 role_id;
+	u8 padding[2];
 } __packed;
 
 struct wl1271_cmd_sched_scan_start {
 	struct wl1271_cmd_header header;
 
 	u8 tag;
-	u8 padding[3];
+	u8 role_id;
+	u8 padding[2];
 } __packed;
 
 struct wl1271_cmd_sched_scan_stop {
 	struct wl1271_cmd_header header;
 
 	u8 tag;
-	u8 padding[3];
+	u8 role_id;
+	u8 padding[2];
 } __packed;
 
 
