@@ -178,6 +178,7 @@ ieee80211_scan_rx(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
 	__le16 fc;
 	bool presp, beacon = false;
 	struct ieee802_11_elems elems;
+	struct cfg80211_bss *cbss = NULL;
 
 	if (skb->len < 2)
 		return RX_DROP_UNUSABLE;
@@ -228,8 +229,11 @@ ieee80211_scan_rx(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
 	bss = ieee80211_bss_info_update(sdata->local, rx_status,
 					mgmt, skb->len, &elems,
 					channel, beacon);
-	if (bss)
+	if (bss) {
+		cbss = container_of((void *)bss, struct cfg80211_bss, priv);
+		cfg80211_send_intermediate_result(sdata->dev, cbss);
 		ieee80211_rx_bss_put(sdata->local, bss);
+	}
 
 	if (channel == sdata->local->oper_channel)
 		return RX_CONTINUE;
