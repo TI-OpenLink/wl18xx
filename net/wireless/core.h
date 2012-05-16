@@ -84,6 +84,9 @@ struct cfg80211_registered_device {
 
 	struct cfg80211_wowlan *wowlan;
 
+	/* intermediate scan result pid of sender */
+	u32 im_scan_result_snd_pid;
+
 	/* must be last because of the way we do wiphy_priv(),
 	 * and it should at least be aligned to NETDEV_ALIGN */
 	struct wiphy wiphy __attribute__((__aligned__(NETDEV_ALIGN)));
@@ -216,6 +219,7 @@ enum cfg80211_event_type {
 	EVENT_ROAMED,
 	EVENT_DISCONNECTED,
 	EVENT_IBSS_JOINED,
+	EVENT_IM_SCAN_RESULT,
 };
 
 struct cfg80211_event {
@@ -246,6 +250,10 @@ struct cfg80211_event {
 		struct {
 			u8 bssid[ETH_ALEN];
 		} ij;
+		struct {
+			u8 bssid[ETH_ALEN];
+			s32 signal;
+		} im;
 	};
 };
 
@@ -426,6 +434,8 @@ void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev, bool leak);
 void __cfg80211_sched_scan_results(struct work_struct *wk);
 int __cfg80211_stop_sched_scan(struct cfg80211_registered_device *rdev,
 			       bool driver_initiated);
+void __cfg80211_send_intermediate_result(struct net_device *dev,
+					 struct cfg80211_event *ev);
 int cfg80211_scan_cancel(struct cfg80211_registered_device *rdev);
 void cfg80211_upload_connect_keys(struct wireless_dev *wdev);
 int cfg80211_change_iface(struct cfg80211_registered_device *rdev,

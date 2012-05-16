@@ -588,6 +588,14 @@
  *	event, partial scan results will be available. Returns -ENOENT
  *	if scan is not running.
  *
+ * @NL80211_CMD_IM_SCAN_RESULT: Intermediate scan result notification event,
+ *	this event could be enabled with @NL80211_ATTR_IM_SCAN_RESULT
+ *	flag during @NL80211_CMD_TRIGGER_SCAN. This event contains
+ *	%NL80211_BSS_BSSID which is used to specify the BSSID of received
+ *	scan result and %NL80211_BSS_SIGNAL_MBM to indicate signal strength.
+ *	On reception of this notification, userspace may decide to stop earlier
+ *	currently running scan with (@NL80211_CMD_SCAN_CANCEL).
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -739,6 +747,8 @@ enum nl80211_commands {
 	NL80211_CMD_SET_MCAST_RATE,
 
 	NL80211_CMD_SCAN_CANCEL,
+
+	NL80211_CMD_IM_SCAN_RESULT,
 
 	/* add new commands above here */
 
@@ -1307,6 +1317,11 @@ enum nl80211_commands {
  *
  * @NL80211_ATTR_SCAN_FLAGS: scan request control flags (u32)
  *
+ * @%NL80211_ATTR_IM_SCAN_RESULT: Flag attribute to enable intermediate
+ *	scan result notification event (%NL80211_CMD_IM_SCAN_RESULT)
+ *	for the %NL80211_CMD_TRIGGER_SCAN command.
+ *	When set: will notify on each new scan result in the cache.
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1573,6 +1588,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_CHANNEL_WIDTH,
 	NL80211_ATTR_CENTER_FREQ1,
 	NL80211_ATTR_CENTER_FREQ2,
+
+	NL80211_ATTR_IM_SCAN_RESULT,
 
 	/* add attributes here, update the policy in nl80211.c */
 

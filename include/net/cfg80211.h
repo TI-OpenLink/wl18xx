@@ -2961,6 +2961,16 @@ void cfg80211_sched_scan_results(struct wiphy *wiphy);
 void cfg80211_sched_scan_stopped(struct wiphy *wiphy);
 
 /**
+ * cfg80211_send_intermediate_result - inform userspace about new
+ * scan result.
+ *
+ * @dev: network device
+ * @cbss: bss info to report.
+ */
+void cfg80211_send_intermediate_result(struct net_device *dev,
+				       struct cfg80211_bss *cbss);
+
+/**
  * cfg80211_inform_bss_frame - inform cfg80211 of a received BSS frame
  *
  * @wiphy: the wiphy reporting the BSS
