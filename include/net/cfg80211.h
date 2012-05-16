@@ -1614,6 +1614,7 @@ struct cfg80211_gtk_rekey_data {
  *	the driver, and will be valid until passed to cfg80211_scan_done().
  *	For scan results, call cfg80211_inform_bss(); you can call this outside
  *	the scan/scan_done bracket too.
+ * @scan_cancel: Stop currently running scan (both sw and hw).
  *
  * @auth: Request to authenticate with the specified peer
  * @assoc: Request to (re)associate with the specified peer
@@ -1818,6 +1819,7 @@ struct cfg80211_ops {
 
 	int	(*scan)(struct wiphy *wiphy,
 			struct cfg80211_scan_request *request);
+	void    (*scan_cancel)(struct wiphy *wiphy, struct net_device *dev);
 
 	int	(*auth)(struct wiphy *wiphy, struct net_device *dev,
 			struct cfg80211_auth_request *req);

@@ -228,6 +228,22 @@ int __cfg80211_stop_sched_scan(struct cfg80211_registered_device *rdev,
 	return err;
 }
 
+int cfg80211_scan_cancel(struct cfg80211_registered_device *rdev)
+{
+	struct net_device *dev;
+
+	ASSERT_RDEV_LOCK(rdev);
+
+	if (!rdev->ops->scan_cancel)
+		return -EOPNOTSUPP;
+	if (!rdev->scan_req)
+		return -ENOENT;
+
+	dev = rdev->scan_req->wdev->netdev;
+	rdev->ops->scan_cancel(&rdev->wiphy, dev);
+	return 0;
+}
+
 /* must hold dev->bss_lock! */
 void cfg80211_bss_age(struct cfg80211_registered_device *dev,
                       unsigned long age_secs)
