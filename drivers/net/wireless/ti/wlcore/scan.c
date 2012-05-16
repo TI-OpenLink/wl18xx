@@ -293,7 +293,11 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	wlcore_set_scan_chan_params(wl, cmd, req->channels,
 				    req->n_channels, req->n_ssids);
 
-	/* all the cycles params should remain 0 for normal scan */
+	/*
+	 * all the cycles params (except total cycles) should
+	 * remain 0 for normal scan
+	 */
+	cmd->total_cycles = 1;
 
 	/* TODO: how to set tx rate? */
 	//cmd->params.tx_rate = cpu_to_le32(basic_rate);
