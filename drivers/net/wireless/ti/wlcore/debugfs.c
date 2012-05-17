@@ -189,6 +189,14 @@ static inline void no_write_handler(struct wl1271 *wl,
 		.open = wl1271_open_file_generic,			\
 		.llseek = default_llseek,				\
 	};
+
+WL12XX_CONF_DEBUGFS(irq_pkt_threshold, rx, 0, 65535,
+		    chip_op_handler, wl1271_acx_init_rx_interrupt)
+WL12XX_CONF_DEBUGFS(irq_blk_threshold, rx, 0, 65535,
+		    chip_op_handler, wl1271_acx_init_rx_interrupt)
+WL12XX_CONF_DEBUGFS(irq_timeout, rx, 0, 100,
+		    chip_op_handler, wl1271_acx_init_rx_interrupt)
+
 static ssize_t gpio_power_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
 {
@@ -1102,6 +1110,9 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(split_scan_timeout, rootdir);
 	DEBUGFS_ADD(tx_stuck, rootdir);
 	DEBUGFS_ADD(tx_ba_win_size, rootdir);
+	DEBUGFS_ADD(irq_pkt_threshold, rootdir);
+	DEBUGFS_ADD(irq_blk_threshold, rootdir);
+	DEBUGFS_ADD(irq_timeout, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
