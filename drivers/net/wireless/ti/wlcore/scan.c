@@ -532,12 +532,10 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				  struct cfg80211_sched_scan_request *req,
 				  struct ieee80211_sched_scan_ies *ies)
 {
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct wl1271_cmd_scan_params *cmd;
 	struct conf_sched_scan_settings *c = &wl->conf.sched_scan;
 	int ret;
 	int filter_type;
-	bool force_passive = !req->n_ssids;
 
 	wl1271_debug(DEBUG_CMD, "cmd sched_scan scan config");
 
@@ -572,7 +570,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 		goto out;
 	}
 
-	cmd->scan_type = SCAN_TYPE_SEARCH;
+	cmd->scan_type = SCAN_TYPE_PERIODIC;
 	cmd->rssi_threshold = c->rssi_threshold;
 	cmd->snr_threshold = c->snr_threshold;
 
@@ -588,7 +586,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	cmd->urgency = 0;
 	cmd->protect = 0;
 
-	cmd->n_probe_reqs = c->num_probe;
+	cmd->n_probe_reqs = c->num_probe_reqs;
 	/* don't stop scanning automatically when something is found */
 	cmd->terminate_after = 0;
 
@@ -601,6 +599,8 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	cmd->long_cycles_sec = req->long_interval;
 	cmd->short_cycles_count = req->n_short_intervals;
 	cmd->total_cycles = 0xff;
+	wl1271_info("short: %d, long: %d n_short: %d",
+		    req->short_interval, req->long_interval, req->n_short_intervals);
 
 	/* TODO: how to set tx rate? */
 	//cmd->params.tx_rate = cpu_to_le32(basic_rate);
@@ -649,7 +649,7 @@ out:
 	kfree(cmd);
 	return ret;
 }
-
+#if 0
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				  struct wl12xx_vif *wlvif,
 				  struct cfg80211_sched_scan_request *req,
@@ -748,7 +748,7 @@ out:
 	kfree(cfg);
 	return ret;
 }
-#if 0
+
 int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	struct wl1271_cmd_sched_scan_start *start;
@@ -779,7 +779,7 @@ out_free:
 	kfree(start);
 	return ret;
 }
-
+#endif
 void wl1271_scan_sched_scan_results(struct wl1271 *wl)
 {
 	wl1271_debug(DEBUG_SCAN, "got periodic scan results");
@@ -787,9 +787,10 @@ void wl1271_scan_sched_scan_results(struct wl1271 *wl)
 	ieee80211_sched_scan_results(wl->hw);
 }
 
-void wl1271_scan_sched_scan_stop(struct wl1271 *wl)
+/* TODO: unify stop functions */
+void wl1271_scan_sched_scan_stop(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
-	struct wl1271_cmd_sched_scan_stop *stop;
+	struct wl12xx_cmd_scan_stop *stop;
 	int ret = 0;
 
 	wl1271_debug(DEBUG_CMD, "cmd periodic scan stop");
@@ -801,10 +802,10 @@ void wl1271_scan_sched_scan_stop(struct wl1271 *wl)
 		return;
 	}
 
-	stop->tag = WL1271_SCAN_DEFAULT_TAG;
+	stop->role_id = wlvif->role_id;
+	stop->scan_type = SCAN_TYPE_PERIODIC;
 
-	ret = wl1271_cmd_send(wl, CMD_STOP_PERIODIC_SCAN, stop,
-			      sizeof(*stop), 0);
+	ret = wl1271_cmd_send(wl, CMD_STOP_SCAN, stop, sizeof(*stop), 0);
 	if (ret < 0) {
 		wl1271_error("failed to send sched scan stop command");
 		goto out_free;
@@ -813,4 +814,4 @@ void wl1271_scan_sched_scan_stop(struct wl1271 *wl)
 out_free:
 	kfree(stop);
 }
-#endif
+

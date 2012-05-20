@@ -36,15 +36,18 @@ int wl1271_scan_build_probe_req(struct wl1271 *wl,
 //void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif);
 void wl12xx_scan_completed(struct wl1271 *wl);
 void wl1271_scan_complete_work(struct work_struct *work);
-/*
+
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
-				     struct wl12xx_vif *wlvif,
-				     struct cfg80211_sched_scan_request *req,
-				     struct ieee80211_sched_scan_ies *ies);
-int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+				  struct wl12xx_vif *wlvif,
+				  struct cfg80211_sched_scan_request *req,
+				  struct ieee80211_sched_scan_ies *ies);
+void wl1271_scan_sched_scan_stop(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+/*
 void wl1271_scan_sched_scan_stop(struct wl1271 *wl);
 void wl1271_scan_sched_scan_results(struct wl1271 *wl);
 */
+
+
 #define WL1271_SCAN_MAX_CHANNELS       24
 #define WL1271_SCAN_DEFAULT_TAG        1
 #define WL1271_SCAN_CURRENT_TX_PWR     0
@@ -267,5 +270,12 @@ struct wl1271_cmd_sched_scan_stop {
 	u8 padding[3];
 } __packed;
 
+struct wl12xx_cmd_scan_stop {
+	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 scan_type;
+	u8 padding[2];
+} __packed;
 
 #endif /* __WL1271_SCAN_H__ */

@@ -132,6 +132,7 @@ static int wl1271_event_process(struct wl1271 *wl)
 		wl1271_debug(DEBUG_EVENT, "PERIODIC_SCAN_COMPLETE_EVENT "
 			     "(status 0x%0x)", mbox->scheduled_scan_status);
 		if (wl->sched_scanning) {
+			wl1271_info("got PERIODIC_SCAN_COMPLETE_EVENT_ID");
 			ieee80211_sched_scan_stopped(wl->hw);
 			wl->sched_scanning = false;
 		}

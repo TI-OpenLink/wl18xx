@@ -3053,7 +3053,7 @@ out:
 
 	cancel_delayed_work_sync(&wl->scan_complete_work);
 }
-#if 0
+
 static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 				      struct ieee80211_vif *vif,
 				      struct cfg80211_sched_scan_request *req,
@@ -3079,11 +3079,11 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 	ret = wl1271_scan_sched_scan_config(wl, wlvif, req, ies);
 	if (ret < 0)
 		goto out_sleep;
-
+/*
 	ret = wl1271_scan_sched_scan_start(wl, wlvif);
 	if (ret < 0)
 		goto out_sleep;
-
+*/
 	wl->sched_scanning = true;
 
 out_sleep:
@@ -3097,6 +3097,7 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 				      struct ieee80211_vif *vif)
 {
 	struct wl1271 *wl = hw->priv;
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271_op_sched_scan_stop");
@@ -3110,13 +3111,13 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out;
 
-	wl1271_scan_sched_scan_stop(wl);
+	wl1271_scan_sched_scan_stop(wl, wlvif);
 
 	wl1271_ps_elp_sleep(wl);
 out:
 	mutex_unlock(&wl->mutex);
 }
-#endif
+
 static int wl1271_op_set_frag_threshold(struct ieee80211_hw *hw, u32 value)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4772,8 +4773,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_key = wl1271_op_set_key,
 	.hw_scan = wl1271_op_hw_scan,
 	.cancel_hw_scan = wl1271_op_cancel_hw_scan,
-//	.sched_scan_start = wl1271_op_sched_scan_start,
-//	.sched_scan_stop = wl1271_op_sched_scan_stop,
+	.sched_scan_start = wl1271_op_sched_scan_start,
+	.sched_scan_stop = wl1271_op_sched_scan_stop,
 	.bss_info_changed = wl1271_op_bss_info_changed,
 	.set_frag_threshold = wl1271_op_set_frag_threshold,
 	.set_rts_threshold = wl1271_op_set_rts_threshold,
