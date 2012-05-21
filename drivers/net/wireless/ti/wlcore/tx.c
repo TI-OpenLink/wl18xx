@@ -768,6 +768,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	struct wl1271_tx_hw_descr *desc;
 	u32 buf_offset = 0, last_len = 0;
 	bool sent_packets = false;
+	int n_aggr_packets = 0;
 	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	int ret = 0;
 	int bus_ret = 0;
@@ -805,6 +806,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 
 			sent_packets = true;
 			buf_offset = 0;
+			wl->aggr_pkts_reason[n_aggr_packets].buffer_full++;
 			continue;
 		} else if (ret == -EBUSY) {
 			/*
@@ -814,6 +816,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			wl1271_skb_queue_head(wl, wlvif, skb, hlid);
 			/* No work left, avoid scheduling redundant tx work */
 			set_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
+			wl->aggr_pkts_reason[n_aggr_packets].fw_buffer_full++;
 			goto out_ack;
 		} else if (ret < 0) {
 			if (wl12xx_is_dummy_packet(wl, skb))
@@ -824,16 +827,21 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 				wl1271_skb_queue_head(wl, wlvif, skb, hlid);
 			else
 				ieee80211_free_txskb(wl->hw, skb);
+			wl->aggr_pkts_reason[n_aggr_packets].other++;
 			goto out_ack;
 		}
 		last_len = ret;
 		buf_offset += last_len;
 		wl->tx_packets_count++;
+		n_aggr_packets++;
 		if (has_data) {
 			desc = (struct wl1271_tx_hw_descr *) skb->data;
 			__set_bit(desc->hlid, active_hlids);
 		}
 	}
+
+	if (buf_offset)
+		wl->aggr_pkts_reason[n_aggr_packets].no_data++;
 
 out_ack:
 	if (buf_offset) {
