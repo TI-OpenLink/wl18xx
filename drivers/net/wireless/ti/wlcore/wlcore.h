@@ -140,6 +140,14 @@ struct wl1271_stats {
 	unsigned int excessive_retries;
 };
 
+struct wlcore_aggr_reason {
+	u32 total;
+	u32 buffer_full;
+	u32 fw_buffer_full;
+	u32 other;
+	u32 no_data;
+};
+
 struct wl1271 {
 	struct ieee80211_hw *hw;
 	bool mac80211_registered;
@@ -393,6 +401,8 @@ struct wl1271 {
 
 	/* mutex for protecting the tx_flush function */
 	struct mutex flush_mutex;
+
+	struct wlcore_aggr_reason aggr_pkts_reason[WLCORE_AGGR_MAX_PACKETS];
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
