@@ -178,6 +178,14 @@ struct wl1271_stats {
 	unsigned int excessive_retries;
 };
 
+struct wlcore_aggr_reason {
+	u32 total;
+	u32 buffer_full;
+	u32 fw_buffer_full;
+	u32 other;
+	u32 no_data;
+};
+
 struct wl1271 {
 	bool initialized;
 	struct ieee80211_hw *hw;
@@ -494,6 +502,8 @@ struct wl1271 {
 	/* interface combinations supported by the hw */
 	const struct ieee80211_iface_combination *iface_combinations;
 	u8 n_iface_combinations;
+
+	struct wlcore_aggr_reason aggr_pkts_reason[WLCORE_AGGR_MAX_PACKETS];
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
