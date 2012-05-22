@@ -33,15 +33,20 @@ int wl1271_scan_stop(struct wl1271 *wl);
 int wl1271_scan_build_probe_req(struct wl1271 *wl,
 				const u8 *ssid, size_t ssid_len,
 				const u8 *ie, size_t ie_len, u8 band);
-void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif);
+//void wl1271_scan_stm(struct wl1271 *wl, struct ieee80211_vif *vif);
+void wl12xx_scan_completed(struct wl1271 *wl);
 void wl1271_scan_complete_work(struct work_struct *work);
+
 int wl1271_scan_sched_scan_config(struct wl1271 *wl,
-				     struct wl12xx_vif *wlvif,
-				     struct cfg80211_sched_scan_request *req,
-				     struct ieee80211_sched_scan_ies *ies);
-int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+				  struct wl12xx_vif *wlvif,
+				  struct cfg80211_sched_scan_request *req,
+				  struct ieee80211_sched_scan_ies *ies);
+void wl1271_scan_sched_scan_stop(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+/*
 void wl1271_scan_sched_scan_stop(struct wl1271 *wl);
 void wl1271_scan_sched_scan_results(struct wl1271 *wl);
+*/
+
 
 #define WL1271_SCAN_MAX_CHANNELS       24
 #define WL1271_SCAN_DEFAULT_TAG        1

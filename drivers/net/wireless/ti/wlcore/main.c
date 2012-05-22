@@ -3177,10 +3177,6 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out_sleep;
 
-	ret = wl1271_scan_sched_scan_start(wl, wlvif);
-	if (ret < 0)
-		goto out_sleep;
-
 	wl->sched_scanning = true;
 
 out_sleep:
@@ -3194,6 +3190,7 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 				      struct ieee80211_vif *vif)
 {
 	struct wl1271 *wl = hw->priv;
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271_op_sched_scan_stop");
@@ -3207,7 +3204,7 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out;
 
-	wl1271_scan_sched_scan_stop(wl);
+	wl1271_scan_sched_scan_stop(wl, wlvif);
 
 	wl1271_ps_elp_sleep(wl);
 out:
