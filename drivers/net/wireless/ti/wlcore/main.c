@@ -2488,8 +2488,7 @@ static int wl12xx_op_change_interface(struct ieee80211_hw *hw,
 	return ret;
 }
 
-static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			  bool set_assoc)
+static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	int ret;
 	bool is_ibss = (wlvif->bss_type == BSS_TYPE_IBSS);
@@ -2524,9 +2523,13 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		wl12xx_roc(wl, wlvif, wlvif->role_id);
 		wlvif->pending_roc = false;
 	}
+out:
+	return ret;
+}
 
-	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-		goto out;
+static int wlcore_set_assoc(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	int ret;
 
 	/*
 	 * The join command disable the keep-alive mode, shut down its process,
@@ -2551,7 +2554,6 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 					   ACX_KEEP_ALIVE_TPL_VALID);
 	if (ret < 0)
 		goto out;
-
 out:
 	return ret;
 }
@@ -4025,8 +4027,8 @@ sta_not_found:
 			ret = wl1271_acx_conn_monit_params(wl, wlvif, true);
 			if (ret < 0)
 				goto out;
-			if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
-				wl12xx_set_authorized(wl, wlvif);
+			/* TODO: reorder do_join and set_assoc? */
+			set_assoc = true;
 		} else {
 			bool was_assoc =
 			    !!test_and_clear_bit(WLVIF_FLAG_STA_ASSOCIATED,
@@ -4080,7 +4082,7 @@ sta_not_found:
 		goto out;
 
 	if (do_join) {
-		ret = wl1271_join(wl, wlvif, set_assoc);
+		ret = wl1271_join(wl, wlvif);
 		if (ret < 0) {
 			wl1271_warning("cmd join failed %d", ret);
 			goto out;
@@ -4094,6 +4096,15 @@ sta_not_found:
 				goto out;
 		}
 		*/
+	}
+
+	if (set_assoc) {
+		ret = wlcore_set_assoc(wl, wlvif);
+		if (ret < 0)
+			goto out;
+
+		if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
+			wl12xx_set_authorized(wl, wlvif);
 	}
 
 	/* Handle new association with HT. Do this after join. */
