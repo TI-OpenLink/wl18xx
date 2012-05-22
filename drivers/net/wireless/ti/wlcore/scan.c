@@ -279,10 +279,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	cmd->urgency = 0;
 	cmd->protect = 0;
 
-	if (req->num_probe)
-		cmd->n_probe_reqs = wl->scan.req->num_probe;
-	else
-		cmd->n_probe_reqs = wl->conf.scan.num_probe_reqs;
+	/* TODO: take num_probe from req if available */
+	cmd->n_probe_reqs = wl->conf.scan.num_probe_reqs;
 	cmd->terminate_after = 0;
 
 	/* configure channels */
