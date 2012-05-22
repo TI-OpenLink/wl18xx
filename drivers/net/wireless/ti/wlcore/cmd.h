@@ -59,7 +59,8 @@ int wl1271_cmd_build_ps_poll(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 int wl12xx_cmd_build_probe_req(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			       u8 role_id, u8 band,
 			       const u8 *ssid, size_t ssid_len,
-			       const u8 *ie, size_t ie_len);
+			       const u8 *ie, size_t ie_len,
+			       bool sched);
 struct sk_buff *wl1271_cmd_build_ap_probe_req(struct wl1271 *wl,
 					      struct wl12xx_vif *wlvif,
 					      struct sk_buff *skb);
@@ -181,6 +182,8 @@ enum cmd_templ {
 	CMD_TEMPL_DEAUTH_AP,
 	CMD_TEMPL_TEMPORARY,
 	CMD_TEMPL_LINK_MEASUREMENT_REPORT,
+	CMD_TEMPL_PROBE_REQ_2_4_PERIODIC,
+	CMD_TEMPL_PROBE_REQ_5_PERIODIC,
 
 	CMD_TEMPL_MAX = 0xff
 };
