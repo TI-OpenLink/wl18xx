@@ -204,7 +204,7 @@ struct wl18xx_acx_rx_rate_stats {
 #define AGGR_STATS_RX_SIZE_LEN	16
 
 struct wl18xx_acx_aggr_stats {
-	u32 tx_agg_vs_rate[AGGR_STATS_TX_AGG][AGGR_STATS_TX_RATE];
+	u32 tx_agg_vs_rate[AGGR_STATS_TX_AGG * AGGR_STATS_TX_RATE];
 	u32 rx_size[AGGR_STATS_RX_SIZE_LEN];
 } __packed;
 
