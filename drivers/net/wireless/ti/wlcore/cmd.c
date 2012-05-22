@@ -1029,8 +1029,8 @@ int wl12xx_cmd_build_probe_req(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	struct sk_buff *skb;
 	int ret;
 	u32 rate;
-	u16 template_id_2_4 = CMD_TEMPL_CFG_PROBE_REQ_2_4;
-	u16 template_id_5 = CMD_TEMPL_CFG_PROBE_REQ_5;
+	u16 template_id_2_4 = CMD_TEMPL_PROBE_REQ_2_4_PERIODIC;
+	u16 template_id_5 = CMD_TEMPL_PROBE_REQ_5_PERIODIC;
 
 	skb = ieee80211_probereq_get(wl->hw, vif, ssid, ssid_len,
 				     ie, ie_len);
@@ -1043,8 +1043,8 @@ int wl12xx_cmd_build_probe_req(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	if (!sched_scan &&
 	    (wl->quirks & WLCORE_QUIRK_DUAL_PROBE_TMPL)) {
-		template_id_2_4 = CMD_TEMPL_APP_PROBE_REQ_2_4;
-		template_id_5 = CMD_TEMPL_APP_PROBE_REQ_5;
+		template_id_2_4 = CMD_TEMPL_CFG_PROBE_REQ_2_4;
+		template_id_5 = CMD_TEMPL_CFG_PROBE_REQ_5;
 	}
 
 	rate = wl1271_tx_min_rate_get(wl, wlvif->bitrate_masks[band]);

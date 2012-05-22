@@ -334,7 +334,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 						 req->ssids[0].ssid,
 						 req->ssids[0].ssid_len,
 						 req->ie,
-						 req->ie_len);
+						 req->ie_len,
+						 false);
 		if (ret < 0) {
 			wl1271_error("2.4GHz PROBE request template failed");
 			goto out;
@@ -348,7 +349,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 						 req->ssids[0].ssid,
 						 req->ssids[0].ssid_len,
 						 req->ie,
-						 req->ie_len);
+						 req->ie_len,
+						 false);
 		if (ret < 0) {
 			wl1271_error("5GHz PROBE request template failed");
 			goto out;
