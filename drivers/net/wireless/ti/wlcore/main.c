@@ -3339,10 +3339,6 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out_sleep;
 
-	ret = wl1271_scan_sched_scan_start(wl, wlvif);
-	if (ret < 0)
-		goto out_sleep;
-
 	wl->sched_scanning = true;
 
 out_sleep:
