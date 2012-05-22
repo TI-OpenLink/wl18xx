@@ -56,14 +56,16 @@ int wl1271_init_templates_config(struct wl1271 *wl)
 
 	if (wl->quirks & WLCORE_QUIRK_DUAL_PROBE_TMPL) {
 		ret = wl1271_cmd_template_set(wl, WL12XX_INVALID_ROLE_ID,
-					      CMD_TEMPL_APP_PROBE_REQ_2_4, NULL,
+					      CMD_TEMPL_PROBE_REQ_2_4_PERIODIC,
+					      NULL,
 					      WL1271_CMD_TEMPL_MAX_SIZE,
 					      0, WL1271_RATE_AUTOMATIC);
 		if (ret < 0)
 			return ret;
 
 		ret = wl1271_cmd_template_set(wl, WL12XX_INVALID_ROLE_ID,
-					      CMD_TEMPL_APP_PROBE_REQ_5, NULL,
+					      CMD_TEMPL_PROBE_REQ_5_PERIODIC,
+					      NULL,
 					      WL1271_CMD_TEMPL_MAX_SIZE,
 					      0, WL1271_RATE_AUTOMATIC);
 		if (ret < 0)
