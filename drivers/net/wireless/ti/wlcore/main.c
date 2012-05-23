@@ -5075,6 +5075,9 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 
 	wl->hw->max_rx_aggregation_subframes = wl->conf.ht.rx_ba_win_size;
 
+	wl->hw->sta_uapsd_queues = IEEE80211_WMM_IE_STA_QOSINFO_AC_VO;
+	wl->hw->sta_uapsd_max_sp_len = IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL;
+
 	return 0;
 }
 
