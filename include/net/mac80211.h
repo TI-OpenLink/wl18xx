@@ -1297,6 +1297,13 @@ enum ieee80211_hw_flags {
  *	reports, by default it is set to _MCS, _GI and _BW but doesn't
  *	include _FMT. Use %IEEE80211_RADIOTAP_MCS_HAVE_* values, only
  *	adding _BW is supported today.
+ *
+ * @sta_uapsd_queues: Bitmask of enabled U-APSD queues when operating in
+ *	managed mode (%IEEE80211_WMM_IE_STA_QOSINFO_AC_VO & co). Defaults
+ *	to all four ACs.
+ *
+ * @sta_uapsd_max_sp_len: Maximum number of buffered frames AP can deliver in
+ *	a service period. Defaults to %IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL
  */
 struct ieee80211_hw {
 	struct ieee80211_conf conf;
@@ -1319,6 +1326,8 @@ struct ieee80211_hw {
 	u8 max_tx_aggregation_subframes;
 	u8 offchannel_tx_hw_queue;
 	u8 radiotap_mcs_details;
+	unsigned int sta_uapsd_queues;
+	unsigned int sta_uapsd_max_sp_len;
 };
 
 /**
