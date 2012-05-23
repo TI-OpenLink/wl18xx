@@ -1301,6 +1301,13 @@ enum ieee80211_hw_flags {
  * @netdev_features: netdev features to be set in each netdev created
  *	from this HW. Note only HW checksum features are currently
  *	compatible with mac80211. Other feature bits will be rejected.
+ *
+ * @sta_uapsd_queues: Bitmask of enabled U-APSD queues when operating in
+ *	managed mode (%IEEE80211_WMM_IE_STA_QOSINFO_AC_VO & co). Defaults
+ *	to all four ACs.
+ *
+ * @sta_uapsd_max_sp_len: Maximum number of buffered frames AP can deliver in
+ *	a service period. Defaults to %IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL
  */
 struct ieee80211_hw {
 	struct ieee80211_conf conf;
@@ -1324,6 +1331,8 @@ struct ieee80211_hw {
 	u8 offchannel_tx_hw_queue;
 	u8 radiotap_mcs_details;
 	netdev_features_t netdev_features;
+	unsigned int sta_uapsd_queues;
+	unsigned int sta_uapsd_max_sp_len;
 };
 
 /**

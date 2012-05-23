@@ -594,6 +594,8 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 	local->hw.max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
 	local->hw.max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
 	local->hw.offchannel_tx_hw_queue = IEEE80211_INVAL_HW_QUEUE;
+	local->hw.sta_uapsd_queues = IEEE80211_DEFAULT_UAPSD_QUEUES;
+	local->hw.sta_uapsd_max_sp_len = IEEE80211_DEFAULT_MAX_SP_LEN;
 	local->hw.conf.long_frame_max_tx_count = wiphy->retry_long;
 	local->hw.conf.short_frame_max_tx_count = wiphy->retry_short;
 	local->hw.radiotap_mcs_details = IEEE80211_RADIOTAP_MCS_HAVE_MCS |
@@ -717,6 +719,12 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 
 	if (hw->max_report_rates == 0)
 		hw->max_report_rates = hw->max_rates;
+
+	if (hw->sta_uapsd_queues & ~IEEE80211_WMM_IE_STA_QOSINFO_AC_MASK)
+		return -EINVAL;
+
+	if (hw->sta_uapsd_max_sp_len & ~IEEE80211_WMM_IE_STA_QOSINFO_SP_MASK)
+		return -EINVAL;
 
 	/*
 	 * generic code guarantees at least one band,
