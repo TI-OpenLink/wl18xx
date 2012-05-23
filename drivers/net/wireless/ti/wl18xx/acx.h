@@ -67,10 +67,11 @@ struct wl18xx_acx_checksum_state {
 
 
 struct wl18xx_acx_error_stats {
-    u32 error_frame;
-    u32 error_null_Frame_tx_start;
-    u32 error_numll_frame_cts_start;
-    u32 error_bar_retry;
+	u32 error_frame;
+	u32 error_null_Frame_tx_start;
+	u32 error_numll_frame_cts_start;
+	u32 error_bar_retry;
+	u32 error_frame_cts_nul_flid;
 } __packed;
 
 struct wl18xx_acx_debug_stats {
@@ -152,6 +153,7 @@ struct wl18xx_acx_rx_stats {
 	u32 defrag_decrypt_failed;
 	u32 decrypt_key_not_found;
 	u32 defrag_need_decrypt;
+	u32 rx_tkip_replays;
 } __packed;
 
 struct wl18xx_acx_isr_stats {

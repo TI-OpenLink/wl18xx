@@ -43,6 +43,7 @@ WL18XX_DEBUGFS_FWSTATS_FILE(error, error_frame, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(error, error_null_Frame_tx_start, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(error, error_numll_frame_cts_start, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(error, error_bar_retry, "%u");
+WL18XX_DEBUGFS_FWSTATS_FILE(error, error_frame_cts_nul_flid, "%u");
 
 WL18XX_DEBUGFS_FWSTATS_FILE(tx, tx_prepared_descs, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(tx, tx_cmplt, "%u");
@@ -105,6 +106,7 @@ WL18XX_DEBUGFS_FWSTATS_FILE(rx, defrag_need_defrag, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(rx, defrag_decrypt_failed, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(rx, decrypt_key_not_found, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(rx, defrag_need_decrypt, "%u");
+WL18XX_DEBUGFS_FWSTATS_FILE(rx, rx_tkip_replays, "%u");
 
 WL18XX_DEBUGFS_FWSTATS_FILE(isr, irqs, "%u");
 
@@ -136,7 +138,7 @@ WL18XX_DEBUGFS_FWSTATS_FILE(rx_filter, max_arp_queue_dep, "%u");
 WL18XX_DEBUGFS_FWSTATS_FILE(rx_rate, rx_frames_per_rates, "%u");
 
 WL18XX_DEBUGFS_FWSTATS_FILE_ARRAY(aggr_size, tx_agg_vs_rate,
-				  AGGR_STATS_TX_AGG*AGGR_STATS_RX_SIZE_LEN);
+				  AGGR_STATS_TX_AGG*AGGR_STATS_TX_RATE);
 WL18XX_DEBUGFS_FWSTATS_FILE_ARRAY(aggr_size, rx_size,
 				  AGGR_STATS_RX_SIZE_LEN);
 
@@ -225,6 +227,7 @@ int wl18xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_FWSTATS_ADD(error, error_null_Frame_tx_start);
 	DEBUGFS_FWSTATS_ADD(error, error_numll_frame_cts_start);
 	DEBUGFS_FWSTATS_ADD(error, error_bar_retry);
+	DEBUGFS_FWSTATS_ADD(error, error_frame_cts_nul_flid);
 
 	DEBUGFS_FWSTATS_ADD(tx, tx_prepared_descs);
 	DEBUGFS_FWSTATS_ADD(tx, tx_cmplt);
@@ -287,6 +290,7 @@ int wl18xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_FWSTATS_ADD(rx, defrag_decrypt_failed);
 	DEBUGFS_FWSTATS_ADD(rx, decrypt_key_not_found);
 	DEBUGFS_FWSTATS_ADD(rx, defrag_need_decrypt);
+	DEBUGFS_FWSTATS_ADD(rx, rx_tkip_replays);
 
 	DEBUGFS_FWSTATS_ADD(isr, irqs);
 
