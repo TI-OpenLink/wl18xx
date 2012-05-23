@@ -1288,6 +1288,13 @@ enum ieee80211_hw_flags {
  *
  * @offchannel_tx_hw_queue: HW queue ID to use for offchannel TX
  *	(if %IEEE80211_HW_QUEUE_CONTROL is set)
+ *
+ * @sta_uapsd_queues: Bitmask of enabled U-APSD queues when operating in
+ *	managed mode (%IEEE80211_WMM_IE_STA_QOSINFO_AC_VO & co). Defaults
+ *	to all four ACs.
+ *
+ * @sta_uapsd_max_sp_len: Maximum number of buffered frames AP can deliver in
+ *	a service period. Defaults to %IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL
  */
 struct ieee80211_hw {
 	struct ieee80211_conf conf;
@@ -1309,6 +1316,8 @@ struct ieee80211_hw {
 	u8 max_rx_aggregation_subframes;
 	u8 max_tx_aggregation_subframes;
 	u8 offchannel_tx_hw_queue;
+	unsigned int sta_uapsd_queues;
+	unsigned int sta_uapsd_max_sp_len;
 };
 
 /**
