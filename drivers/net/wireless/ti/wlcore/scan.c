@@ -96,29 +96,44 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 			 u32 n_ssids,
 			 struct conn_scan_ch_params *channels,
 			 u32 band, bool radar, bool passive,
-			 int start, int max_channels)
+			 int start, int max_channels,
+			 int scan_type)
 {
-	struct conf_sched_scan_settings *c = &wl->conf.sched_scan;
 	int i, j;
 	u32 flags;
 	bool force_passive = !n_ssids;
 	u32 min_dwell_time_active, max_dwell_time_active, delta_per_probe;
 	u32 dwell_time_passive, dwell_time_dfs;
 
-	if (band == IEEE80211_BAND_5GHZ)
-		delta_per_probe = c->dwell_time_delta_per_probe_5;
-	else
-		delta_per_probe = c->dwell_time_delta_per_probe;
+	if (scan_type == SCAN_TYPE_SEARCH) {
+		struct conf_scan_settings *c = &wl->conf.scan;
 
-	min_dwell_time_active = c->base_dwell_time +
-		 n_ssids * c->num_probe_reqs * delta_per_probe;
+		min_dwell_time_active = c->min_dwell_time_active;
+		max_dwell_time_active = c->max_dwell_time_active;
+		/* TODO: convert conf from min/max to a single value */
+		dwell_time_passive = c->dwell_time_passive;
+		dwell_time_dfs = c->dwell_time_dfs;
+	} else {
+		struct conf_sched_scan_settings *c = &wl->conf.sched_scan;
 
-	max_dwell_time_active = min_dwell_time_active + c->max_dwell_time_delta;
+		if (band == IEEE80211_BAND_5GHZ)
+			delta_per_probe = c->dwell_time_delta_per_probe_5;
+		else
+			delta_per_probe = c->dwell_time_delta_per_probe;
 
+		min_dwell_time_active = c->base_dwell_time +
+			 n_ssids * c->num_probe_reqs * delta_per_probe;
+
+		max_dwell_time_active = min_dwell_time_active +
+					c->max_dwell_time_delta;
+		dwell_time_passive = c->dwell_time_passive;
+		dwell_time_dfs = c->dwell_time_dfs;
+	}
+	/* TODO: use msec in conf... */
 	min_dwell_time_active = DIV_ROUND_UP(min_dwell_time_active, 1000);
 	max_dwell_time_active = DIV_ROUND_UP(max_dwell_time_active, 1000);
-	dwell_time_passive = DIV_ROUND_UP(c->dwell_time_passive, 1000);
-	dwell_time_dfs = DIV_ROUND_UP(c->dwell_time_dfs, 1000);
+	dwell_time_passive = DIV_ROUND_UP(dwell_time_passive, 1000);
+	dwell_time_dfs = DIV_ROUND_UP(dwell_time_dfs, 1000);
 
 	for (i = 0, j = start;
 	     i < n_channels && j < max_channels;
@@ -176,7 +191,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 			    struct wl1271_cmd_scan_params *cfg,
 			    struct ieee80211_channel *channels[],
 			    u32 n_channels,
-			    u32 n_ssids)
+			    u32 n_ssids,
+			    int scan_type)
 {
 	cfg->passive[0] =
 		wlcore_scan_get_channels(wl,
@@ -186,7 +202,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 					 cfg->channels_2,
 					 IEEE80211_BAND_2GHZ,
 					 false, true, 0,
-					 MAX_CHANNELS_2GHZ);
+					 MAX_CHANNELS_2GHZ,
+					 scan_type);
 	cfg->active[0] =
 		wlcore_scan_get_channels(wl,
 					 channels,
@@ -196,7 +213,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 					 IEEE80211_BAND_2GHZ,
 					 false, false,
 					 cfg->passive[0],
-					 MAX_CHANNELS_2GHZ);
+					 MAX_CHANNELS_2GHZ,
+					 scan_type);
 	cfg->passive[1] =
 		wlcore_scan_get_channels(wl,
 					 channels,
@@ -205,7 +223,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 					 cfg->channels_5,
 					 IEEE80211_BAND_5GHZ,
 					 false, true, 0,
-					 MAX_CHANNELS_5GHZ);
+					 MAX_CHANNELS_5GHZ,
+					 scan_type);
 	cfg->dfs =
 		wlcore_scan_get_channels(wl,
 					 channels,
@@ -215,7 +234,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 					 IEEE80211_BAND_5GHZ,
 					 true, true,
 					 cfg->passive[1],
-					 MAX_CHANNELS_5GHZ);
+					 MAX_CHANNELS_5GHZ,
+					 scan_type);
 	cfg->active[1] =
 		wlcore_scan_get_channels(wl,
 					 channels,
@@ -225,7 +245,8 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 					 IEEE80211_BAND_5GHZ,
 					 false, false,
 					 cfg->passive[1] + cfg->dfs,
-					 MAX_CHANNELS_5GHZ);
+					 MAX_CHANNELS_5GHZ,
+					 scan_type);
 	/* TODO: add passive-after-active configuration */
 	/* 802.11j channels are not supported yet */
 	cfg->passive[2] = 0;
@@ -286,7 +307,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	/* configure channels */
 	WARN_ON(req->n_ssids != 1); /* TODO: support multi ssid */
 	wlcore_set_scan_chan_params(wl, cmd, req->channels,
-				    req->n_channels, req->n_ssids);
+				    req->n_channels, req->n_ssids,
+				    SCAN_TYPE_SEARCH);
 
 	/*
 	 * all the cycles params (except total cycles) should
@@ -582,7 +604,8 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 
 	/* configure channels */
 	wlcore_set_scan_chan_params(wl, cmd, req->channels,
-				    req->n_channels, req->n_ssids);
+				    req->n_channels, req->n_ssids,
+				    SCAN_TYPE_PERIODIC);
 
 	/* TODO: check params */
 	cmd->short_cycles_sec = req->short_interval;
