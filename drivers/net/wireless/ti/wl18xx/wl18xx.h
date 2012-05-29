@@ -44,8 +44,6 @@ struct wl18xx_priv {
 	/* Index of last released Tx desc in FW */
 	u8 last_fw_rls_idx;
 
-	u8 board_type;
-
 	struct wl18xx_phy_addresses phy_addresses;
 
 	/* number of VIFs requiring extra spare mem-blocks */
