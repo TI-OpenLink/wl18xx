@@ -490,6 +490,25 @@ static struct wlcore_conf wl18xx_conf = {
 		.increase_time              = 1,
 		.window_size                = 16,
 	},
+	.addresses = {
+		.addr = {
+			[0] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+			[1] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+			[2] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+		},
+	},
 };
 
 static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
@@ -1430,6 +1449,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->fw_status_priv_len = sizeof(struct wl18xx_fw_status_priv);
 	wl->stats.fw_stats_len = sizeof(struct wl18xx_acx_statistics);
 	wl->static_data_priv_len = sizeof(struct wl18xx_static_data_priv);
+	wl->num_macs = 3;
 
 	if (!strcmp(ht_mode_param, "wide")) {
 		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],

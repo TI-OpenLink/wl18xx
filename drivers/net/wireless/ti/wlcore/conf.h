@@ -1271,12 +1271,17 @@ struct conf_hangover_settings {
 	u8 window_size;
 } __packed;
 
+struct conf_addresses {
+	/* we have up to 3 MAC addresses */
+	struct mac_address addr[3];
+} __packed;
+
 /*
  * The conf version consists of 4 bytes.  The two MSB are the wlcore
  * version, the two LSB are the lower driver's private conf
  * version.
  */
-#define WLCORE_CONF_VERSION	(0x0001 << 16)
+#define WLCORE_CONF_VERSION	(0x0002 << 16)
 #define WLCORE_CONF_MASK	0xffff0000
 #define WLCORE_CONF_SIZE	(sizeof(struct wlcore_conf_header) +	\
 				 sizeof(struct wlcore_conf))
@@ -1304,6 +1309,7 @@ struct wlcore_conf {
 	struct conf_fwlog fwlog;
 	struct conf_rate_policy_settings rate;
 	struct conf_hangover_settings hangover;
+	struct conf_addresses addresses;
 } __packed;
 
 struct wlcore_conf_file {

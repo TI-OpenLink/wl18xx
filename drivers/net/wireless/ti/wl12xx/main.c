@@ -369,6 +369,25 @@ static struct wlcore_conf wl12xx_conf = {
 		.increase_time              = 1,
 		.window_size                = 16,
 	},
+	.addresses = {
+		.addr = {
+			[0] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+			[1] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+			[2] = {
+				.addr = {
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+				},
+			},
+		},
+	},
 };
 
 static struct wl12xx_priv_conf wl12xx_default_priv_conf = {
@@ -1457,6 +1476,8 @@ static int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
 	wl->fw_status_priv_len = 0;
 	wl->stats.fw_stats_len = sizeof(struct wl12xx_acx_statistics);
+	wl->num_macs = 2;
+
 	memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ], &wl12xx_ht_cap,
 	       sizeof(wl12xx_ht_cap));
 	memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ], &wl12xx_ht_cap,

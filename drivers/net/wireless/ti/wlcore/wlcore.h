@@ -188,8 +188,6 @@ struct wl1271 {
 	u32 fuse_oui_addr;
 	u32 fuse_nic_addr;
 
-	/* we have up to 2 MAC addresses */
-	struct mac_address addresses[2];
 	int channel;
 	u8 system_hlid;
 
@@ -401,6 +399,9 @@ struct wl1271 {
 
 	/* mutex for protecting the tx_flush function */
 	struct mutex flush_mutex;
+
+	/* number of MAC addresses supported by HW family */
+	int num_macs;
 
 	struct wlcore_aggr_reason aggr_pkts_reason[WLCORE_AGGR_MAX_PACKETS];
 };

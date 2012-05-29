@@ -2094,7 +2094,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		 * we still need this in order to configure the fw
 		 * while uploading the nvs
 		 */
-		memcpy(wl->addresses[0].addr, vif->addr, ETH_ALEN);
+		memcpy(wl->conf.addresses.addr[0].addr, vif->addr, ETH_ALEN);
 
 		booted = wl12xx_init_fw(wl);
 		if (!booted) {
@@ -4919,17 +4919,17 @@ static void wl12xx_derive_mac_addresses(struct wl1271 *wl,
 		wl1271_warning("NIC part of the MAC address wraps around!");
 
 	for (i = 0; i < n; i++) {
-		wl->addresses[i].addr[0] = (u8)(oui >> 16);
-		wl->addresses[i].addr[1] = (u8)(oui >> 8);
-		wl->addresses[i].addr[2] = (u8) oui;
-		wl->addresses[i].addr[3] = (u8)(nic >> 16);
-		wl->addresses[i].addr[4] = (u8)(nic >> 8);
-		wl->addresses[i].addr[5] = (u8) nic;
+		wl->conf.addresses.addr[i].addr[0] = (u8)(oui >> 16);
+		wl->conf.addresses.addr[i].addr[1] = (u8)(oui >> 8);
+		wl->conf.addresses.addr[i].addr[2] = (u8) oui;
+		wl->conf.addresses.addr[i].addr[3] = (u8)(nic >> 16);
+		wl->conf.addresses.addr[i].addr[4] = (u8)(nic >> 8);
+		wl->conf.addresses.addr[i].addr[5] = (u8) nic;
 		nic++;
 	}
 
 	wl->hw->wiphy->n_addresses = n;
-	wl->hw->wiphy->addresses = wl->addresses;
+	wl->hw->wiphy->addresses = wl->conf.addresses.addr;
 }
 
 static int wl12xx_get_hw_info(struct wl1271 *wl)
@@ -4959,6 +4959,7 @@ static int wl1271_register_hw(struct wl1271 *wl)
 {
 	int ret;
 	u32 oui_addr = 0, nic_addr = 0;
+	bool conf_zero_macs;
 
 	if (wl->mac80211_registered)
 		return 0;
@@ -4977,14 +4978,25 @@ static int wl1271_register_hw(struct wl1271 *wl)
 			(nvs_ptr[5] << 16) + (nvs_ptr[4] << 8) + nvs_ptr[3];
 	}
 
-	/* if the MAC address is zeroed in the NVS derive from fuse */
 	if (oui_addr == 0 && nic_addr == 0) {
 		oui_addr = wl->fuse_oui_addr;
-		/* fuse has the BD_ADDR, the WLAN addresses are the next two */
+		/* fuse has the BD_ADDR, the WLAN addresses are next */
 		nic_addr = wl->fuse_nic_addr + 1;
 	}
 
-	wl12xx_derive_mac_addresses(wl, oui_addr, nic_addr, 2);
+	conf_zero_macs = is_zero_ether_addr(wl->conf.addresses.addr[0].addr) &&
+			 is_zero_ether_addr(wl->conf.addresses.addr[1].addr) &&
+			 is_zero_ether_addr(wl->conf.addresses.addr[2].addr);
+
+	/*
+	 * we derive the MAC when:
+	 * 1. The NVS exists with non-zero MAC -> derive from the NVS
+	 * 2. The NVS exists with zero MAC -> derive form FUSE
+	 * 3. No NVS and the conf contains zero MACs -> derive from FUSE
+	 */
+	if (wl->nvs != NULL || conf_zero_macs)
+		wl12xx_derive_mac_addresses(wl, oui_addr, nic_addr,
+					    wl->num_macs);
 
 	ret = ieee80211_register_hw(wl->hw);
 	if (ret < 0) {
