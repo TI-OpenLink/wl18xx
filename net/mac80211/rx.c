@@ -3023,6 +3023,9 @@ void ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	if (WARN_ON(!sband))
 		goto drop;
 
+	/* make sure we get the latest values for the next variable checks */
+	smp_rmb();
+
 	/*
 	 * If we're suspending, it is possible although not too likely
 	 * that we'd be receiving frames after having already partially
@@ -3031,6 +3034,10 @@ void ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	 * driver callbacks be invoked.
 	 */
 	if (unlikely(local->quiescing || local->suspended))
+		goto drop;
+
+	/* We might be during a HW reconfig, prevent Rx for the same reason */
+	if (unlikely(local->in_reconfig))
 		goto drop;
 
 	/*
