@@ -1233,6 +1233,13 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		return res;
 	}
 
+	/*
+	 * Stop all Rx during the reconfig. We don't want state changes
+	 * or driver callbacks while this is in progress.
+	 */
+	local->in_reconfig = true;
+	smp_wmb();
+
 	/* setup fragmentation threshold */
 	drv_set_frag_threshold(local, hw->wiphy->frag_threshold);
 
@@ -1375,6 +1382,9 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	list_for_each_entry(sdata, &local->interfaces, list)
 		if (ieee80211_sdata_running(sdata))
 			ieee80211_enable_keys(sdata);
+
+	local->in_reconfig = false;
+	smp_wmb();
 
  wake_up:
 	/*
