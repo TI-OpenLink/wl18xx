@@ -1313,7 +1313,8 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		mutex_lock(&local->sta_mtx);
 
 		list_for_each_entry(sta, &local->sta_list, list) {
-			ieee80211_sta_tear_down_BA_sessions(sta, true);
+			/* don't call the driver when tearing down sessions */
+			ieee80211_sta_tear_down_BA_sessions(sta, true, false);
 			clear_sta_flag(sta, WLAN_STA_BLOCK_BA);
 		}
 
