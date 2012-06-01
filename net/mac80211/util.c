@@ -1170,6 +1170,13 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		return res;
 	}
 
+	/*
+	 * Stop all Rx during the reconfig. We don't want state changes
+	 * or driver callbacks while this is in progress.
+	 */
+	local->in_reconfig = true;
+	mb();
+
 	ieee80211_led_radio(local, true);
 	ieee80211_mod_tpt_led_trig(local,
 				   IEEE80211_TPT_LEDTRIG_FL_RADIO, 0);
@@ -1297,6 +1304,9 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	list_for_each_entry(sdata, &local->interfaces, list)
 		if (ieee80211_sdata_running(sdata))
 			ieee80211_enable_keys(sdata);
+
+	local->in_reconfig = false;
+	mb();
 
  wake_up:
 	/*
