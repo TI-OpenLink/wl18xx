@@ -1192,22 +1192,28 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	/* add STAs back */
 	mutex_lock(&local->sta_mtx);
 	list_for_each_entry(sta, &local->sta_list, list) {
-		if (sta->uploaded) {
-			enum ieee80211_sta_state state = IEEE80211_STA_NONE;
+		enum ieee80211_sta_state state = IEEE80211_STA_NONE;
 
-			sdata = sta->sdata;
-			if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
-				sdata = container_of(sdata->bss,
-					     struct ieee80211_sub_if_data,
-					     u.ap);
+		if (!sta->uploaded)
+			continue;
 
-			if (WARN_ON(drv_sta_add(local, sdata, &sta->sta)))
-				continue;
+		sdata = sta->sdata;
+		if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
+			sdata = container_of(sdata->bss,
+				     struct ieee80211_sub_if_data,
+				     u.ap);
 
-			while (state < sta->sta.state)
-				drv_sta_state(local, sdata, &sta->sta,
-					      ++state);
-		}
+		/* some devices don't support adding AP-mode stations yet */
+		if ((local->hw.flags & IEEE80211_HW_AP_ADD_STA_AFTER_BEACON) &&
+		    sdata->vif.type == NL80211_IFTYPE_AP)
+			continue;
+
+		if (WARN_ON(drv_sta_add(local, sdata, &sta->sta)))
+			continue;
+
+		while (state < sta->sta.state)
+			drv_sta_state(local, sdata, &sta->sta,
+				      ++state);
 	}
 	mutex_unlock(&local->sta_mtx);
 
@@ -1298,6 +1304,37 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 
 			ieee80211_send_nullfunc(local, sdata, 0);
 		}
+	}
+
+	/*
+	 * AP is not beaconing, add back stations for devices that
+	 * only support it now
+	 */
+	if (local->hw.flags & IEEE80211_HW_AP_ADD_STA_AFTER_BEACON) {
+		mutex_lock(&local->sta_mtx);
+		list_for_each_entry(sta, &local->sta_list, list) {
+			enum ieee80211_sta_state state = IEEE80211_STA_NONE;
+
+			if (!sta->uploaded)
+				continue;
+
+			sdata = sta->sdata;
+			if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
+				sdata = container_of(sdata->bss,
+					     struct ieee80211_sub_if_data,
+					     u.ap);
+
+			if (sdata->vif.type != NL80211_IFTYPE_AP)
+				continue;
+
+			if (WARN_ON(drv_sta_add(local, sdata, &sta->sta)))
+				continue;
+
+			while (state < sta->sta.state)
+				drv_sta_state(local, sdata, &sta->sta,
+					      ++state);
+		}
+		mutex_unlock(&local->sta_mtx);
 	}
 
 	/* add back keys */
