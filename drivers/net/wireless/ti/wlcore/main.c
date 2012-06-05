@@ -320,46 +320,6 @@ static void wlcore_adjust_conf(struct wl1271 *wl)
 	}
 }
 
-static int wl1271_plt_init(struct wl1271 *wl)
-{
-	int ret;
-
-	ret = wl->ops->hw_init(wl);
-	if (ret < 0)
-		return ret;
-
-	ret = wl1271_acx_init_mem_config(wl);
-	if (ret < 0)
-		return ret;
-
-	ret = wl12xx_acx_mem_cfg(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Enable data path */
-	ret = wl1271_cmd_data_path(wl, 1);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* Configure for CAM power saving (ie. always active) */
-	ret = wl1271_acx_sleep_auth(wl, WL1271_PSM_CAM);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	/* configure PM */
-	ret = wl1271_acx_pm_config(wl);
-	if (ret < 0)
-		goto out_free_memmap;
-
-	return 0;
-
- out_free_memmap:
-	kfree(wl->target_mem_map);
-	wl->target_mem_map = NULL;
-
-	return ret;
-}
-
 static void wl12xx_irq_ps_regulate_link(struct wl1271 *wl,
 					struct wl12xx_vif *wlvif,
 					u8 hlid, u8 tx_pkts)
@@ -387,7 +347,7 @@ static void wl12xx_irq_ps_regulate_link(struct wl1271 *wl,
 
 static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 					   struct wl12xx_vif *wlvif,
-					   struct wl_fw_status *status)
+					   struct wl_fw_status_2 *status)
 {
 	struct wl1271_link *lnk;
 	u32 cur_fw_ps_map;
@@ -419,7 +379,8 @@ static void wl12xx_irq_update_links_status(struct wl1271 *wl,
 }
 
 static void wl12xx_fw_status(struct wl1271 *wl,
-			     struct wl_fw_status *status)
+			     struct wl_fw_status_1 *status_1,
+			     struct wl_fw_status_2 *status_2)
 {
 	struct wl12xx_vif *wlvif;
 	struct timespec ts;
@@ -428,37 +389,38 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 	int i;
 	size_t status_len;
 
-	status_len = sizeof(*status) + wl->fw_status_priv_len;
+	status_len = WLCORE_FW_STATUS_1_LEN(wl->num_rx_desc) +
+		sizeof(*status_2) + wl->fw_status_priv_len;
 
-	wlcore_raw_read_data(wl, REG_RAW_FW_STATUS_ADDR, status,
+	wlcore_raw_read_data(wl, REG_RAW_FW_STATUS_ADDR, status_1,
 			     status_len, false);
 
 	wl1271_debug(DEBUG_IRQ, "intr: 0x%x (fw_rx_counter = %d, "
 		     "drv_rx_counter = %d, tx_results_counter = %d)",
-		     status->intr,
-		     status->fw_rx_counter,
-		     status->drv_rx_counter,
-		     status->tx_results_counter);
+		     status_1->intr,
+		     status_1->fw_rx_counter,
+		     status_1->drv_rx_counter,
+		     status_1->tx_results_counter);
 
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		/* prevent wrap-around in freed-packets counter */
 		wl->tx_allocated_pkts[i] -=
-				(status->counters.tx_released_pkts[i] -
+				(status_2->counters.tx_released_pkts[i] -
 				wl->tx_pkts_freed[i]) & 0xff;
 
-		wl->tx_pkts_freed[i] = status->counters.tx_released_pkts[i];
+		wl->tx_pkts_freed[i] = status_2->counters.tx_released_pkts[i];
 	}
 
 	/* prevent wrap-around in total blocks counter */
 	if (likely(wl->tx_blocks_freed <=
-		   le32_to_cpu(status->total_released_blks)))
-		freed_blocks = le32_to_cpu(status->total_released_blks) -
+		   le32_to_cpu(status_2->total_released_blks)))
+		freed_blocks = le32_to_cpu(status_2->total_released_blks) -
 			       wl->tx_blocks_freed;
 	else
 		freed_blocks = 0x100000000LL - wl->tx_blocks_freed +
-			       le32_to_cpu(status->total_released_blks);
+			       le32_to_cpu(status_2->total_released_blks);
 
-	wl->tx_blocks_freed = le32_to_cpu(status->total_released_blks);
+	wl->tx_blocks_freed = le32_to_cpu(status_2->total_released_blks);
 
 	wl->tx_allocated_blocks -= freed_blocks;
 
@@ -474,7 +436,7 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 			cancel_delayed_work(&wl->tx_watchdog_work);
 	}
 
-	avail = le32_to_cpu(status->tx_total) - wl->tx_allocated_blocks;
+	avail = le32_to_cpu(status_2->tx_total) - wl->tx_allocated_blocks;
 
 	/*
 	 * The FW might change the total number of TX memblocks before
@@ -493,13 +455,13 @@ static void wl12xx_fw_status(struct wl1271 *wl,
 
 	/* for AP update num of allocated TX blocks per link and ps status */
 	wl12xx_for_each_wlvif_ap(wl, wlvif) {
-		wl12xx_irq_update_links_status(wl, wlvif, status);
+		wl12xx_irq_update_links_status(wl, wlvif, status_2);
 	}
 
 	/* update the host-chipset time offset */
 	getnstimeofday(&ts);
 	wl->time_offset = (timespec_to_ns(&ts) >> 10) -
-		(s64)le32_to_cpu(status->fw_localtime);
+		(s64)le32_to_cpu(status_2->fw_localtime);
 }
 
 static void wl1271_flush_deferred_work(struct wl1271 *wl)
@@ -568,11 +530,11 @@ static irqreturn_t wl1271_irq(int irq, void *cookie)
 		clear_bit(WL1271_FLAG_IRQ_RUNNING, &wl->flags);
 		smp_mb__after_clear_bit();
 
-		wl12xx_fw_status(wl, wl->fw_status);
+		wl12xx_fw_status(wl, wl->fw_status_1, wl->fw_status_2);
 
 		wlcore_hw_tx_immediate_compl(wl);
 
-		intr = le32_to_cpu(wl->fw_status->intr);
+		intr = le32_to_cpu(wl->fw_status_1->intr);
 		intr &= WL1271_INTR_MASK;
 		if (!intr) {
 			done = true;
@@ -591,7 +553,7 @@ static irqreturn_t wl1271_irq(int irq, void *cookie)
 		if (likely(intr & WL1271_ACX_INTR_DATA)) {
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_DATA");
 
-			wl12xx_rx(wl, wl->fw_status);
+			wl12xx_rx(wl, wl->fw_status_1);
 
 			/* Check if any tx blocks were freed */
 			spin_lock_irqsave(&wl->wl_lock, flags);
@@ -826,8 +788,8 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 		wl12xx_cmd_stop_fwlog(wl);
 
 	/* Read the first memory block address */
-	wl12xx_fw_status(wl, wl->fw_status);
-	first_addr = le32_to_cpu(wl->fw_status->log_start_addr);
+	wl12xx_fw_status(wl, wl->fw_status_1, wl->fw_status_2);
+	first_addr = le32_to_cpu(wl->fw_status_2->log_start_addr);
 	if (!first_addr)
 		goto out;
 
@@ -872,9 +834,14 @@ static void wl1271_recovery_work(struct work_struct *work)
 
 	wl12xx_read_fwlog_panic(wl);
 
-	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x",
+	/* change partitions momentarily so we can read the FW pc */
+	wlcore_set_partition(wl, &wl->ptable[PART_BOOT]);
+	wl1271_info("Hardware recovery in progress. FW ver: %s pc: 0x%x "
+		    "hint_sts: 0x%08x",
 		    wl->chip.fw_ver_str,
-		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY));
+		    wlcore_read_reg(wl, REG_PC_ON_RECOVERY),
+		    wlcore_read_reg(wl, REG_INTERRUPT_NO_CLEAR));
+	wlcore_set_partition(wl, &wl->ptable[PART_WORK]);
 
 	BUG_ON(bug_on_recovery &&
 	       !test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags));
@@ -938,13 +905,19 @@ static void wl1271_fw_wakeup(struct wl1271 *wl)
 
 static int wl1271_setup(struct wl1271 *wl)
 {
-	wl->fw_status = kmalloc(sizeof(*wl->fw_status), GFP_KERNEL);
-	if (!wl->fw_status)
+	wl->fw_status_1 = kmalloc(WLCORE_FW_STATUS_1_LEN(wl->num_rx_desc) +
+				  sizeof(*wl->fw_status_2) +
+				  wl->fw_status_priv_len, GFP_KERNEL);
+	if (!wl->fw_status_1)
 		return -ENOMEM;
+
+	wl->fw_status_2 = (struct wl_fw_status_2 *)
+				(((u8 *) wl->fw_status_1) +
+				WLCORE_FW_STATUS_1_LEN(wl->num_rx_desc));
 
 	wl->tx_res_if = kmalloc(sizeof(*wl->tx_res_if), GFP_KERNEL);
 	if (!wl->tx_res_if) {
-		kfree(wl->fw_status);
+		kfree(wl->fw_status_1);
 		return -ENOMEM;
 	}
 
@@ -987,13 +960,12 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 	 * simplify the code and since the performance impact is
 	 * negligible, we use the same block size for all different
 	 * chip types.
+	 *
+	 * Check if the bus supports blocksize alignment and, if it
+	 * doesn't, make sure we don't have the quirk.
 	 */
-	if (wl1271_set_block_size(wl))
-		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
-
-	ret = wl->ops->identify_chip(wl);
-	if (ret < 0)
-		goto out;
+	if (!wl1271_set_block_size(wl))
+		wl->quirks &= ~WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
 
 	/* TODO: make sure the lower driver has set things up correctly */
 
@@ -1039,13 +1011,9 @@ int wl1271_plt_start(struct wl1271 *wl)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl->ops->boot(wl);
+		ret = wl->ops->plt_init(wl);
 		if (ret < 0)
 			goto power_off;
-
-		ret = wl1271_plt_init(wl);
-		if (ret < 0)
-			goto irq_disable;
 
 		wl->plt = true;
 		wl->state = WL1271_STATE_ON;
@@ -1059,19 +1027,6 @@ int wl1271_plt_start(struct wl1271 *wl)
 
 		goto out;
 
-irq_disable:
-		mutex_unlock(&wl->mutex);
-		/* Unlocking the mutex in the middle of handling is
-		   inherently unsafe. In this case we deem it safe to do,
-		   because we need to let any possibly pending IRQ out of
-		   the system (and while we are WL1271_STATE_OFF the IRQ
-		   work function will not do anything.) Also, any other
-		   possible concurrent operations will fail due to the
-		   current state, hence the wl1271 struct should be safe. */
-		wlcore_disable_interrupts(wl);
-		wl1271_flush_deferred_work(wl);
-		cancel_work_sync(&wl->netstack_work);
-		mutex_lock(&wl->mutex);
 power_off:
 		wl1271_power_off(wl);
 	}
@@ -1767,6 +1722,7 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 
 	wl->rx_counter = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
+	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->tx_blocks_available = 0;
 	wl->tx_allocated_blocks = 0;
 	wl->tx_results_count = 0;
@@ -1799,8 +1755,9 @@ static void wl1271_op_stop(struct ieee80211_hw *hw)
 
 	wl1271_debugfs_reset(wl);
 
-	kfree(wl->fw_status);
-	wl->fw_status = NULL;
+	kfree(wl->fw_status_1);
+	wl->fw_status_1 = NULL;
+	wl->fw_status_2 = NULL;
 	kfree(wl->tx_res_if);
 	wl->tx_res_if = NULL;
 	kfree(wl->target_mem_map);
@@ -1894,6 +1851,9 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.basic_rate_idx);
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.ap_rate_idx);
 		wl12xx_allocate_rate_policy(wl, &wlvif->sta.p2p_rate_idx);
+		wlvif->basic_rate_set = CONF_TX_RATE_MASK_BASIC;
+		wlvif->basic_rate = CONF_TX_RATE_MASK_BASIC;
+		wlvif->rate_set = CONF_TX_RATE_MASK_BASIC;
 	} else {
 		/* init ap data */
 		wlvif->ap.bcast_hlid = WL12XX_INVALID_LINK_ID;
@@ -1903,13 +1863,19 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		for (i = 0; i < CONF_TX_MAX_AC_COUNT; i++)
 			wl12xx_allocate_rate_policy(wl,
 						&wlvif->ap.ucast_rate_idx[i]);
+		wlvif->basic_rate_set = CONF_TX_AP_ENABLED_RATES;
+		/*
+		 * TODO: check if basic_rate shouldn't be
+		 * wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
+		 * instead (the same thing for STA above).
+		*/
+		wlvif->basic_rate = CONF_TX_AP_ENABLED_RATES;
+		/* TODO: this seems to be used only for STA, check it */
+		wlvif->rate_set = CONF_TX_AP_ENABLED_RATES;
 	}
 
 	wlvif->bitrate_masks[IEEE80211_BAND_2GHZ] = wl->conf.tx.basic_rate;
 	wlvif->bitrate_masks[IEEE80211_BAND_5GHZ] = wl->conf.tx.basic_rate_5;
-	wlvif->basic_rate_set = CONF_TX_RATE_MASK_BASIC;
-	wlvif->basic_rate = CONF_TX_RATE_MASK_BASIC;
-	wlvif->rate_set = CONF_TX_RATE_MASK_BASIC;
 	wlvif->beacon_int = WL1271_DEFAULT_BEACON_INT;
 
 	/*
@@ -1919,6 +1885,7 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 	wlvif->band = wl->band;
 	wlvif->channel = wl->channel;
 	wlvif->power_level = wl->power_level;
+	wlvif->channel_type = wl->channel_type;
 
 	INIT_WORK(&wlvif->rx_streaming_enable_work,
 		  wl1271_rx_streaming_enable_work);
@@ -2469,13 +2436,20 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	/* if the channel changes while joined, join again */
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL &&
 	    ((wlvif->band != conf->channel->band) ||
-	     (wlvif->channel != channel))) {
+	     (wlvif->channel != channel) ||
+	     (wlvif->channel_type != conf->channel_type))) {
 		/* send all pending packets */
 		wl1271_tx_work_locked(wl);
 		wlvif->band = conf->channel->band;
 		wlvif->channel = channel;
+		wlvif->channel_type = conf->channel_type;
 
-		if (!is_ap) {
+		if (is_ap) {
+			ret = wl1271_init_ap_rates(wl, wlvif);
+			if (ret < 0)
+				wl1271_error("AP rate policy change failed %d",
+					     ret);
+		} else {
 			/*
 			 * FIXME: the mac80211 should really provide a fixed
 			 * rate to use here. for now, just use the smallest
@@ -2593,6 +2567,7 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		wl->band = conf->channel->band;
 		wl->channel = channel;
+		wl->channel_type = conf->channel_type;
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_POWER)
@@ -3316,8 +3291,15 @@ static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl, u32 rates,
 				      skb->data,
 				      skb->len, 0,
 				      rates);
-
 	dev_kfree_skb(skb);
+
+	if (ret < 0)
+		goto out;
+
+	wl1271_debug(DEBUG_AP, "probe response updated");
+	set_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags);
+
+out:
 	return ret;
 }
 
@@ -3422,6 +3404,87 @@ out:
 	return ret;
 }
 
+static int wlcore_set_beacon_template(struct wl1271 *wl,
+				      struct ieee80211_vif *vif,
+				      bool is_ap)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct ieee80211_hdr *hdr;
+	u32 min_rate;
+	int ret;
+	int ieoffset = offsetof(struct ieee80211_mgmt,
+				u.beacon.variable);
+	struct sk_buff *beacon = ieee80211_beacon_get(wl->hw, vif);
+	u16 tmpl_id;
+
+	if (!beacon) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	wl1271_debug(DEBUG_MASTER, "beacon updated");
+
+	ret = wl1271_ssid_set(vif, beacon, ieoffset);
+	if (ret < 0) {
+		dev_kfree_skb(beacon);
+		goto out;
+	}
+	min_rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
+	tmpl_id = is_ap ? CMD_TEMPL_AP_BEACON :
+		CMD_TEMPL_BEACON;
+	ret = wl1271_cmd_template_set(wl, wlvif->role_id, tmpl_id,
+				      beacon->data,
+				      beacon->len, 0,
+				      min_rate);
+	if (ret < 0) {
+		dev_kfree_skb(beacon);
+		goto out;
+	}
+
+	/*
+	 * In case we already have a probe-resp beacon set explicitly
+	 * by usermode, don't use the beacon data.
+	 */
+	if (test_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags))
+		goto end_bcn;
+
+	/* remove TIM ie from probe response */
+	wl12xx_remove_ie(beacon, WLAN_EID_TIM, ieoffset);
+
+	/*
+	 * remove p2p ie from probe response.
+	 * the fw reponds to probe requests that don't include
+	 * the p2p ie. probe requests with p2p ie will be passed,
+	 * and will be responded by the supplicant (the spec
+	 * forbids including the p2p ie when responding to probe
+	 * requests that didn't include it).
+	 */
+	wl12xx_remove_vendor_ie(beacon, WLAN_OUI_WFA,
+				WLAN_OUI_TYPE_WFA_P2P, ieoffset);
+
+	hdr = (struct ieee80211_hdr *) beacon->data;
+	hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
+					 IEEE80211_STYPE_PROBE_RESP);
+	if (is_ap)
+		ret = wl1271_ap_set_probe_resp_tmpl_legacy(wl, vif,
+							   beacon->data,
+							   beacon->len,
+							   min_rate);
+	else
+		ret = wl1271_cmd_template_set(wl, wlvif->role_id,
+					      CMD_TEMPL_PROBE_RESPONSE,
+					      beacon->data,
+					      beacon->len, 0,
+					      min_rate);
+end_bcn:
+	dev_kfree_skb(beacon);
+	if (ret < 0)
+		goto out;
+
+out:
+	return ret;
+}
+
 static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 					  struct ieee80211_vif *vif,
 					  struct ieee80211_bss_conf *bss_conf,
@@ -3440,81 +3503,12 @@ static int wl1271_bss_beacon_info_changed(struct wl1271 *wl,
 
 	if ((changed & BSS_CHANGED_AP_PROBE_RESP) && is_ap) {
 		u32 rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
-		if (!wl1271_ap_set_probe_resp_tmpl(wl, rate, vif)) {
-			wl1271_debug(DEBUG_AP, "probe response updated");
-			set_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags);
-		}
+
+		wl1271_ap_set_probe_resp_tmpl(wl, rate, vif);
 	}
 
 	if ((changed & BSS_CHANGED_BEACON)) {
-		struct ieee80211_hdr *hdr;
-		u32 min_rate;
-		int ieoffset = offsetof(struct ieee80211_mgmt,
-					u.beacon.variable);
-		struct sk_buff *beacon = ieee80211_beacon_get(wl->hw, vif);
-		u16 tmpl_id;
-
-		if (!beacon) {
-			ret = -EINVAL;
-			goto out;
-		}
-
-		wl1271_debug(DEBUG_MASTER, "beacon updated");
-
-		ret = wl1271_ssid_set(vif, beacon, ieoffset);
-		if (ret < 0) {
-			dev_kfree_skb(beacon);
-			goto out;
-		}
-		min_rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
-		tmpl_id = is_ap ? CMD_TEMPL_AP_BEACON :
-				  CMD_TEMPL_BEACON;
-		ret = wl1271_cmd_template_set(wl, wlvif->role_id, tmpl_id,
-					      beacon->data,
-					      beacon->len, 0,
-					      min_rate);
-		if (ret < 0) {
-			dev_kfree_skb(beacon);
-			goto out;
-		}
-
-		/*
-		 * In case we already have a probe-resp beacon set explicitly
-		 * by usermode, don't use the beacon data.
-		 */
-		if (test_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags))
-			goto end_bcn;
-
-		/* remove TIM ie from probe response */
-		wl12xx_remove_ie(beacon, WLAN_EID_TIM, ieoffset);
-
-		/*
-		 * remove p2p ie from probe response.
-		 * the fw reponds to probe requests that don't include
-		 * the p2p ie. probe requests with p2p ie will be passed,
-		 * and will be responded by the supplicant (the spec
-		 * forbids including the p2p ie when responding to probe
-		 * requests that didn't include it).
-		 */
-		wl12xx_remove_vendor_ie(beacon, WLAN_OUI_WFA,
-					WLAN_OUI_TYPE_WFA_P2P, ieoffset);
-
-		hdr = (struct ieee80211_hdr *) beacon->data;
-		hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
-						 IEEE80211_STYPE_PROBE_RESP);
-		if (is_ap)
-			ret = wl1271_ap_set_probe_resp_tmpl_legacy(wl, vif,
-						beacon->data,
-						beacon->len,
-						min_rate);
-		else
-			ret = wl1271_cmd_template_set(wl, wlvif->role_id,
-						CMD_TEMPL_PROBE_RESPONSE,
-						beacon->data,
-						beacon->len, 0,
-						min_rate);
-end_bcn:
-		dev_kfree_skb(beacon);
+		ret = wlcore_set_beacon_template(wl, vif, is_ap);
 		if (ret < 0)
 			goto out;
 	}
@@ -3549,6 +3543,14 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 		}
 
 		ret = wl1271_ap_init_templates(wl, vif);
+		if (ret < 0)
+			goto out;
+
+		ret = wl1271_ap_set_probe_resp_tmpl(wl, wlvif->basic_rate, vif);
+		if (ret < 0)
+			goto out;
+
+		ret = wlcore_set_beacon_template(wl, vif, true);
 		if (ret < 0)
 			goto out;
 	}
@@ -3691,7 +3693,8 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		sta_rate_set = sta->supp_rates[wl->hw->conf.channel->band];
 		if (sta->ht_cap.ht_supported)
 			sta_rate_set |=
-			    (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET);
+			  (sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET) |
+			  (sta->ht_cap.mcs.rx_mask[1] << HW_MIMO_RATES_OFFSET);
 		sta_ht_cap = sta->ht_cap;
 		sta_exists = true;
 
@@ -3704,12 +3707,10 @@ sta_not_found:
 			u32 rates;
 			int ieoffset;
 			wlvif->aid = bss_conf->aid;
+			wlvif->channel_type = bss_conf->channel_type;
 			wlvif->beacon_int = bss_conf->beacon_int;
 			do_join = true;
 			set_assoc = true;
-
-			/* Cancel connection_loss_work */
-			cancel_delayed_work_sync(&wl->connection_loss_work);
 
 			/*
 			 * use basic rates from AP, and determine lowest rate
@@ -3959,6 +3960,17 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 bss info changed 0x%x",
 		     (int)changed);
+
+	/*
+	 * make sure to cancel pending disconnections if our association
+	 * state changed
+	 */
+	if (!is_ap && (changed & BSS_CHANGED_ASSOC))
+		cancel_delayed_work_sync(&wl->connection_loss_work);
+
+	if (is_ap && (changed & BSS_CHANGED_BEACON_ENABLED) &&
+	    !bss_conf->enable_beacon)
+		wl1271_tx_flush(wl);
 
 	mutex_lock(&wl->mutex);
 
@@ -4905,12 +4917,6 @@ static int wl1271_register_hw(struct wl1271 *wl)
 	if (wl->mac80211_registered)
 		return 0;
 
-	ret = wl12xx_get_hw_info(wl);
-	if (ret < 0) {
-		wl1271_error("couldn't get hw info");
-		goto out;
-	}
-
 	ret = wl1271_fetch_nvs(wl);
 	if (ret == 0) {
 		/* NOTE: The wl->nvs->nvs element must be first, in
@@ -5025,12 +5031,14 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 	 */
 	memcpy(&wl->bands[IEEE80211_BAND_2GHZ], &wl1271_band_2ghz,
 	       sizeof(wl1271_band_2ghz));
-	memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap, &wl->ht_cap,
-	       sizeof(wl->ht_cap));
+	memcpy(&wl->bands[IEEE80211_BAND_2GHZ].ht_cap,
+	       &wl->ht_cap[IEEE80211_BAND_2GHZ],
+	       sizeof(*wl->ht_cap));
 	memcpy(&wl->bands[IEEE80211_BAND_5GHZ], &wl1271_band_5ghz,
 	       sizeof(wl1271_band_5ghz));
-	memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap, &wl->ht_cap,
-	       sizeof(wl->ht_cap));
+	memcpy(&wl->bands[IEEE80211_BAND_5GHZ].ht_cap,
+	       &wl->ht_cap[IEEE80211_BAND_5GHZ],
+	       sizeof(*wl->ht_cap));
 
 	wl->hw->wiphy->bands[IEEE80211_BAND_2GHZ] =
 		&wl->bands[IEEE80211_BAND_2GHZ];
@@ -5117,6 +5125,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->rx_counter = 0;
 	wl->power_level = WL1271_DEFAULT_POWER_LEVEL;
 	wl->band = IEEE80211_BAND_2GHZ;
+	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->flags = 0;
 	wl->sg_enabled = true;
 	wl->hw_pg_ver = -1;
@@ -5222,7 +5231,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 	kfree(wl->nvs);
 	wl->nvs = NULL;
 
-	kfree(wl->fw_status);
+	kfree(wl->fw_status_1);
 	kfree(wl->tx_res_if);
 	destroy_workqueue(wl->freezable_wq);
 
@@ -5279,8 +5288,6 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	wlcore_adjust_conf(wl);
 
 	wl->irq = platform_get_irq(pdev, 0);
-	wl->ref_clock = pdata->board_ref_clock;
-	wl->tcxo_clock = pdata->board_tcxo_clock;
 	wl->platform_quirks = pdata->platform_quirks;
 	wl->set_power = pdata->set_power;
 	wl->dev = &pdev->dev;
@@ -5315,6 +5322,16 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 		}
 	}
 	disable_irq(wl->irq);
+
+	ret = wl12xx_get_hw_info(wl);
+	if (ret < 0) {
+		wl1271_error("couldn't get hw info");
+		goto out;
+	}
+
+	ret = wl->ops->identify_chip(wl);
+	if (ret < 0)
+		goto out;
 
 	ret = wl1271_init_ieee80211(wl);
 	if (ret)

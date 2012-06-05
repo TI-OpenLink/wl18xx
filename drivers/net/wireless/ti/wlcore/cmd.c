@@ -36,6 +36,7 @@
 #include "cmd.h"
 #include "event.h"
 #include "tx.h"
+#include "hw_ops.h"
 
 #define WL1271_CMD_FAST_POLL_COUNT       50
 
@@ -291,6 +292,23 @@ static int wl12xx_get_new_session_id(struct wl1271 *wl,
 	return wlvif->session_counter;
 }
 
+static u8 wlcore_get_native_channel_type(u8 nl_channel_type)
+{
+	switch (nl_channel_type) {
+	case NL80211_CHAN_NO_HT:
+		return WLCORE_CHAN_NO_HT;
+	case NL80211_CHAN_HT20:
+		return WLCORE_CHAN_HT20;
+	case NL80211_CHAN_HT40MINUS:
+		return WLCORE_CHAN_HT40MINUS;
+	case NL80211_CHAN_HT40PLUS:
+		return WLCORE_CHAN_HT40PLUS;
+	default:
+		WARN_ON(1);
+		return WLCORE_CHAN_NO_HT;
+	}
+}
+
 static int wl12xx_cmd_role_start_dev(struct wl1271 *wl,
 				     struct wl12xx_vif *wlvif)
 {
@@ -407,6 +425,7 @@ int wl12xx_cmd_role_start_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	memcpy(cmd->sta.ssid, wlvif->ssid, wlvif->ssid_len);
 	memcpy(cmd->sta.bssid, vif->bss_conf.bssid, ETH_ALEN);
 	cmd->sta.local_rates = cpu_to_le32(wlvif->rate_set);
+	cmd->channel_type = wlcore_get_native_channel_type(wlvif->channel_type);
 
 	if (wlvif->sta.hlid == WL12XX_INVALID_LINK_ID) {
 		ret = wl12xx_allocate_link(wl, wlvif, &wlvif->sta.hlid);
@@ -482,6 +501,7 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	struct wl12xx_cmd_role_start *cmd;
 	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
+	u32 supported_rates;
 	int ret;
 
 	wl1271_debug(DEBUG_CMD, "cmd role start ap %d", wlvif->role_id);
@@ -519,6 +539,7 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	/* FIXME: Change when adding DFS */
 	cmd->ap.reset_tsf = 1;  /* By default reset AP TSF */
 	cmd->channel = wlvif->channel;
+	cmd->channel_type = wlcore_get_native_channel_type(wlvif->channel_type);
 
 	if (!bss_conf->hidden_ssid) {
 		/* take the SSID from the beacon for backward compatibility */
@@ -531,7 +552,13 @@ int wl12xx_cmd_role_start_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		memcpy(cmd->ap.ssid, bss_conf->ssid, bss_conf->ssid_len);
 	}
 
-	cmd->ap.local_rates = cpu_to_le32(0xffffffff);
+	supported_rates = CONF_TX_AP_ENABLED_RATES | CONF_TX_MCS_RATES |
+		wlcore_hw_ap_get_mimo_wide_rate_mask(wl, wlvif);
+
+	wl1271_debug(DEBUG_CMD, "cmd role start ap with supported_rates 0x%08x",
+		     supported_rates);
+
+	cmd->ap.local_rates = cpu_to_le32(supported_rates);
 
 	switch (wlvif->band) {
 	case IEEE80211_BAND_2GHZ:
@@ -797,6 +824,7 @@ out:
 	kfree(cmd);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(wl1271_cmd_data_path);
 
 int wl1271_cmd_ps_mode(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		       u8 ps_mode, u16 auto_ps_timeout)
@@ -1352,7 +1380,9 @@ int wl12xx_cmd_add_peer(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	sta_rates = sta->supp_rates[wlvif->band];
 	if (sta->ht_cap.ht_supported)
-		sta_rates |= sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET;
+		sta_rates |=
+			(sta->ht_cap.mcs.rx_mask[0] << HW_HT_RATES_OFFSET) |
+			(sta->ht_cap.mcs.rx_mask[1] << HW_MIMO_RATES_OFFSET);
 
 	cmd->supported_rates =
 		cpu_to_le32(wl1271_tx_enabled_rates_get(wl, sta_rates,

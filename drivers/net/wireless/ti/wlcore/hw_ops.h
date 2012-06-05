@@ -119,4 +119,52 @@ static inline int wlcore_identify_fw(struct wl1271 *wl)
 	return 0;
 }
 
+static inline void
+wlcore_hw_set_tx_desc_csum(struct wl1271 *wl,
+			   struct wl1271_tx_hw_descr *desc,
+			   struct sk_buff *skb)
+{
+	if (!wl->ops->set_tx_desc_csum)
+		BUG_ON(1);
+
+	wl->ops->set_tx_desc_csum(wl, desc, skb);
+}
+
+static inline void
+wlcore_hw_set_rx_csum(struct wl1271 *wl,
+		      struct wl1271_rx_descriptor *desc,
+		      struct sk_buff *skb)
+{
+	if (wl->ops->set_rx_csum)
+		wl->ops->set_rx_csum(wl, desc, skb);
+}
+
+static inline u32
+wlcore_hw_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
+				     struct wl12xx_vif *wlvif)
+{
+	if (wl->ops->ap_get_mimo_wide_rate_mask)
+		return wl->ops->ap_get_mimo_wide_rate_mask(wl, wlvif);
+
+	return 0;
+}
+
+static inline int
+wlcore_debugfs_init(struct wl1271 *wl, struct dentry *rootdir)
+{
+	if (wl->ops->debugfs_init)
+		return wl->ops->debugfs_init(wl, rootdir);
+
+	return 0;
+}
+
+static inline int
+wlcore_handle_static_data(struct wl1271 *wl, void *static_data)
+{
+	if (wl->ops->handle_static_data)
+		return wl->ops->handle_static_data(wl, static_data);
+
+	return 0;
+}
+
 #endif

@@ -1,7 +1,7 @@
 /*
- * This file is part of wl12xx
+ * This file is part of wl18xx
  *
- * Copyright (C) 2011 Texas Instruments Inc.
+ * Copyright (C) 2011 Texas Instruments. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,21 +19,24 @@
  *
  */
 
-#ifndef __WL12XX_PRIV_H__
-#define __WL12XX_PRIV_H__
+#ifndef __WL18XX_TX_H__
+#define __WL18XX_TX_H__
 
-#include "conf.h"
+#include "../wlcore/wlcore.h"
 
-struct wl127x_rx_mem_pool_addr {
-	u32 addr;
-	u32 addr_extra;
-};
+#define WL18XX_TX_HW_BLOCK_SPARE        1
+#define WL18XX_TX_HW_GEM_BLOCK_SPARE    2
+#define WL18XX_TX_HW_BLOCK_SIZE         268
 
-struct wl12xx_priv {
-	struct wl12xx_priv_conf conf;
+#define WL18XX_TX_STATUS_DESC_ID_MASK    0x7F
+#define WL18XX_TX_STATUS_STAT_BIT_IDX    7
 
-	int ref_clock;
-	int tcxo_clock;
-};
+/*
+ * The FW uses a special bit to indicate a wide channel should be used in
+ * the rate policy.
+ */
+#define CONF_TX_RATE_USE_WIDE_CHAN BIT(31)
 
-#endif /* __WL12XX_PRIV_H__ */
+void wl18xx_tx_immediate_complete(struct wl1271 *wl);
+
+#endif /* __WL12XX_TX_H__ */

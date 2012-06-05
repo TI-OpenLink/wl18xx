@@ -72,7 +72,7 @@ static int wl1271_alloc_tx_id(struct wl1271 *wl, struct sk_buff *skb)
 	return id;
 }
 
-static void wl1271_free_tx_id(struct wl1271 *wl, int id)
+void wl1271_free_tx_id(struct wl1271 *wl, int id)
 {
 	if (__test_and_clear_bit(id, wl->tx_frames_map)) {
 		if (unlikely(wl->tx_frames_cnt == wl->num_tx_desc))
@@ -82,6 +82,7 @@ static void wl1271_free_tx_id(struct wl1271 *wl, int id)
 		wl->tx_frames_cnt--;
 	}
 }
+EXPORT_SYMBOL(wl1271_free_tx_id);
 
 static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 						 struct sk_buff *skb)
@@ -127,6 +128,7 @@ bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
 	return wl->dummy_packet == skb;
 }
+EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
 u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			 struct sk_buff *skb)
@@ -146,10 +148,10 @@ u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			return wl->system_hlid;
 
 		hdr = (struct ieee80211_hdr *)skb->data;
-		if (ieee80211_is_mgmt(hdr->frame_control))
-			return wlvif->ap.global_hlid;
-		else
+		if (is_multicast_ether_addr(ieee80211_get_DA(hdr)))
 			return wlvif->ap.bcast_hlid;
+		else
+			return wlvif->ap.global_hlid;
 	}
 }
 
@@ -268,6 +270,7 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (extra) {
 		int hdrlen = ieee80211_hdrlen(frame_control);
 		memmove(frame_start, hdr, hdrlen);
+		skb_set_network_header(skb, skb_network_offset(skb) + extra);
 	}
 
 	/* configure packet life time */
@@ -330,9 +333,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	    ieee80211_has_protected(frame_control))
 		tx_attr |= TX_HW_ATTR_HOST_ENCRYPT;
 
-	desc->reserved = 0;
 	desc->tx_attr = cpu_to_le16(tx_attr);
 
+	wlcore_hw_set_tx_desc_csum(wl, desc, skb);
 	wlcore_hw_set_tx_desc_data_len(wl, desc, skb);
 }
 
@@ -425,10 +428,10 @@ u32 wl1271_tx_enabled_rates_get(struct wl1271 *wl, u32 rate_set,
 		rate_set >>= 1;
 	}
 
-	/* MCS rates indication are on bits 16 - 23 */
+	/* MCS rates indication are on bits 16 - 31 */
 	rate_set >>= HW_HT_RATES_OFFSET - band->n_bitrates;
 
-	for (bit = 0; bit < 8; bit++) {
+	for (bit = 0; bit < 16; bit++) {
 		if (rate_set & 0x1)
 			enabled_rates |= (CONF_HW_BIT_RATE_MCS_0 << bit);
 		rate_set >>= 1;
