@@ -216,7 +216,7 @@ static struct wlcore_conf wl12xx_conf = {
 		.suspend_wake_up_event       = CONF_WAKE_UP_EVENT_N_DTIM,
 		.suspend_listen_interval     = 3,
 		.bcn_filt_mode               = CONF_BCN_FILT_MODE_ENABLED,
-		.bcn_filt_ie_count           = 2,
+		.bcn_filt_ie_count           = 3,
 		.bcn_filt_ie = {
 			[0] = {
 				.ie          = WLAN_EID_CHANNEL_SWITCH,
@@ -225,6 +225,10 @@ static struct wlcore_conf wl12xx_conf = {
 			[1] = {
 				.ie          = WLAN_EID_HT_OPERATION,
 				.rule        = CONF_BCN_RULE_PASS_ON_CHANGE,
+			},
+			[2] = {
+				.ie	     = WLAN_EID_ERP_INFO,
+				.rule	     = CONF_BCN_RULE_PASS_ON_CHANGE,
 			},
 		},
 		.synch_fail_thold            = 12,
@@ -625,7 +629,8 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl1271_warning("chip id 0x%x (1271 PG10) support is obsolete",
 			       wl->chip.id);
 
-		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
+		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS |
+			      WLCORE_QUIRK_TKIP_HEADER_SPACE;
 		wl->sr_fw_name = WL127X_FW_NAME_SINGLE;
 		wl->mr_fw_name = WL127X_FW_NAME_MULTI;
 		memcpy(&wl->conf.mem, &wl12xx_default_priv_conf.mem_wl127x,
@@ -640,7 +645,8 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (1271 PG20)",
 			     wl->chip.id);
 
-		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS;
+		wl->quirks |= WLCORE_QUIRK_LEGACY_NVS |
+			      WLCORE_QUIRK_TKIP_HEADER_SPACE;
 		wl->plt_fw_name = WL127X_PLT_FW_NAME;
 		wl->sr_fw_name = WL127X_FW_NAME_SINGLE;
 		wl->mr_fw_name = WL127X_FW_NAME_MULTI;
@@ -660,7 +666,8 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		wl->mr_fw_name = WL128X_FW_NAME_MULTI;
 
 		/* wl128x requires TX blocksize alignment */
-		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN;
+		wl->quirks |= WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
+			      WLCORE_QUIRK_TKIP_HEADER_SPACE;
 
 		break;
 	case CHIP_ID_1283_PG10:
@@ -1358,6 +1365,22 @@ out:
 	return ret;
 }
 
+static int wl12xx_get_spare_blocks(struct wl1271 *wl, bool is_gem)
+{
+	if (is_gem)
+		return WL12XX_TX_HW_BLOCK_GEM_SPARE;
+
+	return WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
+}
+
+static int wl12xx_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
+			  struct ieee80211_vif *vif,
+			  struct ieee80211_sta *sta,
+			  struct ieee80211_key_conf *key_conf)
+{
+	return wlcore_set_key(wl, cmd, vif, sta, key_conf);
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip		= wl12xx_identify_chip,
 	.identify_fw		= wl12xx_identify_fw,
@@ -1381,6 +1404,8 @@ static struct wlcore_ops wl12xx_ops = {
 	.set_rx_csum		= NULL,
 	.ap_get_mimo_wide_rate_mask = NULL,
 	.debugfs_init		= wl12xx_debugfs_add_files,
+	.get_spare_blocks	= wl12xx_get_spare_blocks,
+	.set_key		= wl12xx_set_key,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
@@ -1416,8 +1441,6 @@ static int __devinit wl12xx_probe(struct platform_device *pdev)
 	wl->rtable = wl12xx_rtable;
 	wl->num_tx_desc = 16;
 	wl->num_rx_desc = 8;
-	wl->normal_tx_spare = WL12XX_TX_HW_BLOCK_SPARE_DEFAULT;
-	wl->gem_tx_spare = WL12XX_TX_HW_BLOCK_GEM_SPARE;
 	wl->band_rate_to_idx = wl12xx_band_rate_to_idx;
 	wl->hw_tx_rate_tbl_size = WL12XX_CONF_HW_RXTX_RATE_MAX;
 	wl->hw_min_ht_rate = WL12XX_CONF_HW_RXTX_RATE_MCS0;
