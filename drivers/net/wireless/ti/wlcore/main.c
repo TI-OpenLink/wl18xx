@@ -852,8 +852,6 @@ static void wl1271_recovery_work(struct work_struct *work)
 		goto out_unlock;
 	}
 
-	BUG_ON(bug_on_recovery);
-
 	/*
 	 * Advance security sequence number to overcome potential progress
 	 * in the firmware during recovery. This doens't hurt if the network is
@@ -2557,8 +2555,9 @@ static int wl1271_op_config(struct ieee80211_hw *hw, u32 changed)
 	 * frames, such as the deauth. To make sure those frames reach the air,
 	 * wait here until the TX queue is fully flushed.
 	 */
-	if ((changed & IEEE80211_CONF_CHANGE_IDLE) &&
-	    (conf->flags & IEEE80211_CONF_IDLE))
+	if ((changed & IEEE80211_CONF_CHANGE_CHANNEL) ||
+	    ((changed & IEEE80211_CONF_CHANGE_IDLE) &&
+	     (conf->flags & IEEE80211_CONF_IDLE)))
 		wl1271_tx_flush(wl);
 
 	mutex_lock(&wl->mutex);

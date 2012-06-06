@@ -309,8 +309,8 @@ static struct wlcore_conf wl12xx_conf = {
 		.swallow_period               = 5,
 		.n_divider_fref_set_1         = 0xff,       /* default */
 		.n_divider_fref_set_2         = 12,
-		.m_divider_fref_set_1         = 148,
-		.m_divider_fref_set_2         = 0xffff,     /* default */
+		.m_divider_fref_set_1         = 0xffff,
+		.m_divider_fref_set_2         = 148,	    /* default */
 		.coex_pll_stabilization_time  = 0xffffffff, /* default */
 		.ldo_stabilization_time       = 0xffff,     /* default */
 		.fm_disturbed_band_margin     = 0xff,       /* default */
@@ -995,7 +995,7 @@ out:
 
 static void wl12xx_pre_upload(struct wl1271 *wl)
 {
-	u32 tmp;
+	u32 tmp, polarity;
 
 	/* write firmware's last address (ie. it's length) to
 	 * ACX_EEPROMLESS_IND_REG */
@@ -1015,18 +1015,18 @@ static void wl12xx_pre_upload(struct wl1271 *wl)
 
 	if (wl->chip.id == CHIP_ID_1283_PG20)
 		wl12xx_top_reg_write(wl, SDIO_IO_DS, HCI_IO_DS_6MA);
-}
 
-static void wl12xx_enable_interrupts(struct wl1271 *wl)
-{
-	u32 polarity;
-
+	/* polarity must be set before the firmware is loaded */
 	polarity = wl12xx_top_reg_read(wl, OCP_REG_POLARITY);
 
 	/* We use HIGH polarity, so unset the LOW bit */
 	polarity &= ~POLARITY_LOW;
 	wl12xx_top_reg_write(wl, OCP_REG_POLARITY, polarity);
 
+}
+
+static void wl12xx_enable_interrupts(struct wl1271 *wl)
+{
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK, WL1271_ACX_ALL_EVENTS_VECTOR);
 
 	wlcore_enable_interrupts(wl);
