@@ -511,6 +511,10 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.enable_tx_low_pwr_on_siso_rdl	= 0x00,
 		.rx_profile			= 0x00,
 		.pwr_limit_reference_11_abg	= 0xc8,
+		.psat				= 0,
+		.low_power_val			= 0x00,
+		.med_power_val			= 0x0a,
+		.high_power_val			= 0x1e,
 	},
 };
 
@@ -540,8 +544,8 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
 	},
 	[PART_PHY_INIT] = {
-		/* TODO: use the phy_conf struct size here */
-		.mem  = { .start = 0x80926000, .size = 252 },
+		.mem  = { .start = 0x80926000,
+			  .size = sizeof(struct wl18xx_mac_and_phy_params) },
 		.reg  = { .start = 0x00000000, .size = 0x00000000 },
 		.mem2 = { .start = 0x00000000, .size = 0x00000000 },
 		.mem3 = { .start = 0x00000000, .size = 0x00000000 },
@@ -588,6 +592,18 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 	int ret = 0;
 
 	switch (wl->chip.id) {
+	case CHIP_ID_185x_PG20:
+		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG20)",
+				 wl->chip.id);
+		wl->sr_fw_name = WL18XX_FW_NAME;
+		/* wl18xx uses the same firmware for PLT */
+		wl->plt_fw_name = WL18XX_FW_NAME;
+		wl->quirks |= WLCORE_QUIRK_NO_ELP |
+			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
+			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN |
+			      WLCORE_QUIRK_TX_PAD_LAST_FRAME;
+
+		break;
 	case CHIP_ID_185x_PG10:
 		wl1271_debug(DEBUG_BOOT, "chip id 0x%x (185x PG10)",
 			     wl->chip.id);
@@ -602,7 +618,6 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		/* PG 1.0 has some problems with MCS_13, so disable it */
 		wl->ht_cap[IEEE80211_BAND_2GHZ].mcs.rx_mask[1] &= ~BIT(5);
 
-		/* TODO: need to blocksize alignment for RX/TX separately? */
 		break;
 	default:
 		wl1271_warning("unsupported chip id: 0x%x", wl->chip.id);
@@ -703,6 +718,7 @@ static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 	struct wl18xx_priv *priv = wl->priv;
 	struct wl18xx_conf_phy *phy = &priv->conf.phy;
 	struct wl18xx_mac_and_phy_params params;
+	size_t len;
 
 	memset(&params, 0, sizeof(params));
 
@@ -742,18 +758,40 @@ static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 
 	params.board_type = priv->board_type;
 
+	/* for PG2 only */
+	params.psat = phy->psat;
+	params.low_power_val = phy->low_power_val;
+	params.med_power_val = phy->med_power_val;
+	params.high_power_val = phy->high_power_val;
+
+	/* the parameters struct is smaller for PG1 */
+	if (wl->chip.id == CHIP_ID_185x_PG10)
+		len = offsetof(struct wl18xx_mac_and_phy_params, psat) + 1;
+	else
+		len = sizeof(params);
+
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_INIT]);
 	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8 *)&params,
-		     sizeof(params), false);
+		     len, false);
 }
 
 static void wl18xx_enable_interrupts(struct wl1271 *wl)
 {
-	wlcore_write_reg(wl, REG_INTERRUPT_MASK, WL1271_ACX_ALL_EVENTS_VECTOR);
+	u32 event_mask, intr_mask;
+
+	if (wl->chip.id == CHIP_ID_185x_PG10) {
+		event_mask = WL18XX_ACX_EVENTS_VECTOR_PG1;
+		intr_mask = WL18XX_INTR_MASK_PG1;
+	} else {
+		event_mask = WL18XX_ACX_EVENTS_VECTOR_PG2;
+		intr_mask = WL18XX_INTR_MASK_PG2;
+	}
+
+	wlcore_write_reg(wl, REG_INTERRUPT_MASK, event_mask);
 
 	wlcore_enable_interrupts(wl);
 	wlcore_write_reg(wl, REG_INTERRUPT_MASK,
-			 WL1271_ACX_INTR_ALL & ~(WL1271_INTR_MASK));
+			 WL1271_ACX_INTR_ALL & ~intr_mask);
 }
 
 static int wl18xx_boot(struct wl1271 *wl)
@@ -810,7 +848,6 @@ wl18xx_set_tx_desc_blocks(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 			  u32 blks, u32 spare_blks)
 {
 	desc->wl18xx_mem.total_mem_blocks = blks;
-	desc->wl18xx_mem.reserved = 0;
 }
 
 static void
@@ -818,6 +855,12 @@ wl18xx_set_tx_desc_data_len(struct wl1271 *wl, struct wl1271_tx_hw_descr *desc,
 			    struct sk_buff *skb)
 {
 	desc->length = cpu_to_le16(skb->len);
+
+	/* if only the last frame is to be padded, we unset this bit on Tx */
+	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME)
+		desc->wl18xx_mem.ctrl = WL18XX_TX_CTRL_NOT_PADDED;
+	else
+		desc->wl18xx_mem.ctrl = 0;
 
 	wl1271_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
 		     "len: %d life: %d mem: %d", desc->hlid,
@@ -1115,6 +1158,25 @@ out:
 	return ret;
 }
 
+static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
+			       u32 buf_offset, u32 last_len)
+{
+	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
+		struct wl1271_tx_hw_descr *last_desc;
+
+		/* get the last TX HW descriptor written to the aggr buf */
+		last_desc = (struct wl1271_tx_hw_descr *)(wl->aggr_buf +
+							buf_offset - last_len);
+
+		/* the last frame is padded up to an SDIO block */
+		last_desc->wl18xx_mem.ctrl &= ~WL18XX_TX_CTRL_NOT_PADDED;
+		return ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
+	}
+
+	/* no modifications */
+	return buf_offset;
+}
+
 static struct wlcore_ops wl18xx_ops = {
 	.identify_chip	= wl18xx_identify_chip,
 	.boot		= wl18xx_boot,
@@ -1139,6 +1201,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.handle_static_data	= wl18xx_handle_static_data,
 	.get_spare_blocks = wl18xx_get_spare_blocks,
 	.set_key	= wl18xx_set_key,
+	.pre_pkt_send	= wl18xx_pre_pkt_send,
 };
 
 /* HT cap appropriate for wide channels */
