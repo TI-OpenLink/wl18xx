@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/ip.h>
+#include <linux/firmware.h>
 
 #include "../wlcore/wlcore.h"
 #include "../wlcore/debug.h"
@@ -44,16 +45,18 @@
 
 static char *ht_mode_param = "wide";
 static char *board_type_param = "hdk";
-static bool dc2dc_param = false;
-static int n_antennas_2_param = 1;
-static int n_antennas_5_param = 1;
 static bool checksum_param = false;
 static bool enable_11a_param = true;
-static int low_band_component = -1;
-static int low_band_component_type = -1;
-static int high_band_component = -1;
-static int high_band_component_type = -1;
-static int pwr_limit_reference_11_abg = -1;
+
+/* phy paramters */
+static int dc2dc_param = -1;
+static int n_antennas_2_param = -1;
+static int n_antennas_5_param = -1;
+static int low_band_component_param = -1;
+static int low_band_component_type_param = -1;
+static int high_band_component_param = -1;
+static int high_band_component_type_param = -1;
+static int pwr_limit_reference_11_abg_param = -1;
 
 static const u8 wl18xx_rate_to_idx_2ghz[] = {
 	/* MCS rates are used only with 11n */
@@ -376,7 +379,7 @@ static struct wlcore_conf wl18xx_conf = {
 	},
 	.pm_config = {
 		.host_clk_settling_time = 5000,
-		.host_fast_wakeup_support = false
+		.host_fast_wakeup_support = CONF_FAST_WAKEUP_DISABLE,
 	},
 	.roam_trigger = {
 		.trigger_pacing               = 1,
@@ -515,6 +518,9 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.low_power_val			= 0x00,
 		.med_power_val			= 0x0a,
 		.high_power_val			= 0x1e,
+		.external_pa_dc2dc		= 0,
+		.number_of_assembled_ant2_4	= 1,
+		.number_of_assembled_ant5	= 1,
 	},
 };
 
@@ -599,7 +605,6 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		/* wl18xx uses the same firmware for PLT */
 		wl->plt_fw_name = WL18XX_FW_NAME;
 		wl->quirks |= WLCORE_QUIRK_NO_ELP |
-			      WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED |
 			      WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_TX_PAD_LAST_FRAME;
 
@@ -716,63 +721,17 @@ static void wl18xx_pre_upload(struct wl1271 *wl)
 static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
-	struct wl18xx_conf_phy *phy = &priv->conf.phy;
-	struct wl18xx_mac_and_phy_params params;
 	size_t len;
-
-	memset(&params, 0, sizeof(params));
-
-	params.phy_standalone = phy->phy_standalone;
-	params.rdl = phy->rdl;
-	params.enable_clpc = phy->enable_clpc;
-	params.enable_tx_low_pwr_on_siso_rdl =
-		phy->enable_tx_low_pwr_on_siso_rdl;
-	params.auto_detect = phy->auto_detect;
-	params.dedicated_fem = phy->dedicated_fem;
-	params.low_band_component = phy->low_band_component;
-	params.low_band_component_type =
-		phy->low_band_component_type;
-	params.high_band_component = phy->high_band_component;
-	params.high_band_component_type =
-		phy->high_band_component_type;
-	params.number_of_assembled_ant2_4 =
-		n_antennas_2_param;
-	params.number_of_assembled_ant5 =
-		n_antennas_5_param;
-	params.external_pa_dc2dc = dc2dc_param;
-	params.tcxo_ldo_voltage = phy->tcxo_ldo_voltage;
-	params.xtal_itrim_val = phy->xtal_itrim_val;
-	params.srf_state = phy->srf_state;
-	params.io_configuration = phy->io_configuration;
-	params.sdio_configuration = phy->sdio_configuration;
-	params.settings = phy->settings;
-	params.rx_profile = phy->rx_profile;
-	params.primary_clock_setting_time =
-		phy->primary_clock_setting_time;
-	params.clock_valid_on_wake_up =
-		phy->clock_valid_on_wake_up;
-	params.secondary_clock_setting_time =
-		phy->secondary_clock_setting_time;
-	params.pwr_limit_reference_11_abg =
-		phy->pwr_limit_reference_11_abg;
-
-	params.board_type = priv->board_type;
-
-	/* for PG2 only */
-	params.psat = phy->psat;
-	params.low_power_val = phy->low_power_val;
-	params.med_power_val = phy->med_power_val;
-	params.high_power_val = phy->high_power_val;
 
 	/* the parameters struct is smaller for PG1 */
 	if (wl->chip.id == CHIP_ID_185x_PG10)
 		len = offsetof(struct wl18xx_mac_and_phy_params, psat) + 1;
 	else
-		len = sizeof(params);
+		len = sizeof(struct wl18xx_mac_and_phy_params);
 
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_INIT]);
-	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8 *)&params,
-		     len, false);
+	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8 *)&priv->conf.phy, len,
+		     false);
 }
 
 static void wl18xx_enable_interrupts(struct wl1271 *wl)
@@ -1046,15 +1005,65 @@ static s8 wl18xx_get_pg_ver(struct wl1271 *wl)
 	return (s8)fuse;
 }
 
-static void wl18xx_conf_init(struct wl1271 *wl)
+#define WL18XX_CONF_FILE_NAME "ti-connectivity/wl18xx-conf.bin"
+static int wl18xx_conf_init(struct wl1271 *wl, struct device *dev)
 {
 	struct wl18xx_priv *priv = wl->priv;
+	struct wlcore_conf_file *conf_file;
+	const struct firmware *fw;
+	int ret;
+
+	ret = request_firmware(&fw, WL18XX_CONF_FILE_NAME, dev);
+	if (ret < 0) {
+		wl1271_error("could not get configuration binary %s: %d",
+			     WL18XX_CONF_FILE_NAME, ret);
+		goto out_fallback;
+	}
+
+	if (fw->size != WL18XX_CONF_SIZE) {
+		wl1271_error("configuration binary file size is wrong, "
+			     "expected %d got %d", WL18XX_CONF_SIZE, fw->size);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	conf_file = (struct wlcore_conf_file *) fw->data;
+
+	if (conf_file->header.magic != cpu_to_le32(WL18XX_CONF_MAGIC)) {
+		wl1271_error("configuration binary file magic number mismatch, "
+			     "expected 0x%0x got 0x%0x", WL18XX_CONF_MAGIC,
+			     conf_file->header.magic);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (conf_file->header.version != cpu_to_le32(WL18XX_CONF_VERSION)) {
+		wl1271_error("configuration binary file version not supported, "
+			     "expected 0x%08x got 0x%08x",
+			     WL18XX_CONF_VERSION, conf_file->header.version);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	memcpy(&wl->conf, &conf_file->core, sizeof(wl18xx_conf));
+	memcpy(&priv->conf, &conf_file->priv, sizeof(priv->conf));
+
+	goto out;
+
+out_fallback:
+	wl1271_warning("falling back to default config");
 
 	/* apply driver default configuration */
 	memcpy(&wl->conf, &wl18xx_conf, sizeof(wl18xx_conf));
-
 	/* apply default private configuration */
 	memcpy(&priv->conf, &wl18xx_default_priv_conf, sizeof(priv->conf));
+
+	/* For now we just fallback */
+	return 0;
+
+out:
+	release_firmware(fw);
+	return ret;
 }
 
 static int wl18xx_plt_init(struct wl1271 *wl)
@@ -1261,11 +1270,13 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	struct wl1271 *wl;
 	struct ieee80211_hw *hw;
 	struct wl18xx_priv *priv;
+	int ret;
 
 	hw = wlcore_alloc_hw(sizeof(*priv));
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
-		return PTR_ERR(hw);
+		ret = PTR_ERR(hw);
+		goto out;
 	}
 
 	wl = hw->priv;
@@ -1305,62 +1316,54 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 		       sizeof(wl18xx_siso20_ht_cap));
 	} else {
 		wl1271_error("invalid ht_mode '%s'", ht_mode_param);
+		ret = -EINVAL;
 		goto out_free;
 	}
 
-	wl18xx_conf_init(wl);
+	ret = wl18xx_conf_init(wl, &pdev->dev);
+	if (ret < 0)
+		goto out_free;
 
 	if (!strcmp(board_type_param, "fpga")) {
-		priv->board_type = BOARD_TYPE_FPGA_18XX;
+		priv->conf.phy.board_type = BOARD_TYPE_FPGA_18XX;
 	} else if (!strcmp(board_type_param, "hdk")) {
-		priv->board_type = BOARD_TYPE_HDK_18XX;
+		priv->conf.phy.board_type = BOARD_TYPE_HDK_18XX;
 		/* HACK! Just for now we hardcode HDK to 0x06 */
 		priv->conf.phy.low_band_component_type = 0x06;
 	} else if (!strcmp(board_type_param, "dvp")) {
-		priv->board_type = BOARD_TYPE_DVP_18XX;
+		priv->conf.phy.board_type = BOARD_TYPE_DVP_18XX;
 	} else if (!strcmp(board_type_param, "evb")) {
-		priv->board_type = BOARD_TYPE_EVB_18XX;
+		priv->conf.phy.board_type = BOARD_TYPE_EVB_18XX;
 	} else if (!strcmp(board_type_param, "com8")) {
-		priv->board_type = BOARD_TYPE_COM8_18XX;
+		priv->conf.phy.board_type = BOARD_TYPE_COM8_18XX;
 		/* HACK! Just for now we hardcode COM8 to 0x06 */
 		priv->conf.phy.low_band_component_type = 0x06;
 	} else {
 		wl1271_error("invalid board type '%s'", board_type_param);
+		ret = -EINVAL;
 		goto out_free;
 	}
 
-	/*
-	 * If the module param is not set, update it with the one from
-	 * conf.  If it is set, overwrite conf with it.
-	 */
-	if (low_band_component == -1)
-		low_band_component = priv->conf.phy.low_band_component;
-	else
-		priv->conf.phy.low_band_component = low_band_component;
-	if (low_band_component_type == -1)
-		low_band_component_type =
-			priv->conf.phy.low_band_component_type;
-	else
+	/* If the module param is set, update it in conf */
+	if (low_band_component_param != -1)
+		priv->conf.phy.low_band_component = low_band_component_param;
+	if (low_band_component_type_param != -1)
 		priv->conf.phy.low_band_component_type =
-			low_band_component_type;
-
-	if (high_band_component == -1)
-		high_band_component = priv->conf.phy.high_band_component;
-	else
-		priv->conf.phy.high_band_component = high_band_component;
-	if (high_band_component_type == -1)
-		high_band_component_type =
-			priv->conf.phy.high_band_component_type;
-	else
+			low_band_component_type_param;
+	if (high_band_component_param != -1)
+		priv->conf.phy.high_band_component = high_band_component_param;
+	if (high_band_component_type_param != -1)
 		priv->conf.phy.high_band_component_type =
-			high_band_component_type;
-
-	if (pwr_limit_reference_11_abg == -1)
-		pwr_limit_reference_11_abg =
-			priv->conf.phy.pwr_limit_reference_11_abg;
-	else
+			high_band_component_type_param;
+	if (pwr_limit_reference_11_abg_param != -1)
 		priv->conf.phy.pwr_limit_reference_11_abg =
-			pwr_limit_reference_11_abg;
+			pwr_limit_reference_11_abg_param;
+	if (n_antennas_2_param != -1)
+		priv->conf.phy.number_of_assembled_ant2_4 = n_antennas_2_param;
+	if (n_antennas_5_param != -1)
+		priv->conf.phy.number_of_assembled_ant5 = n_antennas_5_param;
+	if (dc2dc_param != -1)
+		priv->conf.phy.external_pa_dc2dc = dc2dc_param;
 
 	if (!checksum_param) {
 		wl18xx_ops.set_rx_csum = NULL;
@@ -1373,7 +1376,8 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 
 out_free:
 	wlcore_free_hw(wl);
-	return -EINVAL;
+out:
+	return ret;
 }
 
 static const struct platform_device_id wl18xx_id_table[] __devinitconst = {
@@ -1411,38 +1415,45 @@ module_param_named(board_type, board_type_param, charp, S_IRUSR);
 MODULE_PARM_DESC(board_type, "Board type: fpga, hdk (default), evb, com8 or "
 		 "dvp");
 
-module_param_named(dc2dc, dc2dc_param, bool, S_IRUSR);
-MODULE_PARM_DESC(dc2dc, "External DC2DC: boolean (defaults to false)");
-
-module_param_named(n_antennas_2, n_antennas_2_param, uint, S_IRUSR);
-MODULE_PARM_DESC(n_antennas_2, "Number of installed 2.4GHz antennas: 1 (default) or 2");
-
-module_param_named(n_antennas_5, n_antennas_5_param, uint, S_IRUSR);
-MODULE_PARM_DESC(n_antennas_5, "Number of installed 5GHz antennas: 1 (default) or 2");
-
 module_param_named(checksum, checksum_param, bool, S_IRUSR);
 MODULE_PARM_DESC(checksum, "Enable TCP checksum: boolean (defaults to false)");
 
 module_param_named(enable_11a, enable_11a_param, bool, S_IRUSR);
 MODULE_PARM_DESC(enable_11a, "Enable 11a (5GHz): boolean (defaults to true)");
 
-module_param(low_band_component, uint, S_IRUSR);
+module_param_named(dc2dc, dc2dc_param, int, S_IRUSR);
+MODULE_PARM_DESC(dc2dc, "External DC2DC: u8 (defaults to 0)");
+
+module_param_named(n_antennas_2, n_antennas_2_param, int, S_IRUSR);
+MODULE_PARM_DESC(n_antennas_2,
+		 "Number of installed 2.4GHz antennas: 1 (default) or 2");
+
+module_param_named(n_antennas_5, n_antennas_5_param, int, S_IRUSR);
+MODULE_PARM_DESC(n_antennas_5,
+		 "Number of installed 5GHz antennas: 1 (default) or 2");
+
+module_param_named(low_band_component, low_band_component_param, int,
+		   S_IRUSR);
 MODULE_PARM_DESC(low_band_component, "Low band component: u8 "
 		 "(default is 0x01)");
 
-module_param(low_band_component_type, uint, S_IRUSR);
+module_param_named(low_band_component_type, low_band_component_type_param,
+		   int, S_IRUSR);
 MODULE_PARM_DESC(low_band_component_type, "Low band component type: u8 "
 		 "(default is 0x05 or 0x06 depending on the board_type)");
 
-module_param(high_band_component, uint, S_IRUSR);
+module_param_named(high_band_component, high_band_component_param, int,
+		   S_IRUSR);
 MODULE_PARM_DESC(high_band_component, "High band component: u8, "
 		 "(default is 0x01)");
 
-module_param(high_band_component_type, uint, S_IRUSR);
+module_param_named(high_band_component_type, high_band_component_type_param,
+		   int, S_IRUSR);
 MODULE_PARM_DESC(high_band_component_type, "High band component type: u8 "
 		 "(default is 0x09)");
 
-module_param(pwr_limit_reference_11_abg, uint, S_IRUSR);
+module_param_named(pwr_limit_reference_11_abg,
+		   pwr_limit_reference_11_abg_param, int, S_IRUSR);
 MODULE_PARM_DESC(pwr_limit_reference_11_abg, "Power limit reference: u8 "
 		 "(default is 0xc8)");
 
