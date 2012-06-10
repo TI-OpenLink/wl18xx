@@ -5051,7 +5051,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	wl->channel_type = NL80211_CHAN_NO_HT;
 	wl->flags = 0;
 	wl->sg_enabled = true;
-	wl->sleep_auth = WL1271_PSM_CAM;
+	wl->sleep_auth = WL1271_PSM_ILLEGAL;
 	wl->recovery_count = 0;
 	wl->hw_pg_ver = -1;
 	wl->ap_ps_map = 0;

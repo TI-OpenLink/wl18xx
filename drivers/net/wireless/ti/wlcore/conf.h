@@ -951,6 +951,12 @@ struct conf_conn_settings {
 	 * Range: u16
 	 */
 	u8 max_listen_interval;
+
+	/*
+	 * Default sleep authorization for a new STA interface. This determines
+	 * whether we can go to ELP.
+	 */
+	u8 sta_sleep_auth;
 } __packed;
 
 enum {
