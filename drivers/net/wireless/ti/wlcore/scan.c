@@ -492,7 +492,6 @@ wl12xx_scan_set_ssid_list(struct wl1271 *wl,
 		goto out;
 	}
 
-	cmd->role_id = wlvif->dev_role_id;
 	if (!n_match_ssids) {
 		/* No filter, with ssids */
 		type = SCAN_SSID_FILTER_DISABLED;
