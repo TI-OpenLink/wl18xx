@@ -349,7 +349,7 @@ void ieee80211_sw_roc_work(struct work_struct *work)
 		/* switch channel etc */
 		ieee80211_recalc_idle(local);
 
-		local->tmp_channel = roc->chan;
+		sdata->tmp_channel = roc->chan;
 		local->tmp_channel_type = roc->chan_type;
 		ieee80211_hw_config(local, 0);
 
@@ -374,7 +374,7 @@ void ieee80211_sw_roc_work(struct work_struct *work)
 		if (roc->started) {
 			drv_flush(local, false);
 
-			local->tmp_channel = NULL;
+			sdata->tmp_channel = NULL;
 			ieee80211_hw_config(local, 0);
 
 			ieee80211_offchannel_return(local, true);
