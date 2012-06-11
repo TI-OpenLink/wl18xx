@@ -689,11 +689,17 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	if (netdev)
 		sdata = IEEE80211_DEV_TO_SUB_IF(netdev);
 
+	/* don't allow global channel. TODO: fix */
+	if (!netdev) {
+		printk("TEMP. we currently don't support global channel\n");
+		return -EINVAL;
+	}
+
 	switch (ieee80211_get_channel_mode(local, NULL)) {
 	case CHAN_MODE_HOPPING:
 		return -EBUSY;
 	case CHAN_MODE_FIXED:
-		if (local->oper_channel != chan ||
+		if (sdata->oper_channel != chan ||
 		    (!sdata && local->_oper_channel_type != channel_type))
 			return -EBUSY;
 		if (!sdata && local->_oper_channel_type == channel_type)
@@ -706,10 +712,12 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	if (!ieee80211_set_channel_type(local, sdata, channel_type))
 		return -EBUSY;
 
-	local->oper_channel = chan;
+	sdata->oper_channel = chan;
 
 	/* auto-detects changes */
-	ieee80211_hw_config(local, 0);
+	//ieee80211_hw_config(local, 0);
+	//ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);
+	ieee80211_bss_info_change_notify(sdata, 0);
 
 	return 0;
 }
