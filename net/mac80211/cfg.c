@@ -570,7 +570,7 @@ do_survey:
 		}
 
 		if (survey.channel &&
-		    (local->oper_channel->center_freq ==
+		    (sdata->oper_channel->center_freq ==
 		     survey.channel->center_freq))
 			break;
 		q++;
@@ -2480,7 +2480,7 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
 
 	/* Check if the operating channel is the requested channel */
 	if (!need_offchan) {
-		need_offchan = chan != local->oper_channel;
+		need_offchan = chan != sdata->oper_channel;
 		if (channel_type_valid &&
 		    channel_type != local->_oper_channel_type)
 			need_offchan = true;
