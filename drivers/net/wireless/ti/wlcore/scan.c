@@ -178,7 +178,7 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 
 			channels[j].tx_power_att = req_channels[i]->max_power;
 			channels[j].channel = req_channels[i]->hw_value;
-
+#if 0
 			if ((band == IEEE80211_BAND_2GHZ) &&
 			    (channels[j].channel >= 12) &&
 			    (channels[j].channel <= 14) &&
@@ -195,7 +195,7 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 				wl1271_debug(DEBUG_SCAN, "n_pactive_ch = %d",
 					     *n_pactive_ch);
 			}
-
+#endif
 			j++;
 		}
 	}
@@ -271,7 +271,7 @@ wlcore_set_scan_chan_params(struct wl1271 *wl,
 	cfg->passive[2] = 0;
 	cfg->active[2] = 0;
 
-	cfg->n_pactive_ch = n_pactive_ch;
+	cfg->passive_active = n_pactive_ch;
 
 	wl1271_debug(DEBUG_SCAN, "    2.4GHz: active %d passive %d",
 		     cfg->active[0], cfg->passive[0]);
