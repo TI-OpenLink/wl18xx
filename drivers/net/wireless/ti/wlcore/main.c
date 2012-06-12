@@ -4838,11 +4838,17 @@ static int wl12xx_op_set_priority(struct ieee80211_hw *hw,
 		goto out;
 	}
 
+	if (find_first_bit(wl->roc_map,
+			   WL12XX_MAX_ROLES) < WL12XX_MAX_ROLES) {
+		ret = -EBUSY;
+		goto out;
+	}
+
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out;
 
-	/* TODO: check for other rocs/pending_rocs */
+	/* TODO: add some field to indicate there is an "ongoing priority" */
 
 	if (!wl12xx_role_started(wlvif)) {
 		wlvif->pending_roc = true;
