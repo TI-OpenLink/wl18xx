@@ -2491,7 +2491,7 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 
 	if (wlvif->pending_roc) {
 		/* TODO: check for active scans, etc. */
-		wl12xx_roc(wl, wlvif, wlvif->role_id);
+		wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->channel);
 		wlvif->pending_roc = false;
 	}
 out:
@@ -4849,7 +4849,7 @@ static int wl12xx_op_set_priority(struct ieee80211_hw *hw,
 		goto out_sleep;
 	}
 
-	ret = wl12xx_roc(wl, wlvif, wlvif->role_id);
+	ret = wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->channel);
 
 out_sleep:
 	wl1271_ps_elp_sleep(wl);
