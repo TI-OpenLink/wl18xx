@@ -1586,12 +1586,12 @@ out:
 }
 
 static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			  u8 role_id)
+			  u8 role_id, u8 channel)
 {
 	struct wl12xx_cmd_roc *cmd;
 	int ret = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", wlvif->channel, role_id);
+	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", channel, role_id);
 
 	if (WARN_ON(role_id == WL12XX_INVALID_ROLE_ID))
 		return -EINVAL;
@@ -1603,7 +1603,7 @@ static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 
 	cmd->role_id = role_id;
-	cmd->channel = wlvif->channel;
+	cmd->channel = channel;
 	switch (wlvif->band) {
 	case IEEE80211_BAND_2GHZ:
 		cmd->band = WLCORE_BAND_2_4GHZ;
@@ -1659,14 +1659,15 @@ out:
 	return ret;
 }
 
-int wl12xx_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 role_id)
+int wl12xx_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 role_id,
+	       u8 channel)
 {
 	int ret = 0;
 
 	if (WARN_ON(test_bit(role_id, wl->roc_map)))
 		return 0;
 
-	ret = wl12xx_cmd_roc(wl, wlvif, role_id);
+	ret = wl12xx_cmd_roc(wl, wlvif, role_id, channel);
 	if (ret < 0)
 		goto out;
 /*
@@ -1782,7 +1783,7 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (ret < 0)
 		goto out;
 
-	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
+	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id, channel);
 	if (ret < 0)
 		goto out_stop;
 
