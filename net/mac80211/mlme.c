@@ -1782,7 +1782,8 @@ ieee80211_rx_mgmt_auth(struct ieee80211_sub_if_data *sdata,
 	auth_transaction = le16_to_cpu(mgmt->u.auth.auth_transaction);
 	status_code = le16_to_cpu(mgmt->u.auth.status_code);
 
-	if (auth_alg != ifmgd->auth_data->algorithm ||
+	if ((auth_alg != ifmgd->auth_data->algorithm &&
+	     status_code != WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG) ||
 	    auth_transaction != ifmgd->auth_data->expected_transaction)
 		return RX_MGMT_NONE;
 
