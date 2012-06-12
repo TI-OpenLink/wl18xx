@@ -4671,7 +4671,7 @@ static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
 	/* TODO: per-vif */
 	wl1271_tx_flush(wl);
 
-	cancel_delayed_work_sync(&wl->roc_complete_work);	
+	flush_delayed_work(&wl->roc_complete_work);
 
 	return 0;
 }
