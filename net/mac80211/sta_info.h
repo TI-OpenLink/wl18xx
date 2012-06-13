@@ -282,6 +282,7 @@ struct sta_ampdu_mlme {
 struct sta_info {
 	/* General information, mostly static */
 	struct list_head list;
+	struct rcu_head rcu_head;
 	struct sta_info __rcu *hnext;
 	struct ieee80211_local *local;
 	struct ieee80211_sub_if_data *sdata;
