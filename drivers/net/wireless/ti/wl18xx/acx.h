@@ -26,6 +26,7 @@
 #include "../wlcore/acx.h"
 
 enum {
+	ACX_CHECKSUM_CONFIG              = 0x0045,
 	ACX_CLEAR_STATISTICS		 = 0x0047,
 };
 
