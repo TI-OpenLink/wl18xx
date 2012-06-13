@@ -1311,6 +1311,12 @@ static void ieee80211_set_associated(struct ieee80211_sub_if_data *sdata,
 		bss_info_changed |= BSS_CHANGED_ARP_FILTER;
 	}
 
+	/* And NADV filtering */
+	if (bss_conf->nadv_filter_enabled != sdata->nadv_filter_state) {
+		bss_conf->nadv_filter_enabled = sdata->nadv_filter_state;
+		bss_info_changed |= BSS_CHANGED_NADV_FILTER;
+	}
+
 	ieee80211_bss_info_change_notify(sdata, bss_info_changed);
 
 	mutex_lock(&local->iflist_mtx);
@@ -1407,6 +1413,12 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 	if (sdata->vif.bss_conf.arp_filter_enabled) {
 		sdata->vif.bss_conf.arp_filter_enabled = false;
 		changed |= BSS_CHANGED_ARP_FILTER;
+	}
+
+	/* Disable NADV filtering */
+	if (sdata->vif.bss_conf.nadv_filter_enabled) {
+		sdata->vif.bss_conf.nadv_filter_enabled = false;
+		changed |= BSS_CHANGED_NADV_FILTER;
 	}
 
 	sdata->vif.bss_conf.qos = false;

@@ -8,6 +8,12 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/in.h>
+#include <linux/in6.h>
+#include <net/if_inet6.h>
+#include <net/addrconf.h>
+#include <linux/kernel.h>
+
 #include <net/mac80211.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -424,6 +430,79 @@ static int ieee80211_ifa_changed(struct notifier_block *nb,
 
 	return NOTIFY_DONE;
 }
+
+static int ieee80211_ifa6_changed(struct notifier_block *nb,
+				 unsigned long data, void *arg)
+{
+	struct inet6_ifaddr *ifa = arg;
+	struct ieee80211_local *local =
+		container_of(nb, struct ieee80211_local,
+			     ifa6_notifier);
+	struct inet6_dev *idev = ifa->idev;
+	struct wireless_dev *wdev = idev->dev->ieee80211_ptr;
+	struct ieee80211_sub_if_data *sdata;
+	struct ieee80211_bss_conf *bss_conf;
+	struct ieee80211_if_managed *ifmgd;
+	int c = 0;
+
+	struct list_head *p;
+
+	if (!idev)
+		return NOTIFY_DONE;
+
+	/* Make sure it's our interface that got changed */
+	if (!wdev)
+		return NOTIFY_DONE;
+
+	if (wdev->wiphy != local->hw.wiphy)
+		return NOTIFY_DONE;
+
+	sdata = IEEE80211_DEV_TO_SUB_IF(idev->dev);
+	bss_conf = &sdata->vif.bss_conf;
+
+	/* NADV filtering is only supported in managed mode */
+	if (sdata->vif.type != NL80211_IFTYPE_STATION)
+		return NOTIFY_DONE;
+
+	ifmgd = &sdata->u.mgd;
+
+	/* Copy the addresses to the bss_conf list */
+	sdata->nadv_filter_state = true;
+	list_for_each(p, &idev->addr_list) {
+		struct inet6_ifaddr *ifa2
+			= list_entry(p, struct inet6_ifaddr, if_list);
+		/* too many addresses, disable filtering */
+		if (c == IEEE80211_BSS_NADV_ADDR6_LIST_LEN) {
+			sdata->nadv_filter_state = false;
+			c = 0;
+			break;
+		}
+		memcpy(&bss_conf->nadv_addr6_list[c], &ifa2->addr,
+		       sizeof(struct in6_addr));
+		c++;
+	}
+
+	bss_conf->nadv_addr6_cnt = c;
+
+	/* Configure driver only if associated */
+	if (ifmgd->associated) {
+		bss_conf->nadv_filter_enabled = sdata->nadv_filter_state;
+
+		local->ipv6_sdata = sdata;
+		ieee80211_queue_work(&local->hw, &local->ipv6_work);
+	}
+
+	return NOTIFY_DONE;
+}
+
+void ieee80211_ipv6_work(struct work_struct *work)
+{
+	struct ieee80211_local *local =
+		container_of(work, struct ieee80211_local, ipv6_work);
+
+	ieee80211_bss_info_change_notify(local->ipv6_sdata,
+					 BSS_CHANGED_NADV_FILTER);
+}
 #endif
 
 static int ieee80211_napi_poll(struct napi_struct *napi, int budget)
@@ -642,6 +721,8 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 
 	INIT_WORK(&local->sched_scan_stopped_work,
 		  ieee80211_sched_scan_stopped_work);
+
+	INIT_WORK(&local->ipv6_work, ieee80211_ipv6_work);
 
 	spin_lock_init(&local->ack_status_lock);
 	idr_init(&local->ack_status_frames);
@@ -967,6 +1048,11 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	result = register_inetaddr_notifier(&local->ifa_notifier);
 	if (result)
 		goto fail_ifa;
+
+	local->ifa6_notifier.notifier_call = ieee80211_ifa6_changed;
+	result = register_inet6addr_notifier(&local->ifa6_notifier);
+	if (result)
+		goto fail_ifa6;
 #endif
 
 	netif_napi_add(&local->napi_dev, &local->napi, ieee80211_napi_poll,
@@ -975,6 +1061,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	return 0;
 
 #ifdef CONFIG_INET
+ fail_ifa6:
+	unregister_inetaddr_notifier(&local->ifa_notifier);
  fail_ifa:
 	pm_qos_remove_notifier(PM_QOS_NETWORK_LATENCY,
 			       &local->network_latency_notifier);
@@ -1008,7 +1096,9 @@ void ieee80211_unregister_hw(struct ieee80211_hw *hw)
 	pm_qos_remove_notifier(PM_QOS_NETWORK_LATENCY,
 			       &local->network_latency_notifier);
 #ifdef CONFIG_INET
+	cancel_work_sync(&local->ipv6_work);
 	unregister_inetaddr_notifier(&local->ifa_notifier);
+	unregister_inet6addr_notifier(&local->ifa6_notifier);
 #endif
 
 	rtnl_lock();

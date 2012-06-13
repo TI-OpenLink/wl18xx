@@ -692,6 +692,7 @@ struct ieee80211_sub_if_data {
 	struct sk_buff_head skb_queue;
 
 	bool arp_filter_state;
+	bool nadv_filter_state;
 
 	/*
 	 * AP this belongs to: self in AP mode and
@@ -854,6 +855,10 @@ struct ieee80211_local {
 
 	/* used for uploading changed mc list */
 	struct work_struct reconfig_filter;
+
+	/* used for ipv6 configure */
+	struct ieee80211_sub_if_data *ipv6_sdata;
+	struct work_struct ipv6_work;
 
 	/* used to reconfigure hardware SM PS */
 	struct work_struct recalc_smps;
@@ -1042,6 +1047,7 @@ struct ieee80211_local {
 	struct timer_list dynamic_ps_timer;
 	struct notifier_block network_latency_notifier;
 	struct notifier_block ifa_notifier;
+	struct notifier_block ifa6_notifier;
 
 	/*
 	 * The dynamic ps timeout configured from user space via WEXT -
@@ -1512,5 +1518,8 @@ int ieee80211_delts_request(struct ieee80211_sub_if_data *sdata,
 #else
 #define debug_noinline
 #endif
+
+/* ipv6 filter configure */
+void ieee80211_ipv6_work(struct work_struct *work);
 
 #endif /* IEEE80211_I_H */

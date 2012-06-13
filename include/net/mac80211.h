@@ -171,6 +171,7 @@ struct ieee80211_low_level_stats {
  * @BSS_CHANGED_IDLE: Idle changed for this BSS/interface.
  * @BSS_CHANGED_SSID: SSID changed for this BSS (AP mode)
  * @BSS_CHANGED_AP_PROBE_RESP: Probe Response changed for this BSS (AP mode)
+ * @BSS_CHANGED_NADV_FILTER: Hardware NAdv filter address list or state changed.
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
@@ -190,6 +191,7 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_IDLE		= 1<<14,
 	BSS_CHANGED_SSID		= 1<<15,
 	BSS_CHANGED_AP_PROBE_RESP	= 1<<16,
+	BSS_CHANGED_NADV_FILTER		= 1<<17,
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -200,6 +202,7 @@ enum ieee80211_bss_change {
  * filtering will be disabled.
  */
 #define IEEE80211_BSS_ARP_ADDR_LIST_LEN 4
+#define IEEE80211_BSS_NADV_ADDR6_LIST_LEN 3
 
 /**
  * enum ieee80211_rssi_event - RSSI threshold event
@@ -289,8 +292,11 @@ struct ieee80211_bss_conf {
 	u32 cqm_rssi_hyst;
 	enum nl80211_channel_type channel_type;
 	__be32 arp_addr_list[IEEE80211_BSS_ARP_ADDR_LIST_LEN];
+	struct in6_addr nadv_addr6_list[IEEE80211_BSS_NADV_ADDR6_LIST_LEN];
 	u8 arp_addr_cnt;
+	u8 nadv_addr6_cnt;
 	bool arp_filter_enabled;
+	bool nadv_filter_enabled;
 	bool qos;
 	bool idle;
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
