@@ -1411,6 +1411,8 @@ static struct wlcore_ops wl12xx_ops = {
 	.get_spare_blocks	= wl12xx_get_spare_blocks,
 	.set_key		= wl12xx_set_key,
 	.pre_pkt_send		= NULL,
+	.set_nadv_filter	= wl12xx_acx_nadv_filter,
+	.build_nadv		= wl12xx_cmd_build_nadv,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {

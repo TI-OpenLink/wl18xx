@@ -1354,6 +1354,8 @@ static struct wlcore_ops wl18xx_ops = {
 	.set_key	= wl18xx_set_key,
 	.pre_pkt_send	= wl18xx_pre_pkt_send,
 	.init_vif	= wl18xx_init_vif,
+	.set_nadv_filter = NULL,
+	.build_nadv	= NULL,
 };
 
 /* HT cap appropriate for wide channels */
