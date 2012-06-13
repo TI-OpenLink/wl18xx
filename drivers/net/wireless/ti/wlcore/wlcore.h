@@ -81,6 +81,9 @@ struct wlcore_ops {
 		       struct ieee80211_sta *sta,
 		       struct ieee80211_key_conf *key_conf);
 	u32 (*pre_pkt_send)(struct wl1271 *wl, u32 buf_offset, u32 last_len);
+	int (*set_nadv_filter)(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			       u8 enable, struct in6_addr *addrs);
+	int (*build_nadv)(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 };
 
 enum wlcore_partitions {

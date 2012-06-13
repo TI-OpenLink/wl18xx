@@ -197,4 +197,23 @@ wlcore_hw_pre_pkt_send(struct wl1271 *wl, u32 buf_offset, u32 last_len)
 	return buf_offset;
 }
 
+static inline int
+wlcore_set_nadv_filter(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+		       u8 enable, struct in6_addr *addrs)
+{
+	if (wl->ops->set_nadv_filter)
+		return wl->ops->set_nadv_filter(wl, wlvif, enable, addrs);
+
+	return 0;
+}
+
+static inline int
+wlcore_build_nadv(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	if (wl->ops->build_nadv)
+		return wl->ops->build_nadv(wl, wlvif);
+
+	return 0;
+}
+
 #endif
