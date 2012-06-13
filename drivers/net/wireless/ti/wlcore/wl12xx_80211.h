@@ -3,6 +3,7 @@
 
 #include <linux/if_ether.h>	/* ETH_ALEN */
 #include <linux/if_arp.h>
+#include <linux/ipv6.h>
 
 /* RATES */
 #define IEEE80211_CCK_RATE_1MB		        0x02
@@ -127,6 +128,22 @@ struct wl12xx_arp_rsp_template {
 	__be32 sender_ip;
 	u8 target_hw[ETH_ALEN];
 	__be32 target_ip;
+} __packed;
+
+struct icmp6_nadv {
+	struct icmp6hdr hdr;
+	struct in6_addr target;
+	u8 options[8]; /* LL address will go here */
+} __packed;
+
+struct wl12xx_nadv_template {
+	/* not including ieee80211 header */
+
+	u8 llc_hdr[sizeof(rfc1042_header)];
+	__be16 llc_type;
+
+	struct ipv6hdr ipv6_hdr;
+	struct icmp6_nadv nadv;
 } __packed;
 
 struct wl12xx_disconn_template {

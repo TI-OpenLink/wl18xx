@@ -2998,9 +2998,8 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		}
 
 		/*
-		 * reconfiguring arp response if the unicast (or common)
-		 * encryption key type was changed
-		 */
+		 * reconfiguring arp response and neighbour advertisement if
+		 * the unicast (or common) encryption key type was changed */
 		if (wlvif->bss_type == BSS_TYPE_STA_BSS &&
 		    (sta || key_type == KEY_WEP) &&
 		    wlvif->encryption_type != key_type) {
@@ -3010,7 +3009,14 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 				wl1271_warning("build arp rsp failed: %d", ret);
 				goto out_sleep;
 			}
+
+			ret = wlcore_build_nadv(wl, wlvif);
+			if (ret < 0) {
+				wl1271_warning("build nadv failed: %d", ret);
+				goto out_sleep;
+			}
 		}
+
 		break;
 
 	case DISABLE_KEY:
@@ -3688,7 +3694,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 	bool is_ibss = (wlvif->bss_type == BSS_TYPE_IBSS);
 	bool ibss_joined = false;
 	u32 sta_rate_set = 0;
-	int ret;
+	int ret = 0;
 	struct ieee80211_sta *sta;
 	bool sta_exists = false;
 	struct ieee80211_sta_ht_cap sta_ht_cap;
@@ -4009,6 +4015,55 @@ sta_not_found:
 		} else {
 			wlvif->ip_addr = 0;
 			ret = wl1271_acx_arp_ip_filter(wl, wlvif, 0, addr);
+		}
+
+		if (ret < 0)
+			goto out;
+	}
+
+	/* Handle neigbor solicitation filtering. Done after join. */
+	if ((changed & BSS_CHANGED_NADV_FILTER) ||
+	    (!is_ibss && (changed & BSS_CHANGED_QOS))) {
+		const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+		struct in6_addr *addr = bss_conf->nadv_addr6_list;
+		wlvif->sta.qos = bss_conf->qos;
+		WARN_ON(wlvif->bss_type != BSS_TYPE_STA_BSS);
+
+		memcpy(&wlvif->ip6_addr[1], &in6addr_any,
+		       sizeof(struct in6_addr));
+
+		if (!bss_conf->nadv_filter_enabled)
+			bss_conf->nadv_addr6_cnt = 0;
+
+		wl1271_debug(DEBUG_MAC80211, "nadv_addr6_cnt=%d",
+			     bss_conf->nadv_addr6_cnt);
+
+		switch (bss_conf->nadv_addr6_cnt) {
+		case 2:
+			memcpy(&wlvif->ip6_addr[1], &addr[1],
+			       sizeof(struct in6_addr));
+		case 1:
+			memcpy(&wlvif->ip6_addr[0], &addr[0],
+			       sizeof(struct in6_addr));
+
+			ret = wlcore_build_nadv(wl, wlvif);
+			if (ret < 0) {
+				wl1271_warning("build nadv failed: %d", ret);
+				goto out;
+			}
+
+			ret = wlcore_set_nadv_filter(wl, wlvif,
+				(ACX_NADV_FILTER_NADV_FILTERING |
+				 ACX_NADV_FILTER_AUTO_NADV),
+				wlvif->ip6_addr);
+
+			break;
+		default:
+			memcpy(&wlvif->ip6_addr[0], &in6addr_any,
+			       sizeof(struct in6_addr));
+
+			ret = wlcore_set_nadv_filter(wl, wlvif, 0,
+						     wlvif->ip6_addr);
 		}
 
 		if (ret < 0)

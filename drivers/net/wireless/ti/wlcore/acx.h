@@ -551,6 +551,7 @@ struct wl1271_acx_bet_enable {
 #define ACX_IPV4_VERSION 4
 #define ACX_IPV6_VERSION 6
 #define ACX_IPV4_ADDR_SIZE 4
+#define ACX_IPV6_ADDR_SIZE 16
 
 /* bitmap of enabled arp_filter features */
 #define ACX_ARP_FILTER_ARP_FILTERING	BIT(0)
@@ -566,6 +567,18 @@ struct wl1271_acx_arp_filter {
 			       requests directed to this IP address will pass
 			       through. For IPv4, the first four bytes are
 			       used. */
+} __packed;
+
+/* bitmap of enabled nadv_filter features */
+#define ACX_NADV_FILTER_NADV_FILTERING	BIT(0)
+#define ACX_NADV_FILTER_AUTO_NADV	BIT(1)
+
+struct wl1271_acx_nadv_filter {
+	struct acx_header header;
+	u8 role_id;
+	u8 enable;          /* bitmap of enabled NS filtering features */
+	u8 padding[2];
+	u8 addrs[2][ACX_IPV6_ADDR_SIZE];    /* IPv6 addresses to filter */
 } __packed;
 
 struct wl1271_acx_pm_config {
@@ -1025,6 +1038,7 @@ enum {
 	ACX_CONFIG_HANGOVER              = 0x0042,
 	ACX_FEATURE_CFG                  = 0x0043,
 	ACX_PROTECTION_CFG               = 0x0044,
+	ACX_NADV_FILTER                  = 0x0045,
 };
 
 
@@ -1083,6 +1097,8 @@ int wl1271_acx_bet_enable(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			  bool enable);
 int wl1271_acx_arp_ip_filter(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     u8 enable, __be32 address);
+int wl12xx_acx_nadv_filter(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			   u8 enable, struct in6_addr *addrs);
 int wl1271_acx_pm_config(struct wl1271 *wl);
 int wl1271_acx_keep_alive_mode(struct wl1271 *wl, struct wl12xx_vif *vif,
 			       bool enable);

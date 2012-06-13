@@ -116,6 +116,16 @@ int wl1271_init_templates_config(struct wl1271 *wl)
 	if (ret < 0)
 		return ret;
 
+	max_size = sizeof(struct wl12xx_nadv_template) +
+		sizeof(struct ieee80211_hdr_3addr) + WL1271_EXTRA_SPACE_MAX;
+	ret = wl1271_cmd_template_set(wl, WL12XX_INVALID_ROLE_ID,
+				      CMD_TEMPL_NADV, NULL,
+				      sizeof
+				      max_size,
+				      0, WL1271_RATE_AUTOMATIC);
+	if (ret < 0)
+		return ret;
+
 	/*
 	 * Put very large empty placeholders for all templates. These
 	 * reserve memory for later.

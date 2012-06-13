@@ -1132,6 +1132,45 @@ out:
 	return ret;
 }
 
+int wl12xx_acx_nadv_filter(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			   u8 enable, struct in6_addr *addrs)
+{
+	struct wl1271_acx_nadv_filter *acx;
+	int ret;
+
+	wl1271_debug(DEBUG_ACX, "acx nadv filter, enable: %d", enable);
+
+	acx = kzalloc(sizeof(*acx), GFP_KERNEL);
+	if (!acx) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	acx->role_id = wlvif->role_id;
+	acx->enable = enable;
+
+	if (enable) {
+		memcpy(acx->addrs[0], &addrs[0], sizeof(struct in6_addr));
+		memcpy(acx->addrs[1], &addrs[1], sizeof(struct in6_addr));
+	}
+
+	wl1271_dump(DEBUG_ACX, "IPV6_ADDR 0", acx->addrs[0],
+		    ACX_IPV6_ADDR_SIZE);
+	wl1271_dump(DEBUG_ACX, "IPV6_ADDR 1", acx->addrs[1],
+		    ACX_IPV6_ADDR_SIZE);
+
+	ret = wl1271_cmd_configure(wl, ACX_NADV_FILTER, acx, sizeof(*acx));
+	if (ret < 0) {
+		wl1271_warning("failed to set neighbor adv filter: %d", ret);
+		goto out;
+	}
+
+out:
+	kfree(acx);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wl12xx_acx_nadv_filter);
+
 int wl1271_acx_pm_config(struct wl1271 *wl)
 {
 	struct wl1271_acx_pm_config *acx = NULL;

@@ -31,6 +31,7 @@
 #include <linux/list.h>
 #include <linux/bitops.h>
 #include <net/mac80211.h>
+#include <net/ipv6.h>
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
@@ -422,6 +423,7 @@ struct wl12xx_vif {
 	/* save the current encryption type for auto-arp config */
 	u8 encryption_type;
 	__be32 ip_addr;
+	struct in6_addr ip6_addr[2];
 
 	/* RX BA constraint value */
 	bool ba_support;

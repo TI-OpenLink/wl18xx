@@ -1156,6 +1156,115 @@ out:
 	return ret;
 }
 
+int wl12xx_cmd_build_nadv(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	int ret, extra;
+	u16 fc;
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+	struct sk_buff *skb;
+	struct wl12xx_nadv_template *tmpl;
+	struct ieee80211_hdr_3addr *hdr;
+	struct ipv6hdr *ipv6_hdr;
+	struct icmp6_nadv *nadv;
+
+	skb = dev_alloc_skb(sizeof(*hdr) + sizeof(__le16) + sizeof(*tmpl) +
+			    WL1271_EXTRA_SPACE_MAX);
+	if (!skb) {
+		wl1271_error("fail allocate neighbor adv template");
+		return -ENOMEM;
+	}
+
+	skb_reserve(skb, sizeof(*hdr) + WL1271_EXTRA_SPACE_MAX);
+
+	tmpl = (struct wl12xx_nadv_template *)skb_put(skb, sizeof(*tmpl));
+	memset(tmpl, 0, sizeof(struct wl12xx_nadv_template));
+
+	/* llc layer */
+	memcpy(tmpl->llc_hdr, rfc1042_header, sizeof(rfc1042_header));
+	tmpl->llc_type = cpu_to_be16(ETH_P_IPV6);
+
+	/* ipv6 header */
+	ipv6_hdr = &tmpl->ipv6_hdr;
+	ipv6_hdr->version = 6;
+	ipv6_hdr->priority = 0;
+	ipv6_hdr->flow_lbl[0] = 0;
+	ipv6_hdr->flow_lbl[1] = 0;
+	ipv6_hdr->flow_lbl[2] = 0;
+	ipv6_hdr->payload_len = htons(sizeof(struct icmp6_nadv));
+	ipv6_hdr->nexthdr = IPPROTO_ICMPV6;
+
+	/* from net/ipv6/ndisc.c, not IPV6_DEFAULT_HOPLIMIT */
+	ipv6_hdr->hop_limit = 255;
+
+	/* copy in the first address as a placeholder */
+	memcpy(&ipv6_hdr->saddr, &wlvif->ip6_addr[0], sizeof(struct in6_addr));
+
+	/* icmpv6 header */
+	nadv = &tmpl->nadv;
+	nadv->hdr.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
+	nadv->hdr.icmp6_code = 0;
+	nadv->hdr.icmp6_solicited = 1;
+	nadv->hdr.icmp6_override = 1;
+
+	memcpy(&nadv->target, &wlvif->ip6_addr[0], sizeof(struct in6_addr));
+	nadv->options[0] = ND_OPT_TARGET_LL_ADDR;
+	nadv->options[1] = 1; /* option length */
+
+	/* encryption space */
+	switch (wlvif->encryption_type) {
+	case KEY_TKIP:
+		extra = WL1271_EXTRA_SPACE_TKIP;
+		break;
+	case KEY_AES:
+		extra = WL1271_EXTRA_SPACE_AES;
+		break;
+	case KEY_NONE:
+	case KEY_WEP:
+	case KEY_GEM:
+		extra = 0;
+		break;
+	default:
+		wl1271_warning("Unknown encryption type: %d",
+			       wlvif->encryption_type);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (extra) {
+		u8 *space = skb_push(skb, extra);
+		memset(space, 0, extra);
+	}
+
+	/* QoS header - BE */
+	if (wlvif->sta.qos)
+		memset(skb_push(skb, sizeof(__le16)), 0, sizeof(__le16));
+
+	/* mac80211 header */
+	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
+	memset(hdr, 0, sizeof(hdr));
+	fc = IEEE80211_FTYPE_DATA | IEEE80211_FCTL_TODS;
+	if (wlvif->sta.qos)
+		fc |= IEEE80211_STYPE_QOS_DATA;
+	else
+		fc |= IEEE80211_STYPE_DATA;
+	if (wlvif->encryption_type != KEY_NONE)
+		fc |= IEEE80211_FCTL_PROTECTED;
+
+	hdr->frame_control = cpu_to_le16(fc);
+	memcpy(hdr->addr1, vif->bss_conf.bssid, ETH_ALEN);
+	memcpy(hdr->addr2, vif->addr, ETH_ALEN);
+	memset(hdr->addr3, 0xff, ETH_ALEN);
+
+	ret = wl1271_cmd_template_set(wl, wlvif->role_id, CMD_TEMPL_NADV,
+				      skb->data, skb->len, 0,
+				      wlvif->basic_rate);
+
+out:
+	dev_kfree_skb(skb);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wl12xx_cmd_build_nadv);
+
 int wl1271_build_qos_null_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 {
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);

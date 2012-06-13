@@ -63,6 +63,7 @@ struct sk_buff *wl1271_cmd_build_ap_probe_req(struct wl1271 *wl,
 					      struct wl12xx_vif *wlvif,
 					      struct sk_buff *skb);
 int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+int wl12xx_cmd_build_nadv(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 int wl1271_build_qos_null_data(struct wl1271 *wl, struct ieee80211_vif *vif);
 int wl12xx_cmd_build_klv_null_data(struct wl1271 *wl,
 				   struct wl12xx_vif *wlvif);
@@ -184,6 +185,7 @@ enum cmd_templ {
 	CMD_TEMPL_DEAUTH_AP,
 	CMD_TEMPL_TEMPORARY,
 	CMD_TEMPL_LINK_MEASUREMENT_REPORT,
+	CMD_TEMPL_NADV,
 
 	CMD_TEMPL_MAX = 0xff
 };
