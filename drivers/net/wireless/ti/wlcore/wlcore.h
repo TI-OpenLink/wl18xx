@@ -445,6 +445,9 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 /* extra header space is required for TKIP */
 #define WLCORE_QUIRK_TKIP_HEADER_SPACE		BIT(8)
 
+/* Some firmwares not support sched scans while connected */
+#define WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN	BIT(9)
+
 /* TODO: move to the lower drivers when all usages are abstracted */
 #define CHIP_ID_1271_PG10              (0x4030101)
 #define CHIP_ID_1271_PG20              (0x4030111)
