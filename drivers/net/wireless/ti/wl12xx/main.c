@@ -626,6 +626,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 {
 	int ret = 0;
 
+	wl->quirks |= WLCORE_QUIRK_SEPARATED_PROBE_TEMPLATES;
 	switch (wl->chip.id) {
 	case CHIP_ID_1271_PG10:
 		wl1271_warning("chip id 0x%x (1271 PG10) support is obsolete",
