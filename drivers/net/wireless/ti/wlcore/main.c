@@ -774,16 +774,21 @@ size_t wl12xx_copy_fwlog(struct wl1271 *wl, u8 *memblock, size_t maxlen)
 	return len;
 }
 
+#define WLXX_FW_LOG_END 0x2000000
+
 static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 {
 	u32 addr;
 	u32 first_addr;
+	u32 offset = 0;
 	u8 *block;
 
 	if ((wl->quirks & WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED) ||
-	    (wl->conf.fwlog.mode != WL12XX_FWLOG_ON_DEMAND) ||
 	    (wl->conf.fwlog.mem_blocks == 0))
 		return;
+
+	if (wl->conf.fwlog.mode == WL12XX_FWLOG_CONTINUOUS)
+		offset = sizeof(struct wl1271_rx_descriptor);
 
 	wl1271_info("Reading FW panic log");
 
@@ -797,8 +802,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 	 */
 	if (!wl1271_ps_elp_wakeup(wl) && !wl->watchdog_recovery)
 		wl12xx_cmd_stop_fwlog(wl);
-	else
-		goto out;
 
 	/* Read the first memory block address */
 	wl12xx_fw_status(wl, wl->fw_status_1, wl->fw_status_2);
@@ -819,10 +822,10 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
 		 * one. The last memory block points to the first one.
 		 */
 		addr = le32_to_cpup((__le32 *)block);
-		if (!wl12xx_copy_fwlog(wl, block + sizeof(addr),
+		if (!wl12xx_copy_fwlog(wl, block + sizeof(addr) + offset,
 				       WL12XX_HW_BLOCK_SIZE - sizeof(addr)))
 			break;
-	} while (addr && (addr != first_addr));
+	} while (addr && (addr != first_addr) && (addr != WLXX_FW_LOG_END));
 
 	wake_up_interruptible(&wl->fwlog_waitq);
 
