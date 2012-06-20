@@ -2532,6 +2532,15 @@ static int wlcore_set_assoc(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 					   ACX_KEEP_ALIVE_TPL_VALID);
 	if (ret < 0)
 		goto out;
+
+	/*
+	 * The default fw psm configuration is AUTO, while mac80211 default
+	 * setting is off (ACTIVE), so sync the fw with the correct value.
+	 */
+	ret = wl1271_ps_set_mode(wl, wlvif, STATION_ACTIVE_MODE);
+	if (ret < 0)
+		goto out;
+
 out:
 	return ret;
 }
