@@ -4635,42 +4635,69 @@ out:
 	return ret;
 }
 
-void wl1271_roc_complete_work(struct work_struct *work)
+static int __wlcore_roc_completed(struct wl1271 *wl)
 {
-	struct delayed_work *dwork;
-	struct wl1271 *wl;
 	struct wl12xx_vif *wlvif;
 	int ret;
 
-	dwork = container_of(work, struct delayed_work, work);
-	wl = container_of(dwork, struct wl1271, roc_complete_work);
+	/* already completed */
+	if (unlikely(!wl->roc_vif))
+		return 0;
+
+	wlvif = wl12xx_vif_to_data(wl->roc_vif);
+
+	if (!test_bit(WLVIF_FLAG_INITIALIZED, &wlvif->flags))
+		return -EBUSY;
+
+	ret = wl12xx_stop_dev(wl, wlvif);
+	if (ret < 0)
+		return ret;
+
+	wl->roc_vif = NULL;
+
+	return 0;
+}
+
+static int wlcore_roc_completed(struct wl1271 *wl)
+{
+	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "roc complete");
 
 	mutex_lock(&wl->mutex);
 
-	if (unlikely(!wl->roc_vif))
+	if (unlikely(wl->state == WL1271_STATE_OFF)) {
+		ret = -EBUSY;
 		goto out;
-
-	wlvif = wl12xx_vif_to_data(wl->roc_vif);
-
-	if (unlikely(wl->state == WL1271_STATE_OFF ||
-		     !test_bit(WLVIF_FLAG_INITIALIZED, &wlvif->flags)))
-		goto out;
+	}
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out;
 
-	wl12xx_stop_dev(wl, wlvif);
-	wl->roc_vif = NULL;
+	ret = __wlcore_roc_completed(wl);
 
 	wl1271_ps_elp_sleep(wl);
 out:
 	mutex_unlock(&wl->mutex);
 
-	ieee80211_remain_on_channel_expired(wl->hw);
+	return ret;
 }
+
+void wl1271_roc_complete_work(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wl1271 *wl;
+	int ret;
+
+	dwork = container_of(work, struct delayed_work, work);
+	wl = container_of(dwork, struct wl1271, roc_complete_work);
+
+	ret = wlcore_roc_completed(wl);
+	if (!ret)
+		ieee80211_remain_on_channel_expired(wl->hw);
+}
+
 static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4680,7 +4707,12 @@ static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
 	/* TODO: per-vif */
 	wl1271_tx_flush(wl);
 
-	flush_delayed_work(&wl->roc_complete_work);
+	/*
+	 * we can't just flush_work here, because it might deadlock (because
+	 * we might get called from the same workqueue)
+	 */
+	cancel_delayed_work_sync(&wl->roc_complete_work);
+	wlcore_roc_completed(wl);
 
 	return 0;
 }
