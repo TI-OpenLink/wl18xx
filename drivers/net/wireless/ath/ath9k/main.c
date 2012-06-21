@@ -150,6 +150,9 @@ static void __ath_cancel_work(struct ath_softc *sc)
 	cancel_work_sync(&sc->hw_check_work);
 	cancel_delayed_work_sync(&sc->tx_complete_work);
 	cancel_delayed_work_sync(&sc->hw_pll_work);
+#ifdef CONFIG_ATH9K_BTCOEX_SUPPORT
+	cancel_work_sync(&sc->mci_work);
+#endif
 }
 
 static void ath_cancel_work(struct ath_softc *sc)
@@ -511,24 +514,6 @@ irqreturn_t ath_isr(int irq, void *dev)
 	if (status & ATH9K_INT_RXEOL) {
 		ah->imask &= ~(ATH9K_INT_RXEOL | ATH9K_INT_RXORN);
 		ath9k_hw_set_interrupts(ah);
-	}
-
-	if (status & ATH9K_INT_MIB) {
-		/*
-		 * Disable interrupts until we service the MIB
-		 * interrupt; otherwise it will continue to
-		 * fire.
-		 */
-		ath9k_hw_disable_interrupts(ah);
-		/*
-		 * Let the hal handle the event. We assume
-		 * it will clear whatever condition caused
-		 * the interrupt.
-		 */
-		spin_lock(&common->cc_lock);
-		ath9k_hw_proc_mib_event(ah);
-		spin_unlock(&common->cc_lock);
-		ath9k_hw_enable_interrupts(ah);
 	}
 
 	if (!(ah->caps.hw_caps & ATH9K_HW_CAP_AUTOSLEEP))
@@ -956,14 +941,10 @@ static void ath9k_calculate_summary_state(struct ieee80211_hw *hw,
 	/*
 	 * Enable MIB interrupts when there are hardware phy counters.
 	 */
-	if ((iter_data.nstations + iter_data.nadhocs + iter_data.nmeshes) > 0) {
-		if (ah->config.enable_ani)
-			ah->imask |= ATH9K_INT_MIB;
+	if ((iter_data.nstations + iter_data.nadhocs + iter_data.nmeshes) > 0)
 		ah->imask |= ATH9K_INT_TSFOOR;
-	} else {
-		ah->imask &= ~ATH9K_INT_MIB;
+	else
 		ah->imask &= ~ATH9K_INT_TSFOOR;
-	}
 
 	ath9k_hw_set_interrupts(ah);
 
@@ -1033,15 +1014,6 @@ static int ath9k_add_interface(struct ieee80211_hw *hw,
 		}
 	}
 
-	if ((ah->opmode == NL80211_IFTYPE_ADHOC) ||
-	    ((vif->type == NL80211_IFTYPE_ADHOC) &&
-	     sc->nvifs > 0)) {
-		ath_err(common, "Cannot create ADHOC interface when other"
-			" interfaces already exist.\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
 	ath_dbg(common, CONFIG, "Attach a VIF of type: %d\n", vif->type);
 
 	sc->nvifs++;
@@ -1065,15 +1037,6 @@ static int ath9k_change_interface(struct ieee80211_hw *hw,
 	ath_dbg(common, CONFIG, "Change Interface\n");
 	mutex_lock(&sc->mutex);
 	ath9k_ps_wakeup(sc);
-
-	/* See if new interface type is valid. */
-	if ((new_type == NL80211_IFTYPE_ADHOC) &&
-	    (sc->nvifs > 1)) {
-		ath_err(common, "When using ADHOC, it must be the only"
-			" interface.\n");
-		ret = -EINVAL;
-		goto out;
-	}
 
 	if (ath9k_uses_beacons(new_type) &&
 	    !ath9k_uses_beacons(vif->type)) {
@@ -1258,6 +1221,7 @@ static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 		if (ath_set_channel(sc, hw, &sc->sc_ah->channels[pos]) < 0) {
 			ath_err(common, "Unable to set channel\n");
 			mutex_unlock(&sc->mutex);
+			ath9k_ps_restore(sc);
 			return -EINVAL;
 		}
 
