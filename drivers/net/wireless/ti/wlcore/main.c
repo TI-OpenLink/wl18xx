@@ -4225,6 +4225,7 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 		wlcore_tx_work_locked(wl);
 		wlvif->band = bss_conf->channel->band;
 		wlvif->channel = channel;
+		wlvif->channel_type = bss_conf->channel_type;
 	}
 
 	if (unlikely(wl->state != WLCORE_STATE_ON))
