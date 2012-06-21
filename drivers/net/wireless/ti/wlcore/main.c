@@ -3894,7 +3894,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
-	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT)) {
+	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)) {
 		rcu_read_lock();
 		sta = ieee80211_find_sta(vif, bss_conf->bssid);
 		if (!sta)
@@ -4088,6 +4088,18 @@ sta_not_found:
 		ret = wlcore_set_assoc(wl, wlvif);
 		if (ret < 0)
 			goto out;
+
+		/* TODO: refactor setting the rate set */
+		if (sta_rate_set) {
+			wlvif->rate_set =
+				wl1271_tx_enabled_rates_get(wl,
+							    sta_rate_set,
+							    wlvif->band);
+
+			ret = wl1271_acx_sta_rate_policies(wl, wlvif);
+			if (ret < 0)
+				goto out;
+		}
 
 		if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
 			wl12xx_set_authorized(wl, wlvif);
