@@ -4105,6 +4105,7 @@ sta_not_found:
 
 	/* Handle new association with HT. Do this after join. */
 	if (sta_exists) {
+		/* TODO: this if/else seems pretty crappy */
 		if ((changed & BSS_CHANGED_HT) &&
 		    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
 			ret = wl1271_acx_set_ht_capabilities(wl,
