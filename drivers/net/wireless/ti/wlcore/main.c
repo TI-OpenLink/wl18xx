@@ -4956,6 +4956,13 @@ out:
 	return 0;
 }
 
+static void wlcore_op_flush(struct ieee80211_hw *hw, bool drop)
+{
+	struct wl1271 *wl = hw->priv;
+
+	wl1271_tx_flush(wl);
+}
+
 static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -5170,6 +5177,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
 	.set_priority = wl12xx_op_set_priority,
 	.cancel_priority = wl12xx_op_cancel_priority,
+	.flush = wlcore_op_flush,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
