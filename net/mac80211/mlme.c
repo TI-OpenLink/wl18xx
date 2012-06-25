@@ -581,6 +581,9 @@ static void ieee80211_send_deauth_disassoc(struct ieee80211_sub_if_data *sdata,
 		if (!(ifmgd->flags & IEEE80211_STA_MFP_ENABLED))
 			IEEE80211_SKB_CB(skb)->flags |=
 				IEEE80211_TX_INTFL_DONT_ENCRYPT;
+
+		/* flush out any pending frame */
+		drv_flush(local, false);
 		ieee80211_tx_skb(sdata, skb);
 	}
 }
