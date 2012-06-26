@@ -431,7 +431,7 @@ int wl12xx_cmd_role_start_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	supported_rates = CONF_TX_AP_ENABLED_RATES | CONF_TX_MCS_RATES |
 			  wlcore_hw_ap_get_mimo_wide_rate_mask(wl, wlvif);
 	if (wlvif->p2p)
-		supported_rates &= CONF_TX_CCK_RATES ;
+		supported_rates &= ~CONF_TX_CCK_RATES;
 
 	cmd->sta.local_rates = cpu_to_le32(supported_rates);
 
