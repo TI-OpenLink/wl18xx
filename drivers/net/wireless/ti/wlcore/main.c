@@ -4486,6 +4486,7 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	    old_state == IEEE80211_STA_AUTHORIZED &&
 	    new_state == IEEE80211_STA_ASSOC) {
 		clear_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags);
+		clear_bit(WLVIF_FLAG_STA_STATE_SENT, &wlvif->flags);
 		return 0;
 	}
 
