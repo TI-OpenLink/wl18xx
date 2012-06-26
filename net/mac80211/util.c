@@ -1411,9 +1411,6 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		if (ieee80211_sdata_running(sdata))
 			ieee80211_enable_keys(sdata);
 
-	local->in_reconfig = false;
-	barrier();
-
  wake_up:
 	/*
 	 * Clear the WLAN_STA_BLOCK_BA flag so new aggregation
@@ -1435,6 +1432,8 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 
 		mutex_unlock(&local->sta_mtx);
 	}
+
+	local->in_reconfig = false;
 
 	ieee80211_wake_queues_by_reason(hw,
 			IEEE80211_QUEUE_STOP_REASON_SUSPEND);
