@@ -777,7 +777,8 @@ out_ack:
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
 
 out:
-	return ret;
+	//return ret;
+	return 0;
 }
 
 void wl1271_tx_work(struct work_struct *work)
