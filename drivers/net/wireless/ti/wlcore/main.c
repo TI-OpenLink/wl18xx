@@ -3457,6 +3457,26 @@ static int wl1271_ssid_set(struct ieee80211_vif *vif, struct sk_buff *skb,
 	return 0;
 }
 
+static int wlcore_set_ssid(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+	struct sk_buff *skb;
+	int ieoffset;
+
+	skb = ieee80211_ap_probereq_get(wl->hw, vif);
+	if (!skb)
+		return -EINVAL;
+
+	wlvif->probereq = wl1271_cmd_build_ap_probe_req(wl,
+							wlvif,
+							NULL);
+	ieoffset = offsetof(struct ieee80211_mgmt,
+			    u.probe_req.variable);
+	wl1271_ssid_set(vif, skb, ieoffset);
+	dev_kfree_skb(skb);
+
+	return 0;
+}
 static void wl12xx_remove_ie(struct sk_buff *skb, u8 eid, int ieoffset)
 {
 	int len;
@@ -3945,6 +3965,8 @@ sta_not_found:
 			ret = wl1271_build_qos_null_data(wl, vif);
 			if (ret < 0)
 				goto out;
+
+			wlcore_set_ssid(wl, wlvif);
 
 			/* Need to update the BSSID (for filtering etc) */
 			do_join = true;
