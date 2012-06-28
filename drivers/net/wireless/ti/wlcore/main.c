@@ -916,16 +916,16 @@ static void wl1271_recovery_work(struct work_struct *work)
 	if (wl->state != WL1271_STATE_ON || wl->plt)
 		goto out_unlock;
 
-	wl12xx_read_fwlog_panic(wl);
-
-	wlcore_print_recovery(wl);
+	if (!test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags)) {
+		wl12xx_read_fwlog_panic(wl);
+		wlcore_print_recovery(wl);
+	}
 
 	BUG_ON(bug_on_recovery &&
 	       !test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags));
 
 	if (no_recovery) {
 		wl1271_info("No recovery (chosen on module load). Fw will remain stuck.");
-		clear_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 		goto out_unlock;
 	}
 
@@ -969,7 +969,8 @@ static void wl1271_recovery_work(struct work_struct *work)
 	wlcore_wake_queues(wl, WLCORE_QUEUE_STOP_REASON_FW_RESTART);
 	return;
 out_unlock:
-        wl->watchdog_recovery = false;
+	wl->watchdog_recovery = false;
+	clear_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 	mutex_unlock(&wl->mutex);
 }
 
@@ -1211,7 +1212,9 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	 * The workqueue is slow to process the tx_queue and we need stop
 	 * the queue here, otherwise the queue will get too long.
 	 */
-	if (wl->tx_queue_count[q] >= WL1271_TX_QUEUE_HIGH_WATERMARK) {
+	if (wl->tx_queue_count[q] >= WL1271_TX_QUEUE_HIGH_WATERMARK &&
+	    !wlcore_is_queue_stopped_by_reason(wl, q,
+					WLCORE_QUEUE_STOP_REASON_WATERMARK)) {
 		wl1271_debug(DEBUG_TX, "op_tx: stopping queues for q %d", q);
 		wlcore_stop_queue_locked(wl, q,
 					 WLCORE_QUEUE_STOP_REASON_WATERMARK);
@@ -4634,6 +4637,13 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
+static void wlcore_op_flush(struct ieee80211_hw *hw, bool drop)
+{
+	struct wl1271 *wl = hw->priv;
+
+	wl1271_tx_flush(wl);
+}
+
 static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -4824,6 +4834,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.tx_frames_pending = wl1271_tx_frames_pending,
 	.set_bitrate_mask = wl12xx_set_bitrate_mask,
 	.channel_switch = wl12xx_op_channel_switch,
+	.flush = wlcore_op_flush,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
