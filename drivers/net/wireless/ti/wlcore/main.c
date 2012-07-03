@@ -3402,10 +3402,10 @@ static void wl1271_op_set_default_key_idx(struct ieee80211_hw *hw,
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret;
 
-	mutex_lock(&wl->mutex);
+	wl1271_debug(DEBUG_MAC80211, "mac80211 set default key idx %d",
+		     key_idx);
 
-	if (wlvif->default_key == key_idx)
-		goto out_unlock;
+	mutex_lock(&wl->mutex);
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
