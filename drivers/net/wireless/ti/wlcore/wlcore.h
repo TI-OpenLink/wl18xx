@@ -166,7 +166,6 @@ struct wl1271 {
 	bool plt;
 	enum plt_mode plt_mode;
 	u8 fem_manuf;
-	u8 last_vif_count;
 	struct mutex mutex;
 
 	unsigned long flags;
