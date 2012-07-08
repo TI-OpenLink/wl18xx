@@ -4717,10 +4717,11 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
 	struct il_tx_queue *txq = &il->txq[cnt];
 	struct il_queue *q = &txq->q;
 	unsigned long timeout;
+	unsigned long now = jiffies;
 	int ret;
 
 	if (q->read_ptr == q->write_ptr) {
-		txq->time_stamp = jiffies;
+		txq->time_stamp = now;
 		return 0;
 	}
 
@@ -4728,9 +4729,9 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
 	    txq->time_stamp +
 	    msecs_to_jiffies(il->cfg->wd_timeout);
 
-	if (time_after(jiffies, timeout)) {
+	if (time_after(now, timeout)) {
 		IL_ERR("Queue %d stuck for %u ms.\n", q->id,
-		       il->cfg->wd_timeout);
+		       jiffies_to_msecs(now - txq->time_stamp));
 		ret = il_force_reset(il, false);
 		return (ret == -EAGAIN) ? 0 : 1;
 	}
@@ -4767,14 +4768,12 @@ il_bg_watchdog(unsigned long data)
 		return;
 
 	/* monitor and check for other stuck queues */
-	if (il_is_any_associated(il)) {
-		for (cnt = 0; cnt < il->hw_params.max_txq_num; cnt++) {
-			/* skip as we already checked the command queue */
-			if (cnt == il->cmd_queue)
-				continue;
-			if (il_check_stuck_queue(il, cnt))
-				return;
-		}
+	for (cnt = 0; cnt < il->hw_params.max_txq_num; cnt++) {
+		/* skip as we already checked the command queue */
+		if (cnt == il->cmd_queue)
+			continue;
+		if (il_check_stuck_queue(il, cnt))
+			return;
 	}
 
 	mod_timer(&il->watchdog,
