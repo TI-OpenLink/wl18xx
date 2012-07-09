@@ -1840,6 +1840,7 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	mutex_unlock(&wl->mutex);
 
 	wlcore_synchronize_interrupts(wl);
+	cancel_delayed_work_sync(&wl->delayed_recovery);
 	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags))
 		cancel_work_sync(&wl->recovery_work);
 	wl1271_flush_deferred_work(wl);
@@ -2140,7 +2141,7 @@ enum fw_change_type {
  * fw to another) is needed.
  */
 
-static bool wl12xx_need_fw_change(struct wl1271 *wl)
+static enum fw_change_type wl12xx_need_fw_change(struct wl1271 *wl)
 {
 	enum wl12xx_fw_type current_fw = wl->fw_type;
 	u8 vif_count = ieee80211_started_vifs_count(wl->hw);
@@ -2180,14 +2181,42 @@ static void wl12xx_force_active_psm(struct wl1271 *wl)
 static void wl12xx_change_fw_if_needed(struct wl1271 *wl)
 {
 	enum fw_change_type change_type;
+	int timeout = 0;
 
+	cancel_delayed_work(&wl->delayed_recovery);
+
+	change_type = wl12xx_need_fw_change(wl);
+	if (change_type == FW_CHANGE_NONE)
+		return;
+
+	/* give some grace period in MR to SR case */
+	if (change_type == FW_CHANGE_MR_TO_SR)
+		timeout = 30000;
+
+	wl1271_debug(DEBUG_CMD, "queue delayed recovery in %d msecs", timeout);
+	ieee80211_queue_delayed_work(wl->hw, &wl->delayed_recovery,
+				     msecs_to_jiffies(timeout));
+	return change_type == FW_CHANGE_SR_TO_MR;
+}
+
+void wl12xx_delayed_recovery_work(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wl1271 *wl;
+	enum fw_change_type change_type;
+
+	dwork = container_of(work, struct delayed_work, work);
+	wl = container_of(dwork, struct wl1271, delayed_recovery);
+
+	wl1271_debug(DEBUG_CMD, "delayed recovery");
+
+	/* check recovery is still needed. */
 	change_type = wl12xx_need_fw_change(wl);
 	if (change_type == FW_CHANGE_NONE)
 		return;
 
 	wl12xx_force_active_psm(wl);
 	set_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags);
-	wl1271_debug(DEBUG_CMD, "queue recovery for fw switch");
 	wl12xx_queue_recovery_work(wl);
 }
 
@@ -5370,6 +5399,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size)
 	INIT_WORK(&wl->netstack_work, wl1271_netstack_work);
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
+	INIT_DELAYED_WORK(&wl->delayed_recovery, wl12xx_delayed_recovery_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
 	INIT_DELAYED_WORK(&wl->tx_watchdog_work, wl12xx_tx_watchdog_work);
 	INIT_DELAYED_WORK(&wl->connection_loss_work,
