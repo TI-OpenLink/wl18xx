@@ -5024,6 +5024,44 @@ out:
 	return 0;
 }
 
+static void wlcore_op_sta_rc_update(struct ieee80211_hw *hw,
+				    struct ieee80211_vif *vif,
+				    struct ieee80211_sta *sta,
+				    u32 changed)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	struct wl1271 *wl = hw->priv;
+	bool wide = sta->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40;
+
+	if (!(changed & IEEE80211_RC_BW_CHANGED))
+		return;
+
+	wl1271_debug(DEBUG_MAC80211, "mac80211 sta_rc_update wide %d", wide);
+
+	mutex_lock(&wl->mutex);
+
+	/* sanity */
+	if (WARN_ON(wlvif->bss_type != BSS_TYPE_STA_BSS))
+		goto out;
+
+	/* ignore the change before association */
+	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
+		goto out;
+
+	/*
+	 * If we started out as wide, we can change the operation mode. If we
+	 * thought this was a 20mhz AP, we have to reconnect
+	 */
+	if (wlvif->sta.role_chan_type == NL80211_CHAN_HT40MINUS ||
+	    wlvif->sta.role_chan_type == NL80211_CHAN_HT40PLUS)
+		wlcore_acx_peer_ht_operation_mode(wl, wlvif->sta.hlid, wide);
+	else
+		ieee80211_connection_loss(vif);
+
+out:
+	mutex_unlock(&wl->mutex);
+}
+
 static bool wl1271_tx_frames_pending(struct ieee80211_hw *hw)
 {
 	struct wl1271 *wl = hw->priv;
@@ -5220,6 +5258,7 @@ static const struct ieee80211_ops wl1271_ops = {
 	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
 	.set_priority = wl12xx_op_set_priority,
 	.cancel_priority = wl12xx_op_cancel_priority,
+	.sta_rc_update = wlcore_op_sta_rc_update,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
