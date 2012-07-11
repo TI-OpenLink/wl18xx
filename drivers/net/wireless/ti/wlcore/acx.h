@@ -955,6 +955,19 @@ struct acx_rx_filter_cfg {
 	u8 fields[0];
 } __packed;
 
+enum wlcore_bandwidth {
+	WLCORE_BANDWIDTH_20MHZ,
+	WLCORE_BANDWIDTH_40MHZ,
+};
+
+struct wlcore_peer_ht_operation_mode {
+	struct acx_header header;
+
+	u8 hlid;
+	u8 bandwidth; /* enum wlcore_bandwidth */
+	u8 padding[2];
+};
+
 enum {
 	ACX_WAKE_UP_CONDITIONS           = 0x0000,
 	ACX_MEM_CFG                      = 0x0001,
@@ -1026,6 +1039,8 @@ enum {
 	ACX_FEATURE_CFG                  = 0x0043,
 	ACX_PROTECTION_CFG               = 0x0044,
 	ACX_CHECKSUM_CONFIG              = 0x0045,
+
+	ACX_PEER_HT_OPERATION_MODE_CFG   = 0x0064,
 };
 
 
@@ -1113,6 +1128,7 @@ int wl1271_acx_set_inconnection_sta(struct wl1271 *wl, u8 *addr);
 int wl1271_acx_fm_coex(struct wl1271 *wl);
 int wl12xx_acx_set_rate_mgmt_params(struct wl1271 *wl);
 int wl12xx_acx_config_hangover(struct wl1271 *wl);
+int wlcore_acx_peer_ht_operation_mode(struct wl1271 *wl, u8 hlid, bool wide);
 
 #ifdef CONFIG_PM
 int wl1271_acx_default_rx_filter_enable(struct wl1271 *wl, bool enable,
