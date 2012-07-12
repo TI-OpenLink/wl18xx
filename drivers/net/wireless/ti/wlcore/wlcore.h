@@ -286,7 +286,7 @@ struct wl1271 {
 	struct ieee80211_vif *roc_vif;
 	struct delayed_work roc_complete_work;
 
-	bool sched_scanning;
+	struct ieee80211_vif *sched_vif;
 
 	/* The current band */
 	enum ieee80211_band band;
