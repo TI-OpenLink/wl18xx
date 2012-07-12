@@ -955,11 +955,6 @@ static void wl1271_recovery_work(struct work_struct *work)
 	/* Prevent spurious TX during FW restart */
 	wlcore_stop_queues(wl, WLCORE_QUEUE_STOP_REASON_FW_RESTART);
 
-	if (wl->sched_scanning) {
-		ieee80211_sched_scan_stopped(wl->hw);
-		wl->sched_scanning = false;
-	}
-
 	/* reboot the chipset */
 	while (!list_empty(&wl->wlvif_list)) {
 		wlvif = list_first_entry(&wl->wlvif_list,
@@ -1909,7 +1904,6 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	wl->time_offset = 0;
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
-	wl->sched_scanning = false;
 	wl->sleep_auth = WL1271_PSM_ILLEGAL;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
@@ -2349,6 +2343,11 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 		wl->scan_vif = NULL;
 		wl->scan.req = NULL;
 		ieee80211_scan_completed(wl->hw, true);
+	}
+
+	if (wl->sched_vif == vif) {
+		ieee80211_sched_scan_stopped(wl->hw);
+		wl->sched_vif = NULL;
 	}
 
 	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags)) {
@@ -3369,7 +3368,7 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 	if (ret < 0)
 		goto out_sleep;
 
-	wl->sched_scanning = true;
+	wl->sched_vif = vif;
 
 out_sleep:
 	wl1271_ps_elp_sleep(wl);
@@ -5780,7 +5779,6 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size)
 	wl->ap_fw_ps_map = 0;
 	wl->quirks = 0;
 	wl->platform_quirks = 0;
-	wl->sched_scanning = false;
 	wl->system_hlid = WL12XX_SYSTEM_HLID;
 	wl->active_sta_count = 0;
 	wl->fwlog_size = 0;
