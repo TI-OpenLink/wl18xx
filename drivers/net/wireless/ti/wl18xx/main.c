@@ -44,8 +44,8 @@
 
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
-static char *ht_mode_param = "wide";
-static char *board_type_param = "hdk";
+static char *ht_mode_param = NULL;
+static char *board_type_param = NULL;
 static bool checksum_param = false;
 static bool enable_11a_param = true;
 static bool disable_yield_fix = true;
@@ -496,16 +496,20 @@ static struct wlcore_conf wl18xx_conf = {
 };
 
 static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
+	.ht = {
+		.mode				= HT_MODE_MIMO,
+	},
 	.phy = {
 		.phy_standalone			= 0x00,
 		.primary_clock_setting_time	= 0x05,
 		.clock_valid_on_wake_up		= 0x00,
 		.secondary_clock_setting_time	= 0x05,
+		.board_type 			= BOARD_TYPE_HDK_18XX,
 		.rdl				= 0x01,
 		.auto_detect			= 0x00,
 		.dedicated_fem			= FEM_NONE,
-		.low_band_component		= COMPONENT_2_WAY_SWITCH,
-		.low_band_component_type	= 0x05,
+		.low_band_component		= COMPONENT_3_WAY_SWITCH,
+		.low_band_component_type	= 0x04,
 		.high_band_component		= COMPONENT_2_WAY_SWITCH,
 		.high_band_component_type	= 0x09,
 		.tcxo_ldo_voltage		= 0x00,
@@ -898,10 +902,18 @@ static void wl18xx_pre_upload(struct wl1271 *wl)
 	tmp = wl1271_read32(wl, WL18XX_SCR_PAD2);
 }
 
-static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
+static int wl18xx_set_mac_and_phy(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
+	struct wl18xx_mac_and_phy_params *params;
 	size_t len;
+	int ret = 0;
+
+	params = kmemdup(&priv->conf.phy, sizeof(*params), GFP_KERNEL);
+	if (!params) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	/* the parameters struct is smaller for PG1 */
 	if (wl->chip.id == CHIP_ID_185x_PG10)
@@ -910,8 +922,11 @@ static void wl18xx_set_mac_and_phy(struct wl1271 *wl)
 		len = sizeof(struct wl18xx_mac_and_phy_params);
 
 	wlcore_set_partition(wl, &wl->ptable[PART_PHY_INIT]);
-	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, (u8 *)&priv->conf.phy, len,
+	wl1271_write(wl, WL18XX_PHY_INIT_MEM_ADDR, params, len,
 		     false);
+out:
+	kfree(params);
+	return ret;
 }
 
 static void wl18xx_enable_interrupts(struct wl1271 *wl)
@@ -937,7 +952,9 @@ static int wl18xx_boot(struct wl1271 *wl)
 	if (ret < 0)
 		goto out;
 
-	wl18xx_set_mac_and_phy(wl);
+	ret = wl18xx_set_mac_and_phy(wl);
+	if (ret < 0)
+		goto out;
 
 	ret = wlcore_boot_run_firmware(wl);
 	if (ret < 0)
@@ -1143,12 +1160,14 @@ static u32 wl18xx_sta_get_ap_rate_mask(struct wl1271 *wl,
 static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 					     struct wl12xx_vif *wlvif)
 {
+	struct wl18xx_priv *priv = wl->priv;
+
 	if ((wlvif->channel_type == NL80211_CHAN_HT40MINUS ||
 	     wlvif->channel_type == NL80211_CHAN_HT40PLUS) &&
-	    !strcmp(ht_mode_param, "wide")) {
+	     priv->conf.ht.mode == HT_MODE_WIDE) {
 		wl1271_debug(DEBUG_ACX, "using wide channel rate mask");
 		return CONF_TX_RATE_USE_WIDE_CHAN;
-	} else if (!strcmp(ht_mode_param, "mimo")) {
+	} else if (priv->conf.ht.mode == HT_MODE_MIMO) {
 		wl1271_debug(DEBUG_ACX, "using MIMO rate mask");
 
 		/*
@@ -1450,58 +1469,37 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->stats.fw_stats_len = sizeof(struct wl18xx_acx_statistics);
 	wl->static_data_priv_len = sizeof(struct wl18xx_static_data_priv);
 
-	if (!strcmp(ht_mode_param, "wide")) {
-		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
-		       &wl18xx_siso40_ht_cap,
-		       sizeof(wl18xx_siso40_ht_cap));
-		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
-		       &wl18xx_siso40_ht_cap,
-		       sizeof(wl18xx_siso40_ht_cap));
-	} else if (!strcmp(ht_mode_param, "mimo")) {
-		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
-		       &wl18xx_mimo_ht_cap_2ghz,
-		       sizeof(wl18xx_mimo_ht_cap_2ghz));
-		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
-		       &wl18xx_mimo_ht_cap_5ghz,
-		       sizeof(wl18xx_mimo_ht_cap_5ghz));
-	} else if (!strcmp(ht_mode_param, "siso20")) {
-		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
-		       &wl18xx_siso20_ht_cap,
-		       sizeof(wl18xx_siso20_ht_cap));
-		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
-		       &wl18xx_siso20_ht_cap,
-		       sizeof(wl18xx_siso20_ht_cap));
-	} else {
-		wl1271_error("invalid ht_mode '%s'", ht_mode_param);
-		ret = -EINVAL;
-		goto out_free;
-	}
-
 	ret = wl18xx_conf_init(wl, &pdev->dev);
 	if (ret < 0)
 		goto out_free;
 
-	if (!strcmp(board_type_param, "fpga")) {
-		priv->conf.phy.board_type = BOARD_TYPE_FPGA_18XX;
-	} else if (!strcmp(board_type_param, "hdk")) {
-		priv->conf.phy.board_type = BOARD_TYPE_HDK_18XX;
-		/* HACK! Just for now we hardcode HDK to 0x06 */
-		priv->conf.phy.low_band_component_type = 0x06;
-	} else if (!strcmp(board_type_param, "dvp")) {
-		priv->conf.phy.board_type = BOARD_TYPE_DVP_18XX;
-	} else if (!strcmp(board_type_param, "evb")) {
-		priv->conf.phy.board_type = BOARD_TYPE_EVB_18XX;
-	} else if (!strcmp(board_type_param, "com8")) {
-		priv->conf.phy.board_type = BOARD_TYPE_COM8_18XX;
-		/* HACK! Just for now we hardcode COM8 to 0x06 */
-		priv->conf.phy.low_band_component_type = 0x06;
-	} else {
-		wl1271_error("invalid board type '%s'", board_type_param);
+	/* If the module param is set, update it in conf */
+	if (board_type_param) {
+		if (!strcmp(board_type_param, "fpga")) {
+			priv->conf.phy.board_type = BOARD_TYPE_FPGA_18XX;
+		} else if (!strcmp(board_type_param, "hdk")) {
+			priv->conf.phy.board_type = BOARD_TYPE_HDK_18XX;
+		} else if (!strcmp(board_type_param, "dvp")) {
+			priv->conf.phy.board_type = BOARD_TYPE_DVP_18XX;
+		} else if (!strcmp(board_type_param, "evb")) {
+			priv->conf.phy.board_type = BOARD_TYPE_EVB_18XX;
+		} else if (!strcmp(board_type_param, "com8")) {
+			priv->conf.phy.board_type = BOARD_TYPE_COM8_18XX;
+		} else {
+			wl1271_error("invalid board type '%s'",
+				board_type_param);
+			ret = -EINVAL;
+			goto out_free;
+		}
+	}
+
+	if (priv->conf.phy.board_type >= NUM_BOARD_TYPES) {
+		wl1271_error("invalid board type '%d'",
+			priv->conf.phy.board_type);
 		ret = -EINVAL;
 		goto out_free;
 	}
 
-	/* If the module param is set, update it in conf */
 	if (low_band_component_param != -1)
 		priv->conf.phy.low_band_component = low_band_component_param;
 	if (low_band_component_type_param != -1)
@@ -1521,6 +1519,47 @@ int __devinit wl18xx_probe(struct platform_device *pdev)
 		priv->conf.phy.number_of_assembled_ant5 = n_antennas_5_param;
 	if (dc2dc_param != -1)
 		priv->conf.phy.external_pa_dc2dc = dc2dc_param;
+
+	if (ht_mode_param) {
+		if (!strcmp(ht_mode_param, "mimo"))
+			priv->conf.ht.mode = HT_MODE_MIMO;
+		else if (!strcmp(ht_mode_param, "wide"))
+			priv->conf.ht.mode = HT_MODE_WIDE;
+		else if (!strcmp(ht_mode_param, "siso20"))
+			priv->conf.ht.mode = HT_MODE_SISO20;
+		else {
+			wl1271_error("invalid ht_mode '%s'", ht_mode_param);
+			ret = -EINVAL;
+			goto out_free;
+		}
+	}
+
+	if (priv->conf.ht.mode == HT_MODE_WIDE) {
+		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
+		       &wl18xx_siso40_ht_cap,
+		       sizeof(wl18xx_siso40_ht_cap));
+		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
+		       &wl18xx_siso40_ht_cap,
+		       sizeof(wl18xx_siso40_ht_cap));
+	} else if (priv->conf.ht.mode == HT_MODE_MIMO) {
+		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
+		       &wl18xx_mimo_ht_cap_2ghz,
+		       sizeof(wl18xx_mimo_ht_cap_2ghz));
+		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
+		       &wl18xx_mimo_ht_cap_5ghz,
+		       sizeof(wl18xx_mimo_ht_cap_5ghz));
+	} else if (priv->conf.ht.mode == HT_MODE_SISO20) {
+		memcpy(&wl->ht_cap[IEEE80211_BAND_2GHZ],
+		       &wl18xx_siso20_ht_cap,
+		       sizeof(wl18xx_siso20_ht_cap));
+		memcpy(&wl->ht_cap[IEEE80211_BAND_5GHZ],
+		       &wl18xx_siso20_ht_cap,
+		       sizeof(wl18xx_siso20_ht_cap));
+	} else {
+		wl1271_error("invalid ht_mode '%s'", ht_mode_param);
+		ret = -EINVAL;
+		goto out_free;
+	}
 
 	if (Psat == -1)
 		Psat = priv->conf.phy.Psat;
