@@ -130,9 +130,9 @@ static int wl1271_event_process(struct wl1271 *wl)
 	if (vector & PERIODIC_SCAN_COMPLETE_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT, "PERIODIC_SCAN_COMPLETE_EVENT "
 			     "(status 0x%0x)", mbox->scheduled_scan_status);
-		if (wl->sched_scanning) {
+		if (wl->sched_vif) {
 			ieee80211_sched_scan_stopped(wl->hw);
-			wl->sched_scanning = false;
+			wl->sched_vif = NULL;
 		}
 	}
 
