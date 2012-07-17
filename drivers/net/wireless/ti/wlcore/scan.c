@@ -337,7 +337,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	 */
 	cmd->total_cycles = 1;
 
-	/* TODO: how to set tx rate? */
+	if (req->no_cck)
+		cmd->rate = WLCORE_SCAN_RATE_6;
 
 	cmd->tag = WL1271_SCAN_DEFAULT_TAG;
 
