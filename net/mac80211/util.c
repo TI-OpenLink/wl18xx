@@ -1885,3 +1885,26 @@ int ieee80211_ave_rssi(struct ieee80211_vif *vif)
 	return ifmgd->ave_beacon_signal;
 }
 EXPORT_SYMBOL_GPL(ieee80211_ave_rssi);
+
+int ieee80211_started_vifs_count(struct ieee80211_hw *hw)
+{
+	struct ieee80211_local *local = hw_to_local(hw);
+	struct ieee80211_sub_if_data *sdata;
+	int count = 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(sdata, &local->interfaces, list) {
+		if (!ieee80211_sdata_running(sdata))
+			continue;
+
+		if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||
+		    sdata->vif.type == NL80211_IFTYPE_MONITOR)
+			continue;
+
+		if (!sdata->vif.bss_conf.idle)
+			count++;
+	}
+	rcu_read_unlock();
+	return count;
+}
+EXPORT_SYMBOL(ieee80211_started_vifs_count);

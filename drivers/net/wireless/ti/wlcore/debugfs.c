@@ -386,6 +386,22 @@ static const struct file_operations forced_ps_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t vif_count_read(struct file *file, char __user *user_buf,
+			  size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	return wl1271_format_buffer(user_buf, count,
+				    ppos, "%d\n",
+				    ieee80211_started_vifs_count(wl->hw));
+}
+
+static const struct file_operations vif_count_ops = {
+	.read = vif_count_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
@@ -1336,6 +1352,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(irq_timeout, rootdir);
 	DEBUGFS_ADD(fw_stats_raw, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
+	DEBUGFS_ADD(vif_count, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
