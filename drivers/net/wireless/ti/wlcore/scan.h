@@ -184,6 +184,14 @@ enum
 	SCAN_TYPE_TRACKING	= 2,
 };
 
+/* probe request rate */
+enum
+{
+	WLCORE_SCAN_RATE_1	= 0,
+	WLCORE_SCAN_RATE_5_5	= 1,
+	WLCORE_SCAN_RATE_6	= 2,
+};
+
 struct wl1271_cmd_scan_params {
 	struct wl1271_cmd_header header;
 
@@ -231,7 +239,8 @@ struct wl1271_cmd_scan_params {
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
 	u8 ssid_len;	 /* For SCAN_SSID_FILTER_SPECIFIC */
 	u8 tag;
-	u8 padding1[2];
+	u8 rate;
+	u8 padding1[1];
 } __packed;
 
 
