@@ -692,7 +692,11 @@ static int ieee80211_set_channel(struct wiphy *wiphy,
 	/* don't allow global channel. TODO: fix */
 	if (!netdev) {
 		printk("TEMP. we currently don't support global channel\n");
-		return -EINVAL;
+		/*
+		 * return 0 to avoid some warning. we don't really care
+		 * about it currently, because the channel should be
+		 * configured for the AP interface as well */
+		return 0;
 	}
 
 	switch (ieee80211_get_channel_mode(local, NULL)) {
