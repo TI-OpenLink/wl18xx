@@ -816,7 +816,8 @@ enum nl80211_commands {
 	NL80211_CMD_UPDATE_FT_IES,
 	NL80211_CMD_FT_EVENT,
 
-	NL80211_CMD_SCAN_CANCEL,
+	/* leave some room for adding nl80211 commands for old kernels */
+	NL80211_CMD_SCAN_CANCEL = NL80211_CMD_CH_SWITCH_NOTIFY + 20,
 
 	NL80211_CMD_IM_SCAN_RESULT,
 
@@ -3098,6 +3099,14 @@ enum nl80211_tx_power_setting {
  *	first (including SNAP header unpacking) and then matched.
  * @NL80211_WOWLAN_PKTPAT_OFFSET: packet offset, pattern is matched after
  *	these fixed number of bytes of received packet
+ *
+ * @NL80211_WOWLAN_ACTION: pattern action which can be either to wake up
+ *      on this pattern or drop it and avoid wake up. This can be used to
+ *      specify an excpetion/blacklist pattern that shouldn't cause wakeup
+ *      despite the packet matching another wowlan pattern. For example:
+ *      configure all IPv4 multicast to wake up except certain type of packets
+ *      This can be either NL80211_WOWLAN_ACTION_ALLOW or DROP.
+ *      If this attribute is missing the default would be ALLOW.
  * @NUM_NL80211_WOWLAN_PKTPAT: number of attributes
  * @MAX_NL80211_WOWLAN_PKTPAT: max attribute number
  */
@@ -3106,9 +3115,28 @@ enum nl80211_wowlan_packet_pattern_attr {
 	NL80211_WOWLAN_PKTPAT_MASK,
 	NL80211_WOWLAN_PKTPAT_PATTERN,
 	NL80211_WOWLAN_PKTPAT_OFFSET,
+	NL80211_WOWLAN_PKTPAT_ACTION = NL80211_WOWLAN_PKTPAT_PATTERN + 10,
 
 	NUM_NL80211_WOWLAN_PKTPAT,
 	MAX_NL80211_WOWLAN_PKTPAT = NUM_NL80211_WOWLAN_PKTPAT - 1,
+};
+
+
+/**
+ * enum nl80211_wowlan_action - WoWLAN packet pattern action
+ * @NL80211_WOWLAN_ACTION_ALLOW: this pattern should wake up the host
+ * and the packet should be forwarded to the host unless this packet
+ * matches a DROP rule.
+ * @NL80211_WOWLAN_ACTION_DROP: a packet containing this pattern shouldn't
+ * wake up the host.
+ */
+enum nl80211_wowlan_action {
+	NL80211_WOWLAN_ACTION_ALLOW,
+	NL80211_WOWLAN_ACTION_DROP,
+
+	/* keep last */
+	NUM_NL80211_WOWLAN_ACTION,
+	MAX_NL80211_WOWLAN_ACTION = NUM_NL80211_WOWLAN_ACTION - 1,
 };
 
 /**
