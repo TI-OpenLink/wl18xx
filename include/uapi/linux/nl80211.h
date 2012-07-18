@@ -601,6 +601,16 @@
  *      disabled (marked by the presence of @NL80211_ATTR_ROAMING_DISABLED flag)
  *      userspace should disable background scans and roaming attempts.
  *
+ * @NL80211_CMD_AP_CH_SWITCH: Perform a channel switch in the driver (for
+ *	AP/GO).
+ *	%NL80211_ATTR_WIPHY_FREQ: new channel frequency.
+ *	%NL80211_ATTR_CH_SWITCH_BLOCK_TX: block tx on the current channel.
+ *	%NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX: block tx on the target channel.
+ *	%NL80211_FREQ_ATTR_CH_SWITCH_COUNT: number of TBTT's until the channel
+ *	switch event.
+ *
+ * @NL80211_CMD_REQ_CH_SW: Request a channel switch from a GO/AP.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -751,12 +761,19 @@ enum nl80211_commands {
 
 	NL80211_CMD_SET_MCAST_RATE,
 
-	NL80211_CMD_SCAN_CANCEL,
+	/* leave some room for adding nl80211 commands for old kernels */
+	NL80211_CMD_SCAN_CANCEL = NL80211_CMD_CH_SWITCH_NOTIFY + 10,
 
 	NL80211_CMD_IM_SCAN_RESULT,
 
 	NL80211_CMD_ROAMING_SUPPORT,
 
+	/* set/cancel_priority is depcrecated. keep it for backward compat */
+	NL80211_CMD_SET_PRIORITY,
+	NL80211_CMD_CANCEL_PRIORITY,
+
+	NL80211_CMD_AP_CH_SWITCH,
+	NL80211_CMD_REQ_CH_SW,
 	/* add new commands above here */
 
 	/* used to define NL80211_CMD_MAX below */
@@ -1359,6 +1376,14 @@ enum nl80211_commands {
  * @NL80211_ATTR_ROAMING_DISABLED: indicates that the driver can't do roaming
  *      currently.
  *
+ * @NL80211_ATTR_CH_SWITCH_COUNT: the number of TBTT's until the channel
+ *	switch event
+ * @NL80211_ATTR_CH_SWITCH_BLOCK_TX: block tx on the current channel before the
+ *	channel switch operation.
+ * @NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX: block tx on the target channel after
+ *	the channel switch operation, should be set if the target channel is
+ *	DFS channel.
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1626,7 +1651,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_CENTER_FREQ1,
 	NL80211_ATTR_CENTER_FREQ2,
 
-	NL80211_ATTR_IM_SCAN_RESULT,
+	/* leave some room for new attributes in nl80211 updates */
+	NL80211_ATTR_IM_SCAN_RESULT = NL80211_ATTR_BG_SCAN_PERIOD + 10,
 	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
 
 	NL80211_ATTR_SCAN_MIN_DWELL,
@@ -1637,6 +1663,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS,
 
 	NL80211_ATTR_ROAMING_DISABLED,
+	NL80211_ATTR_CH_SWITCH_COUNT,
+	NL80211_ATTR_CH_SWITCH_BLOCK_TX,
+	NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -2878,6 +2907,13 @@ enum nl80211_tx_power_setting {
  *	Note that the pattern matching is done as though frames were not
  *	802.11 frames but 802.3 frames, i.e. the frame is fully unpacked
  *	first (including SNAP header unpacking) and then matched.
+ * @NL80211_WOWLAN_ACTION: pattern action which can be either to wake up
+ *      on this pattern or drop it and avoid wake up. This can be used to
+ *      specify an excpetion/blacklist pattern that shouldn't cause wakeup
+ *      despite the packet matching another wowlan pattern. For example:
+ *      configure all IPv4 multicast to wake up except certain type of packets
+ *      This can be either NL80211_WOWLAN_ACTION_ALLOW or DROP.
+ *      If this attribute is missing the default would be ALLOW.
  * @NUM_NL80211_WOWLAN_PKTPAT: number of attributes
  * @MAX_NL80211_WOWLAN_PKTPAT: max attribute number
  */
@@ -2885,9 +2921,28 @@ enum nl80211_wowlan_packet_pattern_attr {
 	__NL80211_WOWLAN_PKTPAT_INVALID,
 	NL80211_WOWLAN_PKTPAT_MASK,
 	NL80211_WOWLAN_PKTPAT_PATTERN,
+	NL80211_WOWLAN_PKTPAT_ACTION = NL80211_WOWLAN_PKTPAT_PATTERN + 10,
 
 	NUM_NL80211_WOWLAN_PKTPAT,
 	MAX_NL80211_WOWLAN_PKTPAT = NUM_NL80211_WOWLAN_PKTPAT - 1,
+};
+
+
+/**
+ * enum nl80211_wowlan_action - WoWLAN packet pattern action
+ * @NL80211_WOWLAN_ACTION_ALLOW: this pattern should wake up the host
+ * and the packet should be forwarded to the host unless this packet
+ * matches a DROP rule.
+ * @NL80211_WOWLAN_ACTION_DROP: a packet containing this pattern shouldn't
+ * wake up the host.
+ */
+enum nl80211_wowlan_action {
+	NL80211_WOWLAN_ACTION_ALLOW,
+	NL80211_WOWLAN_ACTION_DROP,
+
+	/* keep last */
+	NUM_NL80211_WOWLAN_ACTION,
+	MAX_NL80211_WOWLAN_ACTION = NUM_NL80211_WOWLAN_ACTION - 1,
 };
 
 /**
@@ -3194,6 +3249,10 @@ enum nl80211_ap_sme_features {
  * @NL80211_FEATURE_NEED_OBSS_SCAN: The driver expects userspace to perform
  *	OBSS scans and generate 20/40 BSS coex reports. This flag is used only
  *	for drivers implementing the CONNECT API, for AUTH/ASSOC it is implied.
+ * @NL80211_FEATURE_SCHED_SCAN_INTERVALS: This driver supports using
+ *	short interval for sched scan and then switching to a longer
+ *	interval.
+ * @NL80211_FEATURE_AP_CH_SWITCH: This driver supports AP channel switch.
  */
 enum nl80211_feature_flags {
 	NL80211_FEATURE_SK_TX_STATUS			= 1 << 0,
@@ -3207,7 +3266,10 @@ enum nl80211_feature_flags {
 	NL80211_FEATURE_AP_SCAN				= 1 << 8,
 	NL80211_FEATURE_VIF_TXPOWER			= 1 << 9,
 	NL80211_FEATURE_NEED_OBSS_SCAN			= 1 << 10,
+
+	/* leave room for new feature flags */
 	NL80211_FEATURE_SCHED_SCAN_INTERVALS		= 1 << 20,
+	NL80211_FEATURE_AP_CH_SWITCH			= 1 << 21,
 };
 
 /**
