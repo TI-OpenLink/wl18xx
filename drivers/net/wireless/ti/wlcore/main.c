@@ -2706,43 +2706,6 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		}
 	}
 
-	if ((changed & IEEE80211_CONF_CHANGE_PS) && !is_ap) {
-
-		if ((conf->flags & IEEE80211_CONF_PS) &&
-		    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
-		    !test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
-
-			int ps_mode;
-			char *ps_mode_str;
-
-			if (wl->conf.conn.forced_ps) {
-				ps_mode = STATION_POWER_SAVE_MODE;
-				ps_mode_str = "forced";
-			} else {
-				ps_mode = STATION_AUTO_PS_MODE;
-				ps_mode_str = "auto";
-			}
-
-			wl1271_debug(DEBUG_PSM, "%s ps enabled", ps_mode_str);
-
-			ret = wl1271_ps_set_mode(wl, wlvif, ps_mode);
-
-			if (ret < 0)
-				wl1271_warning("enter %s ps failed %d",
-					       ps_mode_str, ret);
-
-		} else if (!(conf->flags & IEEE80211_CONF_PS) &&
-			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
-
-			wl1271_debug(DEBUG_PSM, "auto ps disabled");
-
-			ret = wl1271_ps_set_mode(wl, wlvif,
-						 STATION_ACTIVE_MODE);
-			if (ret < 0)
-				wl1271_warning("exit auto ps failed %d", ret);
-		}
-	}
-
 	if (conf->power_level != wlvif->power_level) {
 		ret = wl1271_acx_tx_power(wl, wlvif, conf->power_level);
 		if (ret < 0)
@@ -4108,6 +4071,43 @@ sta_not_found:
 	ret = wl1271_bss_erp_info_changed(wl, vif, bss_conf, changed);
 	if (ret < 0)
 		goto out;
+
+	if (changed & BSS_CHANGED_PS) {
+
+		if ((bss_conf->ps) &&
+		    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
+		    !test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
+
+			int ps_mode;
+			char *ps_mode_str;
+
+			if (wl->conf.conn.forced_ps) {
+				ps_mode = STATION_POWER_SAVE_MODE;
+				ps_mode_str = "forced";
+			} else {
+				ps_mode = STATION_AUTO_PS_MODE;
+				ps_mode_str = "auto";
+			}
+
+			wl1271_debug(DEBUG_PSM, "%s ps enabled", ps_mode_str);
+
+			ret = wl1271_ps_set_mode(wl, wlvif, ps_mode);
+
+			if (ret < 0)
+				wl1271_warning("enter %s ps failed %d",
+					       ps_mode_str, ret);
+
+		} else if (!bss_conf->ps &&
+			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
+
+			wl1271_debug(DEBUG_PSM, "auto ps disabled");
+
+			ret = wl1271_ps_set_mode(wl, wlvif,
+						 STATION_ACTIVE_MODE);
+			if (ret < 0)
+				wl1271_warning("exit auto ps failed %d", ret);
+		}
+	}
 
 	if (do_join) {
 		ret = wl1271_join(wl, wlvif);
