@@ -1005,6 +1005,26 @@ void ieee80211_recalc_ps(struct ieee80211_local *local, s32 latency)
 		local->ps_sdata = NULL;
 	}
 
+	list_for_each_entry(sdata, &local->interfaces, list) {
+		if (!ieee80211_sdata_running(sdata))
+			continue;
+		if (sdata->vif.type != NL80211_IFTYPE_STATION)
+			continue;
+
+		/* already in ps */
+		if (sdata == local->ps_sdata &&
+		    sdata->vif.bss_conf.ps)
+			continue;
+
+		/* already active */
+		if (sdata != local->ps_sdata &&
+		    !sdata->vif.bss_conf.ps)
+			continue;
+
+		sdata->vif.bss_conf.ps = local->ps_sdata == sdata;
+		ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_PS);
+	}
+
 	ieee80211_change_ps(local);
 }
 
@@ -1369,6 +1389,8 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 	if (local->hw.conf.flags & IEEE80211_CONF_PS) {
 		local->hw.conf.flags &= ~IEEE80211_CONF_PS;
 		ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_PS);
+		sdata->vif.bss_conf.ps = false;
+		changed |= BSS_CHANGED_PS;
 	}
 	local->ps_sdata = NULL;
 
