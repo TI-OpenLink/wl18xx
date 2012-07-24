@@ -2177,10 +2177,6 @@ static bool wl12xx_need_fw_change(struct wl1271 *wl,
 	if (!wl->mr_fw_name)
 		return false;
 
-	/* no need for fw change if a single fw is used */
-	if (!wl->mr_fw_name)
-		return false;
-
 	if (vif_count > 1 && current_fw == WL12XX_FW_TYPE_NORMAL)
 		return true;
 	if (vif_count <= 1 && current_fw == WL12XX_FW_TYPE_MULTI)
