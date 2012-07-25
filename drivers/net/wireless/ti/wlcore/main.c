@@ -702,7 +702,7 @@ static int wl12xx_fetch_firmware(struct wl1271 *wl, bool plt)
 		 * we can't call wl12xx_get_vif_count() here because
 		 * wl->mutex is taken, so use the cached last_vif_count value
 		 */
-		if (wl->last_vif_count > 1) {
+		if (wl->last_vif_count > 1 && wl->mr_fw_name) {
 			fw_type = WL12XX_FW_TYPE_MULTI;
 			fw_name = wl->mr_fw_name;
 		} else {
@@ -2180,6 +2180,10 @@ static bool wl12xx_need_fw_change(struct wl1271 *wl,
 
 	/* no need for fw change if the device is OFF */
 	if (wl->state == WL1271_STATE_OFF)
+		return false;
+
+	/* no need for fw change if a single fw is used */
+	if (!wl->mr_fw_name)
 		return false;
 
 	if (vif_count > 1 && current_fw == WL12XX_FW_TYPE_NORMAL)
