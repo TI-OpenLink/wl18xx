@@ -869,13 +869,17 @@ static inline void drv_mgd_prepare_tx(struct ieee80211_local *local,
 	trace_drv_return_void(local);
 }
 
-static inline void drv_add_chanctx(struct ieee80211_local *local,
-				   struct ieee80211_chanctx *ctx)
+static inline int drv_add_chanctx(struct ieee80211_local *local,
+				  struct ieee80211_chanctx *ctx)
 {
+	int ret = -EOPNOTSUPP;
+
 	trace_drv_add_chanctx(local, ctx);
 	if (local->ops->add_chanctx)
-		local->ops->add_chanctx(&local->hw, &ctx->conf);
-	trace_drv_return_void(local);
+		ret = local->ops->add_chanctx(&local->hw, &ctx->conf);
+	trace_drv_return_int(local, ret);
+
+	return ret;
 }
 
 static inline void drv_remove_chanctx(struct ieee80211_local *local,

@@ -2471,8 +2471,8 @@ struct ieee80211_ops {
 	void	(*mgd_prepare_tx)(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif);
 
-	void (*add_chanctx)(struct ieee80211_hw *hw,
-			    struct ieee80211_chanctx_conf *ctx);
+	int (*add_chanctx)(struct ieee80211_hw *hw,
+			   struct ieee80211_chanctx_conf *ctx);
 	void (*remove_chanctx)(struct ieee80211_hw *hw,
 			       struct ieee80211_chanctx_conf *ctx);
 	void (*change_chanctx)(struct ieee80211_hw *hw,

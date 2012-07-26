@@ -234,9 +234,12 @@ ieee80211_new_chanctx(struct ieee80211_local *local,
 	ctx->conf.channel_type = channel_type;
 	ctx->mode = mode;
 
-	list_add(&ctx->list, &local->chanctx_list);
+	if (drv_add_chanctx(local, ctx)) {
+		kfree(ctx);
+		return NULL;
+	}
 
-	drv_add_chanctx(local, ctx);
+	list_add(&ctx->list, &local->chanctx_list);
 
 	return ctx;
 }
