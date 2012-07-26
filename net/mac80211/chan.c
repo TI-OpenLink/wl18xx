@@ -223,20 +223,22 @@ ieee80211_new_chanctx(struct ieee80211_local *local,
 		      enum ieee80211_chanctx_mode mode)
 {
 	struct ieee80211_chanctx *ctx;
+	int err;
 
 	lockdep_assert_held(&local->chanctx_mtx);
 
 	ctx = kzalloc(sizeof(*ctx) + local->hw.chanctx_data_size, GFP_KERNEL);
 	if (!ctx)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	ctx->conf.channel = channel;
 	ctx->conf.channel_type = channel_type;
 	ctx->mode = mode;
 
-	if (drv_add_chanctx(local, ctx)) {
+	err = drv_add_chanctx(local, ctx);
+	if (err) {
 		kfree(ctx);
-		return NULL;
+		return ERR_PTR(err);
 	}
 
 	list_add(&ctx->list, &local->chanctx_list);
@@ -343,10 +345,10 @@ static void __ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata)
 		ieee80211_free_chanctx(local, ctx);
 }
 
-bool ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
-			       struct ieee80211_channel *channel,
-			       enum nl80211_channel_type channel_type,
-			       enum ieee80211_chanctx_mode mode)
+int ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
+			      struct ieee80211_channel *channel,
+			      enum nl80211_channel_type channel_type,
+			      enum ieee80211_chanctx_mode mode)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_chanctx *ctx;
@@ -357,14 +359,14 @@ bool ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
 	ctx = ieee80211_find_chanctx(local, channel, channel_type, mode);
 	if (!ctx)
 		ctx = ieee80211_new_chanctx(local, channel, channel_type, mode);
-	if (!ctx) {
+	if (IS_ERR(ctx)) {
 		mutex_unlock(&local->chanctx_mtx);
-		return false;
+		return PTR_ERR(ctx);
 	}
 
 	ieee80211_assign_vif_chanctx(sdata, ctx);
 	mutex_unlock(&local->chanctx_mtx);
-	return true;
+	return 0;
 }
 
 void ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata)

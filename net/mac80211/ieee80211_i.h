@@ -1544,10 +1544,11 @@ bool ieee80211_set_channel_type(struct ieee80211_local *local,
 enum nl80211_channel_type
 ieee80211_ht_oper_to_channel_type(struct ieee80211_ht_operation *ht_oper);
 
-bool ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
-			       struct ieee80211_channel *channel,
-			       enum nl80211_channel_type channel_type,
-			       enum ieee80211_chanctx_mode mode);
+int __must_check
+ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
+			  struct ieee80211_channel *channel,
+			  enum nl80211_channel_type channel_type,
+			  enum ieee80211_chanctx_mode mode);
 void ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata);
 
 #ifdef CONFIG_MAC80211_NOINLINE
