@@ -2061,7 +2061,7 @@ failed:
 	mac80211_hwsim_free();
 	return err;
 }
-
+module_init(init_mac80211_hwsim);
 
 static void __exit exit_mac80211_hwsim(void)
 {
@@ -2072,7 +2072,4 @@ static void __exit exit_mac80211_hwsim(void)
 	mac80211_hwsim_free();
 	unregister_netdev(hwsim_mon);
 }
-
-
-module_init(init_mac80211_hwsim);
 module_exit(exit_mac80211_hwsim);
