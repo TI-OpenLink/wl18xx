@@ -226,8 +226,10 @@ void ieee80211_scan_rx(struct ieee80211_local *local, struct sk_buff *skb)
 					mgmt, skb->len, &elems,
 					channel, beacon);
 	if (bss) {
+		struct ieee80211_sub_if_data *sdata = sdata1 ?: sdata2;
+
 		cbss = container_of((void *)bss, struct cfg80211_bss, priv);
-		cfg80211_send_intermediate_result(sdata1->dev, cbss);
+		cfg80211_send_intermediate_result(sdata->dev, cbss);
 		ieee80211_rx_bss_put(local, bss);
 	}
 }
