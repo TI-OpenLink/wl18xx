@@ -1632,7 +1632,8 @@ static int __devinit wl12xx_probe(struct platform_device *pdev)
 	struct ieee80211_hw *hw;
 	struct wl12xx_priv *priv;
 
-	hw = wlcore_alloc_hw(sizeof(*priv), WL12XX_AGGR_BUFFER_SIZE);
+	hw = wlcore_alloc_hw(sizeof(*priv), WL12XX_AGGR_BUFFER_SIZE,
+				WL12XX_NUM_TX_DESCRIPTORS);
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
 		return PTR_ERR(hw);
