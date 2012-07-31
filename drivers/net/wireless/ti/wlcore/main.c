@@ -5978,7 +5978,7 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 }
 
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
-				     u32 mbox_size)
+				     u32 mbox_size, u32 num_tx_desc)
 {
 	struct ieee80211_hw *hw;
 	struct wl1271 *wl;
@@ -6103,7 +6103,18 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 		goto err_mbox;
 	}
 
+	wl->aggr_pkts_reason_num = num_tx_desc * 2;
+	wl->aggr_pkts_reason = kzalloc(wl->aggr_pkts_reason_num *
+			sizeof(struct wlcore_aggr_reason), GFP_KERNEL);
+	if (!wl->aggr_pkts_reason) {
+		ret = -ENOMEM;
+		goto err_buffer;
+	}
+
 	return hw;
+
+err_buffer:
+	kfree(wl->buffer_32);
 
 err_mbox:
 	kfree(wl->mbox);
@@ -6153,6 +6164,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 
 	wlcore_sysfs_free(wl);
 
+	kfree(wl->aggr_pkts_reason);
 	kfree(wl->buffer_32);
 	kfree(wl->mbox);
 	free_page((unsigned long)wl->fwlog);
