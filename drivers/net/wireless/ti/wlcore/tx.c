@@ -833,7 +833,8 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 		last_len = ret;
 		buf_offset += last_len;
 		wl->tx_packets_count++;
-		n_aggr_packets++;
+		if (n_aggr_packets < wl->aggr_pkts_reason_num - 1)
+			n_aggr_packets++;
 		if (has_data) {
 			desc = (struct wl1271_tx_hw_descr *) skb->data;
 			__set_bit(desc->hlid, active_hlids);

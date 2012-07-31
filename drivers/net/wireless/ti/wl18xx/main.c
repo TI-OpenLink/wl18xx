@@ -1862,7 +1862,8 @@ static int wl18xx_probe(struct platform_device *pdev)
 
 	hw = wlcore_alloc_hw(sizeof(struct wl18xx_priv),
 			     WL18XX_AGGR_BUFFER_SIZE,
-			     sizeof(struct wl18xx_event_mailbox));
+			     sizeof(struct wl18xx_event_mailbox),
+			     WL18XX_NUM_TX_DESCRIPTORS);
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
 		ret = PTR_ERR(hw);
