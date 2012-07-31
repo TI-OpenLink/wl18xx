@@ -508,7 +508,8 @@ struct wl1271 {
 	const struct ieee80211_iface_combination *iface_combinations;
 	u8 n_iface_combinations;
 
-	struct wlcore_aggr_reason aggr_pkts_reason[WLCORE_AGGR_MAX_PACKETS];
+	struct wlcore_aggr_reason *aggr_pkts_reason;
+	u32 aggr_pkts_reason_num;
 
 	u32 tx_completions[32];
 	u32 rx_completions[32];
@@ -520,7 +521,7 @@ struct wl1271 {
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
 int wlcore_remove(struct platform_device *pdev);
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
-				     u32 mbox_size);
+				     u32 mbox_size, u32 num_tx_desc);
 int wlcore_free_hw(struct wl1271 *wl);
 int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		   struct ieee80211_vif *vif,
