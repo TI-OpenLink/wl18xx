@@ -407,7 +407,7 @@ static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 
 	mutex_lock(&wl->mutex);
 
-	for (i = 0; i < WLCORE_AGGR_MAX_PACKETS; i++) {
+	for (i = 0; i < wl->aggr_pkts_reason_num; i++) {
 		total_buffer_full += wl->aggr_pkts_reason[i].buffer_full;
 		total_fw_buffer_full += wl->aggr_pkts_reason[i].fw_buffer_full;
 		total_other += wl->aggr_pkts_reason[i].other;

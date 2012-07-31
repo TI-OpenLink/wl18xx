@@ -413,7 +413,8 @@ struct wl1271 {
 	/* the minimum FW version required for the driver to work */
 	unsigned int min_fw_ver[NUM_FW_VER];
 
-	struct wlcore_aggr_reason aggr_pkts_reason[WLCORE_AGGR_MAX_PACKETS];
+	struct wlcore_aggr_reason *aggr_pkts_reason;
+	u32 aggr_pkts_reason_num;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
