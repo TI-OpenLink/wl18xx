@@ -66,13 +66,7 @@
 /* HW limitation: maximum possible chunk size is 4095 bytes */
 #define WSPI_MAX_CHUNK_SIZE    4092
 
-/*
- * only support SPI for 12xx - this code should be reworked when 18xx
- * support is introduced
- */
-#define SPI_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
-
-#define WSPI_MAX_NUM_OF_CHUNKS (SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE)
+#define WSPI_MAX_NUM_OF_CHUNKS 16
 
 struct wl12xx_spi_glue {
 	struct device *dev;
@@ -270,6 +264,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
 					     void *buf, size_t len, bool fixed)
 {
 	struct wl12xx_spi_glue *glue = dev_get_drvdata(child->parent);
+	struct wl1271 *wl = dev_get_drvdata(child);
 	struct spi_transfer t[2 * (WSPI_MAX_NUM_OF_CHUNKS + 1)];
 	struct spi_message m;
 	u32 commands[WSPI_MAX_NUM_OF_CHUNKS];
@@ -277,7 +272,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
 	u32 chunk_len;
 	int i;
 
-	WARN_ON(len > SPI_AGGR_BUFFER_SIZE);
+	WARN_ON(len >  wl->aggr_buf_size);
 
 	spi_message_init(&m);
 	memset(t, 0, sizeof(t));
