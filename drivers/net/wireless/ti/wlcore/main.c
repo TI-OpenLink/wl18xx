@@ -5902,7 +5902,7 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 }
 
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
-				     u32 mbox_size)
+				     u32 mbox_size, u32 num_tx_desc)
 {
 	struct ieee80211_hw *hw;
 	struct wl1271 *wl;
