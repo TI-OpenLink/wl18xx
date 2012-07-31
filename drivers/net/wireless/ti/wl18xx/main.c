@@ -1520,7 +1520,8 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	int ret;
 
 	hw = wlcore_alloc_hw(sizeof(struct wl18xx_priv),
-			     WL18XX_AGGR_BUFFER_SIZE);
+			     WL18XX_AGGR_BUFFER_SIZE,
+			     WL18XX_NUM_TX_DESCRIPTORS);
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
 		ret = PTR_ERR(hw);
