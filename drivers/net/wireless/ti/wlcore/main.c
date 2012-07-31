@@ -5961,8 +5961,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 		goto err_mbox;
 	}
 
-	wl->aggr_pkts_reason_num = wl->aggr_buf_size /
-			sizeof(struct ieee80211_hdr);
+	wl->aggr_pkts_reason_num = num_tx_desc * 2;
 	wl->aggr_pkts_reason = kzalloc(wl->aggr_pkts_reason_num *
 			sizeof(struct wlcore_aggr_reason), GFP_KERNEL);
 	if (!wl->aggr_pkts_reason) {
