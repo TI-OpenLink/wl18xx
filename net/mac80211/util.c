@@ -780,6 +780,13 @@ u32 ieee802_11_parse_elems_crc(u8 *start, size_t len,
 			}
 			elems->ch_switch_ie = (void *)pos;
 			break;
+		case WLAN_EID_EXT_CHANSWITCH_ANN:
+			if (elen != sizeof(struct ieee80211_ext_chansw_ie)) {
+				elem_parse_failed = true;
+				break;
+			}
+			elems->ext_chansw_ie = (void *)pos;
+			break;
 		case WLAN_EID_QUIET:
 			if (!elems->quiet_elem) {
 				elems->quiet_elem = pos;

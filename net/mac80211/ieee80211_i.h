@@ -1183,6 +1183,7 @@ struct ieee802_11_elems {
 	u8 *perr;
 	struct ieee80211_rann_ie *rann;
 	struct ieee80211_channel_sw_ie *ch_switch_ie;
+	struct ieee80211_ext_chansw_ie *ext_chansw_ie;
 	u8 *country_elem;
 	u8 *pwr_constr_elem;
 	u8 *quiet_elem;	/* first quite element */
@@ -1256,10 +1257,6 @@ void ieee80211_recalc_ps_vif(struct ieee80211_sub_if_data *sdata);
 int ieee80211_max_network_latency(struct notifier_block *nb,
 				  unsigned long data, void *dummy);
 int ieee80211_set_arp_filter(struct ieee80211_sub_if_data *sdata);
-void ieee80211_sta_process_chanswitch(struct ieee80211_sub_if_data *sdata,
-				      struct ieee80211_channel_sw_ie *sw_elem,
-				      struct ieee80211_bss *bss,
-				      u64 timestamp);
 void ieee80211_sta_quiesce(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_restart(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata);
