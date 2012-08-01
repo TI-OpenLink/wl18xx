@@ -3540,6 +3540,17 @@ bool cfg80211_can_beacon_sec_chan(struct wiphy *wiphy,
 void cfg80211_ch_switch_notify(struct net_device *dev, int freq,
 			       enum nl80211_channel_type type);
 
+/**
+ * ieee80211_operating_class_to_band - convert operating class to band
+ *
+ * @operating_class: the operating class to convert
+ * @band: band pointer to fill
+ *
+ * Returns %true if the conversion was successful, %false otherwise.
+ */
+bool ieee80211_operating_class_to_band(u8 operating_class,
+				       enum ieee80211_band *band);
+
 /*
  * cfg80211_calculate_bitrate - calculate actual bitrate (in 100Kbps units)
  * @rate: given rate_info to calculate bitrate from
