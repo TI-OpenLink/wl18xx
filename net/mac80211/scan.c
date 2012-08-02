@@ -19,6 +19,7 @@
 #include <net/sch_generic.h>
 #include <linux/slab.h>
 #include <linux/export.h>
+#include <linux/moduleparam.h>
 #include <net/mac80211.h>
 
 #include "ieee80211_i.h"
@@ -28,6 +29,12 @@
 #define IEEE80211_PROBE_DELAY (HZ / 33)
 #define IEEE80211_CHANNEL_TIME (HZ / 33)
 #define IEEE80211_PASSIVE_CHANNEL_TIME (HZ / 8)
+
+static bool disable_scan_while_active;
+module_param(disable_scan_while_active, bool, 0644);
+MODULE_PARM_DESC(disable_scan_while_active,
+		 "Disable scanning on one interface while "
+		 "another sta interface is not idle");
 
 static void ieee80211_rx_bss_free(struct cfg80211_bss *cbss)
 {
@@ -385,6 +392,35 @@ static bool ieee80211_can_scan(struct ieee80211_local *local,
 	return true;
 }
 
+static bool ieee80211_other_vif_active(struct ieee80211_local *local,
+				       struct ieee80211_sub_if_data *cur_sdata)
+{
+	struct ieee80211_sub_if_data *sdata;
+	bool found = false;
+
+	rcu_read_lock();
+	list_for_each_entry(sdata, &local->interfaces, list) {
+		if (!ieee80211_sdata_running(sdata))
+			continue;
+
+		if (sdata->vif.type != NL80211_IFTYPE_STATION &&
+		    sdata->vif.type != NL80211_IFTYPE_AP)
+			continue;
+
+		if (sdata == cur_sdata)
+			continue;
+
+		if (sdata->vif.bss_conf.idle)
+			continue;
+
+		found = true;
+		break;
+	}
+	rcu_read_unlock();
+
+	return found;
+}
+
 void ieee80211_run_deferred_scan(struct ieee80211_local *local)
 {
 	lockdep_assert_held(&local->mtx);
@@ -439,6 +475,10 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
 	lockdep_assert_held(&local->mtx);
 
 	if (local->scan_req)
+		return -EBUSY;
+
+	if (disable_scan_while_active &&
+	    ieee80211_other_vif_active(local, sdata))
 		return -EBUSY;
 
 	if (!ieee80211_can_scan(local, sdata)) {
@@ -938,6 +978,10 @@ int ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_sched_scan_ies sched_scan_ies = {};
 	int ret, i;
+
+	if (disable_scan_while_active &&
+	    ieee80211_other_vif_active(local, sdata))
+		return -EBUSY;
 
 	mutex_lock(&local->mtx);
 
