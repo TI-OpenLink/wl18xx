@@ -5,137 +5,274 @@
 #include <linux/nl80211.h>
 #include <net/cfg80211.h>
 #include "ieee80211_i.h"
+#include "driver-ops.h"
 
-static enum ieee80211_chan_mode
-__ieee80211_get_channel_mode(struct ieee80211_local *local,
-			     struct ieee80211_sub_if_data *ignore)
+static bool
+ieee80211_channel_types_are_compatible(enum nl80211_channel_type chantype1,
+				       enum nl80211_channel_type chantype2,
+				       enum nl80211_channel_type *compat)
 {
-	struct ieee80211_sub_if_data *sdata;
+	/*
+	 * start out with chantype1 being the result,
+	 * overwriting later if needed
+	 */
+	if (compat)
+		*compat = chantype1;
 
-	lockdep_assert_held(&local->iflist_mtx);
-
-	list_for_each_entry(sdata, &local->interfaces, list) {
-		if (sdata == ignore)
-			continue;
-
-		if (!ieee80211_sdata_running(sdata))
-			continue;
-
-		switch (sdata->vif.type) {
-		case NL80211_IFTYPE_MONITOR:
-			continue;
-		case NL80211_IFTYPE_STATION:
-			if (!sdata->u.mgd.associated)
-				continue;
-			break;
-		case NL80211_IFTYPE_ADHOC:
-			if (!sdata->u.ibss.ssid_len)
-				continue;
-			if (!sdata->u.ibss.fixed_channel)
-				return CHAN_MODE_HOPPING;
-			break;
-		case NL80211_IFTYPE_AP_VLAN:
-			/* will also have _AP interface */
-			continue;
-		case NL80211_IFTYPE_AP:
-			if (!sdata->u.ap.beacon)
-				continue;
-			break;
-		case NL80211_IFTYPE_MESH_POINT:
-			if (!sdata->wdev.mesh_id_len)
-				continue;
-			break;
-		default:
-			break;
-		}
-
-		return CHAN_MODE_FIXED;
-	}
-
-	return CHAN_MODE_UNDEFINED;
-}
-
-enum ieee80211_chan_mode
-ieee80211_get_channel_mode(struct ieee80211_local *local,
-			   struct ieee80211_sub_if_data *ignore)
-{
-	enum ieee80211_chan_mode mode;
-
-	mutex_lock(&local->iflist_mtx);
-	mode = __ieee80211_get_channel_mode(local, ignore);
-	mutex_unlock(&local->iflist_mtx);
-
-	return mode;
-}
-
-bool ieee80211_set_channel_type(struct ieee80211_local *local,
-				struct ieee80211_sub_if_data *sdata,
-				enum nl80211_channel_type chantype)
-{
-	struct ieee80211_sub_if_data *tmp;
-	enum nl80211_channel_type superchan = NL80211_CHAN_NO_HT;
-	bool result;
-
-	mutex_lock(&local->iflist_mtx);
-
-	list_for_each_entry(tmp, &local->interfaces, list) {
-		if (tmp == sdata)
-			continue;
-
-		if (!ieee80211_sdata_running(tmp))
-			continue;
-
-		switch (tmp->vif.bss_conf.channel_type) {
-		case NL80211_CHAN_NO_HT:
-		case NL80211_CHAN_HT20:
-			if (superchan > tmp->vif.bss_conf.channel_type)
-				break;
-
-			superchan = tmp->vif.bss_conf.channel_type;
-			break;
-		case NL80211_CHAN_HT40PLUS:
-			WARN_ON(superchan == NL80211_CHAN_HT40MINUS);
-			superchan = NL80211_CHAN_HT40PLUS;
-			break;
-		case NL80211_CHAN_HT40MINUS:
-			WARN_ON(superchan == NL80211_CHAN_HT40PLUS);
-			superchan = NL80211_CHAN_HT40MINUS;
-			break;
-		}
-	}
-
-	switch (superchan) {
+	switch (chantype1) {
 	case NL80211_CHAN_NO_HT:
+		if (compat)
+			*compat = chantype2;
+		break;
 	case NL80211_CHAN_HT20:
 		/*
 		 * allow any change that doesn't go to no-HT
 		 * (if it already is no-HT no change is needed)
 		 */
-		if (chantype == NL80211_CHAN_NO_HT)
+		if (chantype2 == NL80211_CHAN_NO_HT)
 			break;
-		superchan = chantype;
+		if (compat)
+			*compat = chantype2;
 		break;
 	case NL80211_CHAN_HT40PLUS:
 	case NL80211_CHAN_HT40MINUS:
 		/* allow smaller bandwidth and same */
-		if (chantype == NL80211_CHAN_NO_HT)
+		if (chantype2 == NL80211_CHAN_NO_HT)
 			break;
-		if (chantype == NL80211_CHAN_HT20)
+		if (chantype2 == NL80211_CHAN_HT20)
 			break;
-		if (superchan == chantype)
+		if (chantype2 == chantype1)
 			break;
-		result = false;
-		goto out;
+		return false;
 	}
 
-	local->_oper_channel_type = superchan;
+	return true;
+}
 
-	if (sdata)
-		sdata->vif.bss_conf.channel_type = chantype;
+static void ieee80211_change_chantype(struct ieee80211_local *local,
+				      struct ieee80211_chanctx *ctx,
+				      enum nl80211_channel_type chantype)
+{
+	if (chantype == ctx->conf.channel_type)
+		return;
 
-	result = true;
- out:
-	mutex_unlock(&local->iflist_mtx);
+	ctx->conf.channel_type = chantype;
+	drv_change_chanctx(local, ctx, IEEE80211_CHANCTX_CHANGE_CHANNEL_TYPE);
+
+	if (!local->use_chanctx) {
+		local->_oper_channel_type = chantype;
+		ieee80211_hw_config(local, 0);
+	}
+}
+
+static struct ieee80211_chanctx *
+ieee80211_find_chanctx(struct ieee80211_local *local,
+		       struct ieee80211_channel *channel,
+		       enum nl80211_channel_type channel_type,
+		       enum ieee80211_chanctx_mode mode)
+{
+	struct ieee80211_chanctx *ctx;
+	enum nl80211_channel_type compat_type;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	if (mode == IEEE80211_CHANCTX_EXCLUSIVE)
+		return NULL;
+	if (WARN_ON(!channel))
+		return NULL;
+
+	list_for_each_entry(ctx, &local->chanctx_list, list) {
+		compat_type = ctx->conf.channel_type;
+
+		if (ctx->mode == IEEE80211_CHANCTX_EXCLUSIVE)
+			continue;
+		if (ctx->conf.channel != channel)
+			continue;
+		if (!ieee80211_channel_types_are_compatible(ctx->conf.channel_type,
+							    channel_type,
+							    &compat_type))
+			continue;
+
+		ieee80211_change_chantype(local, ctx, compat_type);
+
+		return ctx;
+	}
+
+	return NULL;
+}
+
+static struct ieee80211_chanctx *
+ieee80211_new_chanctx(struct ieee80211_local *local,
+		      struct ieee80211_channel *channel,
+		      enum nl80211_channel_type channel_type,
+		      enum ieee80211_chanctx_mode mode)
+{
+	struct ieee80211_chanctx *ctx;
+	int err;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	ctx = kzalloc(sizeof(*ctx) + local->hw.chanctx_data_size, GFP_KERNEL);
+	if (!ctx)
+		return ERR_PTR(-ENOMEM);
+
+	ctx->conf.channel = channel;
+	ctx->conf.channel_type = channel_type;
+	ctx->mode = mode;
+
+	if (!local->use_chanctx) {
+		local->_oper_channel_type = channel_type;
+		local->_oper_channel = channel;
+		ieee80211_hw_config(local, 0);
+	} else {
+		err = drv_add_chanctx(local, ctx);
+		if (err) {
+			kfree(ctx);
+			return ERR_PTR(err);
+		}
+	}
+
+	list_add(&ctx->list, &local->chanctx_list);
+
+	return ctx;
+}
+
+static void ieee80211_free_chanctx(struct ieee80211_local *local,
+				   struct ieee80211_chanctx *ctx)
+{
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	WARN_ON_ONCE(ctx->refcount != 0);
+
+	if (!local->use_chanctx) {
+		local->_oper_channel_type = NL80211_CHAN_NO_HT;
+		ieee80211_hw_config(local, 0);
+	} else {
+		drv_remove_chanctx(local, ctx);
+	}
+
+	list_del(&ctx->list);
+	kfree_rcu(ctx, rcu_head);
+}
+
+static void ieee80211_assign_vif_chanctx(struct ieee80211_sub_if_data *sdata,
+					 struct ieee80211_chanctx *ctx)
+{
+	struct ieee80211_local *local = sdata->local;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	drv_assign_vif_chanctx(local, sdata, ctx);
+
+	rcu_assign_pointer(sdata->vif.chanctx_conf, &ctx->conf);
+	ctx->refcount++;
+}
+
+static enum nl80211_channel_type
+ieee80211_calc_chantype(struct ieee80211_local *local,
+			struct ieee80211_chanctx *ctx)
+{
+	struct ieee80211_chanctx_conf *conf = &ctx->conf;
+	struct ieee80211_sub_if_data *sdata;
+	enum nl80211_channel_type result = NL80211_CHAN_NO_HT;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(sdata, &local->interfaces, list) {
+		if (!ieee80211_sdata_running(sdata))
+			continue;
+		if (rcu_access_pointer(sdata->vif.chanctx_conf) != conf)
+			continue;
+
+		WARN_ON_ONCE(!ieee80211_channel_types_are_compatible(
+					sdata->vif.bss_conf.channel_type,
+					result, &result));
+	}
+	rcu_read_unlock();
 
 	return result;
+}
+
+static void ieee80211_recalc_chanctx_chantype(struct ieee80211_local *local,
+					      struct ieee80211_chanctx *ctx)
+{
+	enum nl80211_channel_type chantype;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	chantype = ieee80211_calc_chantype(local, ctx);
+	ieee80211_change_chantype(local, ctx, chantype);
+}
+
+static void ieee80211_unassign_vif_chanctx(struct ieee80211_sub_if_data *sdata,
+					   struct ieee80211_chanctx *ctx)
+{
+	struct ieee80211_local *local = sdata->local;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	ctx->refcount--;
+	rcu_assign_pointer(sdata->vif.chanctx_conf, NULL);
+
+	drv_unassign_vif_chanctx(local, sdata, ctx);
+
+	if (ctx->refcount > 0)
+		ieee80211_recalc_chanctx_chantype(sdata->local, ctx);
+}
+
+static void __ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_chanctx_conf *conf;
+	struct ieee80211_chanctx *ctx;
+
+	lockdep_assert_held(&local->chanctx_mtx);
+
+	conf = rcu_dereference_protected(sdata->vif.chanctx_conf,
+					 lockdep_is_held(&local->chanctx_mtx));
+	if (!conf)
+		return;
+
+	ctx = container_of(conf, struct ieee80211_chanctx, conf);
+
+	ieee80211_unassign_vif_chanctx(sdata, ctx);
+	if (ctx->refcount == 0)
+		ieee80211_free_chanctx(local, ctx);
+}
+
+int ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
+			      struct ieee80211_channel *channel,
+			      enum nl80211_channel_type channel_type,
+			      enum ieee80211_chanctx_mode mode)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_chanctx *ctx;
+
+	WARN_ON(sdata->dev && netif_carrier_ok(sdata->dev));
+
+	mutex_lock(&local->chanctx_mtx);
+	__ieee80211_vif_release_channel(sdata);
+
+	ctx = ieee80211_find_chanctx(local, channel, channel_type, mode);
+	if (!ctx)
+		ctx = ieee80211_new_chanctx(local, channel, channel_type, mode);
+	if (IS_ERR(ctx)) {
+		mutex_unlock(&local->chanctx_mtx);
+		return PTR_ERR(ctx);
+	}
+
+	sdata->vif.bss_conf.channel_type = channel_type;
+	ieee80211_assign_vif_chanctx(sdata, ctx);
+	mutex_unlock(&local->chanctx_mtx);
+	return 0;
+}
+
+void ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata)
+{
+	WARN_ON(sdata->dev && netif_carrier_ok(sdata->dev));
+
+	mutex_lock(&sdata->local->chanctx_mtx);
+	__ieee80211_vif_release_channel(sdata);
+	mutex_unlock(&sdata->local->chanctx_mtx);
 }

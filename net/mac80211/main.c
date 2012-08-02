@@ -93,15 +93,13 @@ static void ieee80211_reconfig_filter(struct work_struct *work)
 	ieee80211_configure_filter(local);
 }
 
-int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
+static u32 ieee80211_hw_conf_chan(struct ieee80211_local *local)
 {
 	struct ieee80211_channel *chan;
-	int ret = 0;
+	u32 changed = 0;
 	int power;
 	enum nl80211_channel_type channel_type;
 	u32 offchannel_flag;
-
-	might_sleep();
 
 	offchannel_flag = local->hw.conf.flags & IEEE80211_CONF_OFFCHANNEL;
 	if (local->scan_channel) {
@@ -109,7 +107,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		/* If scanning on oper channel, use whatever channel-type
 		 * is currently in use.
 		 */
-		if (chan == local->oper_channel)
+		if (chan == local->_oper_channel)
 			channel_type = local->_oper_channel_type;
 		else
 			channel_type = NL80211_CHAN_NO_HT;
@@ -117,11 +115,11 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		chan = local->tmp_channel;
 		channel_type = local->tmp_channel_type;
 	} else {
-		chan = local->oper_channel;
+		chan = local->_oper_channel;
 		channel_type = local->_oper_channel_type;
 	}
 
-	if (chan != local->oper_channel ||
+	if (chan != local->_oper_channel ||
 	    channel_type != local->_oper_channel_type)
 		local->hw.conf.flags |= IEEE80211_CONF_OFFCHANNEL;
 	else
@@ -155,7 +153,8 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 	else
 		power = local->power_constr_level ?
 			min(chan->max_power,
-				(chan->max_reg_power  - local->power_constr_level)) :
+				(chan->max_reg_power -
+				 local->power_constr_level)) :
 			chan->max_power;
 
 	if (local->user_power_level >= 0)
@@ -165,6 +164,21 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		changed |= IEEE80211_CONF_CHANGE_POWER;
 		local->hw.conf.power_level = power;
 	}
+
+	return changed;
+}
+
+int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
+{
+	int ret = 0;
+
+	might_sleep();
+
+	if (!local->use_chanctx)
+		changed |= ieee80211_hw_conf_chan(local);
+	else
+		changed &= ~(IEEE80211_CONF_CHANGE_CHANNEL |
+			     IEEE80211_CONF_CHANGE_POWER);
 
 	if (changed && local->open_count) {
 		ret = drv_config(local, changed);
@@ -207,6 +221,10 @@ void ieee80211_bss_info_change_notify(struct ieee80211_sub_if_data *sdata,
 		sdata->vif.bss_conf.bssid = NULL;
 	else if (ieee80211_vif_is_mesh(&sdata->vif)) {
 		sdata->vif.bss_conf.bssid = zero;
+	} else if (sdata->vif.type == NL80211_IFTYPE_P2P_DEVICE) {
+		sdata->vif.bss_conf.bssid = sdata->vif.addr;
+		WARN_ONCE(changed & ~(BSS_CHANGED_IDLE),
+			  "P2P Device BSS changed %#x", changed);
 	} else {
 		WARN_ON(1);
 		return;
@@ -514,6 +532,11 @@ ieee80211_default_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 			BIT(IEEE80211_STYPE_AUTH >> 4) |
 			BIT(IEEE80211_STYPE_DEAUTH >> 4),
 	},
+	[NL80211_IFTYPE_P2P_DEVICE] = {
+		.tx = 0xffff,
+		.rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
+			BIT(IEEE80211_STYPE_PROBE_REQ >> 4),
+	},
 };
 
 static const struct ieee80211_ht_cap mac80211_ht_capa_mod_mask = {
@@ -535,9 +558,23 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 	struct ieee80211_local *local;
 	int priv_size, i;
 	struct wiphy *wiphy;
+	bool use_chanctx;
+
+	if (WARN_ON(!ops->tx || !ops->start || !ops->stop || !ops->config ||
+		    !ops->add_interface || !ops->remove_interface ||
+		    !ops->configure_filter))
+		return NULL;
 
 	if (WARN_ON(ops->sta_state && (ops->sta_add || ops->sta_remove)))
 		return NULL;
+
+	/* check all or no channel context operations exist */
+	i = !!ops->add_chanctx + !!ops->remove_chanctx +
+	    !!ops->change_chanctx + !!ops->assign_vif_chanctx +
+	    !!ops->unassign_vif_chanctx;
+	if (WARN_ON(i != 0 && i != 5))
+		return NULL;
+	use_chanctx = i == 5;
 
 	/* Ensure 32-byte alignment of our private data and hw private data.
 	 * We use the wiphy priv data for both our ieee80211_local and for
@@ -588,14 +625,8 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 
 	local->hw.priv = (char *)local + ALIGN(sizeof(*local), NETDEV_ALIGN);
 
-	BUG_ON(!ops->tx);
-	BUG_ON(!ops->start);
-	BUG_ON(!ops->stop);
-	BUG_ON(!ops->config);
-	BUG_ON(!ops->add_interface);
-	BUG_ON(!ops->remove_interface);
-	BUG_ON(!ops->configure_filter);
 	local->ops = ops;
+	local->use_chanctx = use_chanctx;
 
 	/* set up some defaults */
 	local->hw.queues = 1;
@@ -622,6 +653,9 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
 	mutex_init(&local->key_mtx);
 	spin_lock_init(&local->filter_lock);
 	spin_lock_init(&local->queue_stop_reason_lock);
+
+	INIT_LIST_HEAD(&local->chanctx_list);
+	mutex_init(&local->chanctx_mtx);
 
 	/*
 	 * The rx_skb_queue is only accessed from tasklets,
@@ -716,6 +750,25 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	if ((hw->flags & IEEE80211_HW_SCAN_WHILE_IDLE) && !local->ops->hw_scan)
 		return -EINVAL;
 
+	if (!local->use_chanctx) {
+		for (i = 0; i < local->hw.wiphy->n_iface_combinations; i++) {
+			const struct ieee80211_iface_combination *comb;
+
+			comb = &local->hw.wiphy->iface_combinations[i];
+
+			if (comb->num_different_channels > 1)
+				return -EINVAL;
+		}
+
+		/*
+		 * WDS is currently prohibited when channel contexts are used
+		 * because there's no clear definition of which channel WDS
+		 * type interfaces use
+		 */
+		if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_WDS))
+			return -EINVAL;
+	}
+
 	/* Only HW csum features are currently compatible with mac80211 */
 	feature_whitelist = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
 			    NETIF_F_HW_CSUM;
@@ -740,11 +793,15 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 		sband = local->hw.wiphy->bands[band];
 		if (!sband)
 			continue;
-		if (!local->oper_channel) {
+		if (!local->use_chanctx && !local->_oper_channel) {
 			/* init channel we're on */
 			local->hw.conf.channel =
-			local->oper_channel = &sband->channels[0];
+			local->_oper_channel = &sband->channels[0];
 			local->hw.conf.channel_type = NL80211_CHAN_NO_HT;
+		}
+		if (!local->monitor_channel) {
+			local->monitor_channel = &sband->channels[0];
+			local->monitor_channel_type = NL80211_CHAN_NO_HT;
 		}
 		channels += sband->n_channels;
 
@@ -784,9 +841,6 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 		int j;
 
 		c = &hw->wiphy->iface_combinations[i];
-
-		if (c->num_different_channels > 1)
-			return -EINVAL;
 
 		for (j = 0; j < c->n_limits; j++)
 			if ((c->limits[j].types & BIT(NL80211_IFTYPE_ADHOC)) &&

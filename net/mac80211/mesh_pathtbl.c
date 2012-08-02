@@ -531,7 +531,7 @@ int mesh_path_add(u8 *dst, struct ieee80211_sub_if_data *sdata)
 
 	read_lock_bh(&pathtbl_resize_lock);
 	memcpy(new_mpath->dst, dst, ETH_ALEN);
-	memset(new_mpath->rann_snd_addr, 0xff, ETH_ALEN);
+	eth_broadcast_addr(new_mpath->rann_snd_addr);
 	new_mpath->is_root = false;
 	new_mpath->sdata = sdata;
 	new_mpath->flags = 0;
@@ -778,7 +778,7 @@ static void __mesh_path_del(struct mesh_table *tbl, struct mpath_node *node)
 /**
  * mesh_path_flush_by_nexthop - Deletes mesh paths if their next hop matches
  *
- * @sta - mesh peer to match
+ * @sta: mesh peer to match
  *
  * RCU notes: this function is called when a mesh plink transitions from
  * PLINK_ESTAB to any other state, since PLINK_ESTAB state is the only one that
@@ -833,7 +833,7 @@ static void table_flush_by_iface(struct mesh_table *tbl,
  *
  * This function deletes both mesh paths as well as mesh portal paths.
  *
- * @sdata - interface data to match
+ * @sdata: interface data to match
  *
  */
 void mesh_path_flush_by_iface(struct ieee80211_sub_if_data *sdata)

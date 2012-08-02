@@ -193,8 +193,6 @@ struct ieee80211_tx_data {
 	struct sta_info *sta;
 	struct ieee80211_key *key;
 
-	struct ieee80211_channel *channel;
-
 	unsigned int flags;
 };
 
@@ -359,6 +357,7 @@ enum ieee80211_sta_flags {
 	IEEE80211_STA_NULLFUNC_ACKED	= BIT(8),
 	IEEE80211_STA_RESET_SIGNAL_AVE	= BIT(9),
 	IEEE80211_STA_DISABLE_40MHZ	= BIT(10),
+	IEEE80211_STA_DISABLE_VHT	= BIT(11),
 };
 
 struct ieee80211_mgd_auth_data {
@@ -406,6 +405,7 @@ struct ieee80211_if_managed {
 	struct work_struct monitor_work;
 	struct work_struct chswitch_work;
 	struct work_struct beacon_connection_loss_work;
+	struct work_struct csa_connection_drop_work;
 
 	unsigned long beacon_timeout;
 	unsigned long probe_timeout;
@@ -650,6 +650,30 @@ enum ieee80211_sdata_state_bits {
 	SDATA_STATE_OFFCHANNEL,
 };
 
+/**
+ * enum ieee80211_chanctx_mode - channel context configuration mode
+ *
+ * @IEEE80211_CHANCTX_SHARED: channel context may be used by
+ *	multiple interfaces
+ * @IEEE80211_CHANCTX_EXCLUSIVE: channel context can be used
+ *	only by a single interface. This can be used for example for
+ *	non-fixed channel IBSS.
+ */
+enum ieee80211_chanctx_mode {
+	IEEE80211_CHANCTX_SHARED,
+	IEEE80211_CHANCTX_EXCLUSIVE
+};
+
+struct ieee80211_chanctx {
+	struct list_head list;
+	struct rcu_head rcu_head;
+
+	enum ieee80211_chanctx_mode mode;
+	int refcount;
+
+	struct ieee80211_chanctx_conf conf;
+};
+
 struct ieee80211_sub_if_data {
 	struct list_head list;
 
@@ -739,6 +763,21 @@ static inline
 struct ieee80211_sub_if_data *vif_to_sdata(struct ieee80211_vif *p)
 {
 	return container_of(p, struct ieee80211_sub_if_data, vif);
+}
+
+static inline enum ieee80211_band
+ieee80211_get_sdata_band(struct ieee80211_sub_if_data *sdata)
+{
+	enum ieee80211_band band = IEEE80211_BAND_2GHZ;
+	struct ieee80211_chanctx_conf *chanctx_conf;
+
+	rcu_read_lock();
+	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+	if (!WARN_ON(!chanctx_conf))
+		band = chanctx_conf->channel->band;
+	rcu_read_unlock();
+
+	return band;
 }
 
 enum sdata_queue_type {
@@ -849,6 +888,8 @@ struct ieee80211_local {
 	unsigned int filter_flags; /* FIF_* */
 
 	bool wiphy_ciphers_allocated;
+
+	bool use_chanctx;
 
 	/* protects the aggregated multicast list and filter calls */
 	spinlock_t filter_lock;
@@ -973,12 +1014,18 @@ struct ieee80211_local {
 	enum mac80211_scan_state next_scan_state;
 	struct delayed_work scan_work;
 	struct ieee80211_sub_if_data __rcu *scan_sdata;
+	struct ieee80211_channel *csa_channel;
+	/* For backward compatibility only -- do not use */
+	struct ieee80211_channel *_oper_channel;
 	enum nl80211_channel_type _oper_channel_type;
-	struct ieee80211_channel *oper_channel, *csa_channel;
 
 	/* Temporary remain-on-channel for off-channel operations */
 	struct ieee80211_channel *tmp_channel;
 	enum nl80211_channel_type tmp_channel_type;
+
+	/* channel contexts */
+	struct list_head chanctx_list;
+	struct mutex chanctx_mtx;
 
 	/* SNMP counters */
 	/* dot11CountersTable */
@@ -1075,6 +1122,8 @@ struct ieee80211_local {
 	struct idr ack_status_frames;
 	spinlock_t ack_status_lock;
 
+	struct ieee80211_sub_if_data __rcu *p2p_sdata;
+
 	/* dummy netdev for use w/ NAPI */
 	struct net_device napi_dev;
 
@@ -1082,6 +1131,8 @@ struct ieee80211_local {
 
 	/* virtual monitor interface */
 	struct ieee80211_sub_if_data __rcu *monitor_sdata;
+	struct ieee80211_channel *monitor_channel;
+	enum nl80211_channel_type monitor_channel_type;
 };
 
 static inline struct ieee80211_sub_if_data *
@@ -1131,7 +1182,8 @@ struct ieee802_11_elems {
 	u8 *prep;
 	u8 *perr;
 	struct ieee80211_rann_ie *rann;
-	u8 *ch_switch_elem;
+	struct ieee80211_channel_sw_ie *ch_switch_ie;
+	struct ieee80211_ext_chansw_ie *ext_chansw_ie;
 	u8 *country_elem;
 	u8 *pwr_constr_elem;
 	u8 *quiet_elem;	/* first quite element */
@@ -1157,7 +1209,6 @@ struct ieee802_11_elems {
 	u8 preq_len;
 	u8 prep_len;
 	u8 perr_len;
-	u8 ch_switch_elem_len;
 	u8 country_elem_len;
 	u8 pwr_constr_elem_len;
 	u8 quiet_elem_len;
@@ -1202,13 +1253,10 @@ int ieee80211_mgd_disassoc(struct ieee80211_sub_if_data *sdata,
 void ieee80211_send_pspoll(struct ieee80211_local *local,
 			   struct ieee80211_sub_if_data *sdata);
 void ieee80211_recalc_ps(struct ieee80211_local *local, s32 latency);
+void ieee80211_recalc_ps_vif(struct ieee80211_sub_if_data *sdata);
 int ieee80211_max_network_latency(struct notifier_block *nb,
 				  unsigned long data, void *dummy);
 int ieee80211_set_arp_filter(struct ieee80211_sub_if_data *sdata);
-void ieee80211_sta_process_chanswitch(struct ieee80211_sub_if_data *sdata,
-				      struct ieee80211_channel_sw_ie *sw_elem,
-				      struct ieee80211_bss *bss,
-				      u64 timestamp);
 void ieee80211_sta_quiesce(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_restart(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata);
@@ -1291,6 +1339,8 @@ void ieee80211_remove_interfaces(struct ieee80211_local *local);
 void ieee80211_recalc_idle(struct ieee80211_local *local);
 void ieee80211_adjust_monitor_flags(struct ieee80211_sub_if_data *sdata,
 				    const int offset);
+int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up);
+void ieee80211_sdata_stop(struct ieee80211_sub_if_data *sdata);
 
 static inline bool ieee80211_sdata_running(struct ieee80211_sub_if_data *sdata)
 {
@@ -1396,7 +1446,8 @@ void mac80211_ev_michael_mic_failure(struct ieee80211_sub_if_data *sdata, int ke
 				     gfp_t gfp);
 void ieee80211_set_wmm_default(struct ieee80211_sub_if_data *sdata,
 			       bool bss_notify);
-void ieee80211_xmit(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb);
+void ieee80211_xmit(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb,
+		    enum ieee80211_band band);
 
 void ieee80211_tx_skb_tid(struct ieee80211_sub_if_data *sdata,
 			  struct sk_buff *skb, int tid);
@@ -1425,7 +1476,6 @@ void ieee80211_sta_rx_notify(struct ieee80211_sub_if_data *sdata,
 			     struct ieee80211_hdr *hdr);
 void ieee80211_sta_tx_notify(struct ieee80211_sub_if_data *sdata,
 			     struct ieee80211_hdr *hdr, bool ack);
-void ieee80211_beacon_connection_loss_work(struct work_struct *work);
 
 void ieee80211_wake_queues_by_reason(struct ieee80211_hw *hw,
 				     enum queue_stop_reason reason);
@@ -1457,13 +1507,15 @@ int ieee80211_build_preq_ies(struct ieee80211_local *local, u8 *buffer,
 			     u8 channel);
 struct sk_buff *ieee80211_build_probe_req(struct ieee80211_sub_if_data *sdata,
 					  u8 *dst, u32 ratemask,
+					  struct ieee80211_channel *chan,
 					  const u8 *ssid, size_t ssid_len,
 					  const u8 *ie, size_t ie_len,
 					  bool directed);
 void ieee80211_send_probe_req(struct ieee80211_sub_if_data *sdata, u8 *dst,
 			      const u8 *ssid, size_t ssid_len,
 			      const u8 *ie, size_t ie_len,
-			      u32 ratemask, bool directed, bool no_cck);
+			      u32 ratemask, bool directed, bool no_cck,
+			      struct ieee80211_channel *channel);
 
 void ieee80211_sta_def_wmm_params(struct ieee80211_sub_if_data *sdata,
 				  const size_t supp_rates_len,
@@ -1487,25 +1539,22 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
 u8 *ieee80211_ie_build_vht_cap(u8 *pos, struct ieee80211_sta_vht_cap *vht_cap,
 			       u32 cap);
 int ieee80211_add_srates_ie(struct ieee80211_sub_if_data *sdata,
-			    struct sk_buff *skb, bool need_basic);
+			    struct sk_buff *skb, bool need_basic,
+			    enum ieee80211_band band);
 int ieee80211_add_ext_srates_ie(struct ieee80211_sub_if_data *sdata,
-				struct sk_buff *skb, bool need_basic);
+				struct sk_buff *skb, bool need_basic,
+				enum ieee80211_band band);
 
 /* channel management */
-enum ieee80211_chan_mode {
-	CHAN_MODE_UNDEFINED,
-	CHAN_MODE_HOPPING,
-	CHAN_MODE_FIXED,
-};
-
-enum ieee80211_chan_mode
-ieee80211_get_channel_mode(struct ieee80211_local *local,
-			   struct ieee80211_sub_if_data *ignore);
-bool ieee80211_set_channel_type(struct ieee80211_local *local,
-				struct ieee80211_sub_if_data *sdata,
-				enum nl80211_channel_type chantype);
 enum nl80211_channel_type
 ieee80211_ht_oper_to_channel_type(struct ieee80211_ht_operation *ht_oper);
+
+int __must_check
+ieee80211_vif_use_channel(struct ieee80211_sub_if_data *sdata,
+			  struct ieee80211_channel *channel,
+			  enum nl80211_channel_type channel_type,
+			  enum ieee80211_chanctx_mode mode);
+void ieee80211_vif_release_channel(struct ieee80211_sub_if_data *sdata);
 
 #ifdef CONFIG_MAC80211_NOINLINE
 #define debug_noinline noinline

@@ -107,6 +107,9 @@ void ieee80211_offchannel_stop_vifs(struct ieee80211_local *local,
 {
 	struct ieee80211_sub_if_data *sdata;
 
+	if (WARN_ON(local->use_chanctx))
+		return;
+
 	/*
 	 * notify the AP about us leaving the channel and stop all
 	 * STA interfaces.
@@ -114,6 +117,9 @@ void ieee80211_offchannel_stop_vifs(struct ieee80211_local *local,
 	mutex_lock(&local->iflist_mtx);
 	list_for_each_entry(sdata, &local->interfaces, list) {
 		if (!ieee80211_sdata_running(sdata))
+			continue;
+
+		if (sdata->vif.type == NL80211_IFTYPE_P2P_DEVICE)
 			continue;
 
 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
@@ -142,8 +148,14 @@ void ieee80211_offchannel_return(struct ieee80211_local *local,
 {
 	struct ieee80211_sub_if_data *sdata;
 
+	if (WARN_ON(local->use_chanctx))
+		return;
+
 	mutex_lock(&local->iflist_mtx);
 	list_for_each_entry(sdata, &local->interfaces, list) {
+		if (sdata->vif.type == NL80211_IFTYPE_P2P_DEVICE)
+			continue;
+
 		if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
 			clear_bit(SDATA_STATE_OFFCHANNEL, &sdata->state);
 

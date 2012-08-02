@@ -24,9 +24,18 @@
 			__string(vif_name, sdata->dev ? sdata->dev->name : "<nodev>")
 #define VIF_ASSIGN	__entry->vif_type = sdata->vif.type; __entry->sdata = sdata;	\
 			__entry->p2p = sdata->vif.p2p;					\
-			__assign_str(vif_name, sdata->dev ? sdata->dev->name : "<nodev>")
+			__assign_str(vif_name, sdata->dev ? sdata->dev->name : sdata->name)
 #define VIF_PR_FMT	" vif:%s(%d%s)"
 #define VIF_PR_ARG	__get_str(vif_name), __entry->vif_type, __entry->p2p ? "/p2p" : ""
+
+#define CHANCTX_ENTRY	__field(int, freq)						\
+			__field(int, chantype)
+#define CHANCTX_ASSIGN	__entry->freq = ctx->conf.channel->center_freq;			\
+			__entry->chantype = ctx->conf.channel_type
+#define CHANCTX_PR_FMT	" freq:%d MHz chantype:%d"
+#define CHANCTX_PR_ARG	__entry->freq, __entry->chantype
+
+
 
 /*
  * Tracing for driver callbacks.
@@ -274,9 +283,12 @@ TRACE_EVENT(drv_config,
 		__entry->dynamic_ps_timeout = local->hw.conf.dynamic_ps_timeout;
 		__entry->max_sleep_period = local->hw.conf.max_sleep_period;
 		__entry->listen_interval = local->hw.conf.listen_interval;
-		__entry->long_frame_max_tx_count = local->hw.conf.long_frame_max_tx_count;
-		__entry->short_frame_max_tx_count = local->hw.conf.short_frame_max_tx_count;
-		__entry->center_freq = local->hw.conf.channel->center_freq;
+		__entry->long_frame_max_tx_count =
+			local->hw.conf.long_frame_max_tx_count;
+		__entry->short_frame_max_tx_count =
+			local->hw.conf.short_frame_max_tx_count;
+		__entry->center_freq = local->hw.conf.channel ?
+					local->hw.conf.channel->center_freq : 0;
 		__entry->channel_type = local->hw.conf.channel_type;
 		__entry->smps = local->hw.conf.smps_mode;
 	),
@@ -1251,6 +1263,104 @@ DEFINE_EVENT(local_sdata_evt, drv_mgd_prepare_tx,
 		 struct ieee80211_sub_if_data *sdata),
 
 	TP_ARGS(local, sdata)
+);
+
+DECLARE_EVENT_CLASS(local_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_chanctx *ctx),
+
+	TP_ARGS(local, ctx),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		CHANCTX_ENTRY
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		CHANCTX_ASSIGN;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT CHANCTX_PR_FMT,
+		LOCAL_PR_ARG, CHANCTX_PR_ARG
+	)
+);
+
+DEFINE_EVENT(local_chanctx, drv_add_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_chanctx *ctx),
+	TP_ARGS(local, ctx)
+);
+
+DEFINE_EVENT(local_chanctx, drv_remove_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_chanctx *ctx),
+	TP_ARGS(local, ctx)
+);
+
+TRACE_EVENT(drv_change_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_chanctx *ctx,
+		 u32 changed),
+
+	TP_ARGS(local, ctx, changed),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		CHANCTX_ENTRY
+		__field(u32, changed)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		CHANCTX_ASSIGN;
+		__entry->changed = changed;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT CHANCTX_PR_FMT " changed:%#x",
+		LOCAL_PR_ARG, CHANCTX_PR_ARG, __entry->changed
+	)
+);
+
+DECLARE_EVENT_CLASS(local_sdata_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_chanctx *ctx),
+
+	TP_ARGS(local, sdata, ctx),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		VIF_ENTRY
+		CHANCTX_ENTRY
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		VIF_ASSIGN;
+		CHANCTX_ASSIGN;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT VIF_PR_FMT CHANCTX_PR_FMT,
+		LOCAL_PR_ARG, VIF_PR_ARG, CHANCTX_PR_ARG
+	)
+);
+
+DEFINE_EVENT(local_sdata_chanctx, drv_assign_vif_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_chanctx *ctx),
+	TP_ARGS(local, sdata, ctx)
+);
+
+DEFINE_EVENT(local_sdata_chanctx, drv_unassign_vif_chanctx,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_chanctx *ctx),
+	TP_ARGS(local, sdata, ctx)
 );
 
 /*
