@@ -1601,18 +1601,18 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl,
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 		goto out;
 
-	if ((wl->conf.conn.suspend_wake_up_event ==
-	     wl->conf.conn.wake_up_event) &&
-	    (wl->conf.conn.suspend_listen_interval ==
-	     wl->conf.conn.listen_interval))
-		goto out;
-
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out;
 
 	ret = wl1271_configure_wowlan(wl, wow);
 	if (ret < 0)
+		goto out_sleep;
+
+	if ((wl->conf.conn.suspend_wake_up_event ==
+	     wl->conf.conn.wake_up_event) &&
+	    (wl->conf.conn.suspend_listen_interval ==
+	     wl->conf.conn.listen_interval))
 		goto out_sleep;
 
 	ret = wl1271_acx_wake_up_conditions(wl, wlvif,
@@ -1670,19 +1670,18 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 	if ((!is_ap) && (!is_sta))
 		return;
 
-	if (is_sta &&
-	    ((wl->conf.conn.suspend_wake_up_event ==
-	      wl->conf.conn.wake_up_event) &&
-	     (wl->conf.conn.suspend_listen_interval ==
-	      wl->conf.conn.listen_interval)))
-		return;
-
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		return;
 
 	if (is_sta) {
 		wl1271_configure_wowlan(wl, NULL);
+
+		if ((wl->conf.conn.suspend_wake_up_event ==
+		     wl->conf.conn.wake_up_event) &&
+		    (wl->conf.conn.suspend_listen_interval ==
+		     wl->conf.conn.listen_interval))
+			goto out_sleep;
 
 		ret = wl1271_acx_wake_up_conditions(wl, wlvif,
 				    wl->conf.conn.wake_up_event,
@@ -1696,6 +1695,7 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 		ret = wl1271_acx_beacon_filter_opt(wl, wlvif, false);
 	}
 
+out_sleep:
 	wl1271_ps_elp_sleep(wl);
 }
 
