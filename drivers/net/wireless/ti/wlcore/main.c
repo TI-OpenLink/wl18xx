@@ -4193,19 +4193,6 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 
 	mutex_lock(&wl->mutex);
 
-	/* we support configuring the channel and band even while off */
-	if (changed & BSS_CHANGED_CHANNEL) {
-		int channel = ieee80211_frequency_to_channel(
-			bss_conf->channel->center_freq);
-
-		wl1271_debug(DEBUG_MAC80211, "changed channel=%d", channel);
-		/* we may need to rework this part... */
-		wlcore_tx_work_locked(wl);
-		wlvif->band = bss_conf->channel->band;
-		wlvif->channel = channel;
-		wlvif->channel_type = bss_conf->channel_type;
-	}
-
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
 
@@ -4225,6 +4212,66 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 
 out:
 	mutex_unlock(&wl->mutex);
+}
+
+static int wlcore_op_add_chanctx(struct ieee80211_hw *hw,
+				 struct ieee80211_chanctx_conf *ctx)
+{
+	wl1271_debug(DEBUG_MAC80211, "mac80211 add chanctx %d (type %d)",
+		     ieee80211_frequency_to_channel(ctx->channel->center_freq),
+		     ctx->channel_type);
+	return 0;
+}
+
+static void wlcore_op_remove_chanctx(struct ieee80211_hw *hw,
+				     struct ieee80211_chanctx_conf *ctx)
+{
+	wl1271_debug(DEBUG_MAC80211, "mac80211 remove chanctx %d (type %d)",
+		     ieee80211_frequency_to_channel(ctx->channel->center_freq),
+		     ctx->channel_type);
+}
+
+static void wlcore_op_change_chanctx(struct ieee80211_hw *hw,
+				     struct ieee80211_chanctx_conf *ctx,
+				     u32 changed)
+{
+	wl1271_debug(DEBUG_MAC80211,
+		     "mac80211 change chanctx %d (type %d) changed 0x%x",
+		     ieee80211_frequency_to_channel(ctx->channel->center_freq),
+		     ctx->channel_type, changed);
+}
+
+static void wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
+					 struct ieee80211_vif *vif,
+					 struct ieee80211_chanctx_conf *ctx)
+{
+	struct wl1271 *wl = hw->priv;
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+	int channel = ieee80211_frequency_to_channel(
+		ctx->channel->center_freq);
+
+	wl1271_debug(DEBUG_MAC80211,
+		     "mac80211 assign chanctx (role %d) %d (type %d)",
+		     wlvif->role_id, channel, ctx->channel_type);
+
+	/* we may need to rework this part... */
+	wlcore_tx_work_locked(wl);
+	wlvif->band = ctx->channel->band;
+	wlvif->channel = channel;
+	wlvif->channel_type = ctx->channel_type;
+}
+
+static void wlcore_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
+					   struct ieee80211_vif *vif,
+					   struct ieee80211_chanctx_conf *ctx)
+{
+	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
+
+	wl1271_debug(DEBUG_MAC80211,
+		     "mac80211 unassign chanctx (role %d) %d (type %d)",
+		     wlvif->role_id,
+		     ieee80211_frequency_to_channel(ctx->channel->center_freq),
+		     ctx->channel_type);
 }
 
 static int wl1271_op_conf_tx(struct ieee80211_hw *hw,
@@ -5019,6 +5066,11 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_default_key_idx = wl1271_op_set_default_key_idx,
 	.remain_on_channel = wl12xx_op_remain_on_channel,
 	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
+	.add_chanctx = wlcore_op_add_chanctx,
+	.remove_chanctx = wlcore_op_remove_chanctx,
+	.change_chanctx = wlcore_op_change_chanctx,
+	.assign_vif_chanctx = wlcore_op_assign_vif_chanctx,
+	.unassign_vif_chanctx = wlcore_op_unassign_vif_chanctx,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };
 
