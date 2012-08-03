@@ -1798,10 +1798,6 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (ret < 0)
 		goto out;
 
-	ret = wl12xx_cmd_role_start_dev(wl, wlvif);
-	if (ret < 0)
-		goto out_disable;
-
 	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id);
 	if (ret < 0)
 		goto out_stop;
