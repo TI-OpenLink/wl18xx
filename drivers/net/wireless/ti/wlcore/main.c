@@ -4177,8 +4177,8 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
 	int ret;
 
-	wl1271_debug(DEBUG_MAC80211, "mac80211 bss info changed 0x%x",
-		     (int)changed);
+	wl1271_debug(DEBUG_MAC80211, "mac80211 bss info role %d changed 0x%x",
+		     wlvif->role_id, (int)changed);
 
 	/*
 	 * make sure to cancel pending disconnections if our association
@@ -4192,6 +4192,19 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 		wl1271_tx_flush(wl);
 
 	mutex_lock(&wl->mutex);
+
+	/* we support configuring the channel and band even while off */
+	if (changed & BSS_CHANGED_CHANNEL) {
+		int channel = ieee80211_frequency_to_channel(
+			bss_conf->channel->center_freq);
+
+		wl1271_debug(DEBUG_MAC80211, "changed channel=%d", channel);
+		/* we may need to rework this part... */
+		wlcore_tx_work_locked(wl);
+		wlvif->band = bss_conf->channel->band;
+		wlvif->channel = channel;
+		wlvif->channel_type = bss_conf->channel_type;
+	}
 
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
