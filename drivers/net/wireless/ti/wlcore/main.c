@@ -1613,18 +1613,18 @@ static int wl1271_configure_suspend_sta(struct wl1271 *wl,
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 		goto out;
 
-	if ((wl->conf.conn.suspend_wake_up_event ==
-	     wl->conf.conn.wake_up_event) &&
-	    (wl->conf.conn.suspend_listen_interval ==
-	     wl->conf.conn.listen_interval))
-		goto out;
-
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out;
 
 	ret = wl1271_configure_wowlan(wl, wow);
 	if (ret < 0)
+		goto out_sleep;
+
+	if ((wl->conf.conn.suspend_wake_up_event ==
+	     wl->conf.conn.wake_up_event) &&
+	    (wl->conf.conn.suspend_listen_interval ==
+	     wl->conf.conn.listen_interval))
 		goto out_sleep;
 
 	ret = wl1271_acx_wake_up_conditions(wl, wlvif,
@@ -1682,11 +1682,7 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 	if ((!is_ap) && (!is_sta))
 		return;
 
-	if (is_sta &&
-	    ((wl->conf.conn.suspend_wake_up_event ==
-	      wl->conf.conn.wake_up_event) &&
-	     (wl->conf.conn.suspend_listen_interval ==
-	      wl->conf.conn.listen_interval)))
+	if (is_sta && !test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 		return;
 
 	ret = wl1271_ps_elp_wakeup(wl);
@@ -1695,6 +1691,12 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 
 	if (is_sta) {
 		wl1271_configure_wowlan(wl, NULL);
+
+		if ((wl->conf.conn.suspend_wake_up_event ==
+		     wl->conf.conn.wake_up_event) &&
+		    (wl->conf.conn.suspend_listen_interval ==
+		     wl->conf.conn.listen_interval))
+			goto out_sleep;
 
 		ret = wl1271_acx_wake_up_conditions(wl, wlvif,
 				    wl->conf.conn.wake_up_event,
@@ -1708,6 +1710,7 @@ static void wl1271_configure_resume(struct wl1271 *wl,
 		ret = wl1271_acx_beacon_filter_opt(wl, wlvif, false);
 	}
 
+out_sleep:
 	wl1271_ps_elp_sleep(wl);
 }
 
@@ -2284,21 +2287,6 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		}
 	}
 
-	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
-	    wlvif->bss_type == BSS_TYPE_IBSS) {
-		/*
-		 * The device role is a special role used for
-		 * rx and tx frames prior to association (as
-		 * the STA role can get packets only from
-		 * its associated bssid)
-		 */
-		ret = wl12xx_cmd_role_enable(wl, vif->addr,
-						 WL1271_ROLE_DEVICE,
-						 &wlvif->dev_role_id);
-		if (ret < 0)
-			goto out;
-	}
-
 	ret = wl12xx_cmd_role_enable(wl, vif->addr,
 				     role_type, &wlvif->role_id);
 	if (ret < 0)
@@ -2373,10 +2361,6 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 		    wlvif->bss_type == BSS_TYPE_IBSS) {
 			if (wl12xx_dev_role_started(wlvif))
 				wl12xx_stop_dev(wl, wlvif);
-
-			ret = wl12xx_cmd_role_disable(wl, &wlvif->dev_role_id);
-			if (ret < 0)
-				goto deinit;
 		}
 
 		ret = wl12xx_cmd_role_disable(wl, &wlvif->role_id);
@@ -5120,18 +5104,17 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static void wl12xx_derive_mac_addresses(struct wl1271 *wl,
-					u32 oui, u32 nic, int n)
+static void wl12xx_derive_mac_addresses(struct wl1271 *wl, u32 oui, u32 nic)
 {
 	int i;
 
-	wl1271_debug(DEBUG_PROBE, "base address: oui %06x nic %06x, n %d",
-		     oui, nic, n);
+	wl1271_debug(DEBUG_PROBE, "base address: oui %06x nic %06x",
+		     oui, nic);
 
-	if (nic + n - 1 > 0xffffff)
+	if (nic + WLCORE_NUM_MAC_ADDRESSES - wl->num_mac_addr > 0xffffff)
 		wl1271_warning("NIC part of the MAC address wraps around!");
 
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < wl->num_mac_addr; i++) {
 		wl->addresses[i].addr[0] = (u8)(oui >> 16);
 		wl->addresses[i].addr[1] = (u8)(oui >> 8);
 		wl->addresses[i].addr[2] = (u8) oui;
@@ -5141,7 +5124,22 @@ static void wl12xx_derive_mac_addresses(struct wl1271 *wl,
 		nic++;
 	}
 
-	wl->hw->wiphy->n_addresses = n;
+	/* we may be one address short at the most */
+	WARN_ON(wl->num_mac_addr + 1 < WLCORE_NUM_MAC_ADDRESSES);
+
+	/*
+	 * turn on the LAA bit in the first address and use it as
+	 * the last address.
+	 */
+	if (wl->num_mac_addr < WLCORE_NUM_MAC_ADDRESSES) {
+		int idx = WLCORE_NUM_MAC_ADDRESSES - 1;
+		memcpy(&wl->addresses[idx], &wl->addresses[0],
+		       sizeof(wl->addresses[0]));
+		/* LAA bit */
+		wl->addresses[idx].addr[2] |= BIT(1);
+	}
+
+	wl->hw->wiphy->n_addresses = WLCORE_NUM_MAC_ADDRESSES;
 	wl->hw->wiphy->addresses = wl->addresses;
 }
 
@@ -5201,7 +5199,7 @@ static int wl1271_register_hw(struct wl1271 *wl)
 		nic_addr = wl->fuse_nic_addr + 1;
 	}
 
-	wl12xx_derive_mac_addresses(wl, oui_addr, nic_addr, 2);
+	wl12xx_derive_mac_addresses(wl, oui_addr, nic_addr);
 
 	ret = ieee80211_register_hw(wl->hw);
 	if (ret < 0) {
@@ -5231,7 +5229,7 @@ static void wl1271_unregister_hw(struct wl1271 *wl)
 
 static const struct ieee80211_iface_limit wlcore_iface_limits[] = {
 	{
-		.max = 2,
+		.max = 3,
 		.types = BIT(NL80211_IFTYPE_STATION),
 	},
 	{
@@ -5246,7 +5244,7 @@ static const struct ieee80211_iface_combination
 wlcore_iface_combinations[] = {
 	{
 	  .num_different_channels = 1,
-	  .max_interfaces = 2,
+	  .max_interfaces = 3,
 	  .limits = wlcore_iface_limits,
 	  .n_limits = ARRAY_SIZE(wlcore_iface_limits),
 	},
