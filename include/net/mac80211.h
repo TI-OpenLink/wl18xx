@@ -912,6 +912,7 @@ enum ieee80211_vif_flags {
  *	at runtime, mac80211 will never touch this field
  * @hw_queue: hardware queue for each AC
  * @cab_queue: content-after-beacon (DTIM beacon really) queue, AP mode only
+ * @dummy_p2p: dummy p2p interface - not used for data
  * @drv_priv: data area for driver use, will always be aligned to
  *	sizeof(void *).
  */
@@ -925,6 +926,8 @@ struct ieee80211_vif {
 	u8 hw_queue[IEEE80211_NUM_ACS];
 
 	u32 driver_flags;
+
+	bool dummy_p2p;
 
 	/* must be last */
 	u8 drv_priv[0] __attribute__((__aligned__(sizeof(void *))));
