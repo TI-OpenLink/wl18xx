@@ -1042,6 +1042,7 @@ enum ieee80211_vif_flags {
  *	path needing to access it; even though the netdev carrier will always
  *	be off when it is %NULL there can still be races and packets could be
  *	processed after it switches back to %NULL.
+ * @dummy_p2p: dummy p2p interface - not used for data
  * @drv_priv: data area for driver use, will always be aligned to
  *	sizeof(void *).
  */
@@ -1057,6 +1058,8 @@ struct ieee80211_vif {
 	struct ieee80211_chanctx_conf __rcu *chanctx_conf;
 
 	u32 driver_flags;
+
+	bool dummy_p2p;
 
 	/* must be last */
 	u8 drv_priv[0] __attribute__((__aligned__(sizeof(void *))));
