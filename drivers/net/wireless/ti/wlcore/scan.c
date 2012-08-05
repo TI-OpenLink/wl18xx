@@ -299,7 +299,11 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 
 	/* TODO: delete split_scan_timeout conf */
 
-	cmd->role_id = wlvif->role_id;
+	/* scan on the dev role if the regular one is not started */
+	if (wlvif->role_id == WL12XX_INVALID_ROLE_ID)
+		cmd->role_id = wlvif->dev_role_id;
+	else
+		cmd->role_id = wlvif->role_id;
 
 	if (WARN_ON(cmd->role_id == WL12XX_INVALID_ROLE_ID)) {
 		ret = -EINVAL;
