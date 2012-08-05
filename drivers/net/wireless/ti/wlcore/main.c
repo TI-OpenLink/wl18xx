@@ -1710,6 +1710,9 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
 	mutex_lock(&wl->mutex);
 	wl->wow_enabled = true;
 	wl12xx_for_each_wlvif(wl, wlvif) {
+		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+			continue;
+
 		ret = wl1271_configure_suspend(wl, wlvif, wow);
 		if (ret < 0) {
 			mutex_unlock(&wl->mutex);
@@ -1789,6 +1792,9 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 	}
 
 	wl12xx_for_each_wlvif(wl, wlvif) {
+		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+			continue;
+
 		wl1271_configure_resume(wl, wlvif);
 	}
 
@@ -2657,6 +2663,9 @@ static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 {
 	int ret;
 
+	if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+		return 0;
+
 	if (conf->power_level != wlvif->power_level) {
 		ret = wl1271_acx_tx_power(wl, wlvif, conf->power_level);
 		if (ret < 0)
@@ -2777,6 +2786,9 @@ static void wl1271_op_configure_filter(struct ieee80211_hw *hw,
 		goto out;
 
 	wl12xx_for_each_wlvif(wl, wlvif) {
+		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+			continue;
+
 		if (wlvif->bss_type != BSS_TYPE_AP_BSS) {
 			if (*total & FIF_ALLMULTI)
 				ret = wl1271_acx_group_address_tbl(wl, wlvif,
@@ -3039,6 +3051,9 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 set key");
 
+	if (vif->dummy_p2p)
+		return 0;
+
 	wl1271_debug(DEBUG_CRYPT, "CMD: 0x%x sta: %p", cmd, sta);
 	wl1271_debug(DEBUG_CRYPT, "Key: algo:0x%x, id:%d, len:%d flags 0x%x",
 		     key_conf->cipher, key_conf->keyidx,
@@ -3134,6 +3149,9 @@ static int wl1271_op_set_default_key_idx(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 set default key idx %d",
 		     key_idx);
+
+	if (vif->dummy_p2p)
+		return 0;
 
 	mutex_lock(&wl->mutex);
 
@@ -3265,6 +3283,9 @@ static int wl1271_op_sched_scan_start(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271_op_sched_scan_start");
 
+	if (vif->dummy_p2p)
+		return -EINVAL;
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -3297,6 +3318,9 @@ static void wl1271_op_sched_scan_stop(struct ieee80211_hw *hw,
 	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "wl1271_op_sched_scan_stop");
+
+	if (vif->dummy_p2p)
+		return;
 
 	mutex_lock(&wl->mutex);
 
@@ -4188,6 +4212,9 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 	wl1271_debug(DEBUG_MAC80211, "mac80211 bss info role %d changed 0x%x",
 		     wlvif->role_id, (int)changed);
 
+	if (vif->dummy_p2p)
+		return;
+
 	/*
 	 * make sure to cancel pending disconnections if our association
 	 * state changed
@@ -4291,6 +4318,9 @@ static int wl1271_op_conf_tx(struct ieee80211_hw *hw,
 	u8 ps_scheme;
 	int ret = 0;
 
+	if (vif->dummy_p2p)
+		return 0;
+
 	mutex_lock(&wl->mutex);
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 conf tx %d", queue);
@@ -4342,6 +4372,9 @@ static u64 wl1271_op_get_tsf(struct ieee80211_hw *hw,
 	int ret;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 get tsf");
+
+	if (vif->dummy_p2p)
+		return mactime;
 
 	mutex_lock(&wl->mutex);
 
@@ -4544,6 +4577,9 @@ static int wl12xx_op_sta_state(struct ieee80211_hw *hw,
 	wl1271_debug(DEBUG_MAC80211, "mac80211 sta %d state=%d->%d",
 		     sta->aid, old_state, new_state);
 
+	if (vif->dummy_p2p)
+		return 0;
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -4578,6 +4614,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
 		     tid);
+
+	if (vif->dummy_p2p)
+		return 0;
 
 	/* sanity check - the fields in FW are only 8bits wide */
 	if (WARN_ON(tid > 0xFF))
@@ -4755,6 +4794,9 @@ static void wl12xx_op_channel_switch(struct ieee80211_hw *hw,
 
 	/* TODO: change mac80211 to pass vif as param */
 	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+			continue;
+
 		ret = wl12xx_cmd_channel_switch(wl, wlvif, ch_switch);
 
 		if (!ret)
@@ -4935,6 +4977,9 @@ static int wl12xx_op_set_priority(struct ieee80211_hw *hw,
 		     "mac80211 set priority role %d channel %d",
 		     wlvif->role_id, wlvif->channel);
 
+	if (vif->dummy_p2p)
+		return 0;
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -4979,6 +5024,9 @@ static int wl12xx_op_cancel_priority(struct ieee80211_hw *hw,
 	wl1271_debug(DEBUG_MAC80211, "mac80211 cancel priority role %d",
 		     wlvif->role_id);
 
+	if (vif->dummy_p2p)
+		return 0;
+
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -5018,6 +5066,9 @@ static void wlcore_op_sta_rc_update(struct ieee80211_hw *hw,
 		return;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 sta_rc_update wide %d", wide);
+
+	if (vif->dummy_p2p)
+		return;
 
 	mutex_lock(&wl->mutex);
 
