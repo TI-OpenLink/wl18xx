@@ -1079,6 +1079,7 @@ enum ieee80211_vif_flags {
  * @debugfs_dir: debugfs dentry, can be used by drivers to create own per
  *      interface debug files. Note that it will be NULL for the virtual
  *	monitor interface (if that is requested.)
+ * @dummy_p2p: dummy p2p interface - not used for data
  * @drv_priv: data area for driver use, will always be aligned to
  *	sizeof(void *).
  */
@@ -1098,6 +1099,8 @@ struct ieee80211_vif {
 #ifdef CONFIG_MAC80211_DEBUGFS
 	struct dentry *debugfs_dir;
 #endif
+
+	bool dummy_p2p;
 
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
