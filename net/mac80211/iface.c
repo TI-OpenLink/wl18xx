@@ -1647,6 +1647,10 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 		sdata->dev = ndev;
 	}
 
+	/* hack for android */
+	if (0 == strcmp(sdata->name, "p2p0"))
+		sdata->vif.dummy_p2p = true;
+
 	/* initialise type-independent data */
 	sdata->wdev.wiphy = local->hw.wiphy;
 	sdata->local = local;
