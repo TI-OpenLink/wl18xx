@@ -4110,43 +4110,6 @@ sta_not_found:
 	if (ret < 0)
 		goto out;
 
-	if (changed & BSS_CHANGED_PS) {
-
-		if ((bss_conf->ps) &&
-		    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
-		    !test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
-
-			int ps_mode;
-			char *ps_mode_str;
-
-			if (wl->conf.conn.forced_ps) {
-				ps_mode = STATION_POWER_SAVE_MODE;
-				ps_mode_str = "forced";
-			} else {
-				ps_mode = STATION_AUTO_PS_MODE;
-				ps_mode_str = "auto";
-			}
-
-			wl1271_debug(DEBUG_PSM, "%s ps enabled", ps_mode_str);
-
-			ret = wl1271_ps_set_mode(wl, wlvif, ps_mode);
-
-			if (ret < 0)
-				wl1271_warning("enter %s ps failed %d",
-					       ps_mode_str, ret);
-
-		} else if (!bss_conf->ps &&
-			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
-
-			wl1271_debug(DEBUG_PSM, "auto ps disabled");
-
-			ret = wl1271_ps_set_mode(wl, wlvif,
-						 STATION_ACTIVE_MODE);
-			if (ret < 0)
-				wl1271_warning("exit auto ps failed %d", ret);
-		}
-	}
-
 	if (do_join) {
 		ret = wl1271_join(wl, wlvif);
 		if (ret < 0) {
@@ -4183,6 +4146,38 @@ sta_not_found:
 
 		if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
 			wl12xx_set_authorized(wl, wlvif);
+	}
+
+	if (changed & BSS_CHANGED_PS) {
+		if ((bss_conf->ps) &&
+		    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
+		    !test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
+			int ps_mode;
+			char *ps_mode_str;
+
+			if (wl->conf.conn.forced_ps) {
+				ps_mode = STATION_POWER_SAVE_MODE;
+				ps_mode_str = "forced";
+			} else {
+				ps_mode = STATION_AUTO_PS_MODE;
+				ps_mode_str = "auto";
+			}
+
+			wl1271_debug(DEBUG_PSM, "%s ps enabled", ps_mode_str);
+
+			ret = wl1271_ps_set_mode(wl, wlvif, ps_mode);
+			if (ret < 0)
+				wl1271_warning("enter %s ps failed %d",
+					       ps_mode_str, ret);
+		} else if (!bss_conf->ps &&
+			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
+			wl1271_debug(DEBUG_PSM, "auto ps disabled");
+
+			ret = wl1271_ps_set_mode(wl, wlvif,
+						 STATION_ACTIVE_MODE);
+			if (ret < 0)
+				wl1271_warning("exit auto ps failed %d", ret);
+		}
 	}
 
 	/* Handle new association with HT. Do this after join. */
