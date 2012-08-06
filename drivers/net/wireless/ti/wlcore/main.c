@@ -4517,8 +4517,11 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	/* Add station (AP mode) */
 	if (is_ap &&
 	    old_state == IEEE80211_STA_NOTEXIST &&
-	    new_state == IEEE80211_STA_NONE)
-		return wl12xx_sta_add(wl, wlvif, sta);
+	    new_state == IEEE80211_STA_NONE) {
+		ret = wl12xx_sta_add(wl, wlvif, sta);
+		if (ret)
+			return ret;
+	}
 
 	/* Remove station (AP mode) */
 	if (is_ap &&
@@ -4526,7 +4529,6 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	    new_state == IEEE80211_STA_NOTEXIST) {
 		/* must not fail */
 		wl12xx_sta_remove(wl, wlvif, sta);
-		return 0;
 	}
 
 	/* Authorize station (AP mode) */
@@ -4538,14 +4540,17 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 
 		ret = wl1271_acx_set_ht_capabilities(wl, &sta->ht_cap, true,
 						     hlid);
-		return ret;
+		if (ret)
+			return ret;
 	}
 
 	/* Authorize station */
 	if (is_sta &&
 	    new_state == IEEE80211_STA_AUTHORIZED) {
 		set_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags);
-		return wl12xx_set_authorized(wl, wlvif);
+		ret = wl12xx_set_authorized(wl, wlvif);
+		if (ret)
+			return ret;
 	}
 
 	if (is_sta &&
@@ -4553,9 +4558,25 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	    new_state == IEEE80211_STA_ASSOC) {
 		clear_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags);
 		clear_bit(WLVIF_FLAG_STA_STATE_SENT, &wlvif->flags);
-		return 0;
 	}
 
+	/* clear ROCs on failure or authorization */
+	if (is_sta &&
+	    (new_state == IEEE80211_STA_AUTHORIZED ||
+	     new_state == IEEE80211_STA_NOTEXIST)) {
+		if (test_bit(wlvif->role_id, wl->roc_map))
+			wl12xx_croc(wl, wlvif->role_id);
+	}
+
+	if (is_sta &&
+	    old_state == IEEE80211_STA_NOTEXIST &&
+	    new_state == IEEE80211_STA_NONE) {
+		if (find_first_bit(wl->roc_map,
+				   WL12XX_MAX_ROLES) >= WL12XX_MAX_ROLES) {
+			WARN_ON(wlvif->role_id == WL12XX_INVALID_ROLE_ID);
+			wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->channel);
+		}
+	}
 	return 0;
 }
 
