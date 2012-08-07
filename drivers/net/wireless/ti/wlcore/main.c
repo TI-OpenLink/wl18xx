@@ -4498,6 +4498,47 @@ static int wl12xx_sta_remove(struct wl1271 *wl,
 	return ret;
 }
 
+static void wlcore_roc_if_possible(struct wl1271 *wl,
+				   struct wl12xx_vif *wlvif)
+{
+	if (find_first_bit(wl->roc_map,
+			   WL12XX_MAX_ROLES) < WL12XX_MAX_ROLES)
+		return;
+
+	if (WARN_ON(wlvif->role_id == WL12XX_INVALID_ROLE_ID))
+		return;
+
+	wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->channel);
+}
+
+static void wlcore_update_inconn_sta(struct wl1271 *wl,
+				     struct wl12xx_vif *wlvif,
+				     struct wl1271_station *wl_sta,
+				     bool in_connection)
+{
+	if (in_connection) {
+		if (WARN_ON(wl_sta->in_connection))
+			return;
+		wl_sta->in_connection = true;
+		if (!wlvif->inconn_count++) {
+			wlcore_roc_if_possible(wl, wlvif);
+		}
+	} else {
+		if (!wl_sta->in_connection)
+			return;
+
+		wl_sta->in_connection = false;
+		wlvif->inconn_count--;
+		if (WARN_ON(wlvif->inconn_count < 0))
+			return;
+
+		if (!wlvif->inconn_count)
+			if (test_bit(wlvif->role_id, wl->roc_map))
+				wl12xx_croc(wl, wlvif->role_id);
+		/* TODO: start other pending rocs */
+	}
+}
+
 static int wl12xx_update_sta_state(struct wl1271 *wl,
 				   struct wl12xx_vif *wlvif,
 				   struct ieee80211_sta *sta,
@@ -4521,6 +4562,8 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 		ret = wl12xx_sta_add(wl, wlvif, sta);
 		if (ret)
 			return ret;
+
+		wlcore_update_inconn_sta(wl, wlvif, wl_sta, true);
 	}
 
 	/* Remove station (AP mode) */
@@ -4529,6 +4572,8 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 	    new_state == IEEE80211_STA_NOTEXIST) {
 		/* must not fail */
 		wl12xx_sta_remove(wl, wlvif, sta);
+
+		wlcore_update_inconn_sta(wl, wlvif, wl_sta, false);
 	}
 
 	/* Authorize station (AP mode) */
@@ -4542,6 +4587,8 @@ static int wl12xx_update_sta_state(struct wl1271 *wl,
 						     hlid);
 		if (ret)
 			return ret;
+
+		wlcore_update_inconn_sta(wl, wlvif, wl_sta, false);
 	}
 
 	/* Authorize station */
@@ -5309,8 +5356,8 @@ static const struct ieee80211_ops wl1271_ops = {
 	.change_chanctx = wlcore_op_change_chanctx,
 	.assign_vif_chanctx = wlcore_op_assign_vif_chanctx,
 	.unassign_vif_chanctx = wlcore_op_unassign_vif_chanctx,
-	.set_priority = wl12xx_op_set_priority,
-	.cancel_priority = wl12xx_op_cancel_priority,
+//	.set_priority = wl12xx_op_set_priority,
+//	.cancel_priority = wl12xx_op_cancel_priority,
 	.sta_rc_update = wlcore_op_sta_rc_update,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };

@@ -319,6 +319,7 @@ struct wl12xx_rx_filter {
 
 struct wl1271_station {
 	u8 hlid;
+	bool in_connection;
 };
 
 struct wl12xx_vif {
@@ -428,6 +429,9 @@ struct wl12xx_vif {
 	struct timer_list rx_streaming_timer;
 
 	bool pending_roc;
+
+	/* number of in connection stations */
+	int inconn_count;
 
 	/*
 	 * This struct must be last!
