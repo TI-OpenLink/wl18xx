@@ -505,7 +505,7 @@ static struct wlcore_conf wl18xx_conf = {
 
 static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 	.ht = {
-		.mode				= HT_MODE_DEFAULT,
+		.mode				= HT_MODE_WIDE,
 	},
 	.phy = {
 		.phy_standalone			= 0x00,
@@ -556,13 +556,13 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.per_chan_pwr_limit_arr_11p	= { 0xff, 0xff, 0xff, 0xff,
 						    0xff, 0xff, 0xff },
 		.psat				= 0,
-		.low_power_val			= 0x08,
-		.med_power_val			= 0x12,
+		.low_power_val			= 0x05,
+		.med_power_val			= 0x14,
 		.high_power_val			= 0x18,
 		.low_power_val_2nd		= 0x05,
 		.med_power_val_2nd		= 0x0a,
 		.high_power_val_2nd		= 0x14,
-		.external_pa_dc2dc		= 0,
+		.external_pa_dc2dc		= 1,
 		.number_of_assembled_ant2_4	= 2,
 		.number_of_assembled_ant5	= 1,
 		.tx_rf_margin			= 1,
