@@ -524,6 +524,7 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.enable_tx_low_pwr_on_siso_rdl	= 0x00,
 		.rx_profile			= 0x00,
 		.pwr_limit_reference_11_abg	= 0xc8,
+		.pwr_limit_reference_11p	= 0xc8,
 		.psat				= 0,
 		.low_power_val			= 0x05,
 		.med_power_val			= 0x14,
