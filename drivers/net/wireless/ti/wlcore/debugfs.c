@@ -1157,7 +1157,7 @@ static ssize_t dev_mem_read(struct file *file,
 
 	mutex_lock(&wl->mutex);
 
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+	if (unlikely(wl->state == WLCORE_STATE_OFF)) {
 		ret = -EFAULT;
 		goto skip_read;
 	}
@@ -1244,7 +1244,7 @@ static ssize_t dev_mem_write(struct file *file, const char __user *user_buf,
 
 	mutex_lock(&wl->mutex);
 
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+	if (unlikely(wl->state == WLCORE_STATE_OFF)) {
 		ret = -EFAULT;
 		goto skip_write;
 	}
