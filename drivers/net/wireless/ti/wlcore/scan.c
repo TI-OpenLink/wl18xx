@@ -330,7 +330,7 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	cmd->terminate_after = 0;
 
 	/* configure channels */
-	WARN_ON(req->n_ssids != 1); /* TODO: support multi ssid */
+	WARN_ON(req->n_ssids > 1); /* TODO: support multi ssid */
 	wlcore_set_scan_chan_params(wl, cmd, req->channels,
 				    req->n_channels, req->n_ssids,
 				    SCAN_TYPE_SEARCH);
