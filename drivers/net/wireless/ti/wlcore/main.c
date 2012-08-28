@@ -2501,7 +2501,7 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		/* needed mainly for configuring rate policies */
 		ret = wl1271_sta_hw_init(wl, wlvif);
 		if (ret < 0)
-			return ret;
+			goto out;
 	}
 
 	list_add(&wlvif->list, &wl->wlvif_list);
