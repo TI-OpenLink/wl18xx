@@ -29,7 +29,7 @@
 #define WL18XX_IFTYPE_VER	4
 #define WL18XX_MAJOR_VER	0
 #define WL18XX_SUBTYPE_VER	0
-#define WL18XX_MINOR_VER	5
+#define WL18XX_MINOR_VER	8
 
 #define WL18XX_CMD_MAX_SIZE          740
 
