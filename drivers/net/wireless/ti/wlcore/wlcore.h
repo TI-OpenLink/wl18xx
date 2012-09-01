@@ -166,6 +166,7 @@ struct wlcore_aggr_reason {
 };
 
 struct wl1271 {
+	bool initialized;
 	struct ieee80211_hw *hw;
 	bool mac80211_registered;
 
@@ -458,6 +459,8 @@ struct wl1271 {
 
 	/* the minimum FW version required for the driver to work */
 	unsigned int min_fw_ver[NUM_FW_VER];
+
+	struct completion nvs_loading_complete;
 
 	struct wlcore_aggr_reason *aggr_pkts_reason;
 	u32 aggr_pkts_reason_num;
