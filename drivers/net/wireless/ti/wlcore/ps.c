@@ -80,7 +80,8 @@ out:
 void wl1271_ps_elp_sleep(struct wl1271 *wl)
 {
 	struct wl12xx_vif *wlvif;
-	u32 timeout;
+	unsigned long now, expiration;
+	unsigned long timeout;
 
 	if (wl->sleep_auth != WL1271_PSM_ELP)
 		return;
@@ -98,13 +99,33 @@ void wl1271_ps_elp_sleep(struct wl1271 *wl)
 			return;
 	}
 
-	if (wl->conf.conn.forced_ps)
-		timeout = ELP_ENTRY_DELAY;
-	else
-		timeout = wl->conf.conn.dynamic_ps_timeout;
+	timeout = msecs_to_jiffies(ELP_ENTRY_DELAY);
 
-	ieee80211_queue_delayed_work(wl->hw, &wl->elp_work,
-				     msecs_to_jiffies(timeout));
+	now = jiffies;
+	expiration = now + timeout;
+
+	/* extend timeout if extended elp timeout was configured previously */
+	if (wl->last_elp_timeout_jiffies &&
+	    time_after(wl->last_elp_timeout_jiffies, expiration))
+		timeout = wl->last_elp_timeout_jiffies - now;
+
+	/* make sure our calculations are fine */
+	if (timeout > msecs_to_jiffies(wl->conf.conn.dynamic_ps_timeout)) {
+		WARN(1, "elp timeout calculations went wrong");
+		timeout = msecs_to_jiffies(wl->conf.conn.dynamic_ps_timeout);
+	}
+
+	wl->last_elp_timeout_jiffies = now + timeout;
+	wl1271_debug(DEBUG_PSM, "elp timeout: %d", jiffies_to_msecs(timeout));
+
+	ieee80211_queue_delayed_work(wl->hw, &wl->elp_work, timeout);
+}
+
+void wlcore_set_extended_elp_timeout(struct wl1271 *wl)
+{
+	u32 timeout = wl->conf.conn.dynamic_ps_timeout;
+
+	wl->last_elp_timeout_jiffies = jiffies + msecs_to_jiffies(timeout);
 }
 
 int wl1271_ps_elp_wakeup(struct wl1271 *wl)

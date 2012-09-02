@@ -420,6 +420,9 @@ struct wl1271 {
 	/* sleep auth value currently configured to FW */
 	int sleep_auth;
 
+	/* expiration time of the last elp timeout delayed work */
+	unsigned long last_elp_timeout_jiffies;
+
 	/* the number of allocated MAC addresses in this chip */
 	int num_mac_addr;
 
