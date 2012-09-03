@@ -3444,6 +3444,11 @@ static void wl1271_op_set_default_key_idx(struct ieee80211_hw *hw,
 
 	mutex_lock(&wl->mutex);
 
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		ret = -EAGAIN;
+		goto out_unlock;
+	}
+
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
 		goto out_unlock;
