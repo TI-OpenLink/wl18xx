@@ -1920,7 +1920,6 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	wl->ap_fw_ps_map = 0;
 	wl->ap_ps_map = 0;
 	wl->sleep_auth = WL1271_PSM_ILLEGAL;
-	wl->last_elp_timeout_jiffies = 0;
 	memset(wl->roles_map, 0, sizeof(wl->roles_map));
 	memset(wl->links_map, 0, sizeof(wl->links_map));
 	memset(wl->roc_map, 0, sizeof(wl->roc_map));

@@ -788,7 +788,6 @@ out_ack:
 		wl1271_handle_tx_low_watermark(wl);
 	}
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
-	wlcore_set_extended_elp_timeout(wl);
 
 out:
 	return bus_ret;

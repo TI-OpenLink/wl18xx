@@ -30,7 +30,6 @@
 #include "rx.h"
 #include "tx.h"
 #include "io.h"
-#include "ps.h"
 #include "hw_ops.h"
 
 /*
@@ -293,7 +292,6 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 	}
 
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
-	wlcore_set_extended_elp_timeout(wl);
 
 out:
 	return ret;
