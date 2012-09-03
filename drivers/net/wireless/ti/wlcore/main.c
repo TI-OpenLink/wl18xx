@@ -6293,8 +6293,16 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 
 	if (!wl->ops || !wl->ptable) {
 		ret = -EINVAL;
-		goto out_free_hw;
+		goto out;
 	}
+
+	wl->dev = &pdev->dev;
+	wl->pdev = pdev;
+	platform_set_drvdata(pdev, wl);
+
+	ret = wl->ops->setup(wl);
+	if (ret < 0)
+		goto out;
 
 	BUG_ON(wl->num_tx_desc > WLCORE_MAX_TX_DESCRIPTORS);
 
@@ -6304,10 +6312,7 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	wl->irq = platform_get_irq(pdev, 0);
 	wl->platform_quirks = pdata->platform_quirks;
 	wl->set_power = pdata->set_power;
-	wl->dev = &pdev->dev;
 	wl->if_ops = pdata->ops;
-
-	platform_set_drvdata(pdev, wl);
 
 	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
 		irqflags = IRQF_TRIGGER_RISING;
@@ -6319,7 +6324,7 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 				   pdev->name, wl);
 	if (ret < 0) {
 		wl1271_error("request_irq() failed: %d", ret);
-		goto out_free_hw;
+		goto out;
 	}
 
 #ifdef CONFIG_PM
@@ -6393,9 +6398,6 @@ out_unreg:
 
 out_irq:
 	free_irq(wl->irq, wl);
-
-out_free_hw:
-	wlcore_free_hw(wl);
 
 out:
 	return ret;
