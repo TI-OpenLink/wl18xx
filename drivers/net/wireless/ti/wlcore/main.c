@@ -3746,7 +3746,7 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret = 0;
 
-	if ((changed & BSS_CHANGED_BASIC_RATES)) {
+	if (changed & BSS_CHANGED_BASIC_RATES) {
 		u32 rates = bss_conf->basic_rates;
 
 		wlvif->basic_rate_set = wl1271_tx_enabled_rates_get(wl, rates,
@@ -4312,6 +4312,9 @@ static int wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 	wlvif->band = ctx->channel->band;
 	wlvif->channel = channel;
 	wlvif->channel_type = ctx->channel_type;
+
+	/* update default rates according to the band */
+	wl1271_set_band_rate(wl, wlvif);
 
 	return 0;
 }
