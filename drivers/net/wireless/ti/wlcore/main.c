@@ -3858,7 +3858,8 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret = 0;
 
-	if ((changed & BSS_CHANGED_BASIC_RATES)) {
+	if ((changed & (BSS_CHANGED_BASIC_RATES | BSS_CHANGED_CHANNEL)) &&
+	    bss_conf->basic_rates) {
 		u32 rates = bss_conf->basic_rates;
 
 		wlvif->basic_rate_set = wl1271_tx_enabled_rates_get(wl, rates,
