@@ -1038,9 +1038,15 @@ enum {
 	ACX_CONFIG_HANGOVER              = 0x0042,
 	ACX_FEATURE_CFG                  = 0x0043,
 	ACX_PROTECTION_CFG               = 0x0044,
-	ACX_CHECKSUM_CONFIG              = 0x0045,
 
-	ACX_PEER_HT_OPERATION_MODE_CFG   = 0x0064,
+	/* start of 18xx specific acxs */
+	ACX_NS_IPV6_FILTER               = 0x0050,
+	ACX_PEER_HT_OPERATION_MODE_CFG   = 0x0051,
+	ACX_CSUM_CONFIG                  = 0x0052,
+	ACX_SIM_CONFIG                   = 0x0053,
+	ACX_CLEAR_STATISTICS             = 0x0054,
+	ACX_AUTO_RX_STREAMING            = 0x0055,
+	ACX_PEER_CAP                     = 0x0056
 };
 
 

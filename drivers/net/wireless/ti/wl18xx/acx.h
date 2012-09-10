@@ -25,10 +25,6 @@
 #include "../wlcore/wlcore.h"
 #include "../wlcore/acx.h"
 
-enum {
-	ACX_CLEAR_STATISTICS		 = 0x0047,
-};
-
 /* numbers of bits the length field takes (add 1 for the actual number) */
 #define WL18XX_HOST_IF_LEN_SIZE_FIELD 15
 
