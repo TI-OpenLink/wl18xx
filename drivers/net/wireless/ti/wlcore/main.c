@@ -2307,6 +2307,11 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 		 */
 		memcpy(wl->addresses[0].addr, vif->addr, ETH_ALEN);
 
+		wl1271_error("driver is in transitional commit (due to fw api"
+			     "change) and can't be booted!");
+		ret = -EINVAL;
+		goto out;
+
 		booted = wl12xx_init_fw(wl);
 		if (!booted) {
 			ret = -EINVAL;
