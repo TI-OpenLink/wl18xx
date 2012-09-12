@@ -703,8 +703,7 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	if (!wl->conf.rx_streaming.interval)
 		return;
 
-	if (!wl->conf.rx_streaming.always &&
-	    !test_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags))
+	if (!wl->conf.rx_streaming.always)
 		return;
 
 	timeout = wl->conf.rx_streaming.duration;
