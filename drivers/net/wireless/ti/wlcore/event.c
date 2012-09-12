@@ -78,7 +78,6 @@ static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
 {
 	wl1271_debug(DEBUG_EVENT, "MBOX DUMP:");
 	wl1271_debug(DEBUG_EVENT, "\tvector: 0x%x", mbox->events_vector);
-	wl1271_debug(DEBUG_EVENT, "\tmask: 0x%x", mbox->events_mask);
 }
 
 static int wl1271_event_process(struct wl1271 *wl)
@@ -94,19 +93,19 @@ static int wl1271_event_process(struct wl1271 *wl)
 	wl1271_event_mbox_dump(mbox);
 
 	vector = le32_to_cpu(mbox->events_vector);
-	vector &= ~(le32_to_cpu(mbox->events_mask));
 	wl1271_debug(DEBUG_EVENT, "vector: 0x%x", vector);
 
 	if (vector & SCAN_COMPLETE_EVENT_ID) {
-		wl1271_debug(DEBUG_EVENT, "status: 0x%x",
-			     mbox->scheduled_scan_status);
+		wl1271_debug(DEBUG_EVENT, "scan results: %d",
+			     mbox->number_of_scan_results);
 
 		wl12xx_scan_completed(wl);
 	}
 
 	if (vector & PERIODIC_SCAN_COMPLETE_EVENT_ID) {
-		wl1271_debug(DEBUG_EVENT, "PERIODIC_SCAN_COMPLETE_EVENT "
-			     "(status 0x%0x)", mbox->scheduled_scan_status);
+		wl1271_debug(DEBUG_EVENT,
+			     "PERIODIC_SCAN_COMPLETE_EVENT (results 0x%0x)",
+			     mbox->number_of_sched_scan_results);
 		if (wl->sched_vif) {
 			ieee80211_sched_scan_stopped(wl->hw);
 			wl->sched_vif = NULL;
@@ -150,43 +149,51 @@ static int wl1271_event_process(struct wl1271 *wl)
 	}
 
 	if (vector & BA_SESSION_RX_CONSTRAINT_EVENT_ID) {
-		u8 role_id = mbox->role_id;
+		unsigned long roles_bitmap =
+			le16_to_cpu(mbox->rx_ba_role_id_bitmap);
+		unsigned long allowed_bitmap =
+			le16_to_cpu(mbox->rx_ba_allowed_bitmap);
+
 		wl1271_debug(DEBUG_EVENT, "BA_SESSION_RX_CONSTRAINT_EVENT_ID. "
-			     "ba_allowed = 0x%x, role_id=%d",
-			     mbox->rx_ba_allowed, role_id);
+			     "ba_allowed = 0x%lx, role_id=0x%lx",
+			     allowed_bitmap, roles_bitmap);
 
 		wl12xx_for_each_wlvif(wl, wlvif) {
-			if (role_id != 0xff && role_id != wlvif->role_id)
+			if (wlvif->role_id == WL12XX_INVALID_ROLE_ID ||
+			    !test_bit(wlvif->role_id , &roles_bitmap))
 				continue;
 
-			wlvif->ba_allowed = !!mbox->rx_ba_allowed;
+			wlvif->ba_allowed = !!test_bit(wlvif->role_id,
+						       &allowed_bitmap);
 			if (!wlvif->ba_allowed)
 				wl1271_stop_ba_event(wl, wlvif);
 		}
 	}
 
 	if (vector & CHANNEL_SWITCH_COMPLETE_EVENT_ID) {
-		wl1271_debug(DEBUG_EVENT, "CHANNEL_SWITCH_COMPLETE_EVENT_ID. "
-					  "status = 0x%x",
-					  mbox->channel_switch_status);
-		/*
-		 * That event uses for two cases:
-		 * 1) channel switch complete with status=0
-		 * 2) channel switch failed status=1
-		 */
+		unsigned long roles_bitmap =
+			le16_to_cpu(mbox->channel_switch_role_id_bitmap);
 
-		/* TODO: configure only the relevant vif */
+		wl1271_debug(DEBUG_EVENT, "CHANNEL_SWITCH_COMPLETE_EVENT_ID. roles=0x%lx",
+			     roles_bitmap);
+
+		/*
+		 * we get this event only when channel switch was completed
+		 * successfully. there is no indication for failure...
+		 */
 		wl12xx_for_each_wlvif_sta(wl, wlvif) {
-			bool success;
+			if (wlvif->role_id == WL12XX_INVALID_ROLE_ID ||
+			    !test_bit(wlvif->role_id , &roles_bitmap))
+				continue;
 
 			if (!test_and_clear_bit(WLVIF_FLAG_CS_PROGRESS,
 						&wlvif->flags))
 				continue;
 
-			success = mbox->channel_switch_status ? false : true;
 			vif = wl12xx_wlvif_to_vif(wlvif);
 
-			ieee80211_chswitch_done(vif, success);
+			ieee80211_chswitch_done(vif, true);
+			cancel_delayed_work(&wlvif->channel_switch_work);
 		}
 	}
 
@@ -203,13 +210,13 @@ static int wl1271_event_process(struct wl1271 *wl)
 	 */
 	if (vector & MAX_TX_FAILURE_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT, "MAX_TX_FAILURE_EVENT_ID");
-		sta_bitmap |= le16_to_cpu(mbox->sta_tx_retry_exceeded);
+		sta_bitmap |= le32_to_cpu(mbox->tx_retry_exceeded_bitmap);
 		disconnect_sta = true;
 	}
 
 	if (vector & INACTIVE_STA_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT, "INACTIVE_STA_EVENT_ID");
-		sta_bitmap |= le16_to_cpu(mbox->sta_aging_status);
+		sta_bitmap |= le32_to_cpu(mbox->inactive_sta_bitmap);
 		disconnect_sta = true;
 	}
 

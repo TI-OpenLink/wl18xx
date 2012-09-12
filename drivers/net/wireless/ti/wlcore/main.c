@@ -1961,6 +1961,43 @@ static void wlcore_op_stop(struct ieee80211_hw *hw)
 	mutex_unlock(&wl->mutex);
 }
 
+static void wlcore_channel_switch_work(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wl1271 *wl;
+	struct ieee80211_vif *vif;
+	struct wl12xx_vif *wlvif;
+	int ret;
+
+	dwork = container_of(work, struct delayed_work, work);
+	wlvif = container_of(dwork, struct wl12xx_vif, channel_switch_work);
+	wl = wlvif->wl;
+
+	wl1271_info("channel switch failed (role_id: %d).", wlvif->role_id);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		goto out;
+
+	/* check the channel switch is still ongoing */
+	if (!test_and_clear_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags))
+		goto out;
+
+	vif = wl12xx_wlvif_to_vif(wlvif);
+	ieee80211_chswitch_done(vif, false);
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	wl12xx_cmd_stop_channel_switch(wl, wlvif);
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+}
+
 static int wl12xx_allocate_rate_policy(struct wl1271 *wl, u8 *idx)
 {
 	u8 policy = find_first_zero_bit(wl->rate_policies_map,
@@ -2108,6 +2145,8 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		  wl1271_rx_streaming_enable_work);
 	INIT_WORK(&wlvif->rx_streaming_disable_work,
 		  wl1271_rx_streaming_disable_work);
+	INIT_DELAYED_WORK(&wlvif->channel_switch_work,
+			  wlcore_channel_switch_work);
 	INIT_LIST_HEAD(&wlvif->list);
 
 	setup_timer(&wlvif->rx_streaming_timer, wl1271_rx_streaming_timer,
@@ -2634,6 +2673,7 @@ static void wl1271_unjoin(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 
 		wl12xx_cmd_stop_channel_switch(wl, wlvif);
 		ieee80211_chswitch_done(vif, false);
+		cancel_delayed_work(&wlvif->channel_switch_work);
 	}
 
 	/* invalidate keep-alive template */
@@ -4912,15 +4952,26 @@ static void wl12xx_op_channel_switch(struct ieee80211_hw *hw,
 
 	/* TODO: change mac80211 to pass vif as param */
 	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		unsigned long delay_usec;
+
 		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
 			continue;
 
 		ret = wl12xx_cmd_channel_switch(wl, wlvif, ch_switch);
+		if (ret)
+			goto out_sleep;
 
-		if (!ret)
-			set_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags);
+		set_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags);
+
+		/* indicate failure 5 seconds after channel switch time */
+		delay_usec = ieee80211_tu_to_usec(wlvif->beacon_int) *
+			     ch_switch->count;
+		ieee80211_queue_delayed_work(hw, &wlvif->channel_switch_work,
+				usecs_to_jiffies(delay_usec) +
+				msecs_to_jiffies(5000));
 	}
 
+out_sleep:
 	wl1271_ps_elp_sleep(wl);
 
 out:

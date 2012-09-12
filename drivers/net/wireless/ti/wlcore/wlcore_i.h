@@ -438,6 +438,8 @@ struct wl12xx_vif {
 	struct work_struct rx_streaming_disable_work;
 	struct timer_list rx_streaming_timer;
 
+	struct delayed_work channel_switch_work;
+
 	bool pending_roc;
 
 	/* number of in connection stations */
