@@ -94,7 +94,8 @@ int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_channel_switch(struct wl1271 *wl,
 			      struct wl12xx_vif *wlvif,
 			      struct ieee80211_channel_switch *ch_switch);
-int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl);
+int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl,
+				   struct wl12xx_vif *wlvif);
 int wl12xx_allocate_link(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			 u8 *hlid);
 void wl12xx_free_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid);
@@ -673,14 +674,20 @@ struct wl12xx_cmd_channel_switch {
 	u8 switch_time;
 	/* Stop the role TX, should expect it after radar detection */
 	u8 stop_tx;
-	/* The target channel tx status 1-stopped 0-open*/
-	u8 post_switch_tx_disable;
 
-	u8 padding[3];
+	__le32 local_supported_rates;
+
+	u8 channel_type;
+	u8 band;
+
+	u8 padding[2];
 } __packed;
 
 struct wl12xx_cmd_stop_channel_switch {
 	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 padding[3];
 } __packed;
 
 /* Used to check radio status after calibration */
