@@ -1807,6 +1807,7 @@ int wl12xx_cmd_channel_switch(struct wl1271 *wl,
 			      struct ieee80211_channel_switch *ch_switch)
 {
 	struct wl12xx_cmd_channel_switch *cmd;
+	u32 supported_rates;
 	int ret;
 
 	wl1271_debug(DEBUG_ACX, "cmd channel switch");
@@ -1821,9 +1822,15 @@ int wl12xx_cmd_channel_switch(struct wl1271 *wl,
 	cmd->channel = ch_switch->channel->hw_value;
 	cmd->switch_time = ch_switch->count;
 	cmd->stop_tx = ch_switch->block_tx;
+	if (ch_switch->channel->band == IEEE80211_BAND_5GHZ)
+		cmd->band = WLCORE_BAND_5GHZ;
 
-	/* FIXME: control from mac80211 in the future */
-	cmd->post_switch_tx_disable = 0;  /* Enable TX on the target channel */
+	supported_rates = CONF_TX_AP_ENABLED_RATES | CONF_TX_MCS_RATES |
+			  wlcore_hw_sta_get_ap_rate_mask(wl, wlvif);
+	if (wlvif->p2p)
+		supported_rates &= ~CONF_TX_CCK_RATES;
+	cmd->local_supported_rates = cpu_to_le32(supported_rates);
+	cmd->channel_type = wlvif->channel_type;
 
 	ret = wl1271_cmd_send(wl, CMD_CHANNEL_SWITCH, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
@@ -1838,7 +1845,7 @@ out:
 	return ret;
 }
 
-int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl)
+int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 {
 	struct wl12xx_cmd_stop_channel_switch *cmd;
 	int ret;
@@ -1850,6 +1857,8 @@ int wl12xx_cmd_stop_channel_switch(struct wl1271 *wl)
 		ret = -ENOMEM;
 		goto out;
 	}
+
+	cmd->role_id = wlvif->role_id;
 
 	ret = wl1271_cmd_send(wl, CMD_STOP_CHANNEL_SWICTH, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {

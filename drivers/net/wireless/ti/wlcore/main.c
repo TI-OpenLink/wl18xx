@@ -2634,7 +2634,7 @@ static void wl1271_unjoin(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	if (test_and_clear_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags)) {
 		struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
 
-		wl12xx_cmd_stop_channel_switch(wl);
+		wl12xx_cmd_stop_channel_switch(wl, wlvif);
 		ieee80211_chswitch_done(vif, false);
 	}
 
