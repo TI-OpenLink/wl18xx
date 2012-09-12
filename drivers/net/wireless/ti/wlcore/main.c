@@ -145,10 +145,9 @@ int wl1271_recalc_rx_streaming(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	/* reconfigure/disable according to new streaming_period */
 	if (period &&
 	    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
-	    (wl->conf.rx_streaming.always ||
-	     test_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags)))
+	    wl->conf.rx_streaming.always) {
 		ret = wl1271_set_rx_streaming(wl, wlvif, true);
-	else {
+	} else {
 		ret = wl1271_set_rx_streaming(wl, wlvif, false);
 		/* don't cancel_work_sync since we might deadlock */
 		del_timer_sync(&wlvif->rx_streaming_timer);
@@ -168,8 +167,7 @@ static void wl1271_rx_streaming_enable_work(struct work_struct *work)
 
 	if (test_bit(WLVIF_FLAG_RX_STREAMING_STARTED, &wlvif->flags) ||
 	    !test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) ||
-	    (!wl->conf.rx_streaming.always &&
-	     !test_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags)))
+	    !wl->conf.rx_streaming.always)
 		goto out;
 
 	if (!wl->conf.rx_streaming.interval)

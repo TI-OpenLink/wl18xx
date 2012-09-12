@@ -74,22 +74,6 @@ static void wl1271_stop_ba_event(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	}
 }
 
-static void wl12xx_event_soft_gemini_sense(struct wl1271 *wl,
-					       u8 enable)
-{
-	struct wl12xx_vif *wlvif;
-
-	if (enable) {
-		set_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags);
-	} else {
-		clear_bit(WL1271_FLAG_SOFT_GEMINI, &wl->flags);
-		wl12xx_for_each_wlvif_sta(wl, wlvif) {
-			wl1271_recalc_rx_streaming(wl, wlvif);
-		}
-	}
-
-}
-
 static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
 {
 	wl1271_debug(DEBUG_EVENT, "MBOX DUMP:");
@@ -120,13 +104,6 @@ static int wl1271_event_process(struct wl1271 *wl)
 		wl12xx_scan_completed(wl);
 	}
 
-	if (vector & PERIODIC_SCAN_REPORT_EVENT_ID) {
-		wl1271_debug(DEBUG_EVENT, "PERIODIC_SCAN_REPORT_EVENT "
-			     "(status 0x%0x)", mbox->scheduled_scan_status);
-
-		//wl1271_scan_sched_scan_results(wl);
-	}
-
 	if (vector & PERIODIC_SCAN_COMPLETE_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT, "PERIODIC_SCAN_COMPLETE_EVENT "
 			     "(status 0x%0x)", mbox->scheduled_scan_status);
@@ -136,15 +113,11 @@ static int wl1271_event_process(struct wl1271 *wl)
 		}
 	}
 
-	if (vector & SOFT_GEMINI_SENSE_EVENT_ID)
-		wl12xx_event_soft_gemini_sense(wl,
-					       mbox->soft_gemini_sense_info);
-
 	/*
 	 * We are HW_MONITOR device. On beacon loss - queue
 	 * connection loss work. Cancel it on REGAINED event.
 	 */
-	if (vector & BSS_LOSE_EVENT_ID) {
+	if (vector & BSS_LOSS_EVENT_ID) {
 		/* TODO: check for multi-role */
 		int delay = wl->conf.conn.synch_fail_thold *
 					wl->conf.conn.bss_lose_timeout;
@@ -166,16 +139,6 @@ static int wl1271_event_process(struct wl1271 *wl)
 					NL80211_CQM_RSSI_BEACON_LOSS_EVENT,
 					GFP_KERNEL);
 		}
-	}
-
-	if (vector & REGAINED_BSS_EVENT_ID) {
-		/* TODO: check for multi-role */
-		wl1271_info("Beacon regained.");
-		cancel_delayed_work(&wl->connection_loss_work);
-
-		/* sanity check - we can't lose and gain the beacon together */
-		WARN(vector & BSS_LOSE_EVENT_ID,
-		     "Concurrent beacon loss and gain from FW");
 	}
 
 	if (vector & RSSI_SNR_TRIGGER_0_EVENT_ID) {
@@ -238,8 +201,8 @@ static int wl1271_event_process(struct wl1271 *wl)
 	 * "TX retries exceeded" has a different meaning according to mode.
 	 * In AP mode the offending station is disconnected.
 	 */
-	if (vector & MAX_TX_RETRY_EVENT_ID) {
-		wl1271_debug(DEBUG_EVENT, "MAX_TX_RETRY_EVENT_ID");
+	if (vector & MAX_TX_FAILURE_EVENT_ID) {
+		wl1271_debug(DEBUG_EVENT, "MAX_TX_FAILURE_EVENT_ID");
 		sta_bitmap |= le16_to_cpu(mbox->sta_tx_retry_exceeded);
 		disconnect_sta = true;
 	}
