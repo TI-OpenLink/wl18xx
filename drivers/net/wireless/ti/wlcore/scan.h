@@ -125,7 +125,7 @@ struct wl1271_cmd_trigger_scan_to {
 } __packed;
 
 #define MAX_CHANNELS_2GHZ	14
-#define MAX_CHANNELS_5GHZ	24
+#define MAX_CHANNELS_5GHZ	32
 #define MAX_CHANNELS_4GHZ	4
 
 #define SCAN_MAX_CYCLE_INTERVALS 16
