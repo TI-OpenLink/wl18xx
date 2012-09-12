@@ -71,31 +71,48 @@ enum {
 
 struct event_mailbox {
 	__le32 events_vector;
+
+	u8 number_of_scan_results;
+	u8 number_of_sched_scan_results;
+
+	__le16 channel_switch_role_id_bitmap;
+
+	s8 rssi_snr_trigger_metric[NUM_OF_RSSI_SNR_TRIGGERS];
+
+	/* bitmap of removed links */
+	__le32 hlid_removed_bitmap;
+
+	/* rx ba constraint */
+	__le16 rx_ba_role_id_bitmap; /* 0xfff means any role. */
+	__le16 rx_ba_allowed_bitmap;
+
+	/* bitmap of roc completed (by role id) */
+	__le16 roc_completed_bitmap;
+
+	/* bitmap of stations (by role id) with bss loss */
+	__le16 bss_loss_bitmap;
+
+	/* bitmap of stations (by HLID) which exceeded max tx retries */
+	__le32 tx_retry_exceeded_bitmap;
+
+	/* bitmap of inactive stations (by HLID) */
+	__le32 inactive_sta_bitmap;
+#if 0
 	__le32 events_mask;
 	__le32 reserved_1;
 	__le32 reserved_2;
 
-	u8 number_of_scan_results;
 	u8 scan_tag;
 	u8 completed_scan_status;
 	u8 reserved_3;
 
 	u8 soft_gemini_sense_info;
 	u8 soft_gemini_protective_info;
-	s8 rssi_snr_trigger_metric[NUM_OF_RSSI_SNR_TRIGGERS];
 	u8 change_auto_mode_timeout;
 	u8 scheduled_scan_status;
 	u8 reserved4;
 	/* tuned channel (roc) */
 	u8 roc_channel;
-
-	__le16 hlid_removed_bitmap;
-
-	/* bitmap of aged stations (by HLID) */
-	__le16 sta_aging_status;
-
-	/* bitmap of stations (by HLID) which exceeded max tx retries */
-	__le16 sta_tx_retry_exceeded;
 
 	/* discovery completed results */
 	u8 discovery_tag;
@@ -103,15 +120,10 @@ struct event_mailbox {
 	u8 number_of_prsp_results;
 	u8 reserved_5;
 
-	/* rx ba constraint */
-	u8 role_id; /* 0xFF means any role. */
-	u8 rx_ba_allowed;
 	u8 reserved_6[2];
 
 	/* Channel switch results */
 
-	u8 channel_switch_role_id;
-	u8 channel_switch_status;
 	u8 reserved_7[2];
 
 	u8 ps_poll_delivery_failure_role_ids;
@@ -119,6 +131,7 @@ struct event_mailbox {
 	u8 started_role_ids;
 
 	u8 reserved_8[9];
+#endif
 } __packed;
 
 struct wl1271;
