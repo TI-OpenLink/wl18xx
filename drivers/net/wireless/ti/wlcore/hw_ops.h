@@ -201,4 +201,17 @@ wlcore_hw_pre_pkt_send(struct wl1271 *wl, u32 buf_offset, u32 last_len)
 	return buf_offset;
 }
 
+static inline int
+wlcore_hw_set_peer_cap(struct wl1271 *wl,
+		       struct ieee80211_sta_ht_cap *ht_cap,
+		       bool allow_ht_operation,
+		       u32 rate_set, u8 hlid)
+{
+	if (wl->ops->set_peer_cap)
+		return wl->ops->set_peer_cap(wl, ht_cap, allow_ht_operation,
+					     rate_set, hlid);
+
+	return 0;
+}
+
 #endif

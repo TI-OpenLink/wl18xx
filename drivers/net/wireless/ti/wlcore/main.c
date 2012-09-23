@@ -4241,10 +4241,9 @@ sta_not_found:
 		/* TODO: this if/else seems pretty crappy */
 		if ((changed & BSS_CHANGED_HT) &&
 		    (bss_conf->channel_type != NL80211_CHAN_NO_HT)) {
-			ret = wl1271_acx_set_ht_capabilities(wl,
-							     &sta_ht_cap,
-							     true,
-							     wlvif->sta.hlid);
+			ret = wlcore_hw_set_peer_cap(wl, &sta_ht_cap,
+						     true, wlvif->rate_set,
+						     wlvif->sta.hlid);
 			if (ret < 0) {
 				wl1271_warning("Set ht cap true failed %d",
 					       ret);
@@ -4253,10 +4252,9 @@ sta_not_found:
 		}
 		/* handle new association without HT and disassociation */
 		else if (changed & BSS_CHANGED_ASSOC) {
-			ret = wl1271_acx_set_ht_capabilities(wl,
-							     &sta_ht_cap,
-							     false,
-							     wlvif->sta.hlid);
+			ret = wlcore_hw_set_peer_cap(wl, &sta_ht_cap,
+						     false, wlvif->rate_set,
+						     wlvif->sta.hlid);
 			if (ret < 0) {
 				wl1271_warning("Set ht cap false failed %d",
 					       ret);
