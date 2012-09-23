@@ -1597,6 +1597,15 @@ static int wl12xx_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 	return wlcore_set_key(wl, cmd, vif, sta, key_conf);
 }
 
+static int wl12xx_set_peer_cap(struct wl1271 *wl,
+			       struct ieee80211_sta_ht_cap *ht_cap,
+			       bool allow_ht_operation,
+			       u32 rate_set, u8 hlid)
+{
+	return wl1271_acx_set_ht_capabilities(wl, ht_cap, allow_ht_operation,
+					      hlid);
+}
+
 static struct wlcore_ops wl12xx_ops = {
 	.identify_chip		= wl12xx_identify_chip,
 	.identify_fw		= wl12xx_identify_fw,
@@ -1623,6 +1632,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.get_spare_blocks	= wl12xx_get_spare_blocks,
 	.set_key		= wl12xx_set_key,
 	.pre_pkt_send		= NULL,
+	.set_peer_cap		= wl12xx_set_peer_cap,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
