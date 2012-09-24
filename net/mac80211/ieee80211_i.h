@@ -1081,6 +1081,7 @@ struct ieee80211_local {
 	struct list_head roc_list;
 	struct work_struct hw_roc_start, hw_roc_done;
 	unsigned long hw_roc_start_time;
+	u64 expired_roc_cookie;
 
 	struct ieee80211_sub_if_data *prio_sdata;
 

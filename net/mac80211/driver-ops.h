@@ -702,7 +702,8 @@ static inline int drv_remain_on_channel(struct ieee80211_local *local,
 					struct ieee80211_sub_if_data *sdata,
 					struct ieee80211_channel *chan,
 					enum nl80211_channel_type chantype,
-					unsigned int duration)
+					unsigned int duration,
+					unsigned long cookie)
 {
 	int ret;
 
@@ -710,7 +711,8 @@ static inline int drv_remain_on_channel(struct ieee80211_local *local,
 
 	trace_drv_remain_on_channel(local, chan, chantype, duration);
 	ret = local->ops->remain_on_channel(&local->hw, &sdata->vif,
-					    chan, chantype, duration);
+					    chan, chantype, duration,
+					    cookie);
 	trace_drv_return_int(local, ret);
 
 	return ret;

@@ -292,6 +292,7 @@ struct wl1271 {
 	struct delayed_work connection_loss_work;
 
 	struct ieee80211_vif *roc_vif;
+	unsigned long roc_cookie;
 	struct delayed_work roc_complete_work;
 
 	struct ieee80211_vif *sched_vif;
