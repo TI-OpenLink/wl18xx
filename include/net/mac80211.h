@@ -2814,7 +2814,8 @@ struct ieee80211_ops {
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_channel *chan,
 				 int duration,
-				 enum ieee80211_roc_type type);
+				 enum ieee80211_roc_type type,
+				 unsigned long cookie);
 	int (*cancel_remain_on_channel)(struct ieee80211_hw *hw);
 	int (*set_ringparam)(struct ieee80211_hw *hw, u32 tx, u32 rx);
 	void (*get_ringparam)(struct ieee80211_hw *hw,
@@ -4306,7 +4307,7 @@ void ieee80211_ready_on_channel(struct ieee80211_hw *hw);
  * ieee80211_remain_on_channel_expired - remain_on_channel duration expired
  * @hw: pointer as obtained from ieee80211_alloc_hw()
  */
-void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw);
+void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw, u64 cookie);
 
 /**
  * ieee80211_stop_rx_ba_session - callback to stop existing BA sessions

@@ -1176,6 +1176,7 @@ struct ieee80211_local {
 	struct work_struct hw_roc_start, hw_roc_done;
 	unsigned long hw_roc_start_time;
 	u64 roc_cookie_counter;
+	u64 expired_roc_cookie;
 
 	struct idr ack_status_frames;
 	spinlock_t ack_status_lock;

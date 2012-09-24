@@ -2636,7 +2636,7 @@ static void __wl1271_op_remove_interface(struct wl1271 *wl,
 
 	if (wl->roc_vif == vif) {
 		wl->roc_vif = NULL;
-		ieee80211_remain_on_channel_expired(wl->hw);
+		ieee80211_remain_on_channel_expired(wl->hw, wl->roc_cookie);
 	}
 
 	if (!test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags)) {
@@ -5262,7 +5262,8 @@ static int wlcore_op_remain_on_channel(struct ieee80211_hw *hw,
 				       struct ieee80211_vif *vif,
 				       struct ieee80211_channel *chan,
 				       int duration,
-				       enum ieee80211_roc_type type)
+				       enum ieee80211_roc_type type,
+				       unsigned long cookie)
 {
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	struct wl1271 *wl = hw->priv;
@@ -5295,6 +5296,7 @@ static int wlcore_op_remain_on_channel(struct ieee80211_hw *hw,
 		goto out_sleep;
 
 	wl->roc_vif = vif;
+	wl->roc_cookie = cookie;
 	ieee80211_queue_delayed_work(hw, &wl->roc_complete_work,
 				     msecs_to_jiffies(duration));
 out_sleep:
@@ -5364,7 +5366,7 @@ static void wlcore_roc_complete_work(struct work_struct *work)
 
 	ret = wlcore_roc_completed(wl);
 	if (!ret)
-		ieee80211_remain_on_channel_expired(wl->hw);
+		ieee80211_remain_on_channel_expired(wl->hw, wl->roc_cookie);
 }
 
 static int wlcore_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
