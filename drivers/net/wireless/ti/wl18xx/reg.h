@@ -217,4 +217,24 @@ static const char * const rdl_names[] = {
 	[RDL_4_SP]	= "1897 MIMO",
 };
 
+/*
+ * The following definitions are used to change the PHY ATPG clock towards
+ * FDSP code RAM. This is done during FW boot before we download the FW.
+ *
+ * This change is required by PG2.1 and has not impact on previous PGs.
+ */
+
+/* FPGA_SPARE_1 register - bits are set as described below */
+#define WL18XX_PHY_FPGA_SPARE_1		0x8093CA40
+#define WL18XX_PHY_END_MEM_ADDR		WL18XX_PHY_FPGA_SPARE_1
+
+/* Bit to disable FDSP clock */
+#define MEM_FDSP_CLK_120_DISABLE   	0x80000000
+
+/* Bit to set ATPG clock toward FDSP Code RAM rather than its own clock */
+#define MEM_FDSP_CODERAM_FUNC_CLK_SEL	0xC0000000
+
+/* Bit to re-enable FDSP clock */
+#define MEM_FDSP_CLK_120_ENABLE		0x40000000
+
 #endif /* __REG_H__ */
