@@ -277,7 +277,7 @@ void ieee80211_start_next_roc(struct ieee80211_local *local)
 			duration = 10;
 
 		ret = drv_remain_on_channel(local, roc->sdata, roc->chan,
-					    duration, roc->type);
+					    duration, roc->type, (unsigned long) roc);
 
 		roc->started = true;
 
@@ -288,7 +288,8 @@ void ieee80211_start_next_roc(struct ieee80211_local *local)
 			 * queue the work struct again to avoid recursion
 			 * when multiple failures occur
 			 */
-			ieee80211_remain_on_channel_expired(&local->hw);
+			ieee80211_remain_on_channel_expired(&local->hw,
+						(unsigned long) roc);
 		}
 	} else {
 		/* delay it a bit */
@@ -419,6 +420,9 @@ static void ieee80211_hw_roc_done(struct work_struct *work)
 	if (!roc->started)
 		goto out_unlock;
 
+	if (local->expired_roc_cookie != (unsigned long) roc)
+		goto out_unlock;
+
 	list_del(&roc->list);
 
 	ieee80211_roc_notify_destroy(roc, true);
@@ -430,11 +434,13 @@ static void ieee80211_hw_roc_done(struct work_struct *work)
 	mutex_unlock(&local->mtx);
 }
 
-void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw)
+void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw, u64 cookie)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 
 	trace_api_remain_on_channel_expired(local);
+
+	local->expired_roc_cookie = cookie;
 
 	ieee80211_queue_work(hw, &local->hw_roc_done);
 }

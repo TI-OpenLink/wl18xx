@@ -331,6 +331,7 @@ struct wl1271 {
 	struct delayed_work scan_complete_work;
 
 	struct ieee80211_vif *roc_vif;
+	unsigned long roc_cookie;
 	struct delayed_work roc_complete_work;
 
 	struct wl12xx_vif *sched_vif;
