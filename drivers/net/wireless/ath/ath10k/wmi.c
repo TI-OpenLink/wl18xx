@@ -747,7 +747,7 @@ static int ath10k_wmi_event_scan(struct ath10k *ar, struct sk_buff *skb)
 			ath10k_offchan_tx_purge(ar);
 
 			if (!ar->scan.aborting)
-				ieee80211_remain_on_channel_expired(ar->hw);
+				ieee80211_remain_on_channel_expired(ar->hw, 0);
 		} else {
 			ieee80211_scan_completed(ar->hw, ar->scan.aborting);
 		}
