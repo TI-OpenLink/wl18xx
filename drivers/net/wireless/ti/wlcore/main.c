@@ -5799,6 +5799,21 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		     ARRAY_SIZE(wl1271_channels_5ghz) >
 		     WL1271_MAX_CHANNELS);
 	/*
+         * clear channel flags from the previous usage
+         * and restore max_power & max_antenna_gain values.
+         */
+        for (i = 0; i < ARRAY_SIZE(wl1271_channels); i++) {
+                wl1271_band_2ghz.channels[i].flags = 0;
+                wl1271_band_2ghz.channels[i].max_power = WLCORE_MAX_TX_POWER;
+                wl1271_band_2ghz.channels[i].max_antenna_gain = 0;
+        }
+        for (i = 0; i < ARRAY_SIZE(wl1271_channels_5ghz); i++) {
+                wl1271_band_5ghz.channels[i].flags = 0;
+                wl1271_band_5ghz.channels[i].max_power = WLCORE_MAX_TX_POWER;
+                wl1271_band_5ghz.channels[i].max_antenna_gain = 0;
+        }
+
+	/*
 	 * We keep local copies of the band structs because we need to
 	 * modify them on a per-device basis.
 	 */
