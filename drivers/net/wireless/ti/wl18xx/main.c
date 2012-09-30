@@ -669,6 +669,9 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		goto out;
 	}
 
+	wl->fw_mem_block_size = 272;
+	wl->fwlog_end = 0x40000000;
+
 	wl->scan_templ_id_2_4 = CMD_TEMPL_CFG_PROBE_REQ_2_4;
 	wl->scan_templ_id_5 = CMD_TEMPL_CFG_PROBE_REQ_5;
 	wl->sched_scan_templ_id_2_4 = CMD_TEMPL_PROBE_REQ_2_4_PERIODIC;
@@ -1425,6 +1428,11 @@ static int wl18xx_set_peer_cap(struct wl1271 *wl,
 				       rate_set, hlid);
 }
 
+static u32 wl18xx_convert_hwaddr(struct wl1271 *wl, u32 hwaddr)
+{
+	return hwaddr & ~0x80000000;
+}
+
 static int wl18xx_setup(struct wl1271 *wl);
 
 static struct wlcore_ops wl18xx_ops = {
@@ -1462,6 +1470,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.pre_pkt_send	= wl18xx_pre_pkt_send,
 	.sta_rc_update	= wl18xx_sta_rc_update,
 	.set_peer_cap	= wl18xx_set_peer_cap,
+	.convert_hwaddr = wl18xx_convert_hwaddr,
 };
 
 /* HT cap appropriate for wide channels in 2Ghz */
