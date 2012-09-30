@@ -214,4 +214,13 @@ wlcore_hw_set_peer_cap(struct wl1271 *wl,
 	return 0;
 }
 
+static inline u32
+wlcore_hw_convert_hwaddr(struct wl1271 *wl, u32 hwaddr)
+{
+	if (!wl->ops->convert_hwaddr)
+		BUG_ON(1);
+
+	return wl->ops->convert_hwaddr(wl, hwaddr);
+}
+
 #endif
