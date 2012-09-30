@@ -702,6 +702,9 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 		goto out;
 	}
 
+	wl->fw_mem_block_size = 256;
+	wl->fwlog_end = 0x2000000;
+
 out:
 	return ret;
 }
@@ -1605,6 +1608,11 @@ static int wl12xx_set_peer_cap(struct wl1271 *wl,
 					      hlid);
 }
 
+static u32 wl12xx_convert_hwaddr(struct wl1271 *wl, u32 hwaddr)
+{
+	return hwaddr << 5;
+}
+
 static int wl12xx_setup(struct wl1271 *wl);
 
 static struct wlcore_ops wl12xx_ops = {
@@ -1635,6 +1643,7 @@ static struct wlcore_ops wl12xx_ops = {
 	.set_key		= wl12xx_set_key,
 	.pre_pkt_send		= NULL,
 	.set_peer_cap		= wl12xx_set_peer_cap,
+	.convert_hwaddr = wl12xx_convert_hwaddr,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
