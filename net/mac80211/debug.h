@@ -14,11 +14,7 @@
 #define MAC80211_PS_DEBUG 0
 #endif
 
-#ifdef CONFIG_MAC80211_HT_DEBUG
 #define MAC80211_HT_DEBUG 1
-#else
-#define MAC80211_HT_DEBUG 0
-#endif
 
 #ifdef CONFIG_MAC80211_MPL_DEBUG
 #define MAC80211_MPL_DEBUG 1
