@@ -439,6 +439,7 @@ struct wl12xx_vif {
 	struct timer_list rx_streaming_timer;
 
 	struct delayed_work channel_switch_work;
+	struct delayed_work connection_loss_work;
 
 	bool pending_roc;
 

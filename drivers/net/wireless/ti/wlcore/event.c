@@ -117,22 +117,28 @@ static int wl1271_event_process(struct wl1271 *wl)
 	 * connection loss work. Cancel it on REGAINED event.
 	 */
 	if (vector & BSS_LOSS_EVENT_ID) {
-		/* TODO: check for multi-role */
 		int delay = wl->conf.conn.synch_fail_thold *
 					wl->conf.conn.bss_lose_timeout;
-		wl1271_info("Beacon loss detected.");
+		unsigned long roles_bitmap =
+			le16_to_cpu(mbox->bss_loss_bitmap);
 
-		/*
-		 * if the work is already queued, it should take place. We
-		 * don't want to delay the connection loss indication
-		 * any more.
-		 */
-		ieee80211_queue_delayed_work(wl->hw, &wl->connection_loss_work,
-					     msecs_to_jiffies(delay));
+		wl1271_info("Beacon loss detected. roles:0x%lx", roles_bitmap);
 
 		wl12xx_for_each_wlvif_sta(wl, wlvif) {
-			vif = wl12xx_wlvif_to_vif(wlvif);
+			if (wlvif->role_id == WL12XX_INVALID_ROLE_ID ||
+			    !test_bit(wlvif->role_id , &roles_bitmap))
+				continue;
 
+			/*
+			 * if the work is already queued, it should take place.
+			 * We don't want to delay the connection loss
+			 * indication any more.
+			 */
+			ieee80211_queue_delayed_work(wl->hw,
+						&wlvif->connection_loss_work,
+						msecs_to_jiffies(delay));
+
+			vif = wl12xx_wlvif_to_vif(wlvif);
 			ieee80211_cqm_rssi_notify(
 					vif,
 					NL80211_CQM_RSSI_BEACON_LOSS_EVENT,

@@ -1170,7 +1170,6 @@ int wl1271_plt_stop(struct wl1271 *wl)
 	cancel_work_sync(&wl->recovery_work);
 	cancel_delayed_work_sync(&wl->elp_work);
 	cancel_delayed_work_sync(&wl->tx_watchdog_work);
-	cancel_delayed_work_sync(&wl->connection_loss_work);
 
 	mutex_lock(&wl->mutex);
 	wl1271_power_off(wl);
@@ -1884,7 +1883,6 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	cancel_work_sync(&wl->tx_work);
 	cancel_delayed_work_sync(&wl->elp_work);
 	cancel_delayed_work_sync(&wl->tx_watchdog_work);
-	cancel_delayed_work_sync(&wl->connection_loss_work);
 
 	/* let's notify MAC80211 about the remaining pending TX frames */
 	mutex_lock(&wl->mutex);
@@ -1994,6 +1992,34 @@ static void wlcore_channel_switch_work(struct work_struct *work)
 	wl12xx_cmd_stop_channel_switch(wl, wlvif);
 
 	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+}
+
+static void wl1271_connection_loss_work(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wl1271 *wl;
+	struct ieee80211_vif *vif;
+	struct wl12xx_vif *wlvif;
+
+	dwork = container_of(work, struct delayed_work, work);
+	wlvif = container_of(dwork, struct wl12xx_vif, connection_loss_work);
+	wl = wlvif->wl;
+
+	wl1271_info("Connection loss work (role_id: %d).", wlvif->role_id);
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		goto out;
+
+	/* Call mac80211 connection loss */
+	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
+		goto out;
+
+	vif = wl12xx_wlvif_to_vif(wlvif);
+	ieee80211_connection_loss(vif);
 out:
 	mutex_unlock(&wl->mutex);
 }
@@ -2147,6 +2173,8 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		  wl1271_rx_streaming_disable_work);
 	INIT_DELAYED_WORK(&wlvif->channel_switch_work,
 			  wlcore_channel_switch_work);
+	INIT_DELAYED_WORK(&wlvif->connection_loss_work,
+			  wl1271_connection_loss_work);
 	INIT_LIST_HEAD(&wlvif->list);
 
 	setup_timer(&wlvif->rx_streaming_timer, wl1271_rx_streaming_timer,
@@ -2529,6 +2557,7 @@ unlock:
 	del_timer_sync(&wlvif->rx_streaming_timer);
 	cancel_work_sync(&wlvif->rx_streaming_enable_work);
 	cancel_work_sync(&wlvif->rx_streaming_disable_work);
+	cancel_delayed_work_sync(&wlvif->connection_loss_work);
 
 	mutex_lock(&wl->mutex);
 }
@@ -4307,7 +4336,7 @@ static void wl1271_op_bss_info_changed(struct ieee80211_hw *hw,
 	 * state changed
 	 */
 	if (!is_ap && (changed & BSS_CHANGED_ASSOC))
-		cancel_delayed_work_sync(&wl->connection_loss_work);
+		cancel_delayed_work_sync(&wlvif->connection_loss_work);
 
 	if (is_ap && (changed & BSS_CHANGED_BEACON_ENABLED) &&
 	    !bss_conf->enable_beacon)
@@ -5634,34 +5663,6 @@ static struct bin_attribute fwlog_attr = {
 	.read = wl1271_sysfs_read_fwlog,
 };
 
-static void wl1271_connection_loss_work(struct work_struct *work)
-{
-	struct delayed_work *dwork;
-	struct wl1271 *wl;
-	struct ieee80211_vif *vif;
-	struct wl12xx_vif *wlvif;
-
-	dwork = container_of(work, struct delayed_work, work);
-	wl = container_of(dwork, struct wl1271, connection_loss_work);
-
-	wl1271_info("Connection loss work.");
-
-	mutex_lock(&wl->mutex);
-
-	if (unlikely(wl->state != WLCORE_STATE_ON))
-		goto out;
-
-	/* Call mac80211 connection loss */
-	wl12xx_for_each_wlvif_sta(wl, wlvif) {
-		if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-			goto out;
-		vif = wl12xx_wlvif_to_vif(wlvif);
-		ieee80211_connection_loss(vif);
-	}
-out:
-	mutex_unlock(&wl->mutex);
-}
-
 static void wl12xx_derive_mac_addresses(struct wl1271 *wl, u32 oui, u32 nic)
 {
 	int i;
@@ -5981,8 +5982,6 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
 	INIT_DELAYED_WORK(&wl->roc_complete_work, wl1271_roc_complete_work);
 	INIT_DELAYED_WORK(&wl->tx_watchdog_work, wl12xx_tx_watchdog_work);
-	INIT_DELAYED_WORK(&wl->connection_loss_work,
-			  wl1271_connection_loss_work);
 
 	wl->freezable_wq = create_freezable_workqueue("wl12xx_wq");
 	if (!wl->freezable_wq) {
