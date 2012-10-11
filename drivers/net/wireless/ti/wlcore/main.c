@@ -1227,9 +1227,13 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	int q, mapping;
 	u8 hlid;
 
-	if (vif)
-		wlvif = wl12xx_vif_to_data(vif);
+	if (!vif) {
+		wl1271_debug(DEBUG_TX, "DROP skb with no vif");
+		ieee80211_free_txskb(hw, skb);
+		return;
+	}
 
+	wlvif = wl12xx_vif_to_data(vif);
 	mapping = skb_get_queue_mapping(skb);
 	q = wl1271_tx_get_queue(mapping);
 
@@ -1243,7 +1247,7 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	 * allow these packets through.
 	 */
 	if (hlid == WL12XX_INVALID_LINK_ID ||
-	    (wlvif && !test_bit(hlid, wlvif->links_map)) ||
+	    (!test_bit(hlid, wlvif->links_map)) ||
 	     (wlcore_is_queue_stopped(wl, q) &&
 	      !wlcore_is_queue_stopped_by_reason(wl, q,
 			WLCORE_QUEUE_STOP_REASON_WATERMARK))) {
@@ -1257,8 +1261,7 @@ static void wl1271_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	skb_queue_tail(&wl->links[hlid].tx_queue[q], skb);
 
 	wl->tx_queue_count[q]++;
-	if (wlvif)
-		wlvif->tx_queue_count[q]++;
+	wlvif->tx_queue_count[q]++;
 
 	/*
 	 * The workqueue is slow to process the tx_queue and we need stop
