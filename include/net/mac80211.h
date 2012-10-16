@@ -4291,6 +4291,7 @@ void ieee80211_disable_rssi_reports(struct ieee80211_vif *vif);
  * applicable.
  */
 int ieee80211_ave_rssi(struct ieee80211_vif *vif);
+int ieee80211_started_vifs_count(struct ieee80211_hw *hw);
 
 /**
  * ieee80211_report_wowlan_wakeup - report WoWLAN wakeup
