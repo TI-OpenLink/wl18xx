@@ -107,9 +107,15 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 
 	if (scan_type == SCAN_TYPE_SEARCH) {
 		struct conf_scan_settings *c = &wl->conf.scan;
+		bool active_vif_exists = !!ieee80211_started_vifs_count(wl->hw);
 
-		min_dwell_time_active = c->min_dwell_time_active;
-		max_dwell_time_active = c->max_dwell_time_active;
+		min_dwell_time_active = active_vif_exists ?
+			c->min_dwell_time_active_conc :
+			c->min_dwell_time_active;
+		max_dwell_time_active = active_vif_exists ?
+			c->max_dwell_time_active_conc :
+			c->max_dwell_time_active;
+
 		/* TODO: convert conf from min/max to a single value */
 		dwell_time_passive = c->dwell_time_passive;
 		dwell_time_dfs = c->dwell_time_dfs;
