@@ -2674,12 +2674,12 @@ brcmf_tlv_has_ie(u8 *ie, u8 **tlvs, u32 *tlvs_len,
 	return false;
 }
 
-struct brcmf_vs_tlv *
+static struct brcmf_vs_tlv *
 brcmf_find_wpaie(u8 *parse, u32 len)
 {
 	struct brcmf_tlv *ie;
 
-	while ((ie = brcmf_parse_tlvs(parse, len, WLAN_EID_WPA))) {
+	while ((ie = brcmf_parse_tlvs(parse, len, WLAN_EID_VENDOR_SPECIFIC))) {
 		if (brcmf_tlv_has_ie((u8 *)ie, &parse, &len,
 				     WPA_OUI, TLV_OUI_LEN, WPA_OUI_TYPE))
 			return (struct brcmf_vs_tlv *)ie;
@@ -3963,7 +3963,7 @@ brcmf_vndr_ie(u8 *iebuf, s32 pktflag, u8 *ie_ptr, u32 ie_len, s8 *add_del_cmd)
 	return ie_len + VNDR_IE_HDR_SIZE;
 }
 
-s32
+static s32
 brcmf_set_management_ie(struct brcmf_cfg80211_info *cfg,
 			struct net_device *ndev, s32 bssidx, s32 pktflag,
 			u8 *vndr_ie_buf, u32 vndr_ie_len)
@@ -3973,7 +3973,7 @@ brcmf_set_management_ie(struct brcmf_cfg80211_info *cfg,
 	u8  *curr_ie_buf;
 	u8  *mgmt_ie_buf = NULL;
 	int mgmt_ie_buf_len;
-	u32 *mgmt_ie_len = 0;
+	u32 *mgmt_ie_len;
 	u32 del_add_ie_buf_len = 0;
 	u32 total_ie_buf_len = 0;
 	u32 parsed_ie_buf_len = 0;
@@ -3995,8 +3995,7 @@ brcmf_set_management_ie(struct brcmf_cfg80211_info *cfg,
 		case VNDR_IE_PRBRSP_FLAG:
 			mgmt_ie_buf = cfg->ap_info->probe_res_ie;
 			mgmt_ie_len = &cfg->ap_info->probe_res_ie_len;
-			mgmt_ie_buf_len =
-				sizeof(cfg->ap_info->probe_res_ie);
+			mgmt_ie_buf_len = sizeof(cfg->ap_info->probe_res_ie);
 			break;
 		case VNDR_IE_BEACON_FLAG:
 			mgmt_ie_buf = cfg->ap_info->beacon_ie;
