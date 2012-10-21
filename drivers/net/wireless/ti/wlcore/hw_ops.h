@@ -223,4 +223,23 @@ wlcore_hw_convert_hwaddr(struct wl1271 *wl, u32 hwaddr)
 	return wl->ops->convert_hwaddr(wl, hwaddr);
 }
 
+static inline bool
+wlcore_hw_lnk_high_prio(struct wl1271 *wl, u8 hlid,
+			struct wl1271_link *lnk)
+{
+	if (!wl->ops->lnk_high_prio)
+		BUG_ON(1);
+
+	return wl->ops->lnk_high_prio(wl, hlid, lnk);
+}
+
+static inline bool
+wlcore_hw_lnk_low_prio(struct wl1271 *wl, u8 hlid,
+		       struct wl1271_link *lnk)
+{
+	if (!wl->ops->lnk_low_prio)
+		BUG_ON(1);
+
+	return wl->ops->lnk_low_prio(wl, hlid, lnk);
+}
 #endif
