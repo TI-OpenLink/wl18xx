@@ -143,8 +143,13 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	/* discard corrupted packets */
 	if ((desc->status & WL1271_RX_DESC_STATUS_MASK) ==
 	    WL1271_RX_DESC_DECRYPT_FAIL) {
-		wl1271_warning("corrupted packet in RX with status: 0x%x",
-			       desc->status & WL1271_RX_DESC_STATUS_MASK);
+		hdr = (struct ieee80211_hdr *)(data + sizeof(*desc));
+		wl1271_warning("corrupted packet in RX: status: 0x%x len: %d",
+			       desc->status & WL1271_RX_DESC_STATUS_MASK,
+			       pkt_data_len);
+		wl1271_dump((DEBUG_RX|DEBUG_CMD), "PKT: ", data + sizeof(*desc),
+			    min(pkt_data_len,
+				ieee80211_hdrlen(hdr->frame_control)));
 		return -EINVAL;
 	}
 
