@@ -111,6 +111,10 @@ struct wlcore_ops {
 			    bool allow_ht_operation,
 			    u32 rate_set, u8 hlid);
 	u32 (*convert_hwaddr)(struct wl1271 *wl, u32 hwaddr);
+	bool (*lnk_high_prio)(struct wl1271 *wl, u8 hlid,
+			      struct wl1271_link *lnk);
+	bool (*lnk_low_prio)(struct wl1271 *wl, u8 hlid,
+			      struct wl1271_link *lnk);
 };
 
 enum wlcore_partitions {
