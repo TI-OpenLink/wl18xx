@@ -1079,7 +1079,8 @@ int wl1271_plt_start(struct wl1271 *wl, const enum plt_mode plt_mode)
 	static const char* const PLT_MODE[] = {
 		"PLT_OFF",
 		"PLT_ON",
-		"PLT_FEM_DETECT"
+		"PLT_FEM_DETECT",
+		"PLT_CHIP_AWAKE"
 	};
 
 	int ret;
@@ -1105,9 +1106,11 @@ int wl1271_plt_start(struct wl1271 *wl, const enum plt_mode plt_mode)
 		if (ret < 0)
 			goto power_off;
 
-		ret = wl->ops->plt_init(wl);
-		if (ret < 0)
-			goto power_off;
+		if (plt_mode != PLT_CHIP_AWAKE) {
+			ret = wl->ops->plt_init(wl);
+			if (ret < 0)
+				goto power_off;
+		}
 
 		wl->state = WLCORE_STATE_ON;
 		wl1271_notice("firmware booted in PLT mode %s (%s)",
@@ -2318,6 +2321,11 @@ static int wl1271_op_add_interface(struct ieee80211_hw *hw,
 	int ret = 0;
 	u8 role_type;
 	bool booted = false;
+
+	if (wl->plt) {
+		wl1271_error("Adding Interface not allowed while in PLT mode");
+		return -EBUSY;
+	}
 
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER |
 			     IEEE80211_VIF_SUPPORTS_CQM_RSSI;
