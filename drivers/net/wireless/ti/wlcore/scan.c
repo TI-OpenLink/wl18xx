@@ -690,6 +690,18 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 			wl1271_error("5GHz PROBE request template failed");
 			goto out;
 		}
+	} else if (cmd->dfs) { /* only DFS channels in 5Ghz */
+		u8 band = IEEE80211_BAND_5GHZ;
+		ret = wl12xx_cmd_build_probe_req(wl, wlvif,
+						 cmd->role_id, band,
+						 NULL, 0, /* no SSID */
+						 req->ie,
+						 req->ie_len,
+						 false);
+		if (ret < 0) {
+			wl1271_error("5GHz PROBE request template failed");
+			goto out;
+		}
 	}
 
 	wl1271_dump(DEBUG_SCAN, "SCAN: ", cmd, sizeof(*cmd));
