@@ -381,7 +381,7 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 				req->ssids ? req->ssids[0].ssid_len : 0,
 				req->ie,
 				req->ie_len,
-				true);
+				false);
 		if (ret < 0) {
 			wl1271_error("5GHz PROBE request template failed");
 			goto out;
