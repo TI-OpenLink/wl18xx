@@ -1443,8 +1443,13 @@ int wl12xx_acx_set_ba_receiver_session(struct wl1271 *wl, u8 tid_index,
 		goto out;
 	}
 
-	if (ret == CMD_STATUS_NO_RX_BA_SESSION)
+	/* sometimes we can't start the session */
+	if (ret == CMD_STATUS_NO_RX_BA_SESSION) {
 		wl1271_warning("no fw rx ba on tid %d", tid_index);
+		ret = -EBUSY;
+		goto out;
+	}
+
 	ret = 0;
 out:
 	kfree(acx);
