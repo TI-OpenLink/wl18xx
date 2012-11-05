@@ -629,6 +629,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 			      WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN |
 			      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
+			      WLCORE_QUIRK_REGDOMAIN_CONF |
 			      WLCORE_QUIRK_DUAL_PROBE_TMPL;
 
 		wlcore_set_min_fw_ver(wl, WL18XX_CHIP_VER, WL18XX_IFTYPE_VER,
@@ -1484,6 +1485,7 @@ static int __devinit wl18xx_probe(struct platform_device *pdev)
 	wl->fw_status_priv_len = sizeof(struct wl18xx_fw_status_priv);
 	wl->stats.fw_stats_len = sizeof(struct wl18xx_acx_statistics);
 	wl->static_data_priv_len = sizeof(struct wl18xx_static_data_priv);
+	wl->chip_family_event_mask = DFS_CHANNELS_CONFIG_COMPLETE_EVENT;
 
 	if (num_rx_desc_param != -1)
 		wl->num_rx_desc = num_rx_desc_param;
