@@ -98,6 +98,10 @@ static void wl1271_rx_status(struct wl1271 *wl,
 				       desc_err_code);
 		}
 	}
+
+	if (beacon)
+		wlcore_set_pending_regdomain_ch(wl, (u16)desc->channel,
+						status->band);
 }
 
 static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,

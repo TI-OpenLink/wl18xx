@@ -82,6 +82,8 @@ void wl1271_scan_complete_work(struct work_struct *work)
 		wl12xx_queue_recovery_work(wl);
 	}
 
+	wlcore_cmd_regdomain_config_locked(wl);
+
 	ieee80211_scan_completed(wl->hw, false);
 
 out:

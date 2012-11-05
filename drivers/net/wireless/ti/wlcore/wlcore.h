@@ -293,11 +293,18 @@ struct wl1271 {
 	struct work_struct recovery_work;
 	bool watchdog_recovery;
 
+	/* Reg domain last configuration */
+	u32 reg_ch_conf_last[2];
+	/* Reg domain pending configuration */
+	u32 reg_ch_conf_pending[2];
+
 	/* Pointer that holds DMA-friendly block for the mailbox */
 	struct event_mailbox *mbox;
 
 	/* The mbox event mask */
 	u32 event_mask;
+	/* Specific chip family mbox event mask */
+	u32 chip_family_event_mask;
 
 	/* Mailbox pointers */
 	u32 mbox_ptr[2];
@@ -460,6 +467,7 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		   struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta,
 		   struct ieee80211_key_conf *key_conf);
+void wlcore_regdomain_config(struct wl1271 *wl);
 
 static inline void
 wlcore_set_ht_cap(struct wl1271 *wl, enum ieee80211_band band,
@@ -511,6 +519,10 @@ wlcore_set_min_fw_ver(struct wl1271 *wl, unsigned int chip,
 
 /* separate probe response templates for one-shot and sched scans */
 #define WLCORE_QUIRK_DUAL_PROBE_TMPL		BIT(10)
+
+/* Firmware requires reg domain configuration for active calibration */
+#define WLCORE_QUIRK_REGDOMAIN_CONF		BIT(11)
+
 
 /* TODO: move to the lower drivers when all usages are abstracted */
 #define CHIP_ID_1271_PG10              (0x4030101)

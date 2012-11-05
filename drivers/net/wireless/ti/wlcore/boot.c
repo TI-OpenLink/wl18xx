@@ -520,6 +520,9 @@ int wlcore_boot_run_firmware(struct wl1271 *wl)
 		MAX_TX_FAILURE_EVENT_ID |
 		CHANNEL_SWITCH_COMPLETE_EVENT_ID;
 
+	/* unmask specific family mbox events  */
+	wl->event_mask |= wl->chip_family_event_mask;
+
 	ret = wl1271_event_unmask(wl);
 	if (ret < 0) {
 		wl1271_error("EVENT mask setting failed");
