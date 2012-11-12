@@ -4271,9 +4271,9 @@ static void wlcore_op_change_chanctx(struct ieee80211_hw *hw,
 		     ctx->channel_type, changed);
 }
 
-static void wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
-					 struct ieee80211_vif *vif,
-					 struct ieee80211_chanctx_conf *ctx)
+static int wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
+					struct ieee80211_vif *vif,
+					struct ieee80211_chanctx_conf *ctx)
 {
 	struct wl1271 *wl = hw->priv;
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
@@ -4289,6 +4289,8 @@ static void wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 	wlvif->band = ctx->channel->band;
 	wlvif->channel = channel;
 	wlvif->channel_type = ctx->channel_type;
+
+	return 0;
 }
 
 static void wlcore_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
