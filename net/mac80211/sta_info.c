@@ -310,6 +310,9 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 	mutex_init(&sta->ampdu_mlme.mtx);
 
 	memcpy(sta->sta.addr, addr, ETH_ALEN);
+	sta->sta.max_rx_aggregation_subframes =
+		local->hw.max_rx_aggregation_subframes;
+
 	sta->local = local;
 	sta->sdata = sdata;
 	sta->last_rx = jiffies;
