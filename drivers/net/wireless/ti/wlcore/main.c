@@ -3330,10 +3330,7 @@ static int wlcore_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		 * stop the queues and flush to ensure the next packets are
 		 * in sync with FW spare block accounting
 		 */
-		mutex_lock(&wl->mutex);
 		wlcore_stop_queues(wl, WLCORE_QUEUE_STOP_REASON_SPARE_BLK);
-		mutex_unlock(&wl->mutex);
-
 		wl1271_tx_flush(wl);
 	}
 

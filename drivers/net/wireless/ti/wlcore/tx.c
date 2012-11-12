@@ -1298,12 +1298,27 @@ bool wlcore_is_queue_stopped_by_reason(struct wl1271 *wl,
 				       enum wlcore_queue_stop_reason reason)
 {
 	int hwq = wlvif->hw_queue_base + wl1271_tx_get_mac80211_queue(queue);
-	return test_bit(reason, &wl->queue_stop_reasons[hwq]);
+	unsigned long flags;
+	bool stopped;
+
+	spin_lock_irqsave(&wl->wl_lock, flags);
+	stopped = test_bit(reason, &wl->queue_stop_reasons[hwq]);
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
+
+	return stopped;
 }
 
 bool wlcore_is_queue_stopped(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     u8 queue)
 {
 	int hwq = wlvif->hw_queue_base + wl1271_tx_get_mac80211_queue(queue);
-	return !!wl->queue_stop_reasons[hwq];
+	unsigned long flags;
+	bool stopped;
+
+
+	spin_lock_irqsave(&wl->wl_lock, flags);
+	stopped = !!wl->queue_stop_reasons[hwq];
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
+
+	return stopped;
 }
