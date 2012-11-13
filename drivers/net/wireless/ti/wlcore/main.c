@@ -2390,8 +2390,9 @@ static int wlcore_allocate_hw_queue_base(struct wl1271 *wl,
 	iter_data.vif = vif;
 
 	/* mark all bits taken by active interfaces */
-	ieee80211_iterate_active_interfaces(wl->hw, wlcore_hw_queue_iter,
-					    &iter_data);
+	ieee80211_iterate_active_interfaces_atomic(wl->hw,
+						   wlcore_hw_queue_iter,
+						   &iter_data);
 
 	/* the current vif is already running in mac80211 (resume/recovery) */
 	if (iter_data.cur_running) {
