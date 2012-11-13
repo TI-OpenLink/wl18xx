@@ -1296,28 +1296,32 @@ bool wlcore_is_queue_stopped_by_reason(struct wl1271 *wl,
 				       struct wl12xx_vif *wlvif, u8 queue,
 				       enum wlcore_queue_stop_reason reason)
 {
-	int hwq = wlvif->hw_queue_base + wl1271_tx_get_mac80211_queue(queue);
 	unsigned long flags;
 	bool stopped;
 
 	spin_lock_irqsave(&wl->wl_lock, flags);
-	stopped = test_bit(reason, &wl->queue_stop_reasons[hwq]);
+	stopped = wlcore_is_queue_stopped_by_reason_locked(wl, wlvif, queue,
+							   reason);
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
 	return stopped;
 }
 
-bool wlcore_is_queue_stopped(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+bool wlcore_is_queue_stopped_by_reason_locked(struct wl1271 *wl,
+				       struct wl12xx_vif *wlvif, u8 queue,
+				       enum wlcore_queue_stop_reason reason)
+{
+	int hwq = wlvif->hw_queue_base + wl1271_tx_get_mac80211_queue(queue);
+
+	WARN_ON_ONCE(!spin_is_locked(&wl->wl_lock));
+	return test_bit(reason, &wl->queue_stop_reasons[hwq]);
+}
+
+bool wlcore_is_queue_stopped_locked(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     u8 queue)
 {
 	int hwq = wlvif->hw_queue_base + wl1271_tx_get_mac80211_queue(queue);
-	unsigned long flags;
-	bool stopped;
 
-
-	spin_lock_irqsave(&wl->wl_lock, flags);
-	stopped = !!wl->queue_stop_reasons[hwq];
-	spin_unlock_irqrestore(&wl->wl_lock, flags);
-
-	return stopped;
+	WARN_ON_ONCE(!spin_is_locked(&wl->wl_lock));
+	return !!wl->queue_stop_reasons[hwq];
 }
