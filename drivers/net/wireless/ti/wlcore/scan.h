@@ -42,11 +42,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 				  struct cfg80211_sched_scan_request *req,
 				  struct ieee80211_sched_scan_ies *ies);
 void wl1271_scan_sched_scan_stop(struct wl1271 *wl, struct wl12xx_vif *wlvif);
-/*
-int wl1271_scan_sched_scan_start(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 void wl1271_scan_sched_scan_results(struct wl1271 *wl);
-*/
-
 
 #define WL1271_SCAN_MAX_CHANNELS       24
 #define WL1271_SCAN_DEFAULT_TAG        1
@@ -240,7 +236,21 @@ struct wl1271_cmd_scan_params {
 	u8 ssid_len;	 /* For SCAN_SSID_FILTER_SPECIFIC */
 	u8 tag;
 	u8 rate;
-	u8 padding1[1];
+
+	/*
+	 * send SCAN_REPORT_EVENT in periodic scans after each cycle
+	 * if number of results >= report_threshold. Must be 0 for
+	 * non periodic scans
+	 */
+	u8 report_threshold;
+
+	/*
+	 * Should periodic scan stop after a report event was created.
+	 * Must be 0 for non periodic scans.
+	 */
+	u8 terminate_on_report;
+
+	u8 padding1[3];
 } __packed;
 
 

@@ -103,6 +103,14 @@ static int wl1271_event_process(struct wl1271 *wl)
 		wl12xx_scan_completed(wl);
 	}
 
+	if (vector & PERIODIC_SCAN_REPORT_EVENT_ID) {
+		wl1271_debug(DEBUG_EVENT,
+			     "PERIODIC_SCAN_REPORT_EVENT (results %d)",
+			     mbox->number_of_sched_scan_results);
+
+		wl1271_scan_sched_scan_results(wl);
+	}
+
 	if (vector & PERIODIC_SCAN_COMPLETE_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT,
 			     "PERIODIC_SCAN_COMPLETE_EVENT (results 0x%0x)",
