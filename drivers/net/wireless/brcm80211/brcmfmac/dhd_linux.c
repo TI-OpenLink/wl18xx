@@ -45,12 +45,14 @@
 #include "dhd_proto.h"
 #include "dhd_dbg.h"
 #include "wl_cfg80211.h"
+#include "fwil.h"
 
 MODULE_AUTHOR("Broadcom Corporation");
 MODULE_DESCRIPTION("Broadcom 802.11n wireless LAN fullmac driver.");
 MODULE_SUPPORTED_DEVICE("Broadcom 802.11n WLAN fullmac cards");
 MODULE_LICENSE("Dual BSD/GPL");
 
+#define MAX_WAIT_FOR_8021X_TX		50	/* msecs */
 
 /* Error bits */
 int brcmf_msg_level = BRCMF_ERROR_VAL;
@@ -95,38 +97,35 @@ char *brcmf_ifname(struct brcmf_pub *drvr, int ifidx)
 
 static void _brcmf_set_multicast_list(struct work_struct *work)
 {
+	struct brcmf_if *ifp;
 	struct net_device *ndev;
 	struct netdev_hw_addr *ha;
-	u32 dcmd_value, cnt;
+	u32 cmd_value, cnt;
 	__le32 cnt_le;
-	__le32 dcmd_le_value;
-
-	struct brcmf_dcmd dcmd;
 	char *buf, *bufp;
-	uint buflen;
-	int ret;
-
+	u32 buflen;
+	s32 err;
 	struct brcmf_pub *drvr = container_of(work, struct brcmf_pub,
 						    multicast_work);
 
-	ndev = drvr->iflist[0]->ndev;
-	cnt = netdev_mc_count(ndev);
+	brcmf_dbg(TRACE, "enter\n");
+
+	ifp = drvr->iflist[0];
+	ndev = ifp->ndev;
 
 	/* Determine initial value of allmulti flag */
-	dcmd_value = (ndev->flags & IFF_ALLMULTI) ? true : false;
+	cmd_value = (ndev->flags & IFF_ALLMULTI) ? true : false;
 
 	/* Send down the multicast list first. */
-
-	buflen = sizeof("mcast_list") + sizeof(cnt) + (cnt * ETH_ALEN);
-	bufp = buf = kmalloc(buflen, GFP_ATOMIC);
-	if (!bufp)
+	cnt = netdev_mc_count(ndev);
+	buflen = sizeof(cnt) + (cnt * ETH_ALEN);
+	buf = kmalloc(buflen, GFP_ATOMIC);
+	if (!buf)
 		return;
-
-	strcpy(bufp, "mcast_list");
-	bufp += strlen("mcast_list") + 1;
+	bufp = buf;
 
 	cnt_le = cpu_to_le32(cnt);
-	memcpy(bufp, &cnt_le, sizeof(cnt));
+	memcpy(bufp, &cnt_le, sizeof(cnt_le));
 	bufp += sizeof(cnt_le);
 
 	netdev_for_each_mc_addr(ha, ndev) {
@@ -137,110 +136,55 @@ static void _brcmf_set_multicast_list(struct work_struct *work)
 		cnt--;
 	}
 
-	memset(&dcmd, 0, sizeof(dcmd));
-	dcmd.cmd = BRCMF_C_SET_VAR;
-	dcmd.buf = buf;
-	dcmd.len = buflen;
-	dcmd.set = true;
-
-	ret = brcmf_proto_dcmd(drvr, 0, &dcmd, dcmd.len);
-	if (ret < 0) {
-		brcmf_dbg(ERROR, "%s: set mcast_list failed, cnt %d\n",
-			  brcmf_ifname(drvr, 0), cnt);
-		dcmd_value = cnt ? true : dcmd_value;
+	err = brcmf_fil_iovar_data_set(ifp, "mcast_list", buf, buflen);
+	if (err < 0) {
+		brcmf_dbg(ERROR, "Setting mcast_list failed, %d\n", err);
+		cmd_value = cnt ? true : cmd_value;
 	}
 
 	kfree(buf);
 
-	/* Now send the allmulti setting.  This is based on the setting in the
+	/*
+	 * Now send the allmulti setting.  This is based on the setting in the
 	 * net_device flags, but might be modified above to be turned on if we
 	 * were trying to set some addresses and dongle rejected it...
 	 */
+	err = brcmf_fil_iovar_int_set(ifp, "allmulti", cmd_value);
+	if (err < 0)
+		brcmf_dbg(ERROR, "Setting allmulti failed, %d\n", err);
 
-	buflen = sizeof("allmulti") + sizeof(dcmd_value);
-	buf = kmalloc(buflen, GFP_ATOMIC);
-	if (!buf)
-		return;
-
-	dcmd_le_value = cpu_to_le32(dcmd_value);
-
-	if (!brcmf_c_mkiovar
-	    ("allmulti", (void *)&dcmd_le_value,
-	    sizeof(dcmd_le_value), buf, buflen)) {
-		brcmf_dbg(ERROR, "%s: mkiovar failed for allmulti, datalen %d buflen %u\n",
-			  brcmf_ifname(drvr, 0),
-			  (int)sizeof(dcmd_value), buflen);
-		kfree(buf);
-		return;
-	}
-
-	memset(&dcmd, 0, sizeof(dcmd));
-	dcmd.cmd = BRCMF_C_SET_VAR;
-	dcmd.buf = buf;
-	dcmd.len = buflen;
-	dcmd.set = true;
-
-	ret = brcmf_proto_dcmd(drvr, 0, &dcmd, dcmd.len);
-	if (ret < 0) {
-		brcmf_dbg(ERROR, "%s: set allmulti %d failed\n",
-			  brcmf_ifname(drvr, 0),
-			  le32_to_cpu(dcmd_le_value));
-	}
-
-	kfree(buf);
-
-	/* Finally, pick up the PROMISC flag as well, like the NIC
-		 driver does */
-
-	dcmd_value = (ndev->flags & IFF_PROMISC) ? true : false;
-	dcmd_le_value = cpu_to_le32(dcmd_value);
-
-	memset(&dcmd, 0, sizeof(dcmd));
-	dcmd.cmd = BRCMF_C_SET_PROMISC;
-	dcmd.buf = &dcmd_le_value;
-	dcmd.len = sizeof(dcmd_le_value);
-	dcmd.set = true;
-
-	ret = brcmf_proto_dcmd(drvr, 0, &dcmd, dcmd.len);
-	if (ret < 0) {
-		brcmf_dbg(ERROR, "%s: set promisc %d failed\n",
-			  brcmf_ifname(drvr, 0),
-			  le32_to_cpu(dcmd_le_value));
-	}
+	/*Finally, pick up the PROMISC flag */
+	cmd_value = (ndev->flags & IFF_PROMISC) ? true : false;
+	err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_PROMISC, cmd_value);
+	if (err < 0)
+		brcmf_dbg(ERROR, "Setting BRCMF_C_SET_PROMISC failed, %d\n",
+			  err);
 }
 
 static void
 _brcmf_set_mac_address(struct work_struct *work)
 {
-	char buf[32];
-	struct brcmf_dcmd dcmd;
-	int ret;
+	struct brcmf_if *ifp;
+	struct net_device *ndev;
+	s32 err;
 
 	struct brcmf_pub *drvr = container_of(work, struct brcmf_pub,
 						    setmacaddr_work);
 
 	brcmf_dbg(TRACE, "enter\n");
-	if (!brcmf_c_mkiovar("cur_etheraddr", (char *)drvr->macvalue,
-			   ETH_ALEN, buf, 32)) {
-		brcmf_dbg(ERROR, "%s: mkiovar failed for cur_etheraddr\n",
-			  brcmf_ifname(drvr, 0));
-		return;
+
+	ifp = drvr->iflist[0];
+	ndev = ifp->ndev;
+
+	err = brcmf_fil_iovar_data_set(ifp, "cur_etheraddr", drvr->macvalue,
+				       ETH_ALEN);
+	if (err < 0) {
+		brcmf_dbg(ERROR, "Setting cur_etheraddr failed, %d\n", err);
+	} else {
+		brcmf_dbg(TRACE, "MAC address updated to %pM\n",
+			  drvr->macvalue);
+		memcpy(ndev->dev_addr, drvr->macvalue, ETH_ALEN);
 	}
-	memset(&dcmd, 0, sizeof(dcmd));
-	dcmd.cmd = BRCMF_C_SET_VAR;
-	dcmd.buf = buf;
-	dcmd.len = 32;
-	dcmd.set = true;
-
-	ret = brcmf_proto_dcmd(drvr, 0, &dcmd, dcmd.len);
-	if (ret < 0)
-		brcmf_dbg(ERROR, "%s: set cur_etheraddr failed\n",
-			  brcmf_ifname(drvr, 0));
-	else
-		memcpy(drvr->iflist[0]->ndev->dev_addr,
-		       drvr->macvalue, ETH_ALEN);
-
-	return;
 }
 
 static int brcmf_netdev_set_mac_address(struct net_device *ndev, void *addr)
@@ -272,7 +216,7 @@ static int brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	/* Reject if down */
 	if (!drvr->bus_if->drvr_up ||
-	    (drvr->bus_if->state == BRCMF_BUS_DOWN)) {
+	    (drvr->bus_if->state != BRCMF_BUS_DATA)) {
 		brcmf_dbg(ERROR, "xmit rejected drvup=%d state=%d\n",
 			  drvr->bus_if->drvr_up,
 			  drvr->bus_if->state);
@@ -360,8 +304,9 @@ static int brcmf_host_event(struct brcmf_pub *drvr, int *ifidx,
 	if (bcmerror != 0)
 		return bcmerror;
 
+	/* only forward if interface has netdev */
 	if (drvr->iflist[*ifidx]->ndev)
-		brcmf_cfg80211_event(drvr->iflist[*ifidx]->ndev,
+		brcmf_cfg80211_event(drvr->iflist[*ifidx],
 				     event, *data);
 
 	return bcmerror;
@@ -461,9 +406,11 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
 	eh = (struct ethhdr *)(txp->data);
 	type = ntohs(eh->h_proto);
 
-	if (type == ETH_P_PAE)
+	if (type == ETH_P_PAE) {
 		atomic_dec(&drvr->pend_8021x_cnt);
-
+		if (waitqueue_active(&drvr->pend_8021x_wait))
+			wake_up(&drvr->pend_8021x_wait);
+	}
 }
 
 static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
@@ -487,83 +434,26 @@ static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
 	return &ifp->stats;
 }
 
-/* Retrieve current toe component enables, which are kept
-	 as a bitmap in toe_ol iovar */
-static int brcmf_toe_get(struct brcmf_pub *drvr, int ifidx, u32 *toe_ol)
+/*
+ * Set current toe component enables in toe_ol iovar,
+ * and set toe global enable iovar
+ */
+static int brcmf_toe_set(struct brcmf_if *ifp, u32 toe_ol)
 {
-	struct brcmf_dcmd dcmd;
-	__le32 toe_le;
-	char buf[32];
-	int ret;
+	s32 err;
 
-	memset(&dcmd, 0, sizeof(dcmd));
-
-	dcmd.cmd = BRCMF_C_GET_VAR;
-	dcmd.buf = buf;
-	dcmd.len = (uint) sizeof(buf);
-	dcmd.set = false;
-
-	strcpy(buf, "toe_ol");
-	ret = brcmf_proto_dcmd(drvr, ifidx, &dcmd, dcmd.len);
-	if (ret < 0) {
-		/* Check for older dongle image that doesn't support toe_ol */
-		if (ret == -EIO) {
-			brcmf_dbg(ERROR, "%s: toe not supported by device\n",
-				  brcmf_ifname(drvr, ifidx));
-			return -EOPNOTSUPP;
-		}
-
-		brcmf_dbg(INFO, "%s: could not get toe_ol: ret=%d\n",
-			  brcmf_ifname(drvr, ifidx), ret);
-		return ret;
+	err = brcmf_fil_iovar_int_set(ifp, "toe_ol", toe_ol);
+	if (err < 0) {
+		brcmf_dbg(ERROR, "Setting toe_ol failed, %d\n", err);
+		return err;
 	}
 
-	memcpy(&toe_le, buf, sizeof(u32));
-	*toe_ol = le32_to_cpu(toe_le);
-	return 0;
-}
+	err = brcmf_fil_iovar_int_set(ifp, "toe", (toe_ol != 0));
+	if (err < 0)
+		brcmf_dbg(ERROR, "Setting toe failed, %d\n", err);
 
-/* Set current toe component enables in toe_ol iovar,
-	 and set toe global enable iovar */
-static int brcmf_toe_set(struct brcmf_pub *drvr, int ifidx, u32 toe_ol)
-{
-	struct brcmf_dcmd dcmd;
-	char buf[32];
-	int ret;
-	__le32 toe_le = cpu_to_le32(toe_ol);
+	return err;
 
-	memset(&dcmd, 0, sizeof(dcmd));
-
-	dcmd.cmd = BRCMF_C_SET_VAR;
-	dcmd.buf = buf;
-	dcmd.len = (uint) sizeof(buf);
-	dcmd.set = true;
-
-	/* Set toe_ol as requested */
-	strcpy(buf, "toe_ol");
-	memcpy(&buf[sizeof("toe_ol")], &toe_le, sizeof(u32));
-
-	ret = brcmf_proto_dcmd(drvr, ifidx, &dcmd, dcmd.len);
-	if (ret < 0) {
-		brcmf_dbg(ERROR, "%s: could not set toe_ol: ret=%d\n",
-			  brcmf_ifname(drvr, ifidx), ret);
-		return ret;
-	}
-
-	/* Enable toe globally only if any components are enabled. */
-	toe_le = cpu_to_le32(toe_ol != 0);
-
-	strcpy(buf, "toe");
-	memcpy(&buf[sizeof("toe")], &toe_le, sizeof(u32));
-
-	ret = brcmf_proto_dcmd(drvr, ifidx, &dcmd, dcmd.len);
-	if (ret < 0) {
-		brcmf_dbg(ERROR, "%s: could not set toe: ret=%d\n",
-			  brcmf_ifname(drvr, ifidx), ret);
-		return ret;
-	}
-
-	return 0;
 }
 
 static void brcmf_ethtool_get_drvinfo(struct net_device *ndev,
@@ -581,8 +471,9 @@ static const struct ethtool_ops brcmf_ethtool_ops = {
 	.get_drvinfo = brcmf_ethtool_get_drvinfo,
 };
 
-static int brcmf_ethtool(struct brcmf_pub *drvr, void __user *uaddr)
+static int brcmf_ethtool(struct brcmf_if *ifp, void __user *uaddr)
 {
+	struct brcmf_pub *drvr = ifp->drvr;
 	struct ethtool_drvinfo info;
 	char drvname[sizeof(info.driver)];
 	u32 cmd;
@@ -633,7 +524,7 @@ static int brcmf_ethtool(struct brcmf_pub *drvr, void __user *uaddr)
 		/* Get toe offload components from dongle */
 	case ETHTOOL_GRXCSUM:
 	case ETHTOOL_GTXCSUM:
-		ret = brcmf_toe_get(drvr, 0, &toe_cmpnt);
+		ret = brcmf_fil_iovar_int_get(ifp, "toe_ol", &toe_cmpnt);
 		if (ret < 0)
 			return ret;
 
@@ -654,7 +545,7 @@ static int brcmf_ethtool(struct brcmf_pub *drvr, void __user *uaddr)
 			return -EFAULT;
 
 		/* Read the current settings, update and write back */
-		ret = brcmf_toe_get(drvr, 0, &toe_cmpnt);
+		ret = brcmf_fil_iovar_int_get(ifp, "toe_ol", &toe_cmpnt);
 		if (ret < 0)
 			return ret;
 
@@ -666,18 +557,16 @@ static int brcmf_ethtool(struct brcmf_pub *drvr, void __user *uaddr)
 		else
 			toe_cmpnt &= ~csum_dir;
 
-		ret = brcmf_toe_set(drvr, 0, toe_cmpnt);
+		ret = brcmf_toe_set(ifp, toe_cmpnt);
 		if (ret < 0)
 			return ret;
 
 		/* If setting TX checksum mode, tell Linux the new mode */
 		if (cmd == ETHTOOL_STXCSUM) {
 			if (edata.data)
-				drvr->iflist[0]->ndev->features |=
-				    NETIF_F_IP_CSUM;
+				ifp->ndev->features |= NETIF_F_IP_CSUM;
 			else
-				drvr->iflist[0]->ndev->features &=
-				    ~NETIF_F_IP_CSUM;
+				ifp->ndev->features &= ~NETIF_F_IP_CSUM;
 		}
 
 		break;
@@ -701,7 +590,7 @@ static int brcmf_netdev_ioctl_entry(struct net_device *ndev, struct ifreq *ifr,
 		return -1;
 
 	if (cmd == SIOCETHTOOL)
-		return brcmf_ethtool(drvr, ifr->ifr_data);
+		return brcmf_ethtool(ifp, ifr->ifr_data);
 
 	return -EOPNOTSUPP;
 }
@@ -712,9 +601,11 @@ static int brcmf_netdev_stop(struct net_device *ndev)
 	struct brcmf_pub *drvr = ifp->drvr;
 
 	brcmf_dbg(TRACE, "Enter\n");
-	brcmf_cfg80211_down(drvr->config);
+
 	if (drvr->bus_if->drvr_up == 0)
 		return 0;
+
+	brcmf_cfg80211_down(drvr->config);
 
 	/* Set state and stop OS transmissions */
 	drvr->bus_if->drvr_up = false;
@@ -730,7 +621,6 @@ static int brcmf_netdev_open(struct net_device *ndev)
 	struct brcmf_bus *bus_if = drvr->bus_if;
 	u32 toe_ol;
 	s32 ret = 0;
-	uint up = 0;
 
 	brcmf_dbg(TRACE, "ifidx %d\n", ifp->idx);
 
@@ -746,7 +636,7 @@ static int brcmf_netdev_open(struct net_device *ndev)
 		memcpy(ndev->dev_addr, drvr->mac, ETH_ALEN);
 
 		/* Get current TOE mode from dongle */
-		if (brcmf_toe_get(drvr, ifp->idx, &toe_ol) >= 0
+		if (brcmf_fil_iovar_int_get(ifp, "toe_ol", &toe_ol) >= 0
 		    && (toe_ol & TOE_TX_CSUM_OL) != 0)
 			drvr->iflist[ifp->idx]->ndev->features |=
 				NETIF_F_IP_CSUM;
@@ -756,7 +646,7 @@ static int brcmf_netdev_open(struct net_device *ndev)
 	}
 
 	/* make sure RF is ready for work */
-	brcmf_proto_cdc_set_dcmd(drvr, 0, BRCMF_C_UP, (char *)&up, sizeof(up));
+	brcmf_fil_cmd_int_set(ifp, BRCMF_C_UP, 0);
 
 	/* Allow transmit calls */
 	netif_start_queue(ndev);
@@ -824,7 +714,6 @@ int brcmf_net_attach(struct brcmf_if *ifp)
 
 fail:
 	ndev->netdev_ops = NULL;
-	free_netdev(ndev);
 	return -EBADE;
 }
 
@@ -939,6 +828,8 @@ int brcmf_attach(uint bus_hdrlen, struct device *dev)
 
 	INIT_LIST_HEAD(&drvr->bus_if->dcmd_list);
 
+	init_waitqueue_head(&drvr->pend_8021x_wait);
+
 	return ret;
 
 fail:
@@ -974,15 +865,21 @@ int brcmf_bus_start(struct device *dev)
 	/* Bus is ready, do any initialization */
 	ret = brcmf_c_preinit_dcmds(ifp);
 	if (ret < 0)
-		return ret;
+		goto fail;
 
 	drvr->config = brcmf_cfg80211_attach(drvr);
-	if (drvr->config == NULL)
-		return -ENOMEM;
+	if (drvr->config == NULL) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	ret = brcmf_net_attach(ifp);
+fail:
 	if (ret < 0) {
 		brcmf_dbg(ERROR, "brcmf_net_attach failed");
+		if (drvr->config)
+			brcmf_cfg80211_detach(drvr->config);
+		free_netdev(drvr->iflist[0]->ndev);
 		drvr->iflist[0] = NULL;
 		return ret;
 	}
@@ -1011,6 +908,8 @@ void brcmf_detach(struct device *dev)
 
 	brcmf_dbg(TRACE, "Enter\n");
 
+	if (drvr == NULL)
+		return;
 
 	/* make sure primary interface removed last */
 	for (i = BRCMF_MAX_IFS-1; i > -1; i--)
@@ -1035,26 +934,19 @@ static int brcmf_get_pend_8021x_cnt(struct brcmf_pub *drvr)
 	return atomic_read(&drvr->pend_8021x_cnt);
 }
 
-#define MAX_WAIT_FOR_8021X_TX	10
-
 int brcmf_netdev_wait_pend8021x(struct net_device *ndev)
 {
 	struct brcmf_if *ifp = netdev_priv(ndev);
 	struct brcmf_pub *drvr = ifp->drvr;
-	int timeout = 10 * HZ / 1000;
-	int ntimes = MAX_WAIT_FOR_8021X_TX;
-	int pend = brcmf_get_pend_8021x_cnt(drvr);
+	int err;
 
-	while (ntimes && pend) {
-		if (pend) {
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule_timeout(timeout);
-			set_current_state(TASK_RUNNING);
-			ntimes--;
-		}
-		pend = brcmf_get_pend_8021x_cnt(drvr);
-	}
-	return pend;
+	err = wait_event_timeout(drvr->pend_8021x_wait,
+				 !brcmf_get_pend_8021x_cnt(drvr),
+				 msecs_to_jiffies(MAX_WAIT_FOR_8021X_TX));
+
+	WARN_ON(!err);
+
+	return !err;
 }
 
 static void brcmf_driver_init(struct work_struct *work)

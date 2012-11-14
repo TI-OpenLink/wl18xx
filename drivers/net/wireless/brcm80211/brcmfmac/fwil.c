@@ -35,7 +35,7 @@ brcmf_fil_cmd_data(struct brcmf_if *ifp, u32 cmd, void *data, u32 len, bool set)
 	struct brcmf_pub *drvr = ifp->drvr;
 	s32 err;
 
-	if (drvr->bus_if->state == BRCMF_BUS_DOWN) {
+	if (drvr->bus_if->state != BRCMF_BUS_DATA) {
 		brcmf_dbg(ERROR, "bus is down. we have nothing to do.\n");
 		return -EIO;
 	}
@@ -294,7 +294,7 @@ brcmf_fil_bsscfg_data_get(struct brcmf_if *ifp, char *name,
 
 	mutex_lock(&drvr->proto_block);
 
-	buflen = brcmf_create_bsscfg(ifp->bssidx, name, NULL, len,
+	buflen = brcmf_create_bsscfg(ifp->bssidx, name, data, len,
 				     drvr->proto_buf, sizeof(drvr->proto_buf));
 	if (buflen) {
 		err = brcmf_fil_cmd_data(ifp, BRCMF_C_GET_VAR, drvr->proto_buf,

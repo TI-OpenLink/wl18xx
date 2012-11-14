@@ -42,10 +42,6 @@
 
 #define MSGTRACE_VERSION	1
 
-#define BRCMF_PKT_FILTER_FIXED_LEN	offsetof(struct brcmf_pkt_filter_le, u)
-#define BRCMF_PKT_FILTER_PATTERN_FIXED_LEN	\
-	offsetof(struct brcmf_pkt_filter_pattern_le, mask_and_pattern)
-
 #ifdef DEBUG
 static const char brcmf_version[] =
 	"Dongle Host Driver, version " BRCMF_VERSION_STR "\nCompiled on "
@@ -71,27 +67,6 @@ struct msgtrace_hdr {
 				 because of trace overflow */
 } __packed;
 
-
-uint
-brcmf_c_mkiovar(char *name, char *data, uint datalen, char *buf, uint buflen)
-{
-	uint len;
-
-	len = strlen(name) + 1;
-
-	if ((len + datalen) > buflen)
-		return 0;
-
-	strncpy(buf, name, buflen);
-
-	/* append data onto the end of the name string */
-	if (data && datalen) {
-		memcpy(&buf[len], data, datalen);
-		len += datalen;
-	}
-
-	return len;
-}
 
 bool brcmf_c_prec_enq(struct device *dev, struct pktq *q,
 		      struct sk_buff *pkt, int prec)
@@ -686,8 +661,8 @@ static void brcmf_c_pktfilter_offload_set(struct brcmf_if *ifp, char *arg)
 	}
 
 	pkt_filter->u.pattern.size_bytes = cpu_to_le32(mask_size);
-	buf_len = sizeof(*pkt_filter);
-	buf_len -= sizeof(pkt_filter->u.pattern.mask_and_pattern);
+	buf_len = offsetof(struct brcmf_pkt_filter_le,
+			   u.pattern.mask_and_pattern);
 	buf_len += mask_size + pattern_size;
 
 	err = brcmf_fil_iovar_data_set(ifp, "pkt_filter_add", pkt_filter,
