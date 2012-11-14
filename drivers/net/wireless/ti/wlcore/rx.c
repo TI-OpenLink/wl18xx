@@ -113,7 +113,7 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	u8 *buf;
 	u8 beacon = 0;
 	u8 is_data = 0;
-	u8 reserved = 0;
+	u8 reserved = 0, offset_to_data = 0;
 	u16 seq_num;
 	u32 pkt_data_len;
 
@@ -133,6 +133,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 
 	if (rx_align == WLCORE_RX_BUF_UNALIGNED)
 		reserved = RX_BUF_ALIGN;
+	else if (rx_align == WLCORE_RX_BUF_PADDED)
+		offset_to_data = RX_BUF_ALIGN;
 
 	/* the data read starts with the descriptor */
 	desc = (struct wl1271_rx_descriptor *) data;
@@ -145,9 +147,8 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
 	}
 
 	/* discard corrupted packets */
-	if ((desc->status & WL1271_RX_DESC_STATUS_MASK) ==
-	    WL1271_RX_DESC_DECRYPT_FAIL) {
-		hdr = (struct ieee80211_hdr *)(data + sizeof(*desc));
+	if (desc->status & WL1271_RX_DESC_DECRYPT_FAIL) {
+		hdr = (void *)(data + sizeof(*desc) + offset_to_data);
 		wl1271_warning("corrupted packet in RX: status: 0x%x len: %d",
 			       desc->status & WL1271_RX_DESC_STATUS_MASK,
 			       pkt_data_len);
