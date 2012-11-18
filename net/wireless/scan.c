@@ -266,7 +266,8 @@ void __cfg80211_sched_scan_results(struct work_struct *wk)
 			__cfg80211_bss_expire(rdev, request->scan_start);
 			spin_unlock_bh(&rdev->bss_lock);
 			request->scan_start =
-				jiffies + msecs_to_jiffies(request->interval);
+				jiffies +
+				msecs_to_jiffies(request->long_interval);
 		}
 		nl80211_send_sched_scan_results(rdev, request->dev);
 	}
