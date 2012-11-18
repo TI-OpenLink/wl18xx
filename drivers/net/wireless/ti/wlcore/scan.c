@@ -148,6 +148,7 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 	u32 dwell_time_passive, dwell_time_dfs;
 
 	/* configure dwell times according to scan type */
+	/* TODO: consider req->min/max dwell time */
 	if (scan_type == SCAN_TYPE_SEARCH) {
 		struct conf_scan_settings *c = &wl->conf.scan;
 		bool active_vif_exists = !!wlcore_count_started_vifs(wl);
