@@ -368,6 +368,8 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_SCAN_MIN_DWELL] = { .type = NLA_U32 },
 	[NL80211_ATTR_SCAN_MAX_DWELL] = { .type = NLA_U32 },
 	[NL80211_ATTR_SCAN_NUM_PROBE] = { .type = NLA_U8 },
+	[NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL] = { .type = NLA_U32 },
+	[NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS] = { .type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -4585,7 +4587,8 @@ static int nl80211_start_sched_scan(struct sk_buff *skb,
 	struct nlattr *attr;
 	struct wiphy *wiphy;
 	int err, tmp, n_ssids = 0, n_match_sets = 0, n_channels, i;
-	u32 interval;
+	u32 long_interval = 0, short_interval = 0;
+	u8 n_short_intervals = 0;
 	enum ieee80211_band band;
 	size_t ie_len;
 	struct nlattr *tb[NL80211_SCHED_SCAN_MATCH_ATTR_MAX + 1];
@@ -4600,9 +4603,26 @@ static int nl80211_start_sched_scan(struct sk_buff *skb,
 	if (!info->attrs[NL80211_ATTR_SCHED_SCAN_INTERVAL])
 		return -EINVAL;
 
-	interval = nla_get_u32(info->attrs[NL80211_ATTR_SCHED_SCAN_INTERVAL]);
-	if (interval == 0)
+	long_interval = nla_get_u32(
+		info->attrs[NL80211_ATTR_SCHED_SCAN_INTERVAL]);
+	if (long_interval == 0)
 		return -EINVAL;
+
+	if (info->attrs[NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL]) {
+		if (!(rdev->wiphy.features &
+		      NL80211_FEATURE_SCHED_SCAN_INTERVALS))
+			return -EOPNOTSUPP;
+
+		if (!info->attrs[NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS])
+			return -EINVAL;
+
+		n_short_intervals = nla_get_u8(
+		      info->attrs[NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS]);
+		short_interval = nla_get_u32(
+			info->attrs[NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL]);
+		if (short_interval == 0)
+			return -EINVAL;
+	}
 
 	wiphy = &rdev->wiphy;
 
@@ -4799,8 +4819,10 @@ static int nl80211_start_sched_scan(struct sk_buff *skb,
 
 	request->dev = dev;
 	request->wiphy = &rdev->wiphy;
-	request->interval = interval;
 	request->scan_start = jiffies;
+	request->long_interval = long_interval;
+	request->short_interval = short_interval;
+	request->n_short_intervals = n_short_intervals;
 
 	err = rdev_sched_scan_start(rdev, dev, request);
 	if (!err) {

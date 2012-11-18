@@ -1142,7 +1142,10 @@ struct cfg80211_match_set {
  * @ssids: SSIDs to scan for (passed in the probe_reqs in active scans)
  * @n_ssids: number of SSIDs
  * @n_channels: total number of channels to scan
- * @interval: interval between each scheduled scan cycle
+ * @long_interval: interval between each long scheduled scan cycle
+ * @short_interval: interval between each short scheduled scan cycle
+ * @n_short_intevals: number of short intervals scheduled scan cycles before
+ *      switching to the long interval
  * @ie: optional information element(s) to add into Probe Request or %NULL
  * @ie_len: length of ie in octets
  * @flags: bit field of flags controlling operation
@@ -1160,7 +1163,9 @@ struct cfg80211_sched_scan_request {
 	struct cfg80211_ssid *ssids;
 	int n_ssids;
 	u32 n_channels;
-	u32 interval;
+	u32 long_interval;
+	u32 short_interval;
+	u8 n_short_intervals;
 	const u8 *ie;
 	size_t ie_len;
 	u32 flags;
