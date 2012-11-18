@@ -222,9 +222,9 @@ int wl18xx_scan_sched_scan_config(struct wl1271 *wl,
 				    SCAN_TYPE_PERIODIC);
 	wl18xx_adjust_channels(cmd, cmd_channels);
 
-	cmd->short_cycles_sec = 0;
-	cmd->long_cycles_sec = cpu_to_le16(req->interval);
-	cmd->short_cycles_count = 0;
+	cmd->short_cycles_sec = cpu_to_le16(req->short_interval);
+	cmd->long_cycles_sec = cpu_to_le16(req->long_interval);
+	cmd->short_cycles_count = req->n_short_intervals;
 
 	cmd->total_cycles = 0;
 
