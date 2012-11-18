@@ -71,7 +71,10 @@ static int wl18xx_scan_send(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	cmd->urgency = 0;
 	cmd->protect = 0;
 
-	cmd->n_probe_reqs = wl->conf.scan.num_probe_reqs;
+	if (req->num_probe)
+		cmd->n_probe_reqs = wl->scan.req->num_probe;
+	else
+		cmd->n_probe_reqs = wl->conf.scan.num_probe_reqs;
 	cmd->terminate_after = 0;
 
 	/* configure channels */

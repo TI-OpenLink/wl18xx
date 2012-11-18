@@ -136,7 +136,6 @@ static int wl1271_scan_send(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 
 	cmd->params.tx_rate = cpu_to_le32(basic_rate);
-	cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
 	cmd->params.tid_trigger = CONF_TX_AC_ANY_TID;
 	cmd->params.scan_tag = WL1271_SCAN_DEFAULT_TAG;
 
@@ -144,6 +143,11 @@ static int wl1271_scan_send(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		cmd->params.band = WL1271_SCAN_BAND_2_4_GHZ;
 	else
 		cmd->params.band = WL1271_SCAN_BAND_5_GHZ;
+
+	if (wl->scan.req->num_probe)
+		cmd->params.n_probe_reqs = wl->scan.req->num_probe;
+	else
+		cmd->params.n_probe_reqs = wl->conf.scan.num_probe_reqs;
 
 	if (wl->scan.ssid_len && wl->scan.ssid) {
 		cmd->params.ssid_len = wl->scan.ssid_len;

@@ -125,6 +125,7 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 	u32 min_dwell_time_active, max_dwell_time_active;
 	u32 dwell_time_passive, dwell_time_dfs;
 
+	/* TODO: consider req->min/max dwell time */
 	/* configure dwell times according to scan type */
 	if (scan_type == SCAN_TYPE_SEARCH) {
 		struct conf_scan_settings *c = &wl->conf.scan;
