@@ -1269,7 +1269,9 @@ enum nl80211_commands {
  *	triggers.
  *
  * @NL80211_ATTR_SCHED_SCAN_INTERVAL: Interval between scheduled scan
- *	cycles, in msecs.
+ *	cycles, in msecs. If short interval is supported by the driver
+ *      and configured then this will be used only after the requested
+ *      number of short intervals
  *
  * @NL80211_ATTR_SCHED_SCAN_MATCH: Nested attribute with one or more
  *	sets of attributes to match during scheduled scans.  Only BSSs
@@ -1510,6 +1512,11 @@ enum nl80211_commands {
  * @%NL80211_ATTR_SCAN_NUM_PROBE:  Attribute (u8) to setup number of probe
  *	requests to transmit on each active scan channel, used with
  *	%NL80211_CMD_TRIGGER_SCAN command.
+ *
+ * @NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL: interval between
+ *      each short interval scheduled scan cycle in msecs.
+ * @NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS: number of short
+ *      sched scan intervals before switching to the long interval
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1824,6 +1831,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_SCAN_MIN_DWELL,
 	NL80211_ATTR_SCAN_MAX_DWELL,
 	NL80211_ATTR_SCAN_NUM_PROBE,
+
+	NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL,
+	NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -3779,6 +3789,7 @@ enum nl80211_feature_flags {
 	NL80211_FEATURE_FULL_AP_CLIENT_STATE		= 1 << 15,
 	NL80211_FEATURE_USERSPACE_MPM			= 1 << 16,
 	NL80211_FEATURE_ACTIVE_MONITOR			= 1 << 17,
+	NL80211_FEATURE_SCHED_SCAN_INTERVALS  = 1 << 20,
 };
 
 /**
