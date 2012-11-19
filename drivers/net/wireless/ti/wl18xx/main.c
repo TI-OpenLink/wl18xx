@@ -505,7 +505,7 @@ static struct wlcore_conf wl18xx_conf = {
 
 static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 	.ht = {
-		.mode				= HT_MODE_DEFAULT,
+		.mode				= HT_MODE_WIDE,
 	},
 	.phy = {
 		.phy_standalone			= 0x00,
