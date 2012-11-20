@@ -1777,12 +1777,13 @@ out:
 }
 
 static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			  u8 role_id, u8 channel)
+			  u8 role_id, enum ieee80211_band band, u8 channel)
 {
 	struct wl12xx_cmd_roc *cmd;
 	int ret = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd roc %d (%d)", channel, role_id);
+	wl1271_debug(DEBUG_CMD, "cmd roc band %d chan %d role %d", band,
+		     channel, role_id);
 
 	if (WARN_ON(role_id == WL12XX_INVALID_ROLE_ID))
 		return -EINVAL;
@@ -1795,7 +1796,7 @@ static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	cmd->role_id = role_id;
 	cmd->channel = channel;
-	switch (wlvif->band) {
+	switch (band) {
 	case IEEE80211_BAND_2GHZ:
 		cmd->band = WLCORE_BAND_2_4GHZ;
 		break;
@@ -1803,7 +1804,7 @@ static int wl12xx_cmd_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		cmd->band = WLCORE_BAND_5GHZ;
 		break;
 	default:
-		wl1271_error("roc - unknown band: %d", (int)wlvif->band);
+		wl1271_error("roc - unknown band: %d", band);
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -1851,14 +1852,14 @@ out:
 }
 
 int wl12xx_roc(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 role_id,
-	       u8 channel)
+	       enum ieee80211_band band, u8 channel)
 {
 	int ret = 0;
 
 	if (WARN_ON(test_bit(role_id, wl->roc_map)))
 		return 0;
 
-	ret = wl12xx_cmd_roc(wl, wlvif, role_id, channel);
+	ret = wl12xx_cmd_roc(wl, wlvif, role_id, band, channel);
 	if (ret < 0)
 		goto out;
 /*
@@ -1993,7 +1994,7 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	if (ret < 0)
 		goto out_disable;
 
-	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id, channel);
+	ret = wl12xx_roc(wl, wlvif, wlvif->dev_role_id, band, channel);
 	if (ret < 0)
 		goto out_stop;
 
