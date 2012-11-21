@@ -2855,51 +2855,26 @@ static void wl1271_set_band_rate(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	wlvif->basic_rate_set = wlvif->bitrate_masks[wlvif->band];
 	wlvif->rate_set = wlvif->basic_rate_set;
 }
-#if 0
-static int wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-				  bool idle)
+
+static void wl1271_sta_handle_idle(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+				   bool idle)
 {
-	int ret;
 	bool cur_idle = !test_bit(WLVIF_FLAG_IN_USE, &wlvif->flags);
 
 	if (idle == cur_idle)
-		return 0;
+		return;
 
 	if (idle) {
-		/* no need to croc if we weren't busy (e.g. during boot) */
-		if (wl12xx_dev_role_started(wlvif)) {
-			ret = wl12xx_stop_dev(wl, wlvif);
-			if (ret < 0)
-				goto out;
-		}
-		wlvif->rate_set =
-			wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
-		ret = wl1271_acx_sta_rate_policies(wl, wlvif);
-		if (ret < 0)
-			goto out;
-		ret = wl1271_acx_keep_alive_config(
-			wl, wlvif, CMD_TEMPL_KLV_IDX_NULL_DATA,
-			ACX_KEEP_ALIVE_TPL_INVALID);
-		if (ret < 0)
-			goto out;
 		clear_bit(WLVIF_FLAG_IN_USE, &wlvif->flags);
 	} else {
 		/* The current firmware only supports sched_scan in idle */
-		if (wl->sched_scanning) {
+		if (wl->sched_vif == wl12xx_wlvif_to_vif(wlvif))
 			wl1271_scan_sched_scan_stop(wl, wlvif);
-			ieee80211_sched_scan_stopped(wl->hw);
-		}
 
-		ret = wl12xx_start_dev(wl, wlvif);
-		if (ret < 0)
-			goto out;
 		set_bit(WLVIF_FLAG_IN_USE, &wlvif->flags);
 	}
-
-out:
-	return ret;
 }
-#endif
+
 static int wl12xx_config_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 			     struct ieee80211_conf *conf, u32 changed)
 {
@@ -4207,13 +4182,10 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 
 		do_join = true;
 	}
-/*
-	if (changed & BSS_CHANGED_IDLE && !is_ibss) {
-		ret = wl1271_sta_handle_idle(wl, wlvif, bss_conf->idle);
-		if (ret < 0)
-			wl1271_warning("idle mode change failed %d", ret);
-	}
-*/
+
+	if (changed & BSS_CHANGED_IDLE && !is_ibss)
+		wl1271_sta_handle_idle(wl, wlvif, bss_conf->idle);
+
 	if ((changed & BSS_CHANGED_CQM)) {
 		bool enable = false;
 		if (bss_conf->cqm_rssi_thold)
