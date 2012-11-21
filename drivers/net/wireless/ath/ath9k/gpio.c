@@ -247,6 +247,9 @@ static void ath_btcoex_period_timer(unsigned long data)
 			stomp_type = ATH_BTCOEX_STOMP_ALL;
 			timer_period = btcoex->btscan_no_stomp;
 		}
+	} else if (btcoex->stomp_audio >= 5) {
+		stomp_type = ATH_BTCOEX_STOMP_AUDIO;
+		btcoex->stomp_audio = 0;
 	}
 
 	ath9k_hw_btcoex_bt_stomp(ah, stomp_type);
@@ -295,7 +298,7 @@ static void ath_btcoex_no_stomp_timer(void *arg)
 	    (!(ah->caps.hw_caps & ATH9K_HW_CAP_MCI) &&
 	     test_bit(BT_OP_SCAN, &btcoex->op_flags)))
 		ath9k_hw_btcoex_bt_stomp(ah, ATH_BTCOEX_STOMP_NONE);
-	 else if (btcoex->bt_stomp_type == ATH_BTCOEX_STOMP_ALL)
+	else if (btcoex->bt_stomp_type == ATH_BTCOEX_STOMP_ALL)
 		ath9k_hw_btcoex_bt_stomp(ah, ATH_BTCOEX_STOMP_LOW);
 
 	ath9k_hw_btcoex_enable(ah);
@@ -471,7 +474,7 @@ int ath9k_init_btcoex(struct ath_softc *sc)
 		r = ath_init_btcoex_timer(sc);
 		if (r)
 			return -1;
-		txq = sc->tx.txq_map[WME_AC_BE];
+		txq = sc->tx.txq_map[IEEE80211_AC_BE];
 		ath9k_hw_init_btcoex_hw(sc->sc_ah, txq->axq_qnum);
 		sc->btcoex.bt_stomp_type = ATH_BTCOEX_STOMP_LOW;
 		if (ath9k_hw_mci_is_enabled(ah)) {
