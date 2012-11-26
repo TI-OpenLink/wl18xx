@@ -561,9 +561,6 @@ struct conf_tx_ac_category {
 
 #define CONF_TX_MAX_TID_COUNT 8
 
-/* Allow TX BA on all TIDs but 6,7. These are currently reserved in the FW */
-#define CONF_TX_BA_ENABLED_TID_BITMAP 0x3F
-
 enum {
 	CONF_CHANNEL_TYPE_DCF = 0,   /* DC/LEGACY*/
 	CONF_CHANNEL_TYPE_EDCF = 1,  /* EDCA*/

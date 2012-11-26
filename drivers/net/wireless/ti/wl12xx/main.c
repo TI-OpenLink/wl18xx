@@ -293,7 +293,7 @@ static struct wlcore_conf wl12xx_conf = {
 		.rx_ba_win_size = 8,
 		.tx_ba_win_size = 64,
 		.inactivity_timeout = 10000,
-		.tx_ba_tid_bitmap = CONF_TX_BA_ENABLED_TID_BITMAP,
+		.tx_ba_tid_bitmap = 0x3f,
 	},
 	/*
 	 * Memory config for wl127x chips is given in the
