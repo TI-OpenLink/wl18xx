@@ -328,6 +328,7 @@ struct wl12xx_rx_filter {
 
 struct wl1271_station {
 	u8 hlid;
+	bool in_connection;
 };
 
 struct wl12xx_vif {
@@ -450,6 +451,9 @@ struct wl12xx_vif {
 	 * BK - hw_queue_base + 3
 	 */
 	int hw_queue_base;
+
+	/* number of in connection stations */
+	int inconn_count;
 
 	/*
 	 * This struct must be last!
