@@ -1456,7 +1456,7 @@ static bool ath9k_hw_set_reset_reg(struct ath_hw *ah, u32 type)
 	switch (type) {
 	case ATH9K_RESET_POWER_ON:
 		ret = ath9k_hw_set_reset_power_on(ah);
-		if (!ret)
+		if (ret)
 			ah->reset_power_on = true;
 		break;
 	case ATH9K_RESET_WARM:
@@ -2559,11 +2559,6 @@ int ath9k_hw_fill_cap_info(struct ath_hw *ah)
 		 */
 		if ((ant_div_ctl1 >> 0x6) == 0x3)
 			pCap->hw_caps |= ATH9K_HW_CAP_ANT_DIV_COMB;
-	}
-
-	if (AR_SREV_9485_10(ah)) {
-		pCap->pcie_lcr_extsync_en = true;
-		pCap->pcie_lcr_offset = 0x80;
 	}
 
 	if (ath9k_hw_dfs_tested(ah))
