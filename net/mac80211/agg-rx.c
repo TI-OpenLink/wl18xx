@@ -276,6 +276,12 @@ void ieee80211_process_addba_request(struct ieee80211_local *local,
 		goto end_no_lock;
 	}
 
+	if (tid == 6 || tid == 7) {
+		ht_dbg(sta->sdata, "ADDBA on VO AC TID %d - Deny request\n",
+		       tid);
+		goto end_no_lock;
+	}
+
 	/* sanity check for incoming parameters:
 	 * check if configuration can support the BA policy
 	 * and if buffer size does not exceeds max value */
