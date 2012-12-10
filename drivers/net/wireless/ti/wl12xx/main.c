@@ -707,6 +707,7 @@ static int wl12xx_identify_chip(struct wl1271 *wl)
 
 	wl->fw_mem_block_size = 256;
 	wl->fwlog_end = 0x2000000;
+	wl->ba_rx_session_count_max = WL12XX_RX_BA_MAX_SESSIONS;
 
 out:
 	return ret;
