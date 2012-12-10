@@ -57,13 +57,22 @@ struct ieee80211_local;
 #define TU_TO_EXP_TIME(x)	(jiffies + TU_TO_JIFFIES(x))
 
 /*
- * Some APs experience problems when working with U-APSD. Decrease the
- * probability of that happening by using legacy mode for all ACs but VO.
- * The AP that caused us trouble was a Cisco 4410N. It ignores our
- * setting, and always treats non-VO ACs as legacy.
+ * STA in legacy/UAPSD mixed mode requires sending of trigger frame every few
+ * seconds to cause AP to transmit queued frames. This increases STA
+ * battery drain.
+ *
+ * Some APs experience problems when working with U-APSD:
+ * Cisco 4410N - It ignores our setting, and always treats non-VO ACs as legacy.
+ *
+ * AVM FritzBox 7930 - Setting U-APSD on VO AC only (which solves the
+ * Cisco 4410N problem) causes the FritzBox to limit the rates of packets
+ * sent by it to 39Mbps and disables AMPDU aggregation. This causes a major
+ * througput degradation with this AP.
+ *
+ * Avoid these issues by using legacy mode for all ACs by default.
+ * U-APSD can still be configured from userspace.
  */
-#define IEEE80211_DEFAULT_UAPSD_QUEUES \
-	IEEE80211_WMM_IE_STA_QOSINFO_AC_VO
+#define IEEE80211_DEFAULT_UAPSD_QUEUES 0
 
 #define IEEE80211_DEFAULT_MAX_SP_LEN		\
 	IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL
