@@ -2777,12 +2777,6 @@ static int wl1271_join(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		ret = wl12xx_cmd_role_start_sta(wl, wlvif);
 	if (ret < 0)
 		goto out;
-
-	if (wlvif->pending_roc) {
-		/* TODO: check for active scans, etc. */
-		wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->band, wlvif->channel);
-		wlvif->pending_roc = false;
-	}
 out:
 	return ret;
 }
@@ -4274,11 +4268,6 @@ sta_not_found:
 			/* TODO: use some flag instead? */
 			if (!is_ibss &&
 			    wlvif->sta.hlid != WL12XX_INVALID_LINK_ID) {
-
-				if (test_bit(wlvif->role_id, wl->roc_map)) {
-					wl12xx_croc(wl, wlvif->role_id);
-					wlvif->pending_roc = true;
-				}
 				ret = wl12xx_cmd_role_stop_sta(wl, wlvif);
 				if (ret < 0)
 					goto out;
@@ -5301,104 +5290,6 @@ static int wl12xx_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
 	return 0;
 }
 
-static bool wl12xx_role_started(struct wl12xx_vif *wlvif)
-{
-	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
-	    wlvif->bss_type == BSS_TYPE_IBSS)
-		return wlvif->sta.hlid != WL12XX_INVALID_LINK_ID;
-
-	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
-		return wlvif->ap.bcast_hlid != WL12XX_INVALID_LINK_ID;
-
-	return false;
-}
-static int wl12xx_op_set_priority(struct ieee80211_hw *hw,
-				  struct ieee80211_vif *vif)
-{
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
-	struct wl1271 *wl = hw->priv;
-	int ret;
-
-	wl1271_debug(DEBUG_MAC80211,
-		     "mac80211 set priority role %d channel %d",
-		     wlvif->role_id, wlvif->channel);
-
-	if (vif->dummy_p2p)
-		return 0;
-
-	mutex_lock(&wl->mutex);
-
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	if (find_first_bit(wl->roc_map,
-			   WL12XX_MAX_ROLES) < WL12XX_MAX_ROLES) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	ret = wl1271_ps_elp_wakeup(wl);
-	if (ret < 0)
-		goto out;
-
-	/* TODO: add some field to indicate there is an "ongoing priority" */
-
-	if (!wl12xx_role_started(wlvif)) {
-		wlvif->pending_roc = true;
-		goto out_sleep;
-	}
-
-	ret = wl12xx_roc(wl, wlvif, wlvif->role_id, wlvif->band, wlvif->channel);
-
-out_sleep:
-	wl1271_ps_elp_sleep(wl);
-out:
-	mutex_unlock(&wl->mutex);
-
-	return ret;
-}
-
-static int wl12xx_op_cancel_priority(struct ieee80211_hw *hw,
-				     struct ieee80211_vif *vif)
-{
-	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
-	struct wl1271 *wl = hw->priv;
-	int ret;
-
-	wl1271_debug(DEBUG_MAC80211, "mac80211 cancel priority role %d",
-		     wlvif->role_id);
-
-	if (vif->dummy_p2p)
-		return 0;
-
-	mutex_lock(&wl->mutex);
-
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	ret = wl1271_ps_elp_wakeup(wl);
-	if (ret < 0)
-		goto out;
-
-	if (wlvif->pending_roc) {
-		wlvif->pending_roc = false;
-		goto out_sleep;
-	}
-
-	ret = wl12xx_croc(wl, wlvif->role_id);
-
-out_sleep:
-	wl1271_ps_elp_sleep(wl);
-out:
-	mutex_unlock(&wl->mutex);
-
-	return 0;
-}
-
 static void wlcore_op_sta_rc_update(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif,
 				    struct ieee80211_sta *sta,
@@ -5634,8 +5525,6 @@ static const struct ieee80211_ops wl1271_ops = {
 	.set_default_key_idx = wl1271_op_set_default_key_idx,
 	.remain_on_channel = wl12xx_op_remain_on_channel,
 	.cancel_remain_on_channel = wl12xx_op_cancel_remain_on_channel,
-	.set_priority = wl12xx_op_set_priority,
-	.cancel_priority = wl12xx_op_cancel_priority,
 	.sta_rc_update = wlcore_op_sta_rc_update,
 	CFG80211_TESTMODE_CMD(wl1271_tm_cmd)
 };

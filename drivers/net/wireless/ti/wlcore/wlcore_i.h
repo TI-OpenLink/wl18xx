@@ -441,8 +441,6 @@ struct wl12xx_vif {
 	struct delayed_work channel_switch_work;
 	struct delayed_work connection_loss_work;
 
-	bool pending_roc;
-
 	/*
 	 * This vif's queues are mapped to mac80211 HW queues as:
 	 * VO - hw_queue_base
