@@ -138,6 +138,14 @@ static int wl1271_event_process(struct wl1271 *wl)
 			    !test_bit(wlvif->role_id , &roles_bitmap))
 				continue;
 
+			vif = wl12xx_wlvif_to_vif(wlvif);
+
+			/* don't attempt roaming in case of p2p */
+			if (wlvif->p2p) {
+				ieee80211_connection_loss(vif);
+				continue;
+			}
+
 			/*
 			 * if the work is already queued, it should take place.
 			 * We don't want to delay the connection loss
@@ -147,7 +155,6 @@ static int wl1271_event_process(struct wl1271 *wl)
 						&wlvif->connection_loss_work,
 						msecs_to_jiffies(delay));
 
-			vif = wl12xx_wlvif_to_vif(wlvif);
 			ieee80211_cqm_rssi_notify(
 					vif,
 					NL80211_CQM_RSSI_BEACON_LOSS_EVENT,
