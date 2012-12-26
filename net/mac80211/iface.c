@@ -983,7 +983,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	if (!ieee80211_sdata_running(sdata))
 		return;
 
-	if (local->scanning)
+	if (local->scanning && !local->ops->hw_scan)
 		return;
 
 	/*
