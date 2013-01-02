@@ -1613,8 +1613,10 @@ static int wlcore_get_reg_conf_ch_idx(enum ieee80211_band band, u16 ch)
 	case IEEE80211_BAND_5GHZ:
 		if (ch >= 8 && ch <= 16)
 			idx = ((ch-8)/4 + 18);
-		else if (ch >= 34 && ch <= 64)
+		else if (ch >= 34 && ch <= 48)
 			idx = ((ch-34)/2 + 3 + 18);
+		else if (ch >= 52 && ch <= 64)
+			idx = ((ch-52)/4 + 11 + 18);
 		else if (ch >= 100 && ch <= 140)
 			idx = ((ch-100)/4 + 15 + 18);
 		else if (ch >= 149 && ch <= 165)
