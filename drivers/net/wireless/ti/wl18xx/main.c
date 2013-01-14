@@ -1217,8 +1217,9 @@ static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 		wl1271_debug(DEBUG_ACX, "using wide channel rate mask");
 
 		/* sanity check - we don't support this */
-		if (WARN_ON(wlvif->band != IEEE80211_BAND_5GHZ))
-			return 0;
+		if (wlvif->band != IEEE80211_BAND_5GHZ)
+			wl1271_error("using 40Mhz AP in 2.4Ghz band -"
+				     "not officially supported");
 
 		return CONF_TX_RATE_USE_WIDE_CHAN;
 	} else if (wl18xx_is_mimo_supported(wl) &&
