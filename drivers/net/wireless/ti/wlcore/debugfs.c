@@ -460,7 +460,9 @@ static ssize_t stats_tx_aggr_write(struct file *file,
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
 
-	memset(wl->aggr_pkts_reason, 0, sizeof(wl->aggr_pkts_reason));
+	wl1271_info("zeroing out aggr pkts reasons");
+	memset(wl->aggr_pkts_reason, 0,
+	       sizeof(struct wlcore_aggr_reason) * wl->aggr_pkts_reason_num);
 
 out:
 	mutex_unlock(&wl->mutex);
