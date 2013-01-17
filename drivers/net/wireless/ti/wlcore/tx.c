@@ -400,7 +400,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		is_wep = (cipher == WLAN_CIPHER_SUITE_WEP40) ||
 			 (cipher == WLAN_CIPHER_SUITE_WEP104);
 
-		if (unlikely(is_wep && wlvif->default_key != idx)) {
+		if (unlikely(is_wep && wlvif && wlvif->default_key != idx)) {
 			WARN_ON(1);
 			ret = wl1271_set_default_wep_key(wl, wlvif, idx);
 			if (ret < 0)
@@ -688,8 +688,9 @@ static void wl1271_skb_queue_head(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		skb_queue_head(&wl->links[hlid].tx_queue[q], skb);
 
 		/* make sure we dequeue the same packet next time */
-		wlvif->last_tx_hlid = (hlid + WL12XX_MAX_LINKS - 1) %
-				      WL12XX_MAX_LINKS;
+		if (wlvif)
+			wlvif->last_tx_hlid = (hlid + WL12XX_MAX_LINKS - 1) %
+					      WL12XX_MAX_LINKS;
 	}
 
 	spin_lock_irqsave(&wl->wl_lock, flags);
