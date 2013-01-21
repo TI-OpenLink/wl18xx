@@ -1299,6 +1299,12 @@ static int wl18xx_get_mac(struct wl1271 *wl)
 		((mac1 & 0xff000000) >> 24);
 	wl->fuse_nic_addr = (mac1 & 0xffffff);
 
+	if (!wl->fuse_oui_addr && !wl->fuse_nic_addr) {
+		wl->fuse_oui_addr = WL18XX_DEFAULT_OUI_ADDR;
+		wl1271_warning("wl18xx_get_mac: untrimmed device, "
+			       "use default oui address");
+	}
+
 	ret = wlcore_set_partition(wl, &wl->ptable[PART_DOWN]);
 
 out:

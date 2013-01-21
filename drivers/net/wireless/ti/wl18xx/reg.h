@@ -152,6 +152,8 @@
 #define CHIP_ID_185x_PG10              (0x06030101)
 #define CHIP_ID_185x_PG20              (0x06030111)
 
+#define WL18XX_DEFAULT_OUI_ADDR		(0x080028)
+
 /*
  * Host Command Interrupt. Setting this bit masks
  * the interrupt that the host issues to inform
