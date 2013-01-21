@@ -514,10 +514,6 @@ static void wl1271_flush_deferred_work(struct wl1271 *wl)
 	/* Pass all received frames to the network stack */
 	while ((skb = skb_dequeue(&wl->deferred_rx_queue)))
 		ieee80211_rx_ni(wl->hw, skb);
-
-	/* Return sent skbs to the network stack */
-	while ((skb = skb_dequeue(&wl->deferred_tx_queue)))
-		ieee80211_tx_status_ni(wl->hw, skb);
 }
 
 static void wl1271_netstack_work(struct work_struct *work)
@@ -627,8 +623,7 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 				goto out;
 
 			/* Make sure the deferred queues don't get too long */
-			defer_count = skb_queue_len(&wl->deferred_tx_queue) +
-				      skb_queue_len(&wl->deferred_rx_queue);
+			defer_count = skb_queue_len(&wl->deferred_rx_queue);
 			if (defer_count > WL1271_DEFERRED_QUEUE_LIMIT)
 				wl1271_flush_deferred_work(wl);
 		}
@@ -6005,7 +6000,6 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_SUPPORTS_UAPSD |
 		IEEE80211_HW_HAS_RATE_CONTROL |
 		IEEE80211_HW_CONNECTION_MONITOR |
-		IEEE80211_HW_REPORTS_TX_ACK_STATUS |
 		IEEE80211_HW_SPECTRUM_MGMT |
 		IEEE80211_HW_AP_LINK_PS |
 		IEEE80211_HW_AMPDU_AGGREGATION |
@@ -6150,7 +6144,6 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 			skb_queue_head_init(&wl->links[j].tx_queue[i]);
 
 	skb_queue_head_init(&wl->deferred_rx_queue);
-	skb_queue_head_init(&wl->deferred_tx_queue);
 
 	INIT_DELAYED_WORK(&wl->elp_work, wl1271_elp_work);
 	INIT_WORK(&wl->netstack_work, wl1271_netstack_work);

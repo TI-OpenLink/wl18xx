@@ -132,9 +132,8 @@ static void wl18xx_tx_complete_packet(struct wl1271 *wl, u8 tx_stat_byte)
 	wl1271_debug(DEBUG_TX, "tx status id %u skb 0x%p success %d",
 		     id, skb, tx_success);
 
-	/* return the packet to the stack */
-	skb_queue_tail(&wl->deferred_tx_queue, skb);
-	queue_work(wl->freezable_wq, &wl->netstack_work);
+	skb_orphan(skb);
+	dev_kfree_skb(skb);
 	wl1271_free_tx_id(wl, id);
 }
 
