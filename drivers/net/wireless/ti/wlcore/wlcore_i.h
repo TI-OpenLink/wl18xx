@@ -543,7 +543,7 @@ void wl1271_rx_filter_flatten_fields(struct wl12xx_rx_filter *filter,
 
 #define WL1271_DEFAULT_POWER_LEVEL 0
 
-#define WL1271_TX_QUEUE_LOW_WATERMARK  32
+#define WL1271_TX_QUEUE_LOW_WATERMARK  128
 #define WL1271_TX_QUEUE_HIGH_WATERMARK 256
 
 #define WL1271_DEFERRED_QUEUE_LIMIT    64
