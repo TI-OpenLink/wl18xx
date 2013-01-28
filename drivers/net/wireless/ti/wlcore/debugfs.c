@@ -114,10 +114,11 @@ static void chip_op_handler(struct wl1271 *wl, unsigned long value,
 	int ret;
 	int (*chip_op) (struct wl1271 *wl);
 
-	if (!arg) {
-		wl1271_warning("debugfs chip_op_handler with no callback");
+	if (!arg)
 		return;
-	}
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		goto out;
 
 	ret = wl1271_ps_elp_wakeup(wl);
 	if (ret < 0)
@@ -126,6 +127,7 @@ static void chip_op_handler(struct wl1271 *wl, unsigned long value,
 	chip_op = arg;
 	chip_op(wl);
 
+out:
 	wl1271_ps_elp_sleep(wl);
 }
 
@@ -188,8 +190,12 @@ WL12XX_CONF_DEBUGFS(irq_pkt_threshold, rx, 0, 65535,
 		    chip_op_handler, wl1271_acx_init_rx_interrupt)
 WL12XX_CONF_DEBUGFS(irq_blk_threshold, rx, 0, 65535,
 		    chip_op_handler, wl1271_acx_init_rx_interrupt)
-WL12XX_CONF_DEBUGFS(irq_timeout, rx, 0, 100,
+WL12XX_CONF_DEBUGFS(irq_timeout, rx, 0, 65535,
 		    chip_op_handler, wl1271_acx_init_rx_interrupt)
+WL12XX_CONF_DEBUGFS(tx_compl_timeout, tx, 0, 65535,
+		    chip_op_handler, 0)
+WL12XX_CONF_DEBUGFS(tx_compl_threshold, tx, 0, 65535,
+		    chip_op_handler, 0)
 
 static ssize_t gpio_power_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
@@ -1347,6 +1353,8 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(irq_timeout, rootdir);
 	DEBUGFS_ADD(fw_stats_raw, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
+	DEBUGFS_ADD(tx_compl_timeout, rootdir);
+	DEBUGFS_ADD(tx_compl_threshold, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
