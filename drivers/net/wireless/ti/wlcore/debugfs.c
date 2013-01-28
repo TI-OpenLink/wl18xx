@@ -210,6 +210,10 @@ WL12XX_CONF_DEBUGFS(irq_blk_threshold, rx, 0, 65535,
 		    chip_op_handler, wl1271_acx_init_rx_interrupt)
 WL12XX_CONF_DEBUGFS(irq_timeout, rx, 0, 100,
 		    chip_op_handler, wl1271_acx_init_rx_interrupt)
+WL12XX_CONF_DEBUGFS(tx_compl_timeout, tx, 0, 65535,
+		    chip_op_handler, 0)
+WL12XX_CONF_DEBUGFS(tx_compl_threshold, tx, 0, 65535,
+		    chip_op_handler, 0)
 
 static ssize_t gpio_power_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
@@ -1504,6 +1508,8 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(sleep_auth, rootdir);
 	DEBUGFS_ADD(tx_num_comp, rootdir);
 	DEBUGFS_ADD(rx_num_comp, rootdir);
+	DEBUGFS_ADD(tx_compl_timeout, rootdir);
+	DEBUGFS_ADD(tx_compl_threshold, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
