@@ -1860,6 +1860,12 @@ static int wl1271_op_resume(struct ieee80211_hw *hw)
 	}
 
 out:
+#ifdef CONFIG_HAS_WAKELOCK
+	spin_lock_irqsave(&wl->wl_lock, flags);
+	if (test_and_clear_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+		wake_unlock(&wl->wake_lock);
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
+#endif
 	wl->wow_enabled = false;
 	mutex_unlock(&wl->mutex);
 
