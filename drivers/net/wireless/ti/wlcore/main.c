@@ -675,10 +675,6 @@ static irqreturn_t wlcore_irq(int irq, void *cookie)
 		spin_unlock_irqrestore(&wl->wl_lock, flags);
 		return IRQ_HANDLED;
 	}
-#ifdef CONFIG_HAS_WAKELOCK
-	if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
-		wake_lock(&wl->wake_lock);
-#endif
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
 	/* TX might be handled here, avoid redundant work */
