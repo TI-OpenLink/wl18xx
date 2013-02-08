@@ -5,7 +5,7 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2012 Intel Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2013 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -30,7 +30,7 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2012 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2013 Intel Corporation. All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -193,11 +193,11 @@ struct iwl_rx_packet {
  * @CMD_ON_DEMAND: This command is sent by the test mode pipe.
  */
 enum CMD_MODE {
-	CMD_SYNC = 0,
-	CMD_ASYNC = BIT(0),
-	CMD_WANT_SKB = BIT(1),
-	CMD_WANT_HCMD = BIT(2),
-	CMD_ON_DEMAND = BIT(3),
+	CMD_SYNC		= 0,
+	CMD_ASYNC		= BIT(0),
+	CMD_WANT_SKB		= BIT(1),
+	CMD_WANT_HCMD		= BIT(2),
+	CMD_ON_DEMAND		= BIT(3),
 };
 
 #define DEF_CMD_PAYLOAD_SIZE 320
@@ -274,6 +274,7 @@ struct iwl_rx_cmd_buffer {
 	struct page *_page;
 	int _offset;
 	bool _page_stolen;
+	u32 _rx_page_order;
 	unsigned int truesize;
 };
 
@@ -294,6 +295,11 @@ static inline struct page *rxb_steal_page(struct iwl_rx_cmd_buffer *r)
 	return r->_page;
 }
 
+static inline void iwl_free_rxb(struct iwl_rx_cmd_buffer *r)
+{
+	__free_pages(r->_page, r->_rx_page_order);
+}
+
 #define MAX_NO_RECLAIM_CMDS	6
 
 #define IWL_MASK(lo, hi) ((1 << (hi)) | ((1 << (hi)) - (1 << (lo))))
@@ -306,6 +312,16 @@ static inline struct page *rxb_steal_page(struct iwl_rx_cmd_buffer *r)
 #define IWL_INVALID_STATION	255
 #define IWL_MAX_TID_COUNT	8
 #define IWL_FRAME_LIMIT	64
+
+/**
+ * enum iwl_wowlan_status - WoWLAN image/device status
+ * @IWL_D3_STATUS_ALIVE: firmware is still running after resume
+ * @IWL_D3_STATUS_RESET: device was reset while suspended
+ */
+enum iwl_d3_status {
+	IWL_D3_STATUS_ALIVE,
+	IWL_D3_STATUS_RESET,
+};
 
 /**
  * struct iwl_trans_config - transport configuration
@@ -363,9 +379,12 @@ struct iwl_trans;
  *	May sleep
  * @stop_device:stops the whole device (embedded CPU put to reset)
  *	May sleep
- * @wowlan_suspend: put the device into the correct mode for WoWLAN during
+ * @d3_suspend: put the device into the correct mode for WoWLAN during
  *	suspend. This is optional, if not implemented WoWLAN will not be
  *	supported. This callback may sleep.
+ * @d3_resume: resume the device after WoWLAN, enabling the opmode to
+ *	talk to the WoWLAN image to get its status. This is optional, if not
+ *	implemented WoWLAN will not be supported. This callback may sleep.
  * @send_cmd:send a host command. Must return -ERFKILL if RFkill is asserted.
  *	If RFkill is asserted in the middle of a SYNC host command, it must
  *	return -ERFKILL straight away.
@@ -391,13 +410,18 @@ struct iwl_trans;
  * @read_prph: read a DWORD from a periphery register
  * @write_prph: write a DWORD to a periphery register
  * @read_mem: read device's SRAM in DWORD
- * @write_mem: write device's SRAM in DWORD
+ * @write_mem: write device's SRAM in DWORD. If %buf is %NULL, then the memory
+ *	will be zeroed.
  * @configure: configure parameters required by the transport layer from
  *	the op_mode. May be called several times before start_fw, can't be
  *	called after that.
  * @set_pmi: set the power pmi state
- * @grab_nic_access: wake the NIC to be able to access non-HBUS regs
- * @release_nic_access: let the NIC go to sleep
+ * @grab_nic_access: wake the NIC to be able to access non-HBUS regs.
+ *	Sleeping is not allowed between grab_nic_access and
+ *	release_nic_access.
+ * @release_nic_access: let the NIC go to sleep. The "flags" parameter
+ *	must be the same one that was sent before to the grab_nic_access.
+ * @set_bits_mask - set SRAM register according to value and mask.
  */
 struct iwl_trans_ops {
 
@@ -408,7 +432,8 @@ struct iwl_trans_ops {
 	void (*fw_alive)(struct iwl_trans *trans, u32 scd_addr);
 	void (*stop_device)(struct iwl_trans *trans);
 
-	void (*wowlan_suspend)(struct iwl_trans *trans);
+	void (*d3_suspend)(struct iwl_trans *trans);
+	int (*d3_resume)(struct iwl_trans *trans, enum iwl_d3_status *status);
 
 	int (*send_cmd)(struct iwl_trans *trans, struct iwl_host_cmd *cmd);
 
@@ -439,8 +464,12 @@ struct iwl_trans_ops {
 	void (*configure)(struct iwl_trans *trans,
 			  const struct iwl_trans_config *trans_cfg);
 	void (*set_pmi)(struct iwl_trans *trans, bool state);
-	bool (*grab_nic_access)(struct iwl_trans *trans, bool silent);
-	void (*release_nic_access)(struct iwl_trans *trans);
+	bool (*grab_nic_access)(struct iwl_trans *trans, bool silent,
+				unsigned long *flags);
+	void (*release_nic_access)(struct iwl_trans *trans,
+				   unsigned long *flags);
+	void (*set_bits_mask)(struct iwl_trans *trans, u32 reg, u32 mask,
+			      u32 value);
 };
 
 /**
@@ -460,7 +489,6 @@ enum iwl_trans_state {
  * @ops - pointer to iwl_trans_ops
  * @op_mode - pointer to the op_mode
  * @cfg - pointer to the configuration
- * @reg_lock - protect hw register access
  * @dev - pointer to struct device * that represents the device
  * @hw_id: a u32 with the ID of the device / subdevice.
  *	Set during transport allocation.
@@ -481,7 +509,6 @@ struct iwl_trans {
 	struct iwl_op_mode *op_mode;
 	const struct iwl_cfg *cfg;
 	enum iwl_trans_state state;
-	spinlock_t reg_lock;
 
 	struct device *dev;
 	u32 hw_rev;
@@ -561,10 +588,17 @@ static inline void iwl_trans_stop_device(struct iwl_trans *trans)
 	trans->state = IWL_TRANS_NO_FW;
 }
 
-static inline void iwl_trans_wowlan_suspend(struct iwl_trans *trans)
+static inline void iwl_trans_d3_suspend(struct iwl_trans *trans)
 {
 	might_sleep();
-	trans->ops->wowlan_suspend(trans);
+	trans->ops->d3_suspend(trans);
+}
+
+static inline int iwl_trans_d3_resume(struct iwl_trans *trans,
+				      enum iwl_d3_status *status)
+{
+	might_sleep();
+	return trans->ops->d3_resume(trans, status);
 }
 
 static inline int iwl_trans_send_cmd(struct iwl_trans *trans,
@@ -734,14 +768,20 @@ static inline void iwl_trans_set_pmi(struct iwl_trans *trans, bool state)
 	trans->ops->set_pmi(trans, state);
 }
 
-#define iwl_trans_grab_nic_access(trans, silent)	\
+static inline void
+iwl_trans_set_bits_mask(struct iwl_trans *trans, u32 reg, u32 mask, u32 value)
+{
+	trans->ops->set_bits_mask(trans, reg, mask, value);
+}
+
+#define iwl_trans_grab_nic_access(trans, silent, flags)	\
 	__cond_lock(nic_access,				\
-		    likely((trans)->ops->grab_nic_access(trans, silent)))
+		    likely((trans)->ops->grab_nic_access(trans, silent, flags)))
 
 static inline void __releases(nic_access)
-iwl_trans_release_nic_access(struct iwl_trans *trans)
+iwl_trans_release_nic_access(struct iwl_trans *trans, unsigned long *flags)
 {
-	trans->ops->release_nic_access(trans);
+	trans->ops->release_nic_access(trans, flags);
 	__release(nic_access);
 }
 

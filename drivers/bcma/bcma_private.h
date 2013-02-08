@@ -47,6 +47,7 @@ int bcma_sprom_get(struct bcma_bus *bus);
 /* driver_chipcommon.c */
 #ifdef CONFIG_BCMA_DRIVER_MIPS
 void bcma_chipco_serial_init(struct bcma_drv_cc *cc);
+extern struct platform_device bcma_pflash_dev;
 #endif /* CONFIG_BCMA_DRIVER_MIPS */
 
 /* driver_chipcommon_pmu.c */
@@ -96,10 +97,15 @@ void bcma_core_pci_hostmode_init(struct bcma_drv_pci *pc);
 #ifdef CONFIG_BCMA_DRIVER_GPIO
 /* driver_gpio.c */
 int bcma_gpio_init(struct bcma_drv_cc *cc);
+int bcma_gpio_unregister(struct bcma_drv_cc *cc);
 #else
 static inline int bcma_gpio_init(struct bcma_drv_cc *cc)
 {
 	return -ENOTSUPP;
+}
+static inline int bcma_gpio_unregister(struct bcma_drv_cc *cc)
+{
+	return 0;
 }
 #endif /* CONFIG_BCMA_DRIVER_GPIO */
 

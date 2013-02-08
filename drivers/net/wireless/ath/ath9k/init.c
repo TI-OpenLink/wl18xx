@@ -303,16 +303,15 @@ static void setup_ht_cap(struct ath_softc *sc,
 	ht_info->mcs.tx_params |= IEEE80211_HT_MCS_TX_DEFINED;
 }
 
-static int ath9k_reg_notifier(struct wiphy *wiphy,
-			      struct regulatory_request *request)
+static void ath9k_reg_notifier(struct wiphy *wiphy,
+			       struct regulatory_request *request)
 {
 	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
 	struct ath_softc *sc = hw->priv;
 	struct ath_hw *ah = sc->sc_ah;
 	struct ath_regulatory *reg = ath9k_hw_regulatory(ah);
-	int ret;
 
-	ret = ath_reg_notifier_apply(wiphy, request, reg);
+	ath_reg_notifier_apply(wiphy, request, reg);
 
 	/* Set tx power */
 	if (ah->curchan) {
@@ -322,8 +321,6 @@ static int ath9k_reg_notifier(struct wiphy *wiphy,
 		sc->curtxpow = ath9k_hw_regulatory(ah)->power_limit;
 		ath9k_ps_restore(sc);
 	}
-
-	return ret;
 }
 
 /*
@@ -500,6 +497,13 @@ static void ath9k_init_misc(struct ath_softc *sc)
 
 	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_ANT_DIV_COMB)
 		sc->ant_comb.count = ATH_ANT_DIV_COMB_INIT_COUNT;
+
+	sc->spec_config.enabled = 0;
+	sc->spec_config.short_repeat = true;
+	sc->spec_config.count = 8;
+	sc->spec_config.endless = false;
+	sc->spec_config.period = 0xFF;
+	sc->spec_config.fft_period = 0xF;
 }
 
 static void ath9k_eeprom_request_cb(const struct firmware *eeprom_blob,
@@ -918,7 +922,7 @@ static void ath9k_deinit_softc(struct ath_softc *sc)
 
 	ath9k_eeprom_release(sc);
 
-	if (sc->rfs_chan_spec_scan) {
+	if (config_enabled(CONFIG_ATH9K_DEBUGFS) && sc->rfs_chan_spec_scan) {
 		relay_close(sc->rfs_chan_spec_scan);
 		sc->rfs_chan_spec_scan = NULL;
 	}

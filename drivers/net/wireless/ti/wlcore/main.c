@@ -87,8 +87,8 @@ static int wl12xx_set_authorized(struct wl1271 *wl,
 	return 0;
 }
 
-static int wl1271_reg_notify(struct wiphy *wiphy,
-			     struct regulatory_request *request)
+static void wl1271_reg_notify(struct wiphy *wiphy,
+			      struct regulatory_request *request)
 {
 	struct ieee80211_supported_band *band;
 	struct ieee80211_channel *ch;
@@ -110,8 +110,6 @@ static int wl1271_reg_notify(struct wiphy *wiphy,
 
 	if (likely(wl->state == WLCORE_STATE_ON))
 		wlcore_regdomain_config(wl);
-
-	return 0;
 }
 
 static int wl1271_set_rx_streaming(struct wl1271 *wl, struct wl12xx_vif *wlvif,
@@ -4241,8 +4239,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
 		wlvif->sta.qos = bss_conf->qos;
 		WARN_ON(wlvif->bss_type != BSS_TYPE_STA_BSS);
 
-		if (bss_conf->arp_addr_cnt == 1 &&
-		    bss_conf->arp_filter_enabled) {
+		if (bss_conf->arp_addr_cnt == 1 && bss_conf->assoc) {
 			wlvif->ip_addr = addr;
 			/*
 			 * The template should have been configured only upon
