@@ -2729,6 +2729,7 @@ unlock:
 	cancel_work_sync(&wlvif->rx_streaming_disable_work);
 	cancel_delayed_work_sync(&wlvif->connection_loss_work);
 	cancel_delayed_work_sync(&wlvif->pending_auth_complete_work);
+	cancel_delayed_work_sync(&wlvif->channel_switch_work);
 
 	mutex_lock(&wl->mutex);
 }
