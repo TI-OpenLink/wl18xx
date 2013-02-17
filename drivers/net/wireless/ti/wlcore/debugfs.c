@@ -397,6 +397,7 @@ static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 	size_t len = 32768, size = 0;
 	u32 total_buffer_full = 0, total_fw_buffer_full= 0;
 	u32 total_no_data = 0, total_other = 0;
+	u32 avg_aggr = 0, total_aggrs;
 
 	buf = kmalloc(len, GFP_KERNEL);
 	if (!buf)
@@ -416,6 +417,7 @@ static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 			wl->aggr_pkts_reason[i].fw_buffer_full +
 			wl->aggr_pkts_reason[i].other +
 			wl->aggr_pkts_reason[i].no_data;
+		avg_aggr += i * wl->aggr_pkts_reason[i].total;
 		if (wl->aggr_pkts_reason[i].total)
 			snprintf(buf, len, "%s[%d] total %d\n"
 				 "\tbuffer_full\t= %d\n"
@@ -429,18 +431,29 @@ static ssize_t stats_tx_aggr_read(struct file *file, char __user *user_buf,
 				 wl->aggr_pkts_reason[i].no_data);
 	}
 
+	/* don't count 0 sized aggregations */
+	total_aggrs = total_buffer_full + total_fw_buffer_full + total_other +
+		      total_no_data - wl->aggr_pkts_reason[0].total;
+	if (total_aggrs)
+		avg_aggr /= total_aggrs;
+	else
+		avg_aggr = 0;
+
+
 	mutex_unlock(&wl->mutex);
 
 	size =  snprintf(buf, len, "%sTotals:\n"
 			 "\tbuffer_full\t= %d\n"
 			 "\tfw_buffer_full\t= %d\n"
 			 "\tother\t\t= %d\n"
-			 "\tno_data\t\t= %d\n",
+			 "\tno_data\t\t= %d\n"
+			 "\tavg_aggr\t= %d\n",
 			 buf,
 			 total_buffer_full,
 			 total_fw_buffer_full,
 			 total_other,
-			 total_no_data);
+			 total_no_data,
+			 avg_aggr);
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, size);
 
