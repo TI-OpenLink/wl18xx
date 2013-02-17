@@ -570,8 +570,6 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 		if (ret < 0)
 			goto out;
 
-		wlcore_hw_tx_immediate_compl(wl);
-
 		intr = le32_to_cpu(wl->fw_status_1->intr);
 		intr &= WLCORE_ALL_INTR_MASK;
 		if (!intr) {
@@ -598,12 +596,33 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 			goto out;
 		}
 
-		if (likely(intr & WL1271_ACX_INTR_DATA)) {
-			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_DATA");
+		/* DBG! */
+		if (intr & WL1271_ACX_INTR_DATA) {
+			//wl1271_info("!! INTR DATA !!");
+			intr &= ~WL1271_ACX_INTR_DATA;
+		}
+
+		if (likely(intr & (WL1271_ACX_INTR_DATA |
+				   WL1271_ACX_INTR_RX_DATA))) {
+			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_RX_DATA");
 
 			ret = wlcore_rx(wl, wl->fw_status_1);
 			if (ret < 0)
 				goto out;
+
+			/* Make sure the deferred queues don't get too long */
+			defer_count = skb_queue_len(&wl->deferred_rx_queue);
+			if (defer_count > WL1271_DEFERRED_QUEUE_LIMIT) {
+				wl1271_info("FLUSHING NETSTACK FROM IRQ");
+				wl1271_flush_deferred_work(wl);
+			}
+		}
+
+		if (likely(intr & (WL1271_ACX_INTR_DATA |
+				   WL1271_ACX_INTR_TX_DATA))) {
+			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_TX_DATA");
+			/* check immediate Tx completion */
+			wlcore_hw_tx_immediate_compl(wl);
 
 			/* Check if any tx blocks were freed */
 			spin_lock_irqsave(&wl->wl_lock, flags);
@@ -621,16 +640,10 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 				spin_unlock_irqrestore(&wl->wl_lock, flags);
 			}
 
-			/* check for tx results */
+			/* check for deferred tx completion */
 			ret = wlcore_hw_tx_delayed_compl(wl);
 			if (ret < 0)
 				goto out;
-
-			/* Make sure the deferred queues don't get too long */
-			defer_count = skb_queue_len(&wl->deferred_tx_queue) +
-				      skb_queue_len(&wl->deferred_rx_queue);
-			if (defer_count > WL1271_DEFERRED_QUEUE_LIMIT)
-				wl1271_flush_deferred_work(wl);
 		}
 
 		if (intr & WL1271_ACX_INTR_EVENT_A) {

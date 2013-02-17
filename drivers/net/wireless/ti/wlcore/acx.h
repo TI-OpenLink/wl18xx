@@ -53,6 +53,10 @@
 #define WL1271_ACX_INTR_TRACE_B            BIT(8)
 /* SW FW Initiated interrupt Watchdog timer expiration */
 #define WL1271_ACX_SW_INTR_WATCHDOG        BIT(9)
+/* FW indication to Host of ready Rx frames */
+#define WL1271_ACX_INTR_RX_DATA            BIT(10)
+/* FW indication to Host of ready Tx results */
+#define WL1271_ACX_INTR_TX_DATA            BIT(11)
 
 #define WL1271_ACX_INTR_ALL             0xFFFFFFFF
 
@@ -62,6 +66,8 @@
 					WL1271_ACX_INTR_EVENT_B       | \
 					WL1271_ACX_INTR_HW_AVAILABLE  | \
 					WL1271_ACX_INTR_DATA          | \
+					WL1271_ACX_INTR_RX_DATA       | \
+					WL1271_ACX_INTR_TX_DATA       | \
 					WL1271_ACX_SW_INTR_WATCHDOG)
 
 /* Target's information element */

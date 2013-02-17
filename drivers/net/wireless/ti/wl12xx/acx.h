@@ -32,13 +32,17 @@
 					WL1271_ACX_INTR_EVENT_B       | \
 					WL1271_ACX_INTR_CMD_COMPLETE  | \
 					WL1271_ACX_INTR_HW_AVAILABLE  | \
-					WL1271_ACX_INTR_DATA)
+					WL1271_ACX_INTR_DATA | \
+					WL1271_ACX_INTR_RX_DATA	| \
+					WL1271_ACX_INTR_TX_DATA)
 
 #define WL12XX_INTR_MASK		(WL1271_ACX_INTR_WATCHDOG      | \
 					WL1271_ACX_INTR_EVENT_A       | \
 					WL1271_ACX_INTR_EVENT_B       | \
 					WL1271_ACX_INTR_HW_AVAILABLE  | \
-					WL1271_ACX_INTR_DATA)
+					WL1271_ACX_INTR_DATA | \
+					WL1271_ACX_INTR_RX_DATA	| \
+					WL1271_ACX_INTR_TX_DATA)
 
 struct wl1271_acx_host_config_bitmap {
 	struct acx_header header;
