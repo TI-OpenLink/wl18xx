@@ -6382,7 +6382,7 @@ int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 	wlcore_adjust_conf(wl);
 
 	wl->irq = platform_get_irq(pdev, 0);
-	wl->platform_quirks = pdata->platform_quirks;
+	wl->platform_quirks = pdata->platform_quirks | WL12XX_PLATFORM_QUIRK_EDGE_IRQ;
 	wl->set_power = pdata->set_power;
 	wl->if_ops = pdata->ops;
 
