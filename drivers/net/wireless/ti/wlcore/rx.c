@@ -215,6 +215,7 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 	u8 hlid;
 	enum wl_rx_buf_align rx_align;
 	int ret = 0;
+	int orig_cnt = wl->rx_counter, diff;
 
 	while (drv_rx_counter != fw_rx_counter) {
 		buf_size = 0;
@@ -290,6 +291,13 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 	}
 
 	wl12xx_rearm_rx_streaming(wl, active_hlids);
+
+	diff = wl->rx_counter - orig_cnt;
+	if (diff > 32) {
+		wl1271_error("invalid Rx completed packets %d\n", diff);
+	} else {
+		wl->rx_completions[diff-1]++;
+	}
 
 out:
 	return ret;
