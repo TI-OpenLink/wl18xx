@@ -492,6 +492,9 @@ struct wl1271 {
 
 	struct wlcore_aggr_reason *aggr_pkts_reason;
 	u32 aggr_pkts_reason_num;
+
+	u32 tx_completions[32];
+	u32 rx_completions[32];
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
