@@ -486,6 +486,120 @@ static const struct file_operations stats_tx_aggr_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t rx_num_comp_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	char *buf;
+	int ret, i;
+	size_t len = 32768, size = 0;
+
+	buf = kmalloc(len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	buf[0] = '\0';
+
+	mutex_lock(&wl->mutex);
+
+	for (i = 0; i < 20; i++) {
+		if (wl->rx_completions[i])
+			snprintf(buf, len, "%s[%d] %d\n",
+				 buf, i+1, wl->rx_completions[i]);
+	}
+
+	mutex_unlock(&wl->mutex);
+
+	size =  snprintf(buf, len, "%s", buf);
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, size);
+
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t rx_num_comp_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		goto out;
+
+	wl1271_info("zeroing out Rx num completion reasons");
+	memset(wl->rx_completions, 0, sizeof(wl->rx_completions));
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations rx_num_comp_ops = {
+	.read = rx_num_comp_read,
+	.write = rx_num_comp_write,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static ssize_t tx_num_comp_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	char *buf;
+	int ret, i;
+	size_t len = 32768, size = 0;
+
+	buf = kmalloc(len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	buf[0] = '\0';
+
+	mutex_lock(&wl->mutex);
+
+	for (i = 0; i < 20; i++) {
+		if (wl->tx_completions[i])
+			snprintf(buf, len, "%s[%d] %d\n",
+				 buf, i+1, wl->tx_completions[i]);
+	}
+
+	mutex_unlock(&wl->mutex);
+
+	size =  snprintf(buf, len, "%s", buf);
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, size);
+
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t tx_num_comp_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		goto out;
+
+	wl1271_info("zeroing out Tx num completion reasons");
+	memset(wl->tx_completions, 0, sizeof(wl->tx_completions));
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations tx_num_comp_ops = {
+	.read = tx_num_comp_read,
+	.write = tx_num_comp_write,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static ssize_t split_scan_timeout_read(struct file *file, char __user *user_buf,
 			  size_t count, loff_t *ppos)
 {
@@ -1366,6 +1480,8 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(irq_timeout, rootdir);
 	DEBUGFS_ADD(fw_stats_raw, rootdir);
 	DEBUGFS_ADD(sleep_auth, rootdir);
+	DEBUGFS_ADD(tx_num_comp, rootdir);
+	DEBUGFS_ADD(rx_num_comp, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 	if (!streaming || IS_ERR(streaming))
