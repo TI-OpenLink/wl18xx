@@ -639,6 +639,9 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_HW_AVAILABLE");
 	}
 
+	wl->irq_count++;
+	wl->irq_loop_count += WL1271_IRQ_MAX_LOOPS - loopcount;
+
 	wl1271_ps_elp_sleep(wl);
 
 out:
