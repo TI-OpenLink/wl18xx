@@ -499,6 +499,9 @@ struct wl1271 {
 
 	u32 tx_completions[32];
 	u32 rx_completions[32];
+
+	u32 irq_count;
+	u32 irq_loop_count;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

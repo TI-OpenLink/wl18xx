@@ -107,6 +107,27 @@ static const struct file_operations tx_queue_len_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t avg_irq_count_read(struct file *file, char __user *userbuf,
+				 size_t count, loff_t *ppos)
+{
+	struct wl1271 *wl = file->private_data;
+	char buf[20];
+	int res;
+	u32 irq_avg;
+
+	mutex_lock(&wl->mutex);
+	irq_avg = wl->irq_loop_count / wl->irq_count;
+	mutex_unlock(&wl->mutex);
+
+	res = scnprintf(buf, sizeof(buf), "%u\n", irq_avg);
+	return simple_read_from_buffer(userbuf, count, ppos, buf, res);
+}
+
+static const struct file_operations avg_irq_count_ops = {
+	.read = avg_irq_count_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
 static void chip_op_handler(struct wl1271 *wl, unsigned long value,
 			    void *arg)
 {
@@ -1459,6 +1480,7 @@ static int wl1271_debugfs_add_files(struct wl1271 *wl,
 	int ret = 0;
 	struct dentry *entry, *streaming;
 
+	DEBUGFS_ADD(avg_irq_count, rootdir);
 	DEBUGFS_ADD(tx_queue_len, rootdir);
 	DEBUGFS_ADD(retry_count, rootdir);
 	DEBUGFS_ADD(excessive_retries, rootdir);
