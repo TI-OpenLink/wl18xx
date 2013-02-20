@@ -515,9 +515,11 @@ static void wl1271_flush_deferred_work(struct wl1271 *wl)
 	while ((skb = skb_dequeue(&wl->deferred_rx_queue)))
 		ieee80211_rx_ni(wl->hw, skb);
 
-	/* Return sent skbs to the network stack */
-	while ((skb = skb_dequeue(&wl->deferred_tx_queue)))
-		ieee80211_tx_status_ni(wl->hw, skb);
+	/* free sent skbs */
+	while ((skb = skb_dequeue(&wl->deferred_tx_queue))) {
+		skb_orphan(skb);
+		dev_kfree_skb(skb);
+	}
 }
 
 static void wl1271_netstack_work(struct work_struct *work)
@@ -6005,7 +6007,6 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		IEEE80211_HW_SUPPORTS_UAPSD |
 		IEEE80211_HW_HAS_RATE_CONTROL |
 		IEEE80211_HW_CONNECTION_MONITOR |
-		IEEE80211_HW_REPORTS_TX_ACK_STATUS |
 		IEEE80211_HW_SPECTRUM_MGMT |
 		IEEE80211_HW_AP_LINK_PS |
 		IEEE80211_HW_AMPDU_AGGREGATION |

@@ -254,7 +254,7 @@ struct wl1271 {
 	/* Frames received, not handled yet by mac80211 */
 	struct sk_buff_head deferred_rx_queue;
 
-	/* Frames sent, not returned yet to mac80211 */
+	/* Frames sent, not freed yet */
 	struct sk_buff_head deferred_tx_queue;
 
 	struct work_struct tx_work;
