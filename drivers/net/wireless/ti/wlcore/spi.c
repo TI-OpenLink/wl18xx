@@ -319,6 +319,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
 static struct wl1271_if_operations spi_ops = {
 	.read		= wl12xx_spi_raw_read,
 	.write		= wl12xx_spi_raw_write,
+	.sg_write	= NULL,
 	.reset		= wl12xx_spi_reset,
 	.init		= wl12xx_spi_init,
 	.set_block_size = NULL,
