@@ -525,6 +525,7 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	int res = 0;
 	ssize_t ret;
 	char *buf;
+	struct wl12xx_vif *wlvif;
 
 #define DRIVER_STATE_BUF_LEN 1024
 
@@ -551,6 +552,18 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_GENERIC(version, "%s", wlcore_git_head);
 	DRIVER_STATE_PRINT_GENERIC(timestamp, "%s", wlcore_timestamp);
 
+	wl12xx_for_each_wlvif_sta(wl, wlvif) {
+		if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
+			continue;
+
+		DRIVER_STATE_PRINT_GENERIC(channel, "%d (%s)", wlvif->channel,
+					   wlvif->p2p ? "P2P-CL" : "STA");
+	}
+
+	wl12xx_for_each_wlvif_ap(wl, wlvif)
+		DRIVER_STATE_PRINT_GENERIC(channel, "%d (%s)", wlvif->channel,
+					   wlvif->p2p ? "P2P-GO" : "AP");
+
 	DRIVER_STATE_PRINT_INT(tx_blocks_available);
 	DRIVER_STATE_PRINT_INT(tx_allocated_blocks);
 	DRIVER_STATE_PRINT_INT(tx_allocated_pkts[0]);
@@ -569,7 +582,6 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_INT(tx_blocks_freed);
 	DRIVER_STATE_PRINT_INT(rx_counter);
 	DRIVER_STATE_PRINT_INT(state);
-	DRIVER_STATE_PRINT_INT(channel);
 	DRIVER_STATE_PRINT_INT(band);
 	DRIVER_STATE_PRINT_INT(power_level);
 	DRIVER_STATE_PRINT_INT(sg_enabled);
