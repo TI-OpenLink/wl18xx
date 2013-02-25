@@ -297,10 +297,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	ac = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 	desc->tid = skb->priority;
 
-	/* send EAPOL frames as voice */
-	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
-		desc->tid = WL1271_TID_MGMT;
-
 	if (is_dummy) {
 		/*
 		 * FW expects the dummy packet to have an invalid session id -
