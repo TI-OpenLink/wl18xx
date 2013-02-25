@@ -40,7 +40,7 @@
 
 #define WL18XX_NUM_MAC_ADDRESSES 3
 
-#define WL18XX_RX_BA_MAX_SESSIONS 5
+#define WL18XX_RX_BA_MAX_SESSIONS 8
 
 struct wl18xx_priv {
 	/* buffer for sending commands to FW */
