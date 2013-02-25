@@ -210,6 +210,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks;
 
+	/* DMATODO: only support single SG */
+	if (wl->sg_len)
+		return -EAGAIN;
+
 	if (buf_offset + total_len > wl->aggr_buf_size)
 		return -EAGAIN;
 
@@ -223,8 +227,20 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
+		int alignment = (int)skb->data & 0x3;
+		if (alignment == 2) {
+			skb_push(skb, alignment);
+		} else if  (alignment) {
+			printk(KERN_ERR "WTF HACK non-aligned for DMA\n");
+			wl1271_free_tx_id(wl, id);
+			return -ENOMEM;
+		}
+
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
 			skb, total_len - skb->len);
+		desc->tx_attr = 0;
+		if (alignment == 2)
+			desc->tx_attr = cpu_to_le16(TX_HW_ATTR_HEADER_PAD);
 
 		wlcore_hw_set_tx_desc_blocks(wl, desc, total_blocks,
 					     spare_blocks);
@@ -367,6 +383,62 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	wlcore_hw_set_tx_desc_data_len(wl, desc, skb);
 }
 
+static int wlcore_tx_prep_skb(struct wl1271 *wl, struct sk_buff *skb,
+			      u32 data_len)
+{
+	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+		int ret;
+
+		/* pad the skb to SDIO block size for DMA */
+		u32 total_len = wlcore_calc_packet_alignment(wl, data_len);
+
+		/*
+		 * note dummy packets are already padded, so this doesn't
+		 * change the skb for that case
+		 */
+		if (total_len > data_len) {
+			ret = skb_pad(skb, total_len - skb->len);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+/* returns the total length of the added buffer (including padding) */
+static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
+				u32 buf_offset)
+{
+	u32 total_len;
+
+	/*
+	 * The length of each packet is stored in terms of
+	 * words. Thus, we must pad the skb data to make sure its
+	 * length is aligned.  The number of padding bytes is computed
+	 * and set in wl1271_tx_fill_hdr.
+	 * In special cases, we want to align to a specific block size
+	 * (eg. for wl128x with SDIO we align to 256).
+	 */
+	total_len = wlcore_calc_packet_alignment(wl, skb->len);
+
+	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+		/*
+		 * we don't check if cur_sg is not NULL since we allocated the
+		 * maximum possible to put into the aggregation buffer
+		 */
+		sg_set_buf(wl->cur_sg, skb->data, total_len);
+		wl->cur_sg++;
+		wl->sg_len++;
+	} else {
+		memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
+		memset(wl->aggr_buf + buf_offset + skb->len, 0,
+		       total_len - skb->len);
+	}
+
+	return total_len;
+}
+
 /* caller must hold wl->mutex */
 static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				   struct sk_buff *skb, u32 buf_offset, u8 hlid)
@@ -374,7 +446,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	struct ieee80211_tx_info *info;
 	u32 extra = 0;
 	int ret = 0;
-	u32 total_len;
+	u32 total_len, data_len;
 	bool is_dummy;
 	bool is_gem = false;
 
@@ -415,8 +487,13 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		is_gem = (cipher == WL1271_CIPHER_SUITE_GEM);
 	}
 
-	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid,
-				 is_gem);
+	data_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
+
+	ret = wlcore_tx_prep_skb(wl, skb, data_len);
+	if (ret < 0)
+		return ret;
+
+	ret = wl1271_tx_allocate(wl, wlvif, skb, data_len, buf_offset, hlid, is_gem);
 	if (ret < 0)
 		return ret;
 
@@ -427,18 +504,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		wl1271_tx_regulate_link(wl, wlvif, hlid);
 	}
 
-	/*
-	 * The length of each packet is stored in terms of
-	 * words. Thus, we must pad the skb data to make sure its
-	 * length is aligned.  The number of padding bytes is computed
-	 * and set in wl1271_tx_fill_hdr.
-	 * In special cases, we want to align to a specific block size
-	 * (eg. for wl128x with SDIO we align to 256).
-	 */
-	total_len = wlcore_calc_packet_alignment(wl, skb->len);
-
-	memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
-	memset(wl->aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);
+	total_len = wlcore_tx_add_buffer(wl, skb, buf_offset);
 
 	/* Revert side effects in the dummy packet skb, so it can be reused */
 	if (is_dummy)
@@ -746,6 +812,25 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	}
 }
 
+static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
+{
+	int ret = 0;
+	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
+		unsigned blocks = offset / blksz;
+
+		wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz, wl->sg,
+				  wl->sg_len, true);
+		/* DMATODO: have a real return value */
+
+		wl->cur_sg = wl->sg;
+		wl->sg_len = 0;
+	} else {
+		ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf, offset, true);
+	}
+	return ret;
+}
+
 /*
  * Returns failure values only in case of failed bus ops within this function.
  * wl1271_prepare_tx_frame retvals won't be returned in order to avoid
@@ -794,8 +879,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 
 			buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset,
 							    last_len);
-			bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA,
-					     wl->aggr_buf, buf_offset, true);
+			bus_ret = wlcore_tx_write_data(wl, buf_offset);
 			if (bus_ret < 0)
 				goto out;
 
@@ -842,8 +926,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 out_ack:
 	if (buf_offset) {
 		buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset, last_len);
-		bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
-					     buf_offset, true);
+		bus_ret = wlcore_tx_write_data(wl, buf_offset);
 		if (bus_ret < 0)
 			goto out;
 

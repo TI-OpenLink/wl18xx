@@ -507,6 +507,12 @@ struct wl1271 {
 
 	u32 irq_count;
 	u32 irq_loop_count;
+
+	/* SG list for Tx SG DMA */
+	struct scatterlist *sg;
+	unsigned int max_sg_entries;
+	unsigned int sg_len;
+	struct scatterlist *cur_sg;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
@@ -592,6 +598,10 @@ wlcore_set_min_fw_ver(struct wl1271 *wl, unsigned int chip,
 
 /* The FW only support a zero session id for AP */
 #define WLCORE_QUIRK_AP_ZERO_SESSION_ID		BIT(12)
+
+/* Use SG DMA for data Tx. Implies WL12XX_QUIRK_TX_BLOCKSIZE_ALIGN. */
+#define WLCORE_QUIRK_SG_DMA			BIT(13)
+
 
 /* TODO: move all these common registers and values elsewhere */
 #define HW_ACCESS_ELP_CTRL_REG		0x1FFFC

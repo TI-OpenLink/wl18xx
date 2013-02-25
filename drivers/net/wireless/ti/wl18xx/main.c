@@ -664,9 +664,10 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl->quirks |= WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN |
-			      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
+			      /*WLCORE_QUIRK_TX_PAD_LAST_FRAME |*/ // WTF HACK what the fuck are you doing
 			      WLCORE_QUIRK_REGDOMAIN_CONF |
-			      WLCORE_QUIRK_DUAL_PROBE_TMPL;
+			      WLCORE_QUIRK_DUAL_PROBE_TMPL |
+			      WLCORE_QUIRK_SG_DMA;
 
 		wlcore_set_min_fw_ver(wl, WL18XX_CHIP_VER,
 				      WL18XX_IFTYPE_VER,  WL18XX_MAJOR_VER,

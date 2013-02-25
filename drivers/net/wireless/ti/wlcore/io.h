@@ -26,6 +26,7 @@
 #define __IO_H__
 
 #include <linux/irqreturn.h>
+#include <linux/scatterlist.h>
 
 #define HW_ACCESS_MEMORY_MAX_RANGE	0x1FFC0
 
@@ -69,6 +70,17 @@ static inline int __must_check wlcore_raw_write(struct wl1271 *wl, int addr,
 
 	return ret;
 }
+
+static inline void wlcore_raw_sg_write(struct wl1271 *wl, int addr,
+				    unsigned blocks, unsigned blksz,
+				    struct scatterlist *sg, size_t sg_len,
+				    bool fixed)
+{
+	if (wl->if_ops->sg_write)
+		wl->if_ops->sg_write(wl->dev, addr, blocks, blksz, sg,
+				     sg_len, fixed);
+}
+
 
 static inline int __must_check wlcore_raw_read(struct wl1271 *wl, int addr,
 					       void *buf, size_t len,
@@ -156,6 +168,27 @@ static inline int __must_check wlcore_read_data(struct wl1271 *wl, int reg,
 						bool fixed)
 {
 	return wlcore_read(wl, wl->rtable[reg], buf, len, fixed);
+}
+
+static inline void wlcore_sg_write(struct wl1271 *wl, int addr,
+				unsigned blocks, unsigned blksz,
+				struct scatterlist *sg, size_t sg_len,
+				bool fixed)
+{
+	int physical;
+
+	physical = wlcore_translate_addr(wl, addr);
+
+	wlcore_raw_sg_write(wl, physical, blocks, blksz, sg, sg_len, fixed);
+}
+
+static inline void wlcore_sg_write_data(struct wl1271 *wl, int reg,
+				unsigned blocks, unsigned blksz,
+				struct scatterlist *sg, size_t sg_len,
+				bool fixed)
+{
+	wlcore_sg_write(wl, wl->rtable[reg], blocks, blksz,
+			sg, sg_len, fixed);
 }
 
 static inline int __must_check wlcore_read_hwaddr(struct wl1271 *wl, int hwaddr,

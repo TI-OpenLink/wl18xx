@@ -1978,6 +1978,9 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
 
+	wl->cur_sg = wl->sg;
+	wl->sg_len = 0;
+
 	/*
 	 * FW channels must be re-calibrated after recovery,
 	 * clear the last Reg-Domain channel configuration.
@@ -5854,8 +5857,9 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		WL1271_CIPHER_SUITE_GEM,
 	};
 
+	/* DMATODO: we add 4 for alignment requirements */
 	/* The tx descriptor buffer */
-	wl->hw->extra_tx_headroom = sizeof(struct wl1271_tx_hw_descr);
+	wl->hw->extra_tx_headroom = sizeof(struct wl1271_tx_hw_descr) + 4;
 
 	if (wl->quirks & WLCORE_QUIRK_TKIP_HEADER_SPACE)
 		wl->hw->extra_tx_headroom += WL1271_EXTRA_SPACE_TKIP;
@@ -6113,6 +6117,12 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 		goto err_buffer;
 	}
 
+	/*
+	 * max number of SG elements needed, based on the min transaction being
+	 * the length of a SDIO block
+	 */
+	wl->max_sg_entries = aggr_buf_size / WL12XX_BUS_BLOCK_SIZE;
+
 	return hw;
 
 err_buffer:
@@ -6183,6 +6193,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 
 	kfree(wl->fw_status_1);
 	kfree(wl->tx_res_if);
+	kfree(wl->sg);
 	destroy_workqueue(wl->freezable_wq);
 
 	kfree(wl->priv);

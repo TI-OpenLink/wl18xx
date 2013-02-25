@@ -207,9 +207,13 @@ static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
 	data.sg = sg;
 	data.sg_len = sg_len;
 
+	sdio_claim_host(func);
+
 	mmc_set_data_timeout(&data, card);
 
 	mmc_wait_for_req(card->host, &mrq);
+
+	sdio_release_host(func);
 
 	if (cmd.error) {
 		dev_err(child->parent, "SG write cmd error: 0x%x", cmd.error);

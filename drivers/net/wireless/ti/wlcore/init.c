@@ -661,9 +661,35 @@ int wl1271_init_vif_specific(struct wl1271 *wl, struct ieee80211_vif *vif)
 	return 0;
 }
 
+static int wlcore_tx_buf_init(struct wl1271 *wl)
+{
+	/* only support SG DMA for Tx-block-aligning devices */
+	WARN_ON((wl->quirks & WLCORE_QUIRK_SG_DMA) &&
+	        !(wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN));
+
+	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+		wl->sg = kzalloc(wl->max_sg_entries * sizeof(struct scatterlist),
+				 GFP_KERNEL);
+		if (!wl->sg) {
+			wl1271_error("could not alloc scatter list");
+			return -ENOMEM;
+		}
+
+		sg_init_table(wl->sg, wl->max_sg_entries);
+		wl->cur_sg = wl->sg;
+		wl1271_info("using SG DMA for Tx");
+	}
+
+	return 0;
+}
+
 int wl1271_hw_init(struct wl1271 *wl)
 {
 	int ret;
+
+	ret = wlcore_tx_buf_init(wl);
+	if (ret < 0)
+		return ret;
 
 	/* Chip-specific hw init */
 	ret = wl->ops->hw_init(wl);
