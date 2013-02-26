@@ -352,6 +352,10 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	    ieee80211_has_protected(frame_control))
 		tx_attr |= TX_HW_ATTR_HOST_ENCRYPT;
 
+	/* send EAPOL frames as voice */
+	if (skb->protocol == cpu_to_be16(ETH_P_PAE))
+		tx_attr |= TX_HW_ATTR_EAPOL_FRAME;
+
 	desc->tx_attr = cpu_to_le16(tx_attr);
 
 	wlcore_hw_set_tx_desc_csum(wl, desc, skb);
