@@ -675,6 +675,12 @@ static int wlcore_tx_buf_init(struct wl1271 *wl)
 			return -ENOMEM;
 		}
 
+		wl->pad_buf = kzalloc(WL12XX_BUS_BLOCK_SIZE, GFP_KERNEL);
+		if (!wl->pad_buf) {
+			wl1271_error("could not alloc pad buf");
+			return -ENOMEM;
+		}
+
 		sg_init_table(wl->sg, wl->max_sg_entries);
 		wl->cur_sg = wl->sg;
 		wl1271_info("using SG DMA for Tx");

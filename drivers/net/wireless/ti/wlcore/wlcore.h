@@ -513,6 +513,8 @@ struct wl1271 {
 	unsigned int max_sg_entries;
 	unsigned int sg_len;
 	struct scatterlist *cur_sg;
+	struct sk_buff *cur_skb;
+	u8 *pad_buf;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

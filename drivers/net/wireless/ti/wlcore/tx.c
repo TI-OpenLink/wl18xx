@@ -214,10 +214,6 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks;
 
-	/* DMATODO: only support single SG */
-	if (wl->sg_len)
-		return -EAGAIN;
-
 	if (buf_offset + total_len > wl->aggr_buf_size)
 		return -EAGAIN;
 
@@ -390,29 +386,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	wlcore_hw_set_tx_desc_data_len(wl, desc, skb);
 }
 
-static int wlcore_tx_prep_skb(struct wl1271 *wl, struct sk_buff *skb,
-			      u32 data_len)
-{
-	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
-		int ret;
-
-		/* pad the skb to SDIO block size for DMA */
-		u32 total_len = wlcore_calc_packet_alignment(wl, data_len);
-
-		/*
-		 * note dummy packets are already padded, so this doesn't
-		 * change the skb for that case
-		 */
-		if (total_len > data_len) {
-			ret = skb_pad(skb, total_len - skb->len);
-			if (ret)
-				return ret;
-		}
-	}
-
-	return 0;
-}
-
 /* returns the total length of the added buffer (including padding) */
 static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 				u32 buf_offset)
@@ -434,9 +407,21 @@ static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 		 * we don't check if cur_sg is not NULL since we allocated the
 		 * maximum possible to put into the aggregation buffer
 		 */
-		sg_set_buf(wl->cur_sg, skb->data, total_len);
+		sg_set_buf(wl->cur_sg, skb->data, skb->len);
+		wl->cur_skb = skb;
 		wl->cur_sg++;
 		wl->sg_len++;
+
+		/*
+		 * note dummy packets are already padded, so this doesn't
+		 * change the skb for that case
+		 */
+		if (total_len > skb->len) {
+			sg_set_buf(wl->cur_sg, wl->pad_buf,
+				   total_len - skb->len);
+			wl->cur_sg++;
+			wl->sg_len++;
+		}
 	} else {
 		memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
 		memset(wl->aggr_buf + buf_offset + skb->len, 0,
@@ -495,10 +480,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 
 	data_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
-
-	ret = wlcore_tx_prep_skb(wl, skb, data_len);
-	if (ret < 0)
-		return ret;
 
 	ret = wl1271_tx_allocate(wl, wlvif, skb, data_len, buf_offset, hlid, is_gem);
 	if (ret < 0)
@@ -826,12 +807,15 @@ static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
 		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
 		unsigned blocks = offset / blksz;
 
+		sg_mark_end(&wl->sg[wl->sg_len - 1]);
 		wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz, wl->sg,
 				  wl->sg_len, true);
 		/* DMATODO: have a real return value */
 
+		wl->cur_skb = NULL;
 		wl->cur_sg = wl->sg;
 		wl->sg_len = 0;
+		sg_init_table(wl->sg, wl->max_sg_entries);
 	} else {
 		ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf, offset, true);
 	}

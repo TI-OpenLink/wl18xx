@@ -6121,7 +6121,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 	 * max number of SG elements needed, based on the min transaction being
 	 * the length of a SDIO block
 	 */
-	wl->max_sg_entries = aggr_buf_size / WL12XX_BUS_BLOCK_SIZE;
+	wl->max_sg_entries = 2 * (aggr_buf_size / WL12XX_BUS_BLOCK_SIZE);
 
 	return hw;
 
@@ -6194,6 +6194,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 	kfree(wl->fw_status_1);
 	kfree(wl->tx_res_if);
 	kfree(wl->sg);
+	kfree(wl->pad_buf);
 	destroy_workqueue(wl->freezable_wq);
 
 	kfree(wl->priv);

@@ -664,7 +664,7 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl->quirks |= WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN |
-			      /*WLCORE_QUIRK_TX_PAD_LAST_FRAME |*/ // WTF HACK what the fuck are you doing
+			      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
 			      WLCORE_QUIRK_REGDOMAIN_CONF |
 			      WLCORE_QUIRK_DUAL_PROBE_TMPL |
 			      WLCORE_QUIRK_SG_DMA;
@@ -1504,10 +1504,20 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
 		struct wl1271_tx_hw_descr *last_desc;
 
-		/* get the last TX HW descriptor written to the aggr buf */
-		last_desc = (struct wl1271_tx_hw_descr *)(wl->aggr_buf +
-							buf_offset - last_len);
-
+		if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+			u32 aligned_buf_off =
+				ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
+			last_desc = (void *)wl->cur_skb;
+			if (aligned_buf_off != buf_offset) {
+				sg_set_buf(wl->cur_sg, wl->pad_buf,
+						aligned_buf_off - buf_offset);
+				wl->cur_sg++;
+				wl->sg_len++;
+			}
+		} else {
+			last_desc = (void *)(wl->aggr_buf + buf_offset -
+					     last_len);
+		}
 		/* the last frame is padded up to an SDIO block */
 		last_desc->wl18xx_mem.ctrl &= ~WL18XX_TX_CTRL_NOT_PADDED;
 		return ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
