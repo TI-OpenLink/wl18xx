@@ -90,9 +90,13 @@ static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 						 struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr;
+	struct wl1271_tx_hw_descr *desc = (void *)skb->data;
 
 	hdr = (struct ieee80211_hdr *)(skb->data +
 				       sizeof(struct wl1271_tx_hw_descr));
+	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
+		hdr = (void *)((u8 *)hdr + 2);
+
 	if (!ieee80211_is_auth(hdr->frame_control))
 		return;
 
@@ -237,7 +241,7 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		}
 
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
-			skb, total_len - skb->len);
+			skb, total_len + alignment - skb->len);
 		desc->tx_attr = 0;
 		if (alignment == 2)
 			desc->tx_attr = cpu_to_le16(TX_HW_ATTR_HEADER_PAD);
@@ -288,6 +292,9 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
 	frame_start = (u8 *)(desc + 1);
+	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
+		frame_start += 2;
+
 	hdr = (struct ieee80211_hdr *)(frame_start + extra);
 	frame_control = hdr->frame_control;
 
