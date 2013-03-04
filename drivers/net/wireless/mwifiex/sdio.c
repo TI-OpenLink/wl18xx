@@ -707,11 +707,8 @@ static int mwifiex_prog_fw_w_helper(struct mwifiex_adapter *adapter,
 
 	/* Assume that the allocated buffer is 8-byte aligned */
 	fwbuf = kzalloc(MWIFIEX_UPLD_SIZE, GFP_KERNEL);
-	if (!fwbuf) {
-		dev_err(adapter->dev,
-			"unable to alloc buffer for FW. Terminating dnld\n");
+	if (!fwbuf)
 		return -ENOMEM;
-	}
 
 	/* Perform firmware data transfer */
 	do {
@@ -1509,7 +1506,6 @@ static int mwifiex_alloc_sdio_mpa_buffers(struct mwifiex_adapter *adapter,
 
 	card->mpa_tx.buf = kzalloc(mpa_tx_buf_size, GFP_KERNEL);
 	if (!card->mpa_tx.buf) {
-		dev_err(adapter->dev, "could not alloc buffer for MP-A TX\n");
 		ret = -1;
 		goto error;
 	}
@@ -1518,7 +1514,6 @@ static int mwifiex_alloc_sdio_mpa_buffers(struct mwifiex_adapter *adapter,
 
 	card->mpa_rx.buf = kzalloc(mpa_rx_buf_size, GFP_KERNEL);
 	if (!card->mpa_rx.buf) {
-		dev_err(adapter->dev, "could not alloc buffer for MP-A RX\n");
 		ret = -1;
 		goto error;
 	}
@@ -1671,10 +1666,8 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
 
 	/* Allocate buffers for SDIO MP-A */
 	card->mp_regs = kzalloc(MAX_MP_REGS, GFP_KERNEL);
-	if (!card->mp_regs) {
-		dev_err(adapter->dev, "failed to alloc mp_regs\n");
+	if (!card->mp_regs)
 		return -ENOMEM;
-	}
 
 	ret = mwifiex_alloc_sdio_mpa_buffers(adapter,
 					     SDIO_MP_TX_AGGR_DEF_BUF_SIZE,
@@ -1741,6 +1734,8 @@ mwifiex_update_mp_end_port(struct mwifiex_adapter *adapter, u16 port)
 static struct mmc_host *reset_host;
 static void sdio_card_reset_worker(struct work_struct *work)
 {
+	struct mmc_host *target = reset_host;
+
 	/* The actual reset operation must be run outside of driver thread.
 	 * This is because mmc_remove_host() will cause the device to be
 	 * instantly destroyed, and the driver then needs to end its thread,
@@ -1750,10 +1745,10 @@ static void sdio_card_reset_worker(struct work_struct *work)
 	 */
 
 	pr_err("Resetting card...\n");
-	mmc_remove_host(reset_host);
+	mmc_remove_host(target);
 	/* 20ms delay is based on experiment with sdhci controller */
 	mdelay(20);
-	mmc_add_host(reset_host);
+	mmc_add_host(target);
 }
 static DECLARE_WORK(card_reset_work, sdio_card_reset_worker);
 
@@ -1761,9 +1756,6 @@ static DECLARE_WORK(card_reset_work, sdio_card_reset_worker);
 static void mwifiex_sdio_card_reset(struct mwifiex_adapter *adapter)
 {
 	struct sdio_mmc_card *card = adapter->card;
-
-	if (work_pending(&card_reset_work))
-		return;
 
 	reset_host = card->func->card->host;
 	schedule_work(&card_reset_work);
