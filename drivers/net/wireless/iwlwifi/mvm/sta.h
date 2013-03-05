@@ -309,10 +309,14 @@ struct iwl_mvm_int_sta {
 	u32 tfd_queue_msk;
 };
 
-int iwl_mvm_sta_add_to_fw(struct iwl_mvm *mvm, struct ieee80211_sta *sta);
+int iwl_mvm_sta_send_to_fw(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
+			   bool update);
 int iwl_mvm_add_sta(struct iwl_mvm *mvm,
 		    struct ieee80211_vif *vif,
 		    struct ieee80211_sta *sta);
+int iwl_mvm_update_sta(struct iwl_mvm *mvm,
+		       struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta);
 int iwl_mvm_rm_sta(struct iwl_mvm *mvm,
 		   struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta);
@@ -358,8 +362,10 @@ int iwl_mvm_add_bcast_sta(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 			  struct iwl_mvm_int_sta *bsta);
 int iwl_mvm_rm_bcast_sta(struct iwl_mvm *mvm, struct iwl_mvm_int_sta *bsta);
 void iwl_mvm_sta_drained_wk(struct work_struct *wk);
-void iwl_mvm_sta_modify_ps_wake(struct iwl_mvm *mvm, int sta_id);
-void iwl_mvm_sta_modify_sleep_tx_count(struct iwl_mvm *mvm, int sta_id,
+void iwl_mvm_sta_modify_ps_wake(struct iwl_mvm *mvm,
+				struct ieee80211_sta *sta);
+void iwl_mvm_sta_modify_sleep_tx_count(struct iwl_mvm *mvm,
+				       struct ieee80211_sta *sta,
 				       enum ieee80211_frame_release_type reason,
 				       u16 cnt);
 int iwl_mvm_drain_sta(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,

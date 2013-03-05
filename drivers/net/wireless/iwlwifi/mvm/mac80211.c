@@ -113,11 +113,10 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 		    IEEE80211_HW_REPORTS_TX_ACK_STATUS |
 		    IEEE80211_HW_QUEUE_CONTROL |
 		    IEEE80211_HW_WANT_MONITOR_VIF |
-		    IEEE80211_HW_SCAN_WHILE_IDLE |
-		    IEEE80211_HW_NEED_DTIM_PERIOD |
 		    IEEE80211_HW_SUPPORTS_PS |
 		    IEEE80211_HW_SUPPORTS_DYNAMIC_PS |
-		    IEEE80211_HW_AMPDU_AGGREGATION;
+		    IEEE80211_HW_AMPDU_AGGREGATION |
+		    IEEE80211_HW_TIMING_BEACON_ONLY;
 
 	hw->queues = IWL_FIRST_AMPDU_QUEUE;
 	hw->offchannel_tx_hw_queue = IWL_OFFCHANNEL_QUEUE;
@@ -475,7 +474,7 @@ static int iwl_mvm_mac_add_interface(struct ieee80211_hw *hw,
 	if (mvm->vif_count > 1) {
 		IWL_DEBUG_MAC80211(mvm,
 				   "Disable power on existing interfaces\n");
-		ieee80211_iterate_active_interfaces(
+		ieee80211_iterate_active_interfaces_atomic(
 					    mvm->hw,
 					    IEEE80211_IFACE_ITER_NORMAL,
 					    iwl_mvm_pm_disable_iterator, mvm);
@@ -558,11 +557,9 @@ static int iwl_mvm_mac_add_interface(struct ieee80211_hw *hw,
 	return ret;
 }
 
-static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
-					 struct ieee80211_vif *vif)
+static void iwl_mvm_prepare_mac_removal(struct iwl_mvm *mvm,
+					struct ieee80211_vif *vif)
 {
-	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
-	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	u32 tfd_msk = 0, ac;
 
 	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
@@ -595,12 +592,21 @@ static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
 		 */
 		flush_work(&mvm->sta_drained_wk);
 	}
+}
+
+static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
+					 struct ieee80211_vif *vif)
+{
+	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
+	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
+
+	iwl_mvm_prepare_mac_removal(mvm, vif);
 
 	mutex_lock(&mvm->mutex);
 
 	/*
 	 * For AP/GO interface, the tear down of the resources allocated to the
-	 * interface should be handled as part of the bss_info_changed flow.
+	 * interface is be handled as part of the stop_ap flow.
 	 */
 	if (vif->type == NL80211_IFTYPE_AP) {
 		iwl_mvm_dealloc_int_sta(mvm, &mvmvif->bcast_sta);
@@ -671,8 +677,6 @@ static void iwl_mvm_bss_info_changed_station(struct iwl_mvm *mvm,
 				IWL_ERR(mvm, "failed to update quotas\n");
 				return;
 			}
-			iwl_mvm_remove_time_event(mvm, mvmvif,
-						  &mvmvif->time_event_data);
 		} else if (mvmvif->ap_sta_id != IWL_MVM_STATION_COUNT) {
 			/* remove AP station now that the MAC is unassoc */
 			ret = iwl_mvm_rm_sta_id(mvm, vif, mvmvif->ap_sta_id);
@@ -684,6 +688,13 @@ static void iwl_mvm_bss_info_changed_station(struct iwl_mvm *mvm,
 			if (ret)
 				IWL_ERR(mvm, "failed to update quotas\n");
 		}
+	} else if (changes & BSS_CHANGED_DTIM_PERIOD) {
+		/*
+		 * We received a beacon _after_ association so
+		 * remove the session protection.
+		 */
+		iwl_mvm_remove_time_event(mvm, mvmvif,
+					  &mvmvif->time_event_data);
 	} else if (changes & BSS_CHANGED_PS) {
 		/*
 		 * TODO: remove this temporary code.
@@ -758,6 +769,8 @@ static void iwl_mvm_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
+
+	iwl_mvm_prepare_mac_removal(mvm, vif);
 
 	mutex_lock(&mvm->mutex);
 
@@ -853,7 +866,6 @@ iwl_mvm_mac_allow_buffered_frames(struct ieee80211_hw *hw,
 				  bool more_data)
 {
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
-	struct iwl_mvm_sta *mvmsta = (void *)sta->drv_priv;
 
 	/* TODO: how do we tell the fw to send frames for a specific TID */
 
@@ -861,8 +873,7 @@ iwl_mvm_mac_allow_buffered_frames(struct ieee80211_hw *hw,
 	 * The fw will send EOSP notification when the last frame will be
 	 * transmitted.
 	 */
-	iwl_mvm_sta_modify_sleep_tx_count(mvm, mvmsta->sta_id, reason,
-					  num_frames);
+	iwl_mvm_sta_modify_sleep_tx_count(mvm, sta, reason, num_frames);
 }
 
 static void iwl_mvm_mac_sta_notify(struct ieee80211_hw *hw,
@@ -886,7 +897,7 @@ static void iwl_mvm_mac_sta_notify(struct ieee80211_hw *hw,
 	case STA_NOTIFY_AWAKE:
 		if (WARN_ON(mvmsta->sta_id == IWL_INVALID_STATION))
 			break;
-		iwl_mvm_sta_modify_ps_wake(mvm, mvmsta->sta_id);
+		iwl_mvm_sta_modify_ps_wake(mvm, sta);
 		break;
 	default:
 		break;
@@ -922,8 +933,10 @@ static int iwl_mvm_mac_sta_state(struct ieee80211_hw *hw,
 		ret = 0;
 	} else if (old_state == IEEE80211_STA_AUTH &&
 		   new_state == IEEE80211_STA_ASSOC) {
-		iwl_mvm_rs_rate_init(mvm, sta, mvmvif->phy_ctxt->channel->band);
-		ret = 0;
+		ret = iwl_mvm_update_sta(mvm, vif, sta);
+		if (ret == 0)
+			iwl_mvm_rs_rate_init(mvm, sta,
+					     mvmvif->phy_ctxt->channel->band);
 	} else if (old_state == IEEE80211_STA_ASSOC &&
 		   new_state == IEEE80211_STA_AUTHORIZED) {
 		ret = 0;

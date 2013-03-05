@@ -81,8 +81,9 @@ static int iwl_mvm_find_free_sta_id(struct iwl_mvm *mvm)
 	return IWL_MVM_STATION_COUNT;
 }
 
-/* add a NEW station to fw */
-int iwl_mvm_sta_add_to_fw(struct iwl_mvm *mvm, struct ieee80211_sta *sta)
+/* send station add/update command to firmware */
+int iwl_mvm_sta_send_to_fw(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
+			   bool update)
 {
 	struct iwl_mvm_sta *mvm_sta = (void *)sta->drv_priv;
 	struct iwl_mvm_add_sta_cmd add_sta_cmd;
@@ -94,8 +95,11 @@ int iwl_mvm_sta_add_to_fw(struct iwl_mvm *mvm, struct ieee80211_sta *sta)
 
 	add_sta_cmd.sta_id = mvm_sta->sta_id;
 	add_sta_cmd.mac_id_n_color = cpu_to_le32(mvm_sta->mac_id_n_color);
-	add_sta_cmd.tfd_queue_msk = cpu_to_le32(mvm_sta->tfd_queue_msk);
-	memcpy(&add_sta_cmd.addr, sta->addr, ETH_ALEN);
+	if (!update) {
+		add_sta_cmd.tfd_queue_msk = cpu_to_le32(mvm_sta->tfd_queue_msk);
+		memcpy(&add_sta_cmd.addr, sta->addr, ETH_ALEN);
+	}
+	add_sta_cmd.add_modify = update ? 1 : 0;
 
 	/* STA_FLG_FAT_EN_MSK ? */
 	/* STA_FLG_MIMO_EN_MSK ? */
@@ -181,7 +185,7 @@ int iwl_mvm_add_sta(struct iwl_mvm *mvm,
 	/* for HW restart - need to reset the seq_number etc... */
 	memset(mvm_sta->tid_data, 0, sizeof(mvm_sta->tid_data));
 
-	ret = iwl_mvm_sta_add_to_fw(mvm, sta);
+	ret = iwl_mvm_sta_send_to_fw(mvm, sta, false);
 	if (ret)
 		return ret;
 
@@ -193,6 +197,13 @@ int iwl_mvm_add_sta(struct iwl_mvm *mvm,
 	rcu_assign_pointer(mvm->fw_id_to_mac_id[sta_id], sta);
 
 	return 0;
+}
+
+int iwl_mvm_update_sta(struct iwl_mvm *mvm,
+		       struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta)
+{
+	return iwl_mvm_sta_send_to_fw(mvm, sta, true);
 }
 
 int iwl_mvm_drain_sta(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,
@@ -759,6 +770,16 @@ int iwl_mvm_sta_tx_agg_stop(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 	u16 txq_id;
 	int err;
 
+
+	/*
+	 * If mac80211 is cleaning its state, then say that we finished since
+	 * our state has been cleared anyway.
+	 */
+	if (test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status)) {
+		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+		return 0;
+	}
+
 	spin_lock_bh(&mvmsta->lock);
 
 	txq_id = tid_data->txq_id;
@@ -1116,7 +1137,8 @@ int iwl_mvm_remove_sta_key(struct iwl_mvm *mvm,
 	if (WARN_ON_ONCE(mvm_sta->vif != vif))
 		return -EINVAL;
 
-	key_flags = cpu_to_le16(keyconf->keyidx & STA_KEY_FLG_KEYID_MSK);
+	key_flags = cpu_to_le16((keyconf->keyidx << STA_KEY_FLG_KEYID_POS) &
+				 STA_KEY_FLG_KEYID_MSK);
 	key_flags |= cpu_to_le16(STA_KEY_FLG_NO_ENC | STA_KEY_FLG_WEP_KEY_MAP);
 	key_flags |= cpu_to_le16(STA_KEY_NOT_VALID);
 
@@ -1154,23 +1176,38 @@ void iwl_mvm_update_tkip_key(struct iwl_mvm *mvm,
 			     struct ieee80211_sta *sta, u32 iv32,
 			     u16 *phase1key)
 {
-	struct iwl_mvm_sta *mvm_sta = (void *)sta->drv_priv;
+	struct iwl_mvm_sta *mvm_sta;
 	u8 sta_id = iwl_mvm_get_key_sta_id(vif, sta);
 
-	if (sta_id == IWL_INVALID_STATION)
+	if (WARN_ON_ONCE(sta_id == IWL_INVALID_STATION))
 		return;
 
+	rcu_read_lock();
+
+	if (!sta) {
+		sta = rcu_dereference(mvm->fw_id_to_mac_id[sta_id]);
+		if (WARN_ON(IS_ERR_OR_NULL(sta))) {
+			rcu_read_unlock();
+			return;
+		}
+	}
+
+	mvm_sta = (void *)sta->drv_priv;
 	iwl_mvm_send_sta_key(mvm, mvm_sta, keyconf, sta_id,
 			     iv32, phase1key, CMD_ASYNC);
+	rcu_read_unlock();
 }
 
-void iwl_mvm_sta_modify_ps_wake(struct iwl_mvm *mvm, int sta_id)
+void iwl_mvm_sta_modify_ps_wake(struct iwl_mvm *mvm,
+				struct ieee80211_sta *sta)
 {
+	struct iwl_mvm_sta *mvmsta = (void *)sta->drv_priv;
 	struct iwl_mvm_add_sta_cmd cmd = {
 		.add_modify = STA_MODE_MODIFY,
-		.sta_id = sta_id,
+		.sta_id = mvmsta->sta_id,
 		.modify_mask = STA_MODIFY_SLEEPING_STA_TX_COUNT,
 		.sleep_state_flags = cpu_to_le16(STA_SLEEP_STATE_AWAKE),
+		.mac_id_n_color = cpu_to_le32(mvmsta->mac_id_n_color),
 	};
 	int ret;
 
@@ -1184,18 +1221,21 @@ void iwl_mvm_sta_modify_ps_wake(struct iwl_mvm *mvm, int sta_id)
 		IWL_ERR(mvm, "Failed to send ADD_STA command (%d)\n", ret);
 }
 
-void iwl_mvm_sta_modify_sleep_tx_count(struct iwl_mvm *mvm, int sta_id,
+void iwl_mvm_sta_modify_sleep_tx_count(struct iwl_mvm *mvm,
+				       struct ieee80211_sta *sta,
 				       enum ieee80211_frame_release_type reason,
 				       u16 cnt)
 {
 	u16 sleep_state_flags =
 		(reason == IEEE80211_FRAME_RELEASE_UAPSD) ?
 			STA_SLEEP_STATE_UAPSD : STA_SLEEP_STATE_PS_POLL;
+	struct iwl_mvm_sta *mvmsta = (void *)sta->drv_priv;
 	struct iwl_mvm_add_sta_cmd cmd = {
 		.add_modify = STA_MODE_MODIFY,
-		.sta_id = sta_id,
+		.sta_id = mvmsta->sta_id,
 		.modify_mask = STA_MODIFY_SLEEPING_STA_TX_COUNT,
 		.sleep_tx_count = cpu_to_le16(cnt),
+		.mac_id_n_color = cpu_to_le32(mvmsta->mac_id_n_color),
 		/*
 		 * Same modify mask for sleep_tx_count and sleep_state_flags so
 		 * we must set the sleep_state_flags too.

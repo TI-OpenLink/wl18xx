@@ -1403,6 +1403,7 @@ enum {
 
 #define AGG_TX_STATUS_MSK	0x00000fff	/* bits 0:11 */
 #define AGG_TX_TRY_MSK		0x0000f000	/* bits 12:15 */
+#define AGG_TX_TRY_POS		12
 
 #define AGG_TX_STATE_LAST_SENT_MSK  (AGG_TX_STATE_LAST_SENT_TTL_MSK | \
 				     AGG_TX_STATE_LAST_SENT_TRY_CNT_MSK | \
@@ -3895,6 +3896,24 @@ struct iwlagn_wowlan_kek_kck_material_cmd {
 	__le16	kck_len;
 	__le16	kek_len;
 	__le64	replay_ctr;
+} __packed;
+
+#define RF_KILL_INDICATOR_FOR_WOWLAN	0x87
+
+/*
+ * REPLY_WOWLAN_GET_STATUS = 0xe5
+ */
+struct iwlagn_wowlan_status {
+	__le64 replay_ctr;
+	__le32 rekey_status;
+	__le32 wakeup_reason;
+	u8 pattern_number;
+	u8 reserved1;
+	__le16 qos_seq_ctr[8];
+	__le16 non_qos_seq_ctr;
+	__le16 reserved2;
+	union iwlagn_all_tsc_rsc tsc_rsc;
+	__le16 reserved3;
 } __packed;
 
 /*

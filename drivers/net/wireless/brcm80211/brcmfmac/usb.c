@@ -354,11 +354,10 @@ brcmf_usbdev_qinit(struct list_head *q, int qsize)
 	int i;
 	struct brcmf_usbreq *req, *reqs;
 
-	reqs = kzalloc(sizeof(struct brcmf_usbreq) * qsize, GFP_ATOMIC);
-	if (reqs == NULL) {
-		brcmf_err("fail to allocate memory!\n");
+	reqs = kcalloc(qsize, sizeof(struct brcmf_usbreq), GFP_ATOMIC);
+	if (reqs == NULL)
 		return NULL;
-	}
+
 	req = reqs;
 
 	for (i = 0; i < qsize; i++) {
@@ -421,10 +420,6 @@ static void brcmf_usb_tx_complete(struct urb *urb)
 	brcmf_dbg(USB, "Enter, urb->status=%d, skb=%p\n", urb->status,
 		  req->skb);
 	brcmf_usb_del_fromq(devinfo, req);
-	if (urb->status == 0)
-		devinfo->bus_pub.bus->dstats.tx_packets++;
-	else
-		devinfo->bus_pub.bus->dstats.tx_errors++;
 
 	brcmf_txcomplete(devinfo->dev, req->skb, urb->status == 0);
 
@@ -451,10 +446,7 @@ static void brcmf_usb_rx_complete(struct urb *urb)
 	req->skb = NULL;
 
 	/* zero lenght packets indicate usb "failure". Do not refill */
-	if (urb->status == 0 && urb->actual_length) {
-		devinfo->bus_pub.bus->dstats.rx_packets++;
-	} else {
-		devinfo->bus_pub.bus->dstats.rx_errors++;
+	if (urb->status != 0 || !urb->actual_length) {
 		brcmu_pkt_buf_free_skb(skb);
 		brcmf_usb_enq(devinfo, &devinfo->rx_freeq, req, NULL);
 		return;
@@ -1257,6 +1249,8 @@ static int brcmf_usb_probe_cb(struct brcmf_usbdev_info *devinfo)
 	bus->bus_priv.usb = bus_pub;
 	dev_set_drvdata(dev, bus);
 	bus->ops = &brcmf_usb_bus_ops;
+	bus->chip = bus_pub->devid;
+	bus->chiprev = bus_pub->chiprev;
 
 	/* Attach to the common driver interface */
 	ret = brcmf_attach(0, dev);

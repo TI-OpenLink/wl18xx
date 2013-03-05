@@ -65,6 +65,7 @@
 
 #include <linux/ieee80211.h>
 #include <linux/mm.h> /* for page_address */
+#include <linux/lockdep.h>
 
 #include "iwl-debug.h"
 #include "iwl-config.h"
@@ -185,19 +186,13 @@ struct iwl_rx_packet {
  * @CMD_ASYNC: Return right away and don't want for the response
  * @CMD_WANT_SKB: valid only with CMD_SYNC. The caller needs the buffer of the
  *	response. The caller needs to call iwl_free_resp when done.
- * @CMD_WANT_HCMD: The caller needs to get the HCMD that was sent in the
- *	response handler. Chunks flagged by %IWL_HCMD_DFL_NOCOPY won't be
- *	copied. The pointer passed to the response handler is in the transport
- *	ownership and don't need to be freed by the op_mode. This also means
- *	that the pointer is invalidated after the op_mode's handler returns.
  * @CMD_ON_DEMAND: This command is sent by the test mode pipe.
  */
 enum CMD_MODE {
 	CMD_SYNC		= 0,
 	CMD_ASYNC		= BIT(0),
 	CMD_WANT_SKB		= BIT(1),
-	CMD_WANT_HCMD		= BIT(2),
-	CMD_ON_DEMAND		= BIT(3),
+	CMD_ON_DEMAND		= BIT(2),
 };
 
 #define DEF_CMD_PAYLOAD_SIZE 320
@@ -216,7 +211,11 @@ struct iwl_device_cmd {
 
 #define TFD_MAX_PAYLOAD_SIZE (sizeof(struct iwl_device_cmd))
 
-#define IWL_MAX_CMD_TFDS	2
+/*
+ * number of transfer buffers (fragments) per transmit frame descriptor;
+ * this is just the driver's idea, the hardware supports 20
+ */
+#define IWL_MAX_CMD_TBS_PER_TFD	2
 
 /**
  * struct iwl_hcmd_dataflag - flag for each one of the chunks of the command
@@ -253,15 +252,15 @@ enum iwl_hcmd_dataflag {
  * @id: id of the host command
  */
 struct iwl_host_cmd {
-	const void *data[IWL_MAX_CMD_TFDS];
+	const void *data[IWL_MAX_CMD_TBS_PER_TFD];
 	struct iwl_rx_packet *resp_pkt;
 	unsigned long _rx_page_addr;
 	u32 _rx_page_order;
 	int handler_status;
 
 	u32 flags;
-	u16 len[IWL_MAX_CMD_TFDS];
-	u8 dataflags[IWL_MAX_CMD_TFDS];
+	u16 len[IWL_MAX_CMD_TBS_PER_TFD];
+	u8 dataflags[IWL_MAX_CMD_TBS_PER_TFD];
 	u8 id;
 };
 
@@ -526,6 +525,10 @@ struct iwl_trans {
 
 	struct dentry *dbgfs_dir;
 
+#ifdef CONFIG_LOCKDEP
+	struct lockdep_map sync_cmd_lockdep_map;
+#endif
+
 	/* pointer to trans specific struct */
 	/*Ensure that this pointer will always be aligned to sizeof pointer */
 	char trans_specific[0] __aligned(sizeof(void *));
@@ -602,12 +605,22 @@ static inline int iwl_trans_d3_resume(struct iwl_trans *trans,
 }
 
 static inline int iwl_trans_send_cmd(struct iwl_trans *trans,
-				struct iwl_host_cmd *cmd)
+				     struct iwl_host_cmd *cmd)
 {
+	int ret;
+
 	WARN_ONCE(trans->state != IWL_TRANS_FW_ALIVE,
 		  "%s bad state = %d", __func__, trans->state);
 
-	return trans->ops->send_cmd(trans, cmd);
+	if (!(cmd->flags & CMD_ASYNC))
+		lock_map_acquire_read(&trans->sync_cmd_lockdep_map);
+
+	ret = trans->ops->send_cmd(trans, cmd);
+
+	if (!(cmd->flags & CMD_ASYNC))
+		lock_map_release(&trans->sync_cmd_lockdep_map);
+
+	return ret;
 }
 
 static inline struct iwl_device_cmd *
@@ -790,5 +803,15 @@ iwl_trans_release_nic_access(struct iwl_trans *trans, unsigned long *flags)
 ******************************************************/
 int __must_check iwl_pci_register_driver(void);
 void iwl_pci_unregister_driver(void);
+
+static inline void trans_lockdep_init(struct iwl_trans *trans)
+{
+#ifdef CONFIG_LOCKDEP
+	static struct lock_class_key __key;
+
+	lockdep_init_map(&trans->sync_cmd_lockdep_map, "sync_cmd_lockdep_map",
+			 &__key, 0);
+#endif
+}
 
 #endif /* __iwl_trans_h__ */

@@ -536,25 +536,28 @@ static int iwl_mvm_rx_dispatch(struct iwl_op_mode *op_mode,
 
 	for (i = 0; i < ARRAY_SIZE(iwl_mvm_rx_handlers); i++) {
 		const struct iwl_rx_handlers *rx_h = &iwl_mvm_rx_handlers[i];
-		if (rx_h->cmd_id == pkt->hdr.cmd) {
-			struct iwl_async_handler_entry *entry;
-			if (!rx_h->async)
-				return rx_h->fn(mvm, rxb, cmd);
+		struct iwl_async_handler_entry *entry;
 
-			entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
-			/* we can't do much... */
-			if (!entry)
-				return 0;
+		if (rx_h->cmd_id != pkt->hdr.cmd)
+			continue;
 
-			entry->rxb._page = rxb_steal_page(rxb);
-			entry->rxb._offset = rxb->_offset;
-			entry->rxb._rx_page_order = rxb->_rx_page_order;
-			entry->fn = rx_h->fn;
-			spin_lock(&mvm->async_handlers_lock);
-			list_add_tail(&entry->list, &mvm->async_handlers_list);
-			spin_unlock(&mvm->async_handlers_lock);
-			schedule_work(&mvm->async_handlers_wk);
-		}
+		if (!rx_h->async)
+			return rx_h->fn(mvm, rxb, cmd);
+
+		entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+		/* we can't do much... */
+		if (!entry)
+			return 0;
+
+		entry->rxb._page = rxb_steal_page(rxb);
+		entry->rxb._offset = rxb->_offset;
+		entry->rxb._rx_page_order = rxb->_rx_page_order;
+		entry->fn = rx_h->fn;
+		spin_lock(&mvm->async_handlers_lock);
+		list_add_tail(&entry->list, &mvm->async_handlers_list);
+		spin_unlock(&mvm->async_handlers_lock);
+		schedule_work(&mvm->async_handlers_wk);
+		break;
 	}
 
 	return 0;
@@ -621,12 +624,8 @@ static void iwl_mvm_free_skb(struct iwl_op_mode *op_mode, struct sk_buff *skb)
 	ieee80211_free_txskb(mvm->hw, skb);
 }
 
-static void iwl_mvm_nic_error(struct iwl_op_mode *op_mode)
+static void iwl_mvm_nic_restart(struct iwl_mvm *mvm)
 {
-	struct iwl_mvm *mvm = IWL_OP_MODE_GET_MVM(op_mode);
-
-	iwl_mvm_dump_nic_error_log(mvm);
-
 	iwl_abort_notification_waits(&mvm->notif_wait);
 
 	/*
@@ -660,9 +659,21 @@ static void iwl_mvm_nic_error(struct iwl_op_mode *op_mode)
 	}
 }
 
+static void iwl_mvm_nic_error(struct iwl_op_mode *op_mode)
+{
+	struct iwl_mvm *mvm = IWL_OP_MODE_GET_MVM(op_mode);
+
+	iwl_mvm_dump_nic_error_log(mvm);
+
+	iwl_mvm_nic_restart(mvm);
+}
+
 static void iwl_mvm_cmd_queue_full(struct iwl_op_mode *op_mode)
 {
+	struct iwl_mvm *mvm = IWL_OP_MODE_GET_MVM(op_mode);
+
 	WARN_ON(1);
+	iwl_mvm_nic_restart(mvm);
 }
 
 static const struct iwl_op_mode_ops iwl_mvm_ops = {

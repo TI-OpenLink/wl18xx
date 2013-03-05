@@ -908,6 +908,12 @@ static void iwlagn_count_agg_tx_err_status(struct iwl_priv *priv, u16 status)
 	}
 }
 
+static inline u32 iwlagn_get_scd_ssn(struct iwlagn_tx_resp *tx_resp)
+{
+	return le32_to_cpup((__le32 *)&tx_resp->status +
+			    tx_resp->frame_count) & MAX_SN;
+}
+
 static void iwl_rx_reply_tx_agg(struct iwl_priv *priv,
 				struct iwlagn_tx_resp *tx_resp)
 {
@@ -942,9 +948,15 @@ static void iwl_rx_reply_tx_agg(struct iwl_priv *priv,
 	if (tx_resp->frame_count == 1)
 		return;
 
+	IWL_DEBUG_TX_REPLY(priv, "TXQ %d initial_rate 0x%x ssn %d frm_cnt %d\n",
+			   agg->txq_id,
+			   le32_to_cpu(tx_resp->rate_n_flags),
+			   iwlagn_get_scd_ssn(tx_resp), tx_resp->frame_count);
+
 	/* Construct bit-map of pending frames within Tx window */
 	for (i = 0; i < tx_resp->frame_count; i++) {
 		u16 fstatus = le16_to_cpu(frame_status[i].status);
+		u8 retry_cnt = (fstatus & AGG_TX_TRY_MSK) >> AGG_TX_TRY_POS;
 
 		if (status & AGG_TX_STATUS_MSK)
 			iwlagn_count_agg_tx_err_status(priv, fstatus);
@@ -952,6 +964,14 @@ static void iwl_rx_reply_tx_agg(struct iwl_priv *priv,
 		if (status & (AGG_TX_STATE_FEW_BYTES_MSK |
 			      AGG_TX_STATE_ABORT_MSK))
 			continue;
+
+		if (status & AGG_TX_STATUS_MSK || retry_cnt > 1)
+			IWL_DEBUG_TX_REPLY(priv,
+					   "%d: status %s (0x%04x), try-count (0x%01x)\n",
+					   i,
+					   iwl_get_agg_tx_fail_reason(fstatus),
+					   fstatus & AGG_TX_STATUS_MSK,
+					   retry_cnt);
 	}
 }
 
@@ -981,12 +1001,6 @@ const char *iwl_get_agg_tx_fail_reason(u16 status)
 	return "UNKNOWN";
 }
 #endif /* CONFIG_IWLWIFI_DEBUG */
-
-static inline u32 iwlagn_get_scd_ssn(struct iwlagn_tx_resp *tx_resp)
-{
-	return le32_to_cpup((__le32 *)&tx_resp->status +
-			    tx_resp->frame_count) & MAX_SN;
-}
 
 static void iwlagn_count_tx_err_status(struct iwl_priv *priv, u16 status)
 {
@@ -1117,10 +1131,16 @@ int iwlagn_rx_reply_tx(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb,
 	sta_id = (tx_resp->ra_tid & IWLAGN_TX_RES_RA_MSK) >>
 		IWLAGN_TX_RES_RA_POS;
 
-	spin_lock(&priv->sta_lock);
+	spin_lock_bh(&priv->sta_lock);
 
-	if (is_agg)
+	if (is_agg) {
+		WARN_ON_ONCE(sta_id >= IWLAGN_STATION_COUNT ||
+			     tid >= IWL_MAX_TID_COUNT);
+		if (txq_id != priv->tid_data[sta_id][tid].agg.txq_id)
+			IWL_ERR(priv, "txq_id mismatch: %d %d\n", txq_id,
+				priv->tid_data[sta_id][tid].agg.txq_id);
 		iwl_rx_reply_tx_agg(priv, tx_resp);
+	}
 
 	__skb_queue_head_init(&skbs);
 
@@ -1224,23 +1244,24 @@ int iwlagn_rx_reply_tx(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb,
 		 */
 		if (is_offchannel_skb && freed != 1)
 			IWL_ERR(priv, "OFFCHANNEL SKB freed %d\n", freed);
+
+		IWL_DEBUG_TX_REPLY(priv, "TXQ %d status %s (0x%08x)\n", txq_id,
+				   iwl_get_tx_fail_reason(status), status);
+
+		IWL_DEBUG_TX_REPLY(priv,
+				   "\t\t\t\tinitial_rate 0x%x retries %d, idx=%d ssn=%d seq_ctl=0x%x\n",
+				   le32_to_cpu(tx_resp->rate_n_flags),
+				   tx_resp->failure_frame,
+				   SEQ_TO_INDEX(sequence), ssn,
+				   le16_to_cpu(tx_resp->seq_ctl));
 	}
 
-	IWL_DEBUG_TX_REPLY(priv, "TXQ %d status %s (0x%08x)\n", txq_id,
-			   iwl_get_tx_fail_reason(status), status);
-
-	IWL_DEBUG_TX_REPLY(priv,
-			   "\t\t\t\tinitial_rate 0x%x retries %d, idx=%d ssn=%d seq_ctl=0x%x\n",
-			   le32_to_cpu(tx_resp->rate_n_flags),
-			   tx_resp->failure_frame, SEQ_TO_INDEX(sequence), ssn,
-			   le16_to_cpu(tx_resp->seq_ctl));
-
 	iwl_check_abort_status(priv, tx_resp->frame_count, status);
-	spin_unlock(&priv->sta_lock);
+	spin_unlock_bh(&priv->sta_lock);
 
 	while (!skb_queue_empty(&skbs)) {
 		skb = __skb_dequeue(&skbs);
-		ieee80211_tx_status(priv->hw, skb);
+		ieee80211_tx_status_ni(priv->hw, skb);
 	}
 
 	if (is_offchannel_skb)
@@ -1287,12 +1308,12 @@ int iwlagn_rx_reply_compressed_ba(struct iwl_priv *priv,
 	tid = ba_resp->tid;
 	agg = &priv->tid_data[sta_id][tid].agg;
 
-	spin_lock(&priv->sta_lock);
+	spin_lock_bh(&priv->sta_lock);
 
 	if (unlikely(!agg->wait_for_ba)) {
 		if (unlikely(ba_resp->bitmap))
 			IWL_ERR(priv, "Received BA when not expected\n");
-		spin_unlock(&priv->sta_lock);
+		spin_unlock_bh(&priv->sta_lock);
 		return 0;
 	}
 
@@ -1306,7 +1327,7 @@ int iwlagn_rx_reply_compressed_ba(struct iwl_priv *priv,
 		IWL_DEBUG_TX_QUEUES(priv,
 				    "Bad queue mapping txq_id=%d, agg_txq[sta:%d,tid:%d]=%d\n",
 				    scd_flow, sta_id, tid, agg->txq_id);
-		spin_unlock(&priv->sta_lock);
+		spin_unlock_bh(&priv->sta_lock);
 		return 0;
 	}
 
@@ -1375,11 +1396,11 @@ int iwlagn_rx_reply_compressed_ba(struct iwl_priv *priv,
 		}
 	}
 
-	spin_unlock(&priv->sta_lock);
+	spin_unlock_bh(&priv->sta_lock);
 
 	while (!skb_queue_empty(&reclaimed_skbs)) {
 		skb = __skb_dequeue(&reclaimed_skbs);
-		ieee80211_tx_status(priv->hw, skb);
+		ieee80211_tx_status_ni(priv->hw, skb);
 	}
 
 	return 0;

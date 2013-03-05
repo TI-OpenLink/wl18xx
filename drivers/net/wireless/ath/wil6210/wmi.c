@@ -338,7 +338,7 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 		if (bss) {
 			wil_dbg_wmi(wil, "Added BSS %pM\n",
 				    rx_mgmt_frame->bssid);
-			cfg80211_put_bss(bss);
+			cfg80211_put_bss(wiphy, bss);
 		} else {
 			wil_err(wil, "cfg80211_inform_bss() failed\n");
 		}
@@ -587,11 +587,9 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 		evt = kmalloc(ALIGN(offsetof(struct pending_wmi_event,
 					     event.wmi) + len, 4),
 			      GFP_KERNEL);
-		if (!evt) {
-			wil_err(wil, "kmalloc for WMI event (%d) failed\n",
-				len);
+		if (!evt)
 			return;
-		}
+
 		evt->event.hdr = hdr;
 		cmd = (void *)&evt->event.wmi;
 		wil_memcpy_fromio_32(cmd, src, len);
@@ -838,10 +836,8 @@ int wmi_set_ie(struct wil6210_priv *wil, u8 type, u16 ie_len, const void *ie)
 	int rc;
 	u16 len = sizeof(struct wmi_set_appie_cmd) + ie_len;
 	struct wmi_set_appie_cmd *cmd = kzalloc(len, GFP_KERNEL);
-	if (!cmd) {
-		wil_err(wil, "kmalloc(%d) failed\n", len);
+	if (!cmd)
 		return -ENOMEM;
-	}
 
 	cmd->mgmt_frm_type = type;
 	/* BUG: FW API define ieLen as u8. Will fix FW */
