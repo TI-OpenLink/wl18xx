@@ -269,7 +269,8 @@ struct wl1271 {
 	u32 rx_counter;
 
 	/* Intermediate buffer, used for packet aggregation */
-	u8 *aggr_buf;
+	u8 *tx_aggr_buf;
+	u8 *rx_aggr_buf;
 	u32 aggr_buf_size;
 
 	/* Reusable dummy packet template */

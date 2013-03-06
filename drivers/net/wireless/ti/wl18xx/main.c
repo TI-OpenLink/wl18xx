@@ -1399,7 +1399,7 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 		struct wl1271_tx_hw_descr *last_desc;
 
 		/* get the last TX HW descriptor written to the aggr buf */
-		last_desc = (struct wl1271_tx_hw_descr *)(wl->aggr_buf +
+		last_desc = (struct wl1271_tx_hw_descr *)(wl->tx_aggr_buf +
 							buf_offset - last_len);
 
 		/* the last frame is padded up to an SDIO block */

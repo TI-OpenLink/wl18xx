@@ -433,8 +433,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	 */
 	total_len = wlcore_calc_packet_alignment(wl, skb->len);
 
-	memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
-	memset(wl->aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);
+	memcpy(wl->tx_aggr_buf + buf_offset, skb->data, skb->len);
+	memset(wl->tx_aggr_buf + buf_offset + skb->len, 0, total_len - skb->len);
 
 	/* Revert side effects in the dummy packet skb, so it can be reused */
 	if (is_dummy)
@@ -790,7 +790,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset,
 							    last_len);
 			bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA,
-					     wl->aggr_buf, buf_offset, true);
+					wl->tx_aggr_buf, buf_offset, true);
 			if (bus_ret < 0)
 				goto out;
 
@@ -837,8 +837,8 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 out_ack:
 	if (buf_offset) {
 		buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset, last_len);
-		bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
-					     buf_offset, true);
+		bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA,
+					    wl->tx_aggr_buf, buf_offset, true);
 		if (bus_ret < 0)
 			goto out;
 

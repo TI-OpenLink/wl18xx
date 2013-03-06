@@ -248,7 +248,7 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 		if (ret < 0)
 			goto out;
 
-		ret = wlcore_read_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
+		ret = wlcore_read_data(wl, REG_SLV_MEM_DATA, wl->rx_aggr_buf,
 				       buf_size, true);
 		if (ret < 0)
 			goto out;
@@ -266,7 +266,7 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 			 * be dropped.
 			 */
 			if (wl1271_rx_handle_data(wl,
-						  wl->aggr_buf + pkt_offset,
+						  wl->rx_aggr_buf + pkt_offset,
 						  pkt_len, rx_align,
 						  &hlid) == 1) {
 				if (hlid < WL12XX_MAX_LINKS)
