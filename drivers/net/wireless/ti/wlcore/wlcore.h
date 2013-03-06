@@ -259,6 +259,7 @@ struct wl1271 {
 
 	struct work_struct tx_work;
 	struct workqueue_struct *freezable_wq;
+	struct workqueue_struct *highprio_wq;
 
 	/* Pending TX frames */
 	unsigned long tx_frames_map[BITS_TO_LONGS(WLCORE_MAX_TX_DESCRIPTORS)];
@@ -278,6 +279,17 @@ struct wl1271 {
 
 	/* Network stack work  */
 	struct work_struct netstack_work;
+
+	/* memcpy work */
+	struct work_struct memcpy_work;
+
+	/* return values from memcpy_work */
+	struct {
+		int ret;
+		u32 num_bytes;
+		u32 last_len;
+		unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
+	} tx_memcpy;
 
 	/* FW log buffer */
 	u8 *fwlog;

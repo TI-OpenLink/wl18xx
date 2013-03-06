@@ -820,6 +820,23 @@ out:
 	return ret;
 }
 
+void wlcore_memcpy_work(struct work_struct *work)
+{
+	struct wl1271 *wl =
+		container_of(work, struct wl1271, memcpy_work);
+
+	wl->tx_memcpy.ret =
+		wlcore_tx_dequeue_and_copy(wl, &wl->tx_memcpy.num_bytes,
+					   &wl->tx_memcpy.last_len,
+					   wl->tx_memcpy.active_hlids);
+}
+
+void wlcore_tx_prepare_aggr_buf(struct wl1271 *wl)
+{
+	set_bit(WL1271_FLAG_ASYNC_TX_MEMCPY, &wl->flags);
+	queue_work(wl->highprio_wq, &wl->memcpy_work);
+}
+
 /*
  * Returns failure values only in case of failed bus ops within this function.
  * wl1271_prepare_tx_frame retvals won't be returned in order to avoid
@@ -842,8 +859,18 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 		return 0;
 
 	while (1) {
-		ret = wlcore_tx_dequeue_and_copy(wl, &buf_offset, &last_len,
-						 active_hlids);
+		if (test_and_clear_bit(WL1271_FLAG_ASYNC_TX_MEMCPY,
+				       &wl->flags)) {
+			flush_work(&wl->memcpy_work);
+			ret = wl->tx_memcpy.ret;
+			buf_offset = wl->tx_memcpy.num_bytes;
+			last_len = wl->tx_memcpy.last_len;
+			memcpy(active_hlids, wl->tx_memcpy.active_hlids,
+			       sizeof(active_hlids));
+		} else {
+			ret = wlcore_tx_dequeue_and_copy(wl, &buf_offset,
+						&last_len, active_hlids);
+		}
 		if (ret != -EAGAIN) {
 			goto out_ack;
 		} else {

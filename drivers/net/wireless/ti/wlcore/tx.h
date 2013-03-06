@@ -275,6 +275,8 @@ wlcore_is_queue_stopped_by_reason_locked(struct wl1271 *wl,
 					 enum wlcore_queue_stop_reason reason);
 bool wlcore_is_queue_stopped_locked(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				    u8 queue);
+void wlcore_memcpy_work(struct work_struct *work);
+void wlcore_tx_prepare_aggr_buf(struct wl1271 *wl);
 
 /* from main.c */
 void wl1271_free_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 hlid);

@@ -601,17 +601,33 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 		}
 
 		if (likely(intr & WL1271_ACX_INTR_DATA)) {
+			bool call_tx_work = false;
+			u32 fw_rx_counter =
+			     wl->fw_status_1->fw_rx_counter % wl->num_rx_desc;
+			u32 drv_rx_counter = wl->rx_counter % wl->num_rx_desc;
+
+			/* Check if any tx blocks are free and we have packets
+			 * in our queues */
+			spin_lock_irqsave(&wl->wl_lock, flags);
+			call_tx_work =
+				!test_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags) &&
+				(wl1271_tx_total_queue_count(wl) > 0);
+			spin_unlock_irqrestore(&wl->wl_lock, flags);
+
 			wl1271_debug(DEBUG_IRQ, "WL1271_ACX_INTR_DATA");
+
+			/*
+			 * Prepare the Tx aggregation buffer in an async fashion,
+			 * during the Rx transaction.
+			 */
+			if (call_tx_work && (drv_rx_counter != fw_rx_counter))
+				wlcore_tx_prepare_aggr_buf(wl);
 
 			ret = wlcore_rx(wl, wl->fw_status_1);
 			if (ret < 0)
 				goto out;
 
-			/* Check if any tx blocks were freed */
-			spin_lock_irqsave(&wl->wl_lock, flags);
-			if (!test_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags) &&
-			    wl1271_tx_total_queue_count(wl) > 0) {
-				spin_unlock_irqrestore(&wl->wl_lock, flags);
+			if (call_tx_work) {
 				/*
 				 * In order to avoid starvation of the TX path,
 				 * call the work function directly.
@@ -619,8 +635,6 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 				ret = wlcore_tx_work_locked(wl);
 				if (ret < 0)
 					goto out;
-			} else {
-				spin_unlock_irqrestore(&wl->wl_lock, flags);
 			}
 
 			/* check for tx results */
@@ -6158,6 +6172,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 
 	INIT_DELAYED_WORK(&wl->elp_work, wl1271_elp_work);
 	INIT_WORK(&wl->netstack_work, wl1271_netstack_work);
+	INIT_WORK(&wl->memcpy_work, wlcore_memcpy_work);
 	INIT_WORK(&wl->tx_work, wl1271_tx_work);
 	INIT_WORK(&wl->recovery_work, wl1271_recovery_work);
 	INIT_DELAYED_WORK(&wl->scan_complete_work, wl1271_scan_complete_work);
@@ -6168,6 +6183,13 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 	if (!wl->freezable_wq) {
 		ret = -ENOMEM;
 		goto err_hw;
+	}
+
+	wl->highprio_wq = alloc_workqueue("wlcore_memcpy_wq",
+					  WQ_HIGHPRI | WQ_MEM_RECLAIM, 1);
+	if (!wl->highprio_wq) {
+		ret = -ENOMEM;
+		goto err_freezable_wq;
 	}
 
 	wl->channel = WL1271_DEFAULT_CHANNEL;
@@ -6214,7 +6236,7 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 	wl->rx_aggr_buf = (u8 *)__get_free_pages(GFP_KERNEL, order);
 	if (!wl->tx_aggr_buf || !wl->rx_aggr_buf) {
 		ret = -ENOMEM;
-		goto err_wq;
+		goto err_highprio_wq;
 	}
 	wl->aggr_buf_size = aggr_buf_size;
 
@@ -6266,12 +6288,16 @@ err_aggr:
 	free_pages((unsigned long)wl->rx_aggr_buf, order);
 	free_pages((unsigned long)wl->tx_aggr_buf, order);
 
-err_wq:
+err_highprio_wq:
+	destroy_workqueue(wl->highprio_wq);
+
 #ifdef CONFIG_HAS_WAKELOCK
 	wake_lock_destroy(&wl->wake_lock);
 	wake_lock_destroy(&wl->rx_wake);
 	wake_lock_destroy(&wl->recovery_wake);
 #endif
+
+err_freezable_wq:
 	destroy_workqueue(wl->freezable_wq);
 
 err_hw:
@@ -6323,6 +6349,7 @@ int wlcore_free_hw(struct wl1271 *wl)
 	kfree(wl->fw_status_1);
 	kfree(wl->tx_res_if);
 	destroy_workqueue(wl->freezable_wq);
+	destroy_workqueue(wl->highprio_wq);
 
 	kfree(wl->priv);
 	ieee80211_free_hw(wl->hw);
