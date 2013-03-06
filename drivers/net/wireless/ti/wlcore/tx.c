@@ -741,31 +741,23 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	}
 }
 
-/*
- * Returns failure values only in case of failed bus ops within this function.
- * wl1271_prepare_tx_frame retvals won't be returned in order to avoid
- * triggering recovery by higher layers when not necessary.
- * In case a FW command fails within wl1271_prepare_tx_frame fails a recovery
- * will be queued in wl1271_cmd_send. -EAGAIN/-EBUSY from prepare_tx_frame
- * can occur and are legitimate so don't propagate. -EINVAL will emit a WARNING
- * within prepare_tx_frame code but there's nothing we should do about those
- * as well.
- */
-int wlcore_tx_work_locked(struct wl1271 *wl)
+static int wlcore_tx_dequeue_and_copy(struct wl1271 *wl,
+				      u32 *num_bytes, u32 *last_len,
+				      unsigned long *active_hlids)
 {
 	struct wl12xx_vif *wlvif;
 	struct sk_buff *skb;
 	struct wl1271_tx_hw_descr *desc;
-	u32 buf_offset = 0, last_len = 0;
-	bool sent_packets = false;
 	int n_aggr_packets = 0;
-	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
 	int ret = 0;
-	int bus_ret = 0;
 	u8 hlid;
 
-	if (unlikely(wl->state != WLCORE_STATE_ON))
-		return 0;
+	*num_bytes = 0;
+	memset(active_hlids, 0, BITS_TO_LONGS(WL12XX_MAX_LINKS));
+
+	/* should be dealt with in tx_work_locked */
+	if (WARN_ON_ONCE(wl->state != WLCORE_STATE_ON))
+		return -EINVAL;
 
 	while ((skb = wl1271_skb_dequeue(wl, &hlid))) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -778,7 +770,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			hlid = wl->system_hlid;
 
 		has_data = wlvif && wl1271_tx_is_data_present(skb);
-		ret = wl1271_prepare_tx_frame(wl, wlvif, skb, buf_offset,
+		ret = wl1271_prepare_tx_frame(wl, wlvif, skb, *num_bytes,
 					      hlid);
 		if (ret == -EAGAIN) {
 			/*
@@ -786,18 +778,8 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			 * Flush buffer and try again.
 			 */
 			wl1271_skb_queue_head(wl, wlvif, skb, hlid);
-
-			buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset,
-							    last_len);
-			bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA,
-					wl->tx_aggr_buf, buf_offset, true);
-			if (bus_ret < 0)
-				goto out;
-
-			sent_packets = true;
-			buf_offset = 0;
 			wl->aggr_pkts_reason[n_aggr_packets].buffer_full++;
-			continue;
+			goto out;
 		} else if (ret == -EBUSY) {
 			/*
 			 * Firmware buffer is full.
@@ -807,7 +789,7 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			/* No work left, avoid scheduling redundant tx work */
 			set_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags);
 			wl->aggr_pkts_reason[n_aggr_packets].fw_buffer_full++;
-			goto out_ack;
+			goto out;
 		} else if (ret < 0) {
 			if (wl12xx_is_dummy_packet(wl, skb))
 				/*
@@ -818,10 +800,10 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 			else
 				ieee80211_free_txskb(wl->hw, skb);
 			wl->aggr_pkts_reason[n_aggr_packets].other++;
-			goto out_ack;
+			goto out;
 		}
-		last_len = ret;
-		buf_offset += last_len;
+		*last_len = ret;
+		*num_bytes += *last_len;
 		wl->tx_packets_count++;
 		if (n_aggr_packets < wl->aggr_pkts_reason_num - 1)
 			n_aggr_packets++;
@@ -831,8 +813,52 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 		}
 	}
 
-	if (buf_offset)
+	if (*num_bytes)
 		wl->aggr_pkts_reason[n_aggr_packets].no_data++;
+
+out:
+	return ret;
+}
+
+/*
+ * Returns failure values only in case of failed bus ops within this function.
+ * wl1271_prepare_tx_frame retvals won't be returned in order to avoid
+ * triggering recovery by higher layers when not necessary.
+ * In case a FW command fails within wl1271_prepare_tx_frame fails a recovery
+ * will be queued in wl1271_cmd_send. -EAGAIN/-EBUSY from prepare_tx_frame
+ * can occur and are legitimate so don't propagate. -EINVAL will emit a WARNING
+ * within prepare_tx_frame code but there's nothing we should do about those
+ * as well.
+ */
+int wlcore_tx_work_locked(struct wl1271 *wl)
+{
+	u32 buf_offset = 0, last_len = 0;
+	bool sent_packets = false;
+	unsigned long active_hlids[BITS_TO_LONGS(WL12XX_MAX_LINKS)] = {0};
+	int ret = 0;
+	int bus_ret = 0;
+
+	if (unlikely(wl->state != WLCORE_STATE_ON))
+		return 0;
+
+	while (1) {
+		ret = wlcore_tx_dequeue_and_copy(wl, &buf_offset, &last_len,
+						 active_hlids);
+		if (ret != -EAGAIN) {
+			goto out_ack;
+		} else {
+			/* aggr buffer is full */
+			buf_offset = wlcore_hw_pre_pkt_send(wl, buf_offset,
+							    last_len);
+			bus_ret = wlcore_write_data(wl, REG_SLV_MEM_DATA,
+					wl->tx_aggr_buf, buf_offset, true);
+			if (bus_ret < 0)
+				goto out;
+
+			sent_packets = true;
+			buf_offset = 0;
+		}
+	}
 
 out_ack:
 	if (buf_offset) {
