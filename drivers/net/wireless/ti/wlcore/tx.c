@@ -861,7 +861,11 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	while (1) {
 		if (test_and_clear_bit(WL1271_FLAG_ASYNC_TX_MEMCPY,
 				       &wl->flags)) {
-			flush_work(&wl->memcpy_work);
+			if (flush_work(&wl->memcpy_work))
+				wl->wait_memcpy++;
+			else
+				wl->nowait_memcpy++;
+
 			ret = wl->tx_memcpy.ret;
 			buf_offset = wl->tx_memcpy.num_bytes;
 			last_len = wl->tx_memcpy.last_len;
@@ -870,7 +874,9 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 		} else {
 			ret = wlcore_tx_dequeue_and_copy(wl, &buf_offset,
 						&last_len, active_hlids);
+			wl->sync_memcpy++;
 		}
+		wl->total_memcpy++;
 		if (ret != -EAGAIN) {
 			goto out_ack;
 		} else {

@@ -742,6 +742,12 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_STR(chip.fw_ver_str);
 	DRIVER_STATE_PRINT_STR(chip.phy_fw_ver_str);
 	DRIVER_STATE_PRINT_INT(recovery_count);
+	DRIVER_STATE_PRINT_INT(sync_memcpy);
+	DRIVER_STATE_PRINT_INT(total_memcpy);
+	DRIVER_STATE_PRINT_INT(wait_memcpy);
+	DRIVER_STATE_PRINT_INT(nowait_memcpy);
+	DRIVER_STATE_PRINT_INT(total_rx);
+	DRIVER_STATE_PRINT_INT(total_norx);
 
 #undef DRIVER_STATE_PRINT_INT
 #undef DRIVER_STATE_PRINT_LONG

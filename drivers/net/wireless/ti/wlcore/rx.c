@@ -222,6 +222,11 @@ int wlcore_rx(struct wl1271 *wl, struct wl_fw_status_1 *status)
 	int ret = 0;
 	int orig_cnt = wl->rx_counter, diff;
 
+	if (drv_rx_counter != fw_rx_counter)
+		wl->total_rx++;
+	else
+		wl->total_norx++;
+
 	while (drv_rx_counter != fw_rx_counter) {
 		buf_size = 0;
 		rx_counter = drv_rx_counter;

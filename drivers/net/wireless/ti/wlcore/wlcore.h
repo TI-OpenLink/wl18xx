@@ -483,6 +483,13 @@ struct wl1271 {
 
 	u32 irq_count;
 	u32 irq_loop_count;
+
+	u32 sync_memcpy;
+	u32 wait_memcpy;
+	u32 nowait_memcpy;
+	u32 total_memcpy;
+	u32 total_rx;
+	u32 total_norx;
 };
 
 int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
