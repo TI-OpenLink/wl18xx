@@ -83,9 +83,6 @@ void wl18xx_tx_immediate_complete(struct wl1271 *wl)
 		wl->tx_results_count++;
 	}
 
-	/* queue work to complete all packets */
-	queue_work(wl->freezable_wq, &wl->netstack_work);
-
 	diff = wl->tx_results_count - orig_cnt;
 	if (diff > 32) {
 		wl1271_error("invalid Tx completed packets %d\n", diff);

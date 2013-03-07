@@ -642,11 +642,18 @@ static int wlcore_irq_locked(struct wl1271 *wl)
 			if (ret < 0)
 				goto out;
 
-			/* Make sure the deferred queues don't get too long */
+			/*
+			 * Make sure the deferred queues don't get too long,
+			 * otherwise push up all Rx and free Tx completed
+			 * packets
+			 */
 			defer_count = skb_queue_len(&wl->deferred_tx_queue) +
 				      skb_queue_len(&wl->deferred_rx_queue);
 			if (defer_count > WL1271_DEFERRED_QUEUE_LIMIT)
 				wl1271_flush_deferred_work(wl);
+			else if (defer_count)
+				queue_work(wl->freezable_wq, &wl->netstack_work);
+
 		}
 
 		if (intr & WL1271_ACX_INTR_EVENT_A) {
