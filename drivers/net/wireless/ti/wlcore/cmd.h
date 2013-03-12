@@ -174,6 +174,9 @@ enum wl1271_commands {
 
 	/* start of 18xx specific commands */
 	CMD_DFS_CHANNEL_CONFIG		= 60,
+	CMD_SMART_CONFIG_START		= 61,
+	CMD_SMART_CONFIG_STOP		= 62,
+	CMD_SMART_CONFIG_SET_GROUP_KEY	= 63,
 
 	MAX_COMMAND_ID = 0xFFFF,
 };
@@ -643,6 +646,20 @@ struct wl12xx_cmd_regdomain_dfs_config {
 
 	__le32 ch_bit_map1;
 	__le32 ch_bit_map2;
+} __packed;
+
+struct wl18xx_cmd_smart_config_start {
+	struct wl1271_cmd_header header;
+
+	__le32 group_id_bitmask;
+} __packed;
+
+struct wl18xx_cmd_smart_config_set_group_key {
+	struct wl1271_cmd_header header;
+
+	__le32 group_id;
+
+	u8 key[16];
 } __packed;
 
 struct wl12xx_cmd_config_fwlog {

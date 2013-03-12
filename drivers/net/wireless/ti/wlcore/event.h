@@ -106,6 +106,18 @@ struct event_mailbox {
 	u8 rx_ba_win_size;
 	u8 padding;
 
+	/* smart config */
+	u8 sc_ssid_len;
+	u8 sc_pwd_len;
+	u8 sc_token_len;
+	u8 padding1;
+	u8 sc_ssid[32];
+	u8 sc_pwd[32];
+	u8 sc_token[32];
+
+	/* smart config sync channel */
+	u8 sc_sync_channel;
+	u8 padding2[3];
 #if 0
 	__le32 events_mask;
 	__le32 reserved_1;
