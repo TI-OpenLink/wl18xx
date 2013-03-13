@@ -1187,7 +1187,7 @@ static int wl18xx_get_pg_ver(struct wl1271 *wl, s8 *ver)
 	if (rdl_ver > RDL_MAX)
 		rdl_ver = RDL_NONE;
 
-	wl1271_info("wl18xx HW: RDL %d, %s, PG %x.%x (ROM %x)",
+	wl1271_info("wl18xx HW: RDL %d, %s, PG %x.%x (ROM 0x%x)",
 		    rdl_ver, rdl_names[rdl_ver], pg_ver, metal, rom);
 
 	if (ver)
