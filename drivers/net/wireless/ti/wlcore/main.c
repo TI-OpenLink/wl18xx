@@ -3858,7 +3858,7 @@ static int wl1271_ap_set_probe_resp_tmpl(struct wl1271 *wl, u32 rates,
 
 	skb = ieee80211_proberesp_get(wl->hw, vif);
 	if (!skb)
-		return -EOPNOTSUPP;
+		return -ENOENT;
 
 	ret = wl1271_cmd_template_set(wl, wlvif->role_id,
 				      CMD_TEMPL_AP_PROBE_RESPONSE,
@@ -3992,7 +3992,7 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
 	u16 tmpl_id;
 
 	if (!beacon) {
-		ret = -EINVAL;
+		ret = -ENOENT;
 		goto out;
 	}
 
@@ -4128,11 +4128,11 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 			goto out;
 
 		ret = wl1271_ap_set_probe_resp_tmpl(wl, wlvif->basic_rate, vif);
-		if (ret < 0)
+		if (ret < 0 && ret != -ENOENT)
 			goto out;
 
 		ret = wlcore_set_beacon_template(wl, vif, true);
-		if (ret < 0)
+		if (ret < 0 && ret != -ENOENT)
 			goto out;
 	}
 
