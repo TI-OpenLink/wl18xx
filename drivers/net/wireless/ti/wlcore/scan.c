@@ -157,17 +157,7 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 		    /* if radar is set, we ignore the passive flag */
 		    (radar ||
 		     !!(flags & IEEE80211_CHAN_PASSIVE_SCAN) == passive)) {
-			wl1271_debug(DEBUG_SCAN, "band %d, center_freq %d ",
-				     req_channels[i]->band,
-				     req_channels[i]->center_freq);
-			wl1271_debug(DEBUG_SCAN, "hw_value %d, flags %X",
-				     req_channels[i]->hw_value,
-				     req_channels[i]->flags);
-			wl1271_debug(DEBUG_SCAN, "max_power %d",
-				     req_channels[i]->max_power);
-			wl1271_debug(DEBUG_SCAN, "min_dwell_time %d max dwell time %d",
-				     min_dwell_time_active,
-				     max_dwell_time_active);
+
 
 			if (flags & IEEE80211_CHAN_RADAR) {
 				channels[j].flags |= SCAN_CHANNEL_FLAGS_DFS;
@@ -186,6 +176,18 @@ wlcore_scan_get_channels(struct wl1271 *wl,
 
 			channels[j].tx_power_att = req_channels[i]->max_power;
 			channels[j].channel = req_channels[i]->hw_value;
+
+			wl1271_debug(DEBUG_SCAN, "freq %04d, ch. %03d, "
+				"flags 0x%02X, power %02d, "
+				"min/max_dwell %02d/%02d%s%s",
+				req_channels[i]->center_freq,
+				req_channels[i]->hw_value,
+				req_channels[i]->flags,
+				req_channels[i]->max_power,
+				min_dwell_time_active, max_dwell_time_active,
+				flags & IEEE80211_CHAN_RADAR ? ", DFS" : "",
+				flags & IEEE80211_CHAN_PASSIVE_SCAN ?
+				", PASSIVE" : "");
 #if 0
 			if ((band == IEEE80211_BAND_2GHZ) &&
 			    (channels[j].channel >= 12) &&
@@ -313,6 +315,8 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 	else
 		cmd->role_id = wlvif->role_id;
 
+	wl1271_debug(DEBUG_SCAN, "normal scan role_id %d", cmd->role_id);
+
 	if (WARN_ON(cmd->role_id == WL12XX_INVALID_ROLE_ID)) {
 		ret = -EINVAL;
 		goto out;
@@ -389,8 +393,6 @@ static int wl1271_scan_send(struct wl1271 *wl, struct ieee80211_vif *vif,
 			goto out;
 		}
 	}
-
-	wl1271_dump(DEBUG_SCAN, "SCAN: ", cmd, sizeof(*cmd));
 
 	ret = wl1271_cmd_send(wl, CMD_SCAN, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
@@ -484,7 +486,7 @@ wl12xx_scan_set_ssid_list(struct wl1271 *wl,
 	struct cfg80211_ssid *ssids = req->ssids;
 	int ret = 0, type, i, j, n_match_ssids = 0;
 
-	wl1271_debug(DEBUG_CMD, "cmd scan ssid list");
+	wl1271_debug((DEBUG_CMD | DEBUG_SCAN), "cmd scan ssid list");
 
 	/* count the match sets that contain SSIDs */
 	for (i = 0; i < req->n_match_sets; i++)
@@ -561,8 +563,6 @@ wl12xx_scan_set_ssid_list(struct wl1271 *wl,
 		}
 	}
 
-	wl1271_dump(DEBUG_SCAN, "SSID_LIST: ", cmd, sizeof(*cmd));
-
 	ret = wl1271_cmd_send(wl, CMD_CONNECTION_SCAN_SSID_CFG, cmd,
 			      sizeof(*cmd), 0);
 	if (ret < 0) {
@@ -589,7 +589,7 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 	int ret;
 	int filter_type;
 
-	wl1271_debug(DEBUG_CMD, "cmd sched_scan scan config");
+	wl1271_debug((DEBUG_CMD | DEBUG_SCAN), "cmd sched_scan scan config");
 
 	if (req->n_short_intervals > SCAN_MAX_SHORT_INTERVALS) {
 		wl1271_warning("Number of short intervals requested (%d)"
@@ -685,8 +685,6 @@ int wl1271_scan_sched_scan_config(struct wl1271 *wl,
 			goto out;
 		}
 	}
-
-	wl1271_dump(DEBUG_SCAN, "SCAN: ", cmd, sizeof(*cmd));
 
 	wl1271_info("scan size: %d", sizeof(*cmd));
 	ret = wl1271_cmd_send(wl, CMD_SCAN, cmd, sizeof(*cmd), 0);
