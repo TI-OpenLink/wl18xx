@@ -913,6 +913,17 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	sdata->vif.bss_conf.basic_rates = ieee80211_get_basic_rates(sdata);
 	changed |= BSS_CHANGED_BASIC_RATES;
 
+	/*
+	 * The following check is done in ieee80211_change_bss as well,
+	 * but since it usually get called before the ap channel was set,
+	 * call it here as well.
+	 */
+	if (!sdata->vif.bss_conf.use_short_slot &&
+	    sdata->vif.bss_conf.channel->band == IEEE80211_BAND_5GHZ) {
+		sdata->vif.bss_conf.use_short_slot = true;
+		changed |= BSS_CHANGED_ERP_SLOT;
+	}
+
 	ieee80211_bss_info_change_notify(sdata, changed);
 
 	netif_carrier_on(dev);
