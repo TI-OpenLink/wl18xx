@@ -21,6 +21,7 @@
  *
  */
 
+#include <net/genetlink.h>
 #include "wlcore.h"
 #include "debug.h"
 #include "io.h"
@@ -28,6 +29,7 @@
 #include "ps.h"
 #include "scan.h"
 #include "wl12xx_80211.h"
+#include "testmode.h"
 
 static void wl1271_event_rssi_trigger(struct wl1271 *wl,
 				      struct wl12xx_vif *wlvif,
@@ -74,6 +76,66 @@ static void wl1271_stop_ba_event(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		}
 	}
 }
+
+#ifdef CONFIG_NL80211_TESTMODE
+static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel)
+{
+	struct sk_buff *skb;
+	int freq = ieee80211_channel_to_frequency(sync_channel,
+						  IEEE80211_BAND_2GHZ);
+	wl1271_debug(DEBUG_EVENT,
+		     "SMART_CONFIG_SYNC_EVENT_ID, freq: %d (chan: %d)",
+		     freq, sync_channel);
+	skb = cfg80211_testmode_alloc_event_skb(wl->hw->wiphy, 20, GFP_KERNEL);
+
+	if (nla_put_u8(skb, WL1271_TM_ATTR_SMART_CONFIG_EVENT,
+		       WLCORE_TM_SC_EVENT_SYNC) ||
+	    nla_put_u32(skb, WL1271_TM_ATTR_FREQ, freq)) {
+		kfree_skb(skb);
+		return -EMSGSIZE;
+	}
+	cfg80211_testmode_event(skb, GFP_KERNEL);
+	return 0;
+}
+
+static int wlcore_smart_config_decode_event(struct wl1271 *wl,
+					    u8 ssid_len, u8 *ssid,
+					    u8 pwd_len, u8 *pwd)
+{
+	struct sk_buff *skb;
+
+	wl1271_debug(DEBUG_EVENT, "SMART_CONFIG_DECODE_EVENT_ID");
+	wl1271_dump_ascii(DEBUG_EVENT, "SSID:", ssid, ssid_len);
+	wl1271_dump_ascii(DEBUG_EVENT, "PWD:",pwd, pwd_len);
+
+	skb = cfg80211_testmode_alloc_event_skb(wl->hw->wiphy,
+			ssid_len + pwd_len + 20, GFP_KERNEL);
+
+	if (nla_put_u8(skb, WL1271_TM_ATTR_SMART_CONFIG_EVENT,
+		       WLCORE_TM_SC_EVENT_DECODE) ||
+	    nla_put(skb, WL1271_TM_ATTR_SSID, ssid_len, ssid) ||
+	    nla_put(skb, WL1271_TM_ATTR_PSK, pwd_len, pwd)) {
+		kfree_skb(skb);
+		return -EMSGSIZE;
+	}
+	cfg80211_testmode_event(skb, GFP_KERNEL);
+	return 0;
+}
+#else
+static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel)
+{
+	wl1271_error("got SMART_CONFIG event, but CONFIG_NL80211_TESTMODE is not configured!");
+	return -EINVAL;
+}
+
+static int wlcore_smart_config_decode_event(struct wl1271 *wl,
+					    u8 ssid_len, u8 *ssid,
+					    u8 pwd_len, u8 *pwd)
+{
+	wl1271_error("got SMART_CONFIG event, but CONFIG_NL80211_TESTMODE is not configured!");
+	return -EINVAL;
+}
+#endif
 
 static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
 {
@@ -313,6 +375,16 @@ out_event:
 			     "REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID");
 		ieee80211_ready_on_channel(wl->hw);
 	}
+
+	if (vector & SMART_CONFIG_SYNC_EVENT_ID)
+		wlcore_smart_config_sync_event(wl, mbox->sc_sync_channel);
+
+	if (vector & SMART_CONFIG_DECODE_EVENT_ID)
+		wlcore_smart_config_decode_event(wl,
+						 mbox->sc_ssid_len,
+						 mbox->sc_ssid,
+						 mbox->sc_pwd_len,
+						 mbox->sc_pwd);
 
 	if (disconnect_sta) {
 		u32 num_packets = wl->conf.tx.max_tx_retries;
