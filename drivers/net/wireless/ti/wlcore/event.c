@@ -21,6 +21,7 @@
  *
  */
 
+#include <net/genetlink.h>
 #include "wlcore.h"
 #include "debug.h"
 #include "io.h"
@@ -28,6 +29,7 @@
 #include "ps.h"
 #include "scan.h"
 #include "wl12xx_80211.h"
+#include "testmode.h"
 
 static void wl1271_event_rssi_trigger(struct wl1271 *wl,
 				      struct wl12xx_vif *wlvif,
@@ -312,6 +314,60 @@ out_event:
 		wl1271_debug(DEBUG_EVENT,
 			     "REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID");
 		ieee80211_ready_on_channel(wl->hw);
+	}
+
+	if (vector & SMART_CONFIG_SYNC_EVENT_ID) {
+		struct sk_buff __maybe_unused *skb;
+		int freq = ieee80211_channel_to_frequency(
+				mbox->sc_sync_channel, IEEE80211_BAND_2GHZ);
+
+		wl1271_debug(DEBUG_EVENT,
+			     "SMART_CONFIG_SYNC_EVENT_ID, freq: %d (chan: %d)",
+			     freq, mbox->sc_sync_channel);
+#ifdef CONFIG_NL80211_TESTMODE
+		skb = cfg80211_testmode_alloc_event_skb(wl->hw->wiphy,
+							20, GFP_KERNEL);
+
+		if (nla_put_u8(skb, WL1271_TM_ATTR_SMART_CONFIG_EVENT,
+			       WLCORE_TM_SC_EVENT_SYNC) ||
+		    nla_put_u32(skb, WL1271_TM_ATTR_FREQ, freq)) {
+			kfree_skb(skb);
+			ret = -EMSGSIZE;
+			return ret;
+		}
+		cfg80211_testmode_event(skb, GFP_KERNEL);
+#else
+		wl1271_error("got SMART_CONFIG event, but CONFIG_NL80211_TESTMODE is not configured!");
+#endif
+	}
+
+	if (vector & SMART_CONFIG_DECODE_EVENT_ID) {
+		struct sk_buff __maybe_unused *skb;
+
+		wl1271_debug(DEBUG_EVENT, "SMART_CONFIG_DECODE_EVENT_ID");
+		wl1271_dump_ascii(DEBUG_EVENT, "SSID:",
+				  mbox->sc_ssid, mbox->sc_ssid_len);
+		wl1271_dump_ascii(DEBUG_EVENT, "PWD:",
+				  mbox->sc_pwd, mbox->sc_pwd_len);
+
+#ifdef CONFIG_NL80211_TESTMODE
+		skb = cfg80211_testmode_alloc_event_skb(wl->hw->wiphy,
+				mbox->sc_ssid_len + mbox->sc_pwd_len + 20,
+				GFP_KERNEL);
+
+		if (nla_put_u8(skb, WL1271_TM_ATTR_SMART_CONFIG_EVENT,
+			       WLCORE_TM_SC_EVENT_DECODE) ||
+		    nla_put(skb, WL1271_TM_ATTR_SSID,
+			    mbox->sc_ssid_len, mbox->sc_ssid) ||
+		    nla_put(skb, WL1271_TM_ATTR_PSK,
+			    mbox->sc_pwd_len, mbox->sc_pwd)) {
+			kfree_skb(skb);
+			return -EMSGSIZE;
+		}
+		cfg80211_testmode_event(skb, GFP_KERNEL);
+#else
+		wl1271_error("got SMART_CONFIG event, but CONFIG_NL80211_TESTMODE is not configured!");
+#endif
 	}
 
 	if (disconnect_sta) {

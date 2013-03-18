@@ -520,7 +520,9 @@ int wlcore_boot_run_firmware(struct wl1271 *wl)
 		INACTIVE_STA_EVENT_ID |
 		MAX_TX_FAILURE_EVENT_ID |
 		CHANNEL_SWITCH_COMPLETE_EVENT_ID |
-		RX_BA_WIN_SIZE_CHANGE_EVENT_ID;
+		RX_BA_WIN_SIZE_CHANGE_EVENT_ID |
+		SMART_CONFIG_SYNC_EVENT_ID |
+		SMART_CONFIG_DECODE_EVENT_ID;
 
 	/* unmask specific family mbox events  */
 	wl->event_mask |= wl->chip_family_event_mask;
