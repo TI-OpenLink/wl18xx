@@ -332,6 +332,64 @@ out:
 	return ret;
 }
 
+static int wlcore_tm_cmd_smart_config_start(struct wl1271 *wl,
+					    struct nlattr *tb[])
+{
+	int ret;
+
+	wl1271_debug(DEBUG_CMD, "testmode cmd smart config start");
+
+	if (!tb[WL1271_TM_ATTR_GROUP_ID])
+		return -EINVAL;
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_cmd_smart_config_start(wl,
+			nla_get_u32(tb[WL1271_TM_ATTR_GROUP_ID]));
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return ret;
+}
+
+static int wlcore_tm_cmd_smart_config_stop(struct wl1271 *wl,
+					   struct nlattr *tb[])
+{
+	int ret;
+
+	wl1271_debug(DEBUG_CMD, "testmode cmd smart config stop");
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = wl1271_ps_elp_wakeup(wl);
+	if (ret < 0)
+		goto out;
+
+	ret = wlcore_cmd_smart_config_stop(wl);
+
+	wl1271_ps_elp_sleep(wl);
+out:
+	mutex_unlock(&wl->mutex);
+
+	return ret;
+}
+
 int wl1271_tm_cmd(struct ieee80211_hw *hw, void *data, int len)
 {
 	struct wl1271 *wl = hw->priv;
@@ -364,6 +422,10 @@ int wl1271_tm_cmd(struct ieee80211_hw *hw, void *data, int len)
 		return wl1271_tm_cmd_set_plt_mode(wl, tb);
 	case WL1271_TM_CMD_GET_MAC:
 		return wl12xx_tm_cmd_get_mac(wl, tb);
+	case WL1271_TM_CMD_SMART_CONFIG_START:
+		return wlcore_tm_cmd_smart_config_start(wl, tb);
+	case WL1271_TM_CMD_SMART_CONFIG_STOP:
+		return wlcore_tm_cmd_smart_config_stop(wl, tb);
 	default:
 		return -EOPNOTSUPP;
 	}
