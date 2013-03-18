@@ -62,5 +62,6 @@ struct wl18xx_cmd_smart_config_set_group_key {
 int wl18xx_cmd_channel_switch(struct wl1271 *wl,
 			      struct wl12xx_vif *wlvif,
 			      struct ieee80211_channel_switch *ch_switch);
-
+int wl18xx_cmd_smart_config_start(struct wl1271 *wl, u32 group_bitmap);
+int wl18xx_cmd_smart_config_stop(struct wl1271 *wl);
 #endif
