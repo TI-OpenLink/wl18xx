@@ -92,6 +92,8 @@ int wl12xx_cmd_remove_peer(struct wl1271 *wl, u8 hlid);
 void wlcore_set_pending_regdomain_ch(struct wl1271 *wl, u16 channel,
 				     enum ieee80211_band band);
 int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl);
+int wlcore_cmd_smart_config_start(struct wl1271 *wl, u32 group_bitmap);
+int wlcore_cmd_smart_config_stop(struct wl1271 *wl);
 int wl12xx_cmd_config_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_start_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
