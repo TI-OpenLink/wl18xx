@@ -939,6 +939,7 @@ struct ieee80211_local {
 	 * via ieee80211_queue_work()
 	 */
 	struct workqueue_struct *workqueue;
+	struct workqueue_struct *freezable_workqueue;
 
 	unsigned long queue_stop_reasons[IEEE80211_MAX_QUEUES];
 	/* also used to protect ampdu_ac_queue and amdpu_ac_stop_refcnt */
