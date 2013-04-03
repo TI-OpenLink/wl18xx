@@ -223,18 +223,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 		goto done;
 	}
 
-	/* handle ethernet header */
-	eh = (struct ethhdr *)(skb->data);
-	if (is_multicast_ether_addr(eh->h_dest))
-		drvr->tx_multicast++;
-	if (ntohs(eh->h_proto) == ETH_P_PAE)
-		atomic_inc(&ifp->pend_8021x_cnt);
-
-	/* If the protocol uses a data header, apply it */
-	brcmf_proto_hdrpush(drvr, ifp->ifidx, 0, skb);
-
-	/* Use bus module to send data frame */
-	ret =  brcmf_bus_txdata(drvr->bus_if, skb);
+	ret = brcmf_fws_process_skb(ifp, skb);
 
 done:
 	if (ret) {
@@ -248,9 +237,27 @@ done:
 	return NETDEV_TX_OK;
 }
 
+void brcmf_txflowblock_if(struct brcmf_if *ifp,
+			  enum brcmf_netif_stop_reason reason, bool state)
+{
+	if (!ifp)
+		return;
+
+	brcmf_dbg(TRACE, "enter: idx=%d stop=0x%X reason=%d state=%d\n",
+		  ifp->bssidx, ifp->netif_stop, reason, state);
+	if (state) {
+		if (!ifp->netif_stop)
+			netif_stop_queue(ifp->ndev);
+		ifp->netif_stop |= reason;
+	} else {
+		ifp->netif_stop &= ~reason;
+		if (!ifp->netif_stop)
+			netif_wake_queue(ifp->ndev);
+	}
+}
+
 void brcmf_txflowblock(struct device *dev, bool state)
 {
-	struct net_device *ndev;
 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
 	struct brcmf_pub *drvr = bus_if->drvr;
 	int i;
@@ -258,13 +265,8 @@ void brcmf_txflowblock(struct device *dev, bool state)
 	brcmf_dbg(TRACE, "Enter\n");
 
 	for (i = 0; i < BRCMF_MAX_IFS; i++)
-		if (drvr->iflist[i]) {
-			ndev = drvr->iflist[i]->ndev;
-			if (state)
-				netif_stop_queue(ndev);
-			else
-				netif_wake_queue(ndev);
-		}
+		brcmf_txflowblock_if(drvr->iflist[i],
+				     BRCMF_NETIF_STOP_REASON_BLOCK_BUS, state);
 }
 
 void brcmf_rx_frames(struct device *dev, struct sk_buff_head *skb_list)
@@ -350,14 +352,13 @@ void brcmf_rx_frames(struct device *dev, struct sk_buff_head *skb_list)
 	}
 }
 
-void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
+void brcmf_txfinalize(struct brcmf_pub *drvr, struct sk_buff *txp,
+		      bool success)
 {
-	u8 ifidx;
-	struct ethhdr *eh;
-	u16 type;
-	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
-	struct brcmf_pub *drvr = bus_if->drvr;
 	struct brcmf_if *ifp;
+	struct ethhdr *eh;
+	u8 ifidx;
+	u16 type;
 	int res;
 
 	res = brcmf_proto_hdrpull(drvr, false, &ifidx, txp);
@@ -378,9 +379,22 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
 	}
 	if (!success)
 		ifp->stats.tx_errors++;
-
 done:
 	brcmu_pkt_buf_free_skb(txp);
+}
+
+void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
+{
+	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+	struct brcmf_pub *drvr = bus_if->drvr;
+
+	/* await txstatus signal for firmware if active */
+	if (brcmf_fws_fc_active(drvr->fws)) {
+		if (!success)
+			brcmf_fws_bustxfail(drvr->fws, txp);
+	} else {
+		brcmf_txfinalize(drvr, txp, success);
+	}
 }
 
 static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
@@ -755,7 +769,6 @@ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bssidx, s32 ifidx,
 	ifp->ifidx = ifidx;
 	ifp->bssidx = bssidx;
 
-
 	init_waitqueue_head(&ifp->pend_8021x_wait);
 
 	if (mac_addr != NULL)
@@ -882,6 +895,7 @@ int brcmf_bus_start(struct device *dev)
 
 	drvr->fw_signals = true;
 	(void)brcmf_fws_init(drvr);
+	brcmf_fws_add_interface(ifp);
 
 	drvr->config = brcmf_cfg80211_attach(drvr, bus_if->dev);
 	if (drvr->config == NULL) {
@@ -899,8 +913,10 @@ fail:
 		brcmf_err("failed: %d\n", ret);
 		if (drvr->config)
 			brcmf_cfg80211_detach(drvr->config);
-		if (drvr->fws)
+		if (drvr->fws) {
+			brcmf_fws_del_interface(ifp);
 			brcmf_fws_deinit(drvr);
+		}
 		free_netdev(ifp->ndev);
 		drvr->iflist[0] = NULL;
 		if (p2p_ifp) {
@@ -956,16 +972,17 @@ void brcmf_detach(struct device *dev)
 
 	/* make sure primary interface removed last */
 	for (i = BRCMF_MAX_IFS-1; i > -1; i--)
-		if (drvr->iflist[i])
+		if (drvr->iflist[i]) {
+			brcmf_fws_del_interface(drvr->iflist[i]);
 			brcmf_del_if(drvr, i);
+		}
 
 	brcmf_bus_detach(drvr);
 
 	if (drvr->prot)
 		brcmf_proto_detach(drvr);
 
-	if (drvr->fws)
-		brcmf_fws_deinit(drvr);
+	brcmf_fws_deinit(drvr);
 
 	brcmf_debugfs_detach(drvr);
 	bus_if->drvr = NULL;
