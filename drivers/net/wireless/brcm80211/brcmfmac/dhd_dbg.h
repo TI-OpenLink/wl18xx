@@ -93,6 +93,7 @@ do {								\
 
 #define brcmf_dbg_hex_dump(test, data, len, fmt, ...)			\
 do {									\
+	trace_brcmf_hexdump((void *)data, len);				\
 	if (test)							\
 		brcmu_dbg_hex_dump(data, len, fmt, ##__VA_ARGS__);	\
 } while (0)
@@ -144,6 +145,10 @@ struct brcmf_fws_stats {
 	u32 fifo_credits_back[6];
 	u32 generic_error;
 	u32 mac_update_failed;
+	u32 mac_ps_update_failed;
+	u32 if_update_failed;
+	u32 packet_request_failed;
+	u32 credit_request_failed;
 	u32 rollback_success;
 	u32 rollback_failed;
 	u32 delayq_full_error;
