@@ -1226,15 +1226,46 @@ static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 	}
 }
 
+static const char *wl18xx_rdl_name(enum wl18xx_rdl_num rdl_num)
+{
+	switch (rdl_num) {
+	case RDL_1_HP:
+	    return "RDL 1, 1853 SISO";
+	case RDL_2_SP:
+	    return "RDL 2, 1857 MIMO";
+	case RDL_3_HP:
+	    return "RDL 3, 1893 SISO";
+	case RDL_4_SP:
+	    return "RDL 4, 1897 MIMO";
+	case RDL_5_SP:
+	    return "RDL 5, 1803 SISO";
+	case RDL_6_SP:
+	    return "RDL 6, 1807 MIMO";
+	case RDL_7_SP:
+	    return "RDL 7, 1893Q SISO";
+	case RDL_8_SP:
+	    return "RDL 8, 1897Q MIMO";
+	default:
+	    return "UNTRIMMED";
+	}
+}
+
 static int wl18xx_get_pg_ver(struct wl1271 *wl, s8 *ver)
 {
 	u32 fuse;
-	s8 rom = 0, metal = 0, pg_ver = 0, rdl_ver = 0;
+	s8 rom = 0, metal = 0, pg_ver = 0, rdl_ver = 0, package_type = 0;
 	int ret;
 
 	ret = wlcore_set_partition(wl, &wl->ptable[PART_TOP_PRCM_ELP_SOC]);
 	if (ret < 0)
 		goto out;
+
+	ret = wlcore_read32(wl, WL18XX_REG_FUSE_DATA_2_3, &fuse);
+	if (ret < 0)
+		goto out;
+
+	package_type = (fuse & WL18XX_PACKAGE_TYPE_MASK) >>
+		       WL18XX_PACKAGE_TYPE_OFFSET;
 
 	ret = wlcore_read32(wl, WL18XX_REG_FUSE_DATA_1_3, &fuse);
 	if (ret < 0)
@@ -1243,7 +1274,7 @@ static int wl18xx_get_pg_ver(struct wl1271 *wl, s8 *ver)
 	pg_ver = (fuse & WL18XX_PG_VER_MASK) >> WL18XX_PG_VER_OFFSET;
 	rom = (fuse & WL18XX_ROM_VER_MASK) >> WL18XX_ROM_VER_OFFSET;
 
-	if (rom <= 0xE)
+	if ((rom <= 0xE) && (package_type == WL18XX_PACKAGE_TYPE_WSP))
 		metal = (fuse & WL18XX_METAL_VER_MASK) >>
 			WL18XX_METAL_VER_OFFSET;
 	else
@@ -1255,11 +1286,9 @@ static int wl18xx_get_pg_ver(struct wl1271 *wl, s8 *ver)
 		goto out;
 
 	rdl_ver = (fuse & WL18XX_RDL_VER_MASK) >> WL18XX_RDL_VER_OFFSET;
-	if (rdl_ver > RDL_MAX)
-		rdl_ver = RDL_NONE;
 
-	wl1271_info("wl18xx HW: RDL %d, %s, PG %x.%x (ROM 0x%x)",
-		    rdl_ver, rdl_names[rdl_ver], pg_ver, metal, rom);
+	wl1271_info("wl18xx HW: %s, PG %d.%d (ROM 0x%x)",
+		    wl18xx_rdl_name(rdl_ver), pg_ver, metal, rom);
 
 	if (ver)
 		*ver = pg_ver;
