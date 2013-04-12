@@ -31,8 +31,11 @@
 #include "dhd_dbg.h"
 #include "dhd_bus.h"
 #include "fwil.h"
+#include "fwil_types.h"
 #include "fweh.h"
 #include "fwsignal.h"
+#include "p2p.h"
+#include "wl_cfg80211.h"
 
 /**
  * DOC: Firmware Signalling
@@ -678,28 +681,28 @@ brcmf_fws_mac_descriptor_lookup(struct brcmf_fws_info *fws, u8 *ea)
 }
 
 static struct brcmf_fws_mac_descriptor*
-brcmf_fws_find_mac_desc(struct brcmf_fws_info *fws, int ifidx, u8 *da)
+brcmf_fws_find_mac_desc(struct brcmf_fws_info *fws, struct brcmf_if *ifp,
+			u8 *da)
 {
 	struct brcmf_fws_mac_descriptor *entry = &fws->desc.other;
-	struct brcmf_if *ifp;
 	bool multicast;
+	enum nl80211_iftype iftype;
 
-	brcmf_dbg(TRACE, "enter: ifidx=%d\n", ifidx);
+	brcmf_dbg(TRACE, "enter: idx=%d\n", ifp->bssidx);
 
 	multicast = is_multicast_ether_addr(da);
-	ifp = fws->drvr->iflist[ifidx ? ifidx + 1 : 0];
-	if (WARN_ON(!ifp))
-		goto done;
+	iftype = brcmf_cfg80211_get_iftype(ifp);
 
 	/* Multicast destination and P2P clients get the interface entry.
 	 * STA gets the interface entry if there is no exact match. For
 	 * example, TDLS destinations have their own entry.
 	 */
 	entry = NULL;
-	if (multicast && ifp->fws_desc)
+	if ((multicast || iftype == NL80211_IFTYPE_STATION ||
+	     iftype == NL80211_IFTYPE_P2P_CLIENT) && ifp->fws_desc)
 		entry = ifp->fws_desc;
 
-	if (entry != NULL && multicast)
+	if (entry != NULL && iftype != NL80211_IFTYPE_STATION)
 		goto done;
 
 	entry = brcmf_fws_mac_descriptor_lookup(fws, da);
@@ -711,26 +714,19 @@ done:
 	return entry;
 }
 
-static bool brcmf_fws_mac_desc_ready(struct brcmf_fws_mac_descriptor *entry,
-				     int fifo)
+static bool brcmf_fws_mac_desc_closed(struct brcmf_fws_mac_descriptor *entry,
+				      int fifo)
 {
-	bool ready;
+	bool closed;
 
-	/*
-	 * destination entry is ready when firmware says it is OPEN
-	 * and there are no packets enqueued for it.
+	/* an entry is closed when the state is closed and
+	 * the firmware did not request anything.
 	 */
-	ready = entry->state == BRCMF_FWS_STATE_OPEN &&
-		!entry->suppressed &&
-		brcmu_pktq_mlen(&entry->psq, 3 << (fifo * 2)) == 0;
+	closed = entry->state == BRCMF_FWS_STATE_CLOSE &&
+		 !entry->requested_credit && !entry->requested_packet;
 
-	/*
-	 * Or when the destination entry is CLOSED, but firmware has
-	 * specifically requested packets for this entry.
-	 */
-	ready = ready || (entry->state == BRCMF_FWS_STATE_CLOSE &&
-		(entry->requested_credit + entry->requested_packet));
-	return ready;
+	/* Or firmware does not allow traffic for given fifo */
+	return closed || !(entry->ac_bitmap & BIT(fifo));
 }
 
 static void brcmf_fws_mac_desc_cleanup(struct brcmf_fws_info *fws,
@@ -1083,7 +1079,7 @@ static struct sk_buff *brcmf_fws_deq(struct brcmf_fws_info *fws, int fifo)
 
 	for (i = 0; i < num_nodes; i++) {
 		entry = &table[(node_pos + i) % num_nodes];
-		if (!entry->occupied)
+		if (!entry->occupied || brcmf_fws_mac_desc_closed(entry, fifo))
 			continue;
 
 		if (entry->suppressed)
@@ -1722,7 +1718,6 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 	struct brcmf_skbuff_cb *skcb = brcmf_skbcb(skb);
 	struct ethhdr *eh = (struct ethhdr *)(skb->data);
 	ulong flags;
-	u8 ifidx = ifp->ifidx;
 	int fifo = BRCMF_FWS_FIFO_BCMC;
 	bool multicast = is_multicast_ether_addr(eh->h_dest);
 
@@ -1736,7 +1731,7 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 
 	if (!brcmf_fws_fc_active(drvr->fws)) {
 		/* If the protocol uses a data header, apply it */
-		brcmf_proto_hdrpush(drvr, ifidx, 0, skb);
+		brcmf_proto_hdrpush(drvr, ifp->ifidx, 0, skb);
 
 		/* Use bus module to send data frame */
 		return brcmf_bus_txdata(drvr->bus_if, skb);
@@ -1744,9 +1739,9 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 
 	/* set control buffer information */
 	skcb->if_flags = 0;
-	skcb->mac = brcmf_fws_find_mac_desc(drvr->fws, ifidx, eh->h_dest);
+	skcb->mac = brcmf_fws_find_mac_desc(drvr->fws, ifp, eh->h_dest);
 	skcb->state = BRCMF_FWS_SKBSTATE_NEW;
-	brcmf_skb_if_flags_set_field(skb, INDEX, ifidx);
+	brcmf_skb_if_flags_set_field(skb, INDEX, ifp->ifidx);
 	if (!multicast)
 		fifo = brcmf_fws_prio2fifo[skb->priority];
 	brcmf_skb_if_flags_set_field(skb, FIFO, fifo);
@@ -1755,7 +1750,9 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 		  multicast, fifo);
 
 	brcmf_fws_lock(drvr, flags);
-	if (!brcmf_fws_mac_desc_ready(skcb->mac, fifo) ||
+	if (skcb->mac->suppressed ||
+	    brcmf_fws_mac_desc_closed(skcb->mac, fifo) ||
+	    brcmu_pktq_mlen(&skcb->mac->psq, 3 << (fifo * 2)) ||
 	    (!multicast &&
 	     brcmf_fws_consume_credit(drvr->fws, fifo, skb) < 0)) {
 		/* enqueue the packet in delayQ */
