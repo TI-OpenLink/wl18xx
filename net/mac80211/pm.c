@@ -135,6 +135,29 @@ int __ieee80211_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 		ieee80211_bss_info_change_notify(sdata,
 			BSS_CHANGED_BEACON_ENABLED);
 
+		/* notify disassoc, in order to cause a proper cleanup. */
+		if (sdata->vif.bss_conf.assoc) {
+			const u8 zero[ETH_ALEN] = { 0 };
+			struct ieee80211_bss_conf backup_conf;
+
+			/* save the current bss_conf, and restore it later */
+			backup_conf = sdata->vif.bss_conf;
+
+			sdata->vif.bss_conf.assoc = false;
+			sdata->vif.bss_conf.bssid = zero;
+
+			/*
+			 * call the drv callback directly in order to avoid
+			 * overriding bss_conf->bssid (by
+			 * ieee80211_bss_info_change_notify)(
+			 */
+			drv_bss_info_changed(local, sdata,
+					&sdata->vif.bss_conf,
+					BSS_CHANGED_ASSOC | BSS_CHANGED_BSSID);
+
+			sdata->vif.bss_conf = backup_conf;
+		}
+
 		drv_remove_interface(local, sdata);
 	}
 
