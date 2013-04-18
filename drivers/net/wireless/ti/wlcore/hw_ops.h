@@ -268,4 +268,14 @@ wlcore_smart_config_stop(struct wl1271 *wl)
 
 	return wl->ops->smart_config_stop(wl);
 }
+
+static inline int
+wlcore_smart_config_set_group_key(struct wl1271 *wl, u16 group_id,
+				  u8 key_len, u8 *key)
+{
+	if (!wl->ops->smart_config_set_group_key)
+		return -EINVAL;
+
+	return wl->ops->smart_config_set_group_key(wl, group_id, key_len, key);
+}
 #endif
