@@ -84,7 +84,7 @@ static void rt2800pci_mcu_status(struct rt2x00_dev *rt2x00dev, const u8 token)
 	}
 
 	if (i == 200)
-		ERROR(rt2x00dev, "MCU request failed, no response from hardware\n");
+		rt2x00_err(rt2x00dev, "MCU request failed, no response from hardware\n");
 
 	rt2x00mmio_register_write(rt2x00dev, H2M_MAILBOX_STATUS, ~0);
 	rt2x00mmio_register_write(rt2x00dev, H2M_MAILBOX_CID, ~0);
@@ -616,8 +616,8 @@ static int rt2800pci_set_device_state(struct rt2x00_dev *rt2x00dev,
 	}
 
 	if (unlikely(retval))
-		ERROR(rt2x00dev, "Device failed to enter state %d (%d).\n",
-		      state, retval);
+		rt2x00_err(rt2x00dev, "Device failed to enter state %d (%d)\n",
+			   state, retval);
 
 	return retval;
 }
@@ -735,11 +735,6 @@ static void rt2800pci_fill_rxdone(struct queue_entry *entry,
 	 * Process the RXWI structure that is at the start of the buffer.
 	 */
 	rt2800_process_rxwi(entry, rxdesc);
-
-	/*
-	 * Remove RXWI descriptor from start of buffer.
-	 */
-	skb_pull(entry->skb, RXWI_DESC_SIZE);
 }
 
 /*
@@ -848,8 +843,8 @@ static bool rt2800pci_txdone(struct rt2x00_dev *rt2x00dev)
 			 * Unknown queue, this shouldn't happen. Just drop
 			 * this tx status.
 			 */
-			WARNING(rt2x00dev, "Got TX status report with "
-					   "unexpected pid %u, dropping\n", qid);
+			rt2x00_warn(rt2x00dev, "Got TX status report with unexpected pid %u, dropping\n",
+				    qid);
 			break;
 		}
 
@@ -859,8 +854,8 @@ static bool rt2800pci_txdone(struct rt2x00_dev *rt2x00dev)
 			 * The queue is NULL, this shouldn't happen. Stop
 			 * processing here and drop the tx status
 			 */
-			WARNING(rt2x00dev, "Got TX status for an unavailable "
-					   "queue %u, dropping\n", qid);
+			rt2x00_warn(rt2x00dev, "Got TX status for an unavailable queue %u, dropping\n",
+				    qid);
 			break;
 		}
 
@@ -869,8 +864,8 @@ static bool rt2800pci_txdone(struct rt2x00_dev *rt2x00dev)
 			 * The queue is empty. Stop processing here
 			 * and drop the tx status.
 			 */
-			WARNING(rt2x00dev, "Got TX status for an empty "
-					   "queue %u, dropping\n", qid);
+			rt2x00_warn(rt2x00dev, "Got TX status for an empty queue %u, dropping\n",
+				    qid);
 			break;
 		}
 
@@ -888,9 +883,8 @@ static bool rt2800pci_txdone(struct rt2x00_dev *rt2x00dev)
 			if (!rt2x00queue_for_each_entry(queue, Q_INDEX_DONE,
 							Q_INDEX, &status,
 							rt2800pci_txdone_match_first)) {
-				WARNING(rt2x00dev, "No frame found for TX "
-						   "status on queue %u, dropping\n",
-						   qid);
+				rt2x00_warn(rt2x00dev, "No frame found for TX status on queue %u, dropping\n",
+					    qid);
 				break;
 			}
 		}
@@ -1027,8 +1021,7 @@ static void rt2800pci_txstatus_interrupt(struct rt2x00_dev *rt2x00dev)
 			break;
 
 		if (!kfifo_put(&rt2x00dev->txstatus_fifo, &status)) {
-			WARNING(rt2x00dev, "TX status FIFO overrun,"
-				"drop tx status report.\n");
+			rt2x00_warn(rt2x00dev, "TX status FIFO overrun, drop tx status report\n");
 			break;
 		}
 	}
@@ -1197,6 +1190,7 @@ static const struct data_queue_desc rt2800pci_queue_rx = {
 	.entry_num		= 128,
 	.data_size		= AGGREGATION_SIZE,
 	.desc_size		= RXD_DESC_SIZE,
+	.winfo_size		= RXWI_DESC_SIZE,
 	.priv_size		= sizeof(struct queue_entry_priv_mmio),
 };
 
@@ -1204,13 +1198,15 @@ static const struct data_queue_desc rt2800pci_queue_tx = {
 	.entry_num		= 64,
 	.data_size		= AGGREGATION_SIZE,
 	.desc_size		= TXD_DESC_SIZE,
+	.winfo_size		= TXWI_DESC_SIZE,
 	.priv_size		= sizeof(struct queue_entry_priv_mmio),
 };
 
 static const struct data_queue_desc rt2800pci_queue_bcn = {
 	.entry_num		= 8,
 	.data_size		= 0, /* No DMA required for beacons */
-	.desc_size		= TXWI_DESC_SIZE,
+	.desc_size		= TXD_DESC_SIZE,
+	.winfo_size		= TXWI_DESC_SIZE,
 	.priv_size		= sizeof(struct queue_entry_priv_mmio),
 };
 
