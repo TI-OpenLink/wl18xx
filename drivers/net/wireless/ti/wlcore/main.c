@@ -6386,7 +6386,7 @@ static void wlcore_nvs_cb(const struct firmware *fw, void *context)
 	wlcore_adjust_conf(wl);
 
 	wl->irq = platform_get_irq(pdev, 0);
-	wl->platform_quirks = pdata->platform_quirks;
+	wl->platform_quirks = pdata->platform_quirks | WL12XX_PLATFORM_QUIRK_EDGE_IRQ;
 	wl->if_ops = pdev_data->if_ops;
 
 	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ) {
