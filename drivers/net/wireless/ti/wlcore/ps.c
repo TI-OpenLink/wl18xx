@@ -28,7 +28,7 @@
 
 #define WL1271_WAKEUP_TIMEOUT 500
 
-#define ELP_ENTRY_DELAY  30
+#define ELP_ENTRY_DELAY  500
 #define ELP_ENTRY_DELAY_FORCE_PS  5
 
 void wl1271_elp_work(struct work_struct *work)
