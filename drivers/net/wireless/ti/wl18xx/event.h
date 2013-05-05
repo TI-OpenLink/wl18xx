@@ -38,6 +38,7 @@ enum {
 	REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID      = BIT(18),
 	DFS_CHANNELS_CONFIG_COMPLETE_EVENT       = BIT(19),
 	PERIODIC_SCAN_REPORT_EVENT_ID            = BIT(20),
+	RX_BA_WIN_SIZE_CHANGE_EVENT_ID           = BIT(21),
 };
 
 struct wl18xx_event_mailbox {
@@ -68,6 +69,13 @@ struct wl18xx_event_mailbox {
 
 	/* bitmap of inactive stations (by HLID) */
 	__le32 inactive_sta_bitmap;
+
+	/* rx BA win size indicated by RX_BA_WIN_SIZE_CHANGE_EVENT_ID */
+	u8 rx_ba_role_id;
+	u8 rx_ba_link_id;
+	u8 rx_ba_win_size;
+	u8 padding;
+
 } __packed;
 
 int wl18xx_wait_for_event(struct wl1271 *wl, enum wlcore_wait_event event,
