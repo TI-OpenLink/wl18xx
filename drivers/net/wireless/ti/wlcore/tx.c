@@ -438,7 +438,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	struct ieee80211_tx_info *info;
 	u32 extra = 0;
 	int ret = 0;
-	u32 total_len, data_len;
+	u32 total_len;
 	bool is_dummy;
 	bool is_gem = false;
 
@@ -479,9 +479,7 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		is_gem = (cipher == WL1271_CIPHER_SUITE_GEM);
 	}
 
-	data_len = skb->len + sizeof(struct wl1271_tx_hw_descr) + extra;
-
-	ret = wl1271_tx_allocate(wl, wlvif, skb, data_len, buf_offset, hlid, is_gem);
+	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid, is_gem);
 	if (ret < 0)
 		return ret;
 
