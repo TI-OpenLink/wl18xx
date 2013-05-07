@@ -92,23 +92,14 @@ int bt_sock_register(int proto, const struct net_proto_family *ops)
 }
 EXPORT_SYMBOL(bt_sock_register);
 
-int bt_sock_unregister(int proto)
+void bt_sock_unregister(int proto)
 {
-	int err = 0;
-
 	if (proto < 0 || proto >= BT_MAX_PROTO)
-		return -EINVAL;
+		return;
 
 	write_lock(&bt_proto_lock);
-
-	if (!bt_proto[proto])
-		err = -ENOENT;
-	else
-		bt_proto[proto] = NULL;
-
+	bt_proto[proto] = NULL;
 	write_unlock(&bt_proto_lock);
-
-	return err;
 }
 EXPORT_SYMBOL(bt_sock_unregister);
 
@@ -230,14 +221,14 @@ int bt_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 	if (flags & (MSG_OOB))
 		return -EOPNOTSUPP;
 
+	msg->msg_namelen = 0;
+
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb) {
 		if (sk->sk_shutdown & RCV_SHUTDOWN)
 			return 0;
 		return err;
 	}
-
-	msg->msg_namelen = 0;
 
 	copied = skb->len;
 	if (len < copied) {

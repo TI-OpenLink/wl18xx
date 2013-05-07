@@ -699,10 +699,8 @@ out_free:
 static int
 ieee80211_mesh_rebuild_beacon(struct ieee80211_if_mesh *ifmsh)
 {
-	struct ieee80211_sub_if_data *sdata;
 	struct beacon_data *old_bcn;
 	int ret;
-	sdata = container_of(ifmsh, struct ieee80211_sub_if_data, u.mesh);
 
 	mutex_lock(&ifmsh->mtx);
 
@@ -833,15 +831,14 @@ ieee80211_mesh_rx_probe_req(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_mgmt *hdr;
 	struct ieee802_11_elems elems;
 	size_t baselen;
-	u8 *pos, *end;
+	u8 *pos;
 
-	end = ((u8 *) mgmt) + len;
 	pos = mgmt->u.probe_req.variable;
 	baselen = (u8 *) pos - (u8 *) mgmt;
 	if (baselen > len)
 		return;
 
-	ieee802_11_parse_elems(pos, len - baselen, &elems);
+	ieee802_11_parse_elems(pos, len - baselen, false, &elems);
 
 	/* 802.11-2012 10.1.4.3.2 */
 	if ((!ether_addr_equal(mgmt->da, sdata->vif.addr) &&
@@ -902,7 +899,7 @@ static void ieee80211_mesh_rx_bcn_presp(struct ieee80211_sub_if_data *sdata,
 		return;
 
 	ieee802_11_parse_elems(mgmt->u.probe_resp.variable, len - baselen,
-			       &elems);
+			       false, &elems);
 
 	/* ignore non-mesh or secure / unsecure mismatch */
 	if ((!elems.mesh_id || !elems.mesh_config) ||
@@ -910,7 +907,7 @@ static void ieee80211_mesh_rx_bcn_presp(struct ieee80211_sub_if_data *sdata,
 	    (!elems.rsn && sdata->u.mesh.security != IEEE80211_MESH_SEC_NONE))
 		return;
 
-	if (elems.ds_params && elems.ds_params_len == 1)
+	if (elems.ds_params)
 		freq = ieee80211_channel_to_frequency(elems.ds_params[0], band);
 	else
 		freq = rx_status->freq;
@@ -1007,7 +1004,8 @@ void ieee80211_mesh_notify_scan_completed(struct ieee80211_local *local)
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(sdata, &local->interfaces, list)
-		if (ieee80211_vif_is_mesh(&sdata->vif))
+		if (ieee80211_vif_is_mesh(&sdata->vif) &&
+		    ieee80211_sdata_running(sdata))
 			ieee80211_queue_work(&local->hw, &sdata->work);
 	rcu_read_unlock();
 }

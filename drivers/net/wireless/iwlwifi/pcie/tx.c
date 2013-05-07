@@ -1063,7 +1063,7 @@ void iwl_trans_pcie_txq_enable(struct iwl_trans *trans, int txq_id, int fifo,
 		iwl_set_bits_prph(trans, SCD_QUEUECHAIN_SEL, BIT(txq_id));
 
 	/* If this queue is mapped to a certain station: it is an AGG queue */
-	if (sta_id != IWL_INVALID_STATION) {
+	if (sta_id >= 0) {
 		u16 ra_tid = BUILD_RAxTID(sta_id, tid);
 
 		/* Map receiver-address / traffic-ID to this queue */
@@ -1264,7 +1264,7 @@ static int iwl_pcie_enqueue_hcmd(struct iwl_trans *trans,
 	for (i = 0; i < IWL_MAX_CMD_TBS_PER_TFD; i++) {
 		int copy = 0;
 
-		if (!cmd->len)
+		if (!cmd->len[i])
 			continue;
 
 		/* need at least IWL_HCMD_SCRATCHBUF_SIZE copied */
@@ -1566,8 +1566,11 @@ int iwl_trans_pcie_send_hcmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
 	if (test_bit(STATUS_FW_ERROR, &trans_pcie->status))
 		return -EIO;
 
-	if (test_bit(STATUS_RFKILL, &trans_pcie->status))
+	if (test_bit(STATUS_RFKILL, &trans_pcie->status)) {
+		IWL_DEBUG_RF_KILL(trans, "Dropping CMD 0x%x: RF KILL\n",
+				  cmd->id);
 		return -ERFKILL;
+	}
 
 	if (cmd->flags & CMD_ASYNC)
 		return iwl_pcie_send_hcmd_async(trans, cmd);

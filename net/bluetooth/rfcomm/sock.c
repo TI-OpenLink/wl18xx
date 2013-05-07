@@ -608,6 +608,7 @@ static int rfcomm_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	if (test_and_clear_bit(RFCOMM_DEFER_SETUP, &d->flags)) {
 		rfcomm_dlc_accept(d);
+		msg->msg_namelen = 0;
 		return 0;
 	}
 
@@ -1065,8 +1066,7 @@ void __exit rfcomm_cleanup_sockets(void)
 
 	debugfs_remove(rfcomm_sock_debugfs);
 
-	if (bt_sock_unregister(BTPROTO_RFCOMM) < 0)
-		BT_ERR("RFCOMM socket layer unregistration failed");
+	bt_sock_unregister(BTPROTO_RFCOMM);
 
 	proto_unregister(&rfcomm_proto);
 }

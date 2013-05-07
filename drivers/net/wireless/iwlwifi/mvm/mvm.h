@@ -90,10 +90,6 @@ enum iwl_mvm_tx_fifo {
 	IWL_MVM_TX_FIFO_VO,
 };
 
-/* Placeholder */
-#define IWL_OFFCHANNEL_QUEUE 8
-#define IWL_FIRST_AMPDU_QUEUE 11
-
 extern struct ieee80211_ops iwl_mvm_hw_ops;
 /**
  * struct iwl_mvm_mod_params - module parameters for iwlmvm
@@ -161,6 +157,8 @@ enum iwl_power_scheme {
  * @uploaded: indicates the MAC context has been added to the device
  * @ap_active: indicates that ap context is configured, and that the interface
  *  should get quota etc.
+ * @monitor_active: indicates that monitor context is configured, and that the
+ * interface should get quota etc.
  * @queue_params: QoS params for this MAC
  * @bcast_sta: station used for broadcast packets. Used by the following
  *  vifs: P2P_DEVICE, GO and AP.
@@ -173,6 +171,7 @@ struct iwl_mvm_vif {
 
 	bool uploaded;
 	bool ap_active;
+	bool monitor_active;
 
 	u32 ap_beacon_time;
 
@@ -213,6 +212,7 @@ struct iwl_mvm_vif {
 
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 	struct dentry *dbgfs_dir;
+	struct dentry *dbgfs_slink;
 	void *dbgfs_data;
 #endif
 };
@@ -281,10 +281,7 @@ struct iwl_mvm {
 	atomic_t queue_stop_count[IWL_MAX_HW_QUEUES];
 
 	struct iwl_nvm_data *nvm_data;
-	/* eeprom blob for debugfs/testmode */
-	u8 *eeprom_blob;
-	size_t eeprom_blob_size;
-	/* NVM sections for 7000 family */
+	/* NVM sections */
 	struct iwl_nvm_section nvm_sections[NVM_NUM_OF_SECTIONS];
 
 	/* EEPROM MAC addresses */
@@ -325,6 +322,13 @@ struct iwl_mvm {
 	 * can hold 16 keys at most. Reflect this fact.
 	 */
 	unsigned long fw_key_table[BITS_TO_LONGS(STA_KEY_MAX_NUM)];
+
+	/*
+	 * This counter of created interfaces is referenced only in conjunction
+	 * with FW limitation related to power management. Currently PM is
+	 * supported only on a single interface.
+	 * IMPORTANT: this variable counts all interfaces except P2P device.
+	 */
 	u8 vif_count;
 
 	struct led_classdev led;
@@ -451,6 +455,9 @@ u32 iwl_mvm_mac_get_queues_mask(struct iwl_mvm *mvm,
 				struct ieee80211_vif *vif);
 int iwl_mvm_mac_ctxt_beacon_changed(struct iwl_mvm *mvm,
 				    struct ieee80211_vif *vif);
+int iwl_mvm_rx_beacon_notif(struct iwl_mvm *mvm,
+			    struct iwl_rx_cmd_buffer *rxb,
+			    struct iwl_device_cmd *cmd);
 
 /* Bindings */
 int iwl_mvm_binding_add_vif(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
@@ -472,15 +479,21 @@ void iwl_mvm_cancel_scan(struct iwl_mvm *mvm);
 /* MVM debugfs */
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 int iwl_mvm_dbgfs_register(struct iwl_mvm *mvm, struct dentry *dbgfs_dir);
-int iwl_mvm_vif_dbgfs_register(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
-			       struct dentry *dbgfs_dir);
-void iwl_power_get_params(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
-			  struct iwl_powertable_cmd *cmd);
+void iwl_mvm_vif_dbgfs_register(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
+void iwl_mvm_vif_dbgfs_clean(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
 #else
 static inline int iwl_mvm_dbgfs_register(struct iwl_mvm *mvm,
 					 struct dentry *dbgfs_dir)
 {
 	return 0;
+}
+static inline void
+iwl_mvm_vif_dbgfs_register(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
+{
+}
+static inline void
+iwl_mvm_vif_dbgfs_clean(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
+{
 }
 #endif /* CONFIG_IWLWIFI_DEBUGFS */
 
@@ -491,6 +504,8 @@ int iwl_mvm_send_lq_cmd(struct iwl_mvm *mvm, struct iwl_lq_cmd *lq,
 /* power managment */
 int iwl_mvm_power_update_mode(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
 int iwl_mvm_power_disable(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
+void iwl_mvm_power_build_cmd(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
+			     struct iwl_powertable_cmd *cmd);
 
 int iwl_mvm_leds_init(struct iwl_mvm *mvm);
 void iwl_mvm_leds_exit(struct iwl_mvm *mvm);
@@ -514,5 +529,8 @@ int iwl_send_bt_init_conf(struct iwl_mvm *mvm);
 int iwl_mvm_rx_bt_coex_notif(struct iwl_mvm *mvm,
 			     struct iwl_rx_cmd_buffer *rxb,
 			     struct iwl_device_cmd *cmd);
+void iwl_mvm_bt_rssi_event(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
+			   enum ieee80211_rssi_event rssi_event);
+void iwl_mvm_bt_coex_vif_assoc(struct iwl_mvm *mvm, struct ieee80211_vif *vif);
 
 #endif /* __IWL_MVM_H__ */

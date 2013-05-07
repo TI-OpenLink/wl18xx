@@ -196,7 +196,7 @@ u32 iwl_mvm_mac_get_queues_mask(struct iwl_mvm *mvm,
 	u32 qmask, ac;
 
 	if (vif->type == NL80211_IFTYPE_P2P_DEVICE)
-		return BIT(IWL_OFFCHANNEL_QUEUE);
+		return BIT(IWL_MVM_OFFCHANNEL_QUEUE);
 
 	qmask = (vif->cab_queue != IEEE80211_INVAL_HW_QUEUE) ?
 		BIT(vif->cab_queue) : 0;
@@ -669,6 +669,7 @@ static int iwl_mvm_mac_ctxt_cmd_p2p_client(struct iwl_mvm *mvm,
 					   u32 action)
 {
 	struct iwl_mac_ctx_cmd cmd = {};
+	struct ieee80211_p2p_noa_attr *noa = &vif->bss_conf.p2p_noa_attr;
 
 	WARN_ON(vif->type != NL80211_IFTYPE_STATION || !vif->p2p);
 
@@ -678,7 +679,8 @@ static int iwl_mvm_mac_ctxt_cmd_p2p_client(struct iwl_mvm *mvm,
 	/* Fill the data specific for station mode */
 	iwl_mvm_mac_ctxt_cmd_fill_sta(mvm, vif, &cmd.p2p_sta.sta);
 
-	cmd.p2p_sta.ctwin = cpu_to_le32(vif->bss_conf.p2p_ctwindow);
+	cmd.p2p_sta.ctwin = cpu_to_le32(noa->oppps_ctwindow &
+					IEEE80211_P2P_OPPPS_CTWINDOW_MASK);
 
 	return iwl_mvm_mac_ctxt_send_cmd(mvm, &cmd);
 }
@@ -692,7 +694,12 @@ static int iwl_mvm_mac_ctxt_cmd_listener(struct iwl_mvm *mvm,
 	WARN_ON(vif->type != NL80211_IFTYPE_MONITOR);
 
 	iwl_mvm_mac_ctxt_cmd_common(mvm, vif, &cmd, action);
-	/* No other data to be filled */
+
+	cmd.filter_flags = cpu_to_le32(MAC_FILTER_IN_PROMISC |
+				       MAC_FILTER_IN_CONTROL_AND_MGMT |
+				       MAC_FILTER_IN_BEACON |
+				       MAC_FILTER_IN_PROBE_REQUEST);
+
 	return iwl_mvm_mac_ctxt_send_cmd(mvm, &cmd);
 }
 
@@ -798,7 +805,7 @@ static int iwl_mvm_mac_ctxt_send_beacon(struct iwl_mvm *mvm,
 					     TX_CMD_FLG_TSF);
 
 	mvm->mgmt_last_antenna_idx =
-		iwl_mvm_next_antenna(mvm, mvm->nvm_data->valid_tx_ant,
+		iwl_mvm_next_antenna(mvm, iwl_fw_valid_tx_ant(mvm->fw),
 				     mvm->mgmt_last_antenna_idx);
 
 	beacon_cmd.tx.rate_n_flags =
@@ -914,6 +921,7 @@ static int iwl_mvm_mac_ctxt_cmd_go(struct iwl_mvm *mvm,
 				   u32 action)
 {
 	struct iwl_mac_ctx_cmd cmd = {};
+	struct ieee80211_p2p_noa_attr *noa = &vif->bss_conf.p2p_noa_attr;
 
 	WARN_ON(vif->type != NL80211_IFTYPE_AP || !vif->p2p);
 
@@ -924,8 +932,11 @@ static int iwl_mvm_mac_ctxt_cmd_go(struct iwl_mvm *mvm,
 	iwl_mvm_mac_ctxt_cmd_fill_ap(mvm, vif, &cmd.go.ap,
 				     action == FW_CTXT_ACTION_ADD);
 
-	cmd.go.ctwin = cpu_to_le32(vif->bss_conf.p2p_ctwindow);
-	cmd.go.opp_ps_enabled = cpu_to_le32(!!vif->bss_conf.p2p_oppps);
+	cmd.go.ctwin = cpu_to_le32(noa->oppps_ctwindow &
+					IEEE80211_P2P_OPPPS_CTWINDOW_MASK);
+	cmd.go.opp_ps_enabled =
+			cpu_to_le32(!!(noa->oppps_ctwindow &
+					IEEE80211_P2P_OPPPS_ENABLE_BIT));
 
 	return iwl_mvm_mac_ctxt_send_cmd(mvm, &cmd);
 }
@@ -1011,5 +1022,24 @@ int iwl_mvm_mac_ctxt_remove(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	}
 
 	mvmvif->uploaded = false;
+	return 0;
+}
+
+int iwl_mvm_rx_beacon_notif(struct iwl_mvm *mvm,
+			    struct iwl_rx_cmd_buffer *rxb,
+			    struct iwl_device_cmd *cmd)
+{
+	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	struct iwl_beacon_notif *beacon = (void *)pkt->data;
+	u16 status __maybe_unused =
+		le16_to_cpu(beacon->beacon_notify_hdr.status.status);
+	u32 rate __maybe_unused =
+		le32_to_cpu(beacon->beacon_notify_hdr.initial_rate);
+
+	IWL_DEBUG_RX(mvm, "beacon status %#x retries:%d tsf:0x%16llX rate:%d\n",
+		     status & TX_STATUS_MSK,
+		     beacon->beacon_notify_hdr.failure_frame,
+		     le64_to_cpu(beacon->tsf),
+		     rate);
 	return 0;
 }

@@ -769,7 +769,14 @@ int iwl_mvm_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 	struct iwl_wowlan_config_cmd wowlan_config_cmd = {};
 	struct iwl_wowlan_kek_kck_material_cmd kek_kck_cmd = {};
 	struct iwl_wowlan_tkip_params_cmd tkip_cmd = {};
-	struct iwl_d3_manager_config d3_cfg_cmd = {};
+	struct iwl_d3_manager_config d3_cfg_cmd = {
+		/*
+		 * Program the minimum sleep time to 10 seconds, as many
+		 * platforms have issues processing a wakeup signal while
+		 * still being in the process of suspending.
+		 */
+		.min_sleep_time = cpu_to_le32(10 * 1000 * 1000),
+	};
 	struct wowlan_key_data key_data = {
 		.use_rsc_tsc = false,
 		.tkip = &tkip_cmd,
@@ -866,17 +873,13 @@ int iwl_mvm_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 			cpu_to_le32(IWL_WOWLAN_WAKEUP_PATTERN_MATCH);
 
 	if (wowlan->rfkill_release)
-		d3_cfg_cmd.wakeup_flags |=
+		wowlan_config_cmd.wakeup_filter |=
 			cpu_to_le32(IWL_WOWLAN_WAKEUP_RF_KILL_DEASSERT);
 
 	if (wowlan->tcp) {
 		/*
-		 * The firmware currently doesn't really look at these, only
-		 * the IWL_WOWLAN_WAKEUP_LINK_CHANGE bit. We have to set that
-		 * reason bit since losing the connection to the AP implies
-		 * losing the TCP connection.
-		 * Set the flags anyway as long as they exist, in case this
-		 * will be changed in the firmware.
+		 * Set the "link change" (really "link lost") flag as well
+		 * since that implies losing the TCP connection.
 		 */
 		wowlan_config_cmd.wakeup_filter |=
 			cpu_to_le32(IWL_WOWLAN_WAKEUP_REMOTE_LINK_LOSS |
