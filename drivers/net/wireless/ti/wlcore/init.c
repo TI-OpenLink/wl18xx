@@ -668,21 +668,21 @@ static int wlcore_tx_buf_init(struct wl1271 *wl)
 	        !(wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN));
 
 	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
-		wl->sg = kzalloc(wl->max_sg_entries * sizeof(struct scatterlist),
-				 GFP_KERNEL);
-		if (!wl->sg) {
+		if (sg_alloc_table(&wl->sgtable,
+				   wl->max_sg_entries, GFP_KERNEL)) {
 			wl1271_error("could not alloc scatter list");
 			return -ENOMEM;
 		}
 
+		/* DMATODO: free sgtable in failure */
 		wl->pad_buf = kzalloc(WL12XX_BUS_BLOCK_SIZE, GFP_KERNEL);
 		if (!wl->pad_buf) {
 			wl1271_error("could not alloc pad buf");
 			return -ENOMEM;
 		}
 
-		sg_init_table(wl->sg, wl->max_sg_entries);
-		wl->cur_sg = wl->sg;
+		wl->cur_sg = wl->sgtable.sgl;
+		wl->sg_len = 0;
 		wl1271_info("using SG DMA for Tx");
 	}
 

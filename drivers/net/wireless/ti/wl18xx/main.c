@@ -666,8 +666,8 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 			      WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN |
 			      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
 			      WLCORE_QUIRK_REGDOMAIN_CONF |
-			      WLCORE_QUIRK_DUAL_PROBE_TMPL |
-			      WLCORE_QUIRK_SG_DMA;
+			      WLCORE_QUIRK_SG_DMA |
+			      WLCORE_QUIRK_DUAL_PROBE_TMPL;
 
 		wlcore_set_min_fw_ver(wl, WL18XX_CHIP_VER,
 				      WL18XX_IFTYPE_VER,  WL18XX_MAJOR_VER,
@@ -1503,24 +1503,36 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 {
 	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
 		struct wl1271_tx_hw_descr *last_desc;
+		u32 aligned_buf_off = ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
 
 		if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
-			u32 aligned_buf_off =
-				ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
-			last_desc = (void *)wl->cur_skb;
+			last_desc = (void *)wl->cur_skb->data;
 			if (aligned_buf_off != buf_offset) {
+#if 0
 				sg_set_buf(wl->cur_sg, wl->pad_buf,
 						aligned_buf_off - buf_offset);
 				wl->cur_sg++;
 				wl->sg_len++;
+#endif
+
+#if 1
+				skb_pad(wl->cur_skb, aligned_buf_off - buf_offset);
+				wl->cur_sg--;
+				sg_set_buf(wl->cur_sg, wl->cur_skb->data, aligned_buf_off);
+				wl->cur_sg++;
+				/* in case the pad did something (realloc-ed) */
+				last_desc = (void *)wl->cur_skb->data;
+#endif
 			}
 		} else {
 			last_desc = (void *)(wl->aggr_buf + buf_offset -
 					     last_len);
+			memset(wl->aggr_buf + buf_offset, 0,
+			       aligned_buf_off - buf_offset);
 		}
 		/* the last frame is padded up to an SDIO block */
 		last_desc->wl18xx_mem.ctrl &= ~WL18XX_TX_CTRL_NOT_PADDED;
-		return ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
+		return aligned_buf_off;
 	}
 
 	/* no modifications */

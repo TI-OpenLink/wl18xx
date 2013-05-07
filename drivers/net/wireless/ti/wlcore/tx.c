@@ -403,25 +403,25 @@ static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 	total_len = wlcore_calc_packet_alignment(wl, skb->len);
 
 	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+
+		if (total_len > skb->len)
+			skb_pad(skb, total_len - skb->len);
 		/*
 		 * we don't check if cur_sg is not NULL since we allocated the
 		 * maximum possible to put into the aggregation buffer
 		 */
-		sg_set_buf(wl->cur_sg, skb->data, skb->len);
+		sg_set_buf(wl->cur_sg, skb->data, total_len);
 		wl->cur_skb = skb;
 		wl->cur_sg++;
 		wl->sg_len++;
-
-		/*
-		 * note dummy packets are already padded, so this doesn't
-		 * change the skb for that case
-		 */
+#if 0
 		if (total_len > skb->len) {
 			sg_set_buf(wl->cur_sg, wl->pad_buf,
 				   total_len - skb->len);
 			wl->cur_sg++;
 			wl->sg_len++;
 		}
+#endif
 	} else {
 		memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
 		memset(wl->aggr_buf + buf_offset + skb->len, 0,
@@ -441,6 +441,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	u32 total_len;
 	bool is_dummy;
 	bool is_gem = false;
+
+	wl1271_debug(DEBUG_TX, "prepare tx frame");
 
 	if (!skb) {
 		wl1271_error("discarding null skb");
@@ -492,6 +494,10 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	total_len = wlcore_tx_add_buffer(wl, skb, buf_offset);
 
+	/* DMATODO: we have a problem with dummy packets and DMA..
+	 * need to allocate a new packet when doing "add buffer", and detect
+	 * these packets in some other way in the Tx-complete patch to de-alloc it
+	 */
 	/* Revert side effects in the dummy packet skb, so it can be reused */
 	if (is_dummy)
 		skb_pull(skb, sizeof(struct wl1271_tx_hw_descr));
@@ -805,17 +811,19 @@ static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
 		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
 		unsigned blocks = offset / blksz;
 
-		sg_mark_end(&wl->sg[wl->sg_len - 1]);
-		wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz, wl->sg,
-				  wl->sg_len, true);
+		sg_mark_end(&wl->sgtable.sgl[wl->sg_len - 1]);
+		wl1271_debug(DEBUG_TX, "tx write data");
+		wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz,
+				     wl->sgtable.sgl, wl->sg_len, true);
 		/* DMATODO: have a real return value */
 
+		sg_init_table(wl->sgtable.sgl, wl->max_sg_entries);
 		wl->cur_skb = NULL;
-		wl->cur_sg = wl->sg;
+		wl->cur_sg = wl->sgtable.sgl;
 		wl->sg_len = 0;
-		sg_init_table(wl->sg, wl->max_sg_entries);
 	} else {
-		ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf, offset, true);
+		ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
+					offset, true);
 	}
 	return ret;
 }
@@ -842,6 +850,8 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	int ret = 0;
 	int bus_ret = 0;
 	u8 hlid;
+	
+	wl1271_debug(DEBUG_TX, "tx work locked");
 
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		return 0;
@@ -849,6 +859,8 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	while ((skb = wl1271_skb_dequeue(wl, &hlid))) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		bool has_data = false;
+	
+		wl1271_debug(DEBUG_TX, "dequeued packet...");
 
 		wlvif = NULL;
 		if (!wl12xx_is_dummy_packet(wl, skb))

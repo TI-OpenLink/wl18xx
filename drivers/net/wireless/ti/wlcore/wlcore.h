@@ -509,7 +509,7 @@ struct wl1271 {
 	u32 irq_loop_count;
 
 	/* SG list for Tx SG DMA */
-	struct scatterlist *sg;
+	struct sg_table sgtable;
 	unsigned int max_sg_entries;
 	unsigned int sg_len;
 	struct scatterlist *cur_sg;

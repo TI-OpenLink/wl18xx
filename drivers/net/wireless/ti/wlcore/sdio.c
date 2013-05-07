@@ -43,6 +43,7 @@
 #include "wlcore.h"
 #include "wl12xx_80211.h"
 #include "io.h"
+#include "tx.h"
 
 #ifndef SDIO_VENDOR_ID_TI
 #define SDIO_VENDOR_ID_TI		0x0097
@@ -173,14 +174,12 @@ static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
 		    sg_len, fixed);
 
 	for_each_sg(sg, cur_sg, sg_len, i)
-		dev_dbg(child->parent, "single SG %d offset 0x%x len %d "
-			    "pg 0x%lx", i, cur_sg->offset, cur_sg->length,
-			    cur_sg->page_link);
+		dev_dbg(child->parent, "single SG %d virt %p len %d pg_link 0x%lx",
+			i, sg_virt(cur_sg), cur_sg->length, cur_sg->page_link);
 
 	BUG_ON(func->num > 7);
 	BUG_ON(blocks == 1 && blksz > 512);
 	BUG_ON(blocks > 511);
-	WARN_ON(blocks == 0);
 	WARN_ON(blksz == 0);
 
 	/* sanity check */
@@ -237,7 +236,6 @@ static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
 		dev_err(child->parent, "SG write invalid range error");
 		return;
 	}
-
 }
 
 
