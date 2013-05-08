@@ -2700,6 +2700,17 @@ deinit:
 	    !test_bit(WL1271_FLAG_INTENDED_FW_RECOVERY, &wl->flags))
 		goto unlock;
 
+	if (wl->ap_count == 0 && is_ap) {
+		/*
+		 * mask ap events
+		 * TODO: we might want to unify this if block with the
+		 * next one (setting acx_sleep_auth), but currently
+		 * the logic is a bit different (not sure it's intentional)
+		 */
+		wl->event_mask &= ~wl->ap_event_mask;
+		wl1271_event_unmask(wl);
+	}
+
 	if (wl->ap_count == 0 && is_ap && wl->sta_count) {
 		u8 sta_auth = wl->conf.conn.sta_sleep_auth;
 		/* Configure for power according to debugfs */
