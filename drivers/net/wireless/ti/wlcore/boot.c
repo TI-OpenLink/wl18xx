@@ -518,9 +518,10 @@ int wlcore_boot_run_firmware(struct wl1271 *wl)
 		BA_SESSION_RX_CONSTRAINT_EVENT_ID |
 		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
 		INACTIVE_STA_EVENT_ID |
-		MAX_TX_FAILURE_EVENT_ID |
 		CHANNEL_SWITCH_COMPLETE_EVENT_ID |
 		RX_BA_WIN_SIZE_CHANGE_EVENT_ID;
+
+	wl->ap_event_mask = MAX_TX_FAILURE_EVENT_ID;
 
 	/* unmask specific family mbox events  */
 	wl->event_mask |= wl->chip_family_event_mask;

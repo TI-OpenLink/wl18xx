@@ -307,6 +307,8 @@ struct wl1271 {
 
 	/* The mbox event mask */
 	u32 event_mask;
+	/* events to unmask only when ap interface is up */
+	u32 ap_event_mask;
 	/* Specific chip family mbox event mask */
 	u32 chip_family_event_mask;
 
