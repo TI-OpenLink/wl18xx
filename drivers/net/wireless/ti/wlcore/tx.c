@@ -812,11 +812,10 @@ static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
 		unsigned blocks = offset / blksz;
 
 		sg_mark_end(&wl->sgtable.sgl[wl->sg_len - 1]);
-		wl1271_debug(DEBUG_TX, "tx write data");
-		wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz,
+		ret = wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz,
 				     wl->sgtable.sgl, wl->sg_len, true);
-		/* DMATODO: have a real return value */
 
+		/* DMATODO: use init function again? */
 		sg_init_table(wl->sgtable.sgl, wl->max_sg_entries);
 		wl->cur_skb = NULL;
 		wl->cur_sg = wl->sgtable.sgl;

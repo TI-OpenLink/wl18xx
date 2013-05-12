@@ -153,10 +153,10 @@ static int __must_check wl12xx_sdio_raw_write(struct device *child, int addr,
 	return ret;
 }
 
-static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
-				     unsigned blocks, unsigned blksz,
-				     struct scatterlist *sg, size_t sg_len,
-				     bool fixed)
+static int __must_check
+wl12xx_sdio_sg_raw_write(struct device *child, int addr, unsigned blocks,
+			 unsigned blksz, struct scatterlist *sg, size_t sg_len,
+			 bool fixed)
 {
 	struct mmc_request mrq = {0};
 	struct mmc_command cmd = {0};
@@ -185,7 +185,7 @@ static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
 	/* sanity check */
 	if (addr & ~0x1FFFF) {
 		dev_err(child->parent, "invalid addr 0x%x in SG write", addr);
-		return;
+		return -EINVAL;
 	}
 
 	mrq.cmd = &cmd;
@@ -218,26 +218,27 @@ static void wl12xx_sdio_sg_raw_write(struct device *child, int addr,
 
 	if (cmd.error) {
 		dev_err(child->parent, "SG write cmd error: 0x%x", cmd.error);
-		return;
+		return -EIO;
 	}
 	if (data.error) {
 		dev_err(child->parent, "SG write data error: 0x%x", data.error);
-		return;
+		return -EIO;
 	}
 	if (cmd.resp[0] & R5_ERROR) {
 		dev_err(child->parent, "SG write R5 error");
-		return;
+		return -EIO;
 	}
 	if (cmd.resp[0] & R5_FUNCTION_NUMBER) {
 		dev_err(child->parent, "SG write invalid func error");
-		return;
+		return -EIO;
 	}
 	if (cmd.resp[0] & R5_OUT_OF_RANGE) {
 		dev_err(child->parent, "SG write invalid range error");
-		return;
+		return -EIO;
 	}
-}
 
+	return 0;
+}
 
 static int wl12xx_sdio_power_on(struct wl12xx_sdio_glue *glue)
 {

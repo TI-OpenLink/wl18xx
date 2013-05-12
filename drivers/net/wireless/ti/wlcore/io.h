@@ -71,14 +71,25 @@ static inline int __must_check wlcore_raw_write(struct wl1271 *wl, int addr,
 	return ret;
 }
 
-static inline void wlcore_raw_sg_write(struct wl1271 *wl, int addr,
+static inline int __must_check wlcore_raw_sg_write(struct wl1271 *wl, int addr,
 				    unsigned blocks, unsigned blksz,
 				    struct scatterlist *sg, size_t sg_len,
 				    bool fixed)
 {
-	if (wl->if_ops->sg_write)
-		wl->if_ops->sg_write(wl->dev, addr, blocks, blksz, sg,
-				     sg_len, fixed);
+	int ret;
+
+	if (!wl->if_ops->sg_write)
+		return -ENOTSUPP;
+
+	if (test_bit(WL1271_FLAG_IO_FAILED, &wl->flags))
+		return -EIO;
+
+	ret = wl->if_ops->sg_write(wl->dev, addr, blocks, blksz,
+				   sg, sg_len, fixed);
+	if (ret && wl->state != WLCORE_STATE_OFF)
+		set_bit(WL1271_FLAG_IO_FAILED, &wl->flags);
+
+	return ret;
 }
 
 
@@ -170,25 +181,25 @@ static inline int __must_check wlcore_read_data(struct wl1271 *wl, int reg,
 	return wlcore_read(wl, wl->rtable[reg], buf, len, fixed);
 }
 
-static inline void wlcore_sg_write(struct wl1271 *wl, int addr,
-				unsigned blocks, unsigned blksz,
-				struct scatterlist *sg, size_t sg_len,
-				bool fixed)
+static inline int __must_check
+wlcore_sg_write(struct wl1271 *wl, int addr, unsigned blocks, unsigned blksz,
+		struct scatterlist *sg, size_t sg_len, bool fixed)
 {
 	int physical;
 
 	physical = wlcore_translate_addr(wl, addr);
 
-	wlcore_raw_sg_write(wl, physical, blocks, blksz, sg, sg_len, fixed);
+	return wlcore_raw_sg_write(wl, physical, blocks, blksz,
+				   sg, sg_len, fixed);
 }
 
-static inline void wlcore_sg_write_data(struct wl1271 *wl, int reg,
-				unsigned blocks, unsigned blksz,
-				struct scatterlist *sg, size_t sg_len,
-				bool fixed)
+static inline int __must_check
+wlcore_sg_write_data(struct wl1271 *wl, int reg, unsigned blocks,
+		     unsigned blksz, struct scatterlist *sg,
+		     size_t sg_len, bool fixed)
 {
-	wlcore_sg_write(wl, wl->rtable[reg], blocks, blksz,
-			sg, sg_len, fixed);
+	return wlcore_sg_write(wl, wl->rtable[reg], blocks, blksz, sg,
+			       sg_len, fixed);
 }
 
 static inline int __must_check wlcore_read_hwaddr(struct wl1271 *wl, int hwaddr,

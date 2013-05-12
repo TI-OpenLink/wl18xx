@@ -204,9 +204,10 @@ struct wl1271_if_operations {
 				 size_t len, bool fixed);
 	int __must_check (*write)(struct device *child, int addr, void *buf,
 				  size_t len, bool fixed);
-	void (*sg_write)(struct device *child, int addr, unsigned blocks,
-		     unsigned blksz, struct scatterlist *sg, size_t sg_len,
-		     bool fixed);
+	int __must_check (*sg_write)(struct device *child, int addr,
+				     unsigned blocks, unsigned blksz,
+				     struct scatterlist *sg, size_t sg_len,
+				     bool fixed);
 	void (*reset)(struct device *child);
 	void (*init)(struct device *child);
 	int (*power)(struct device *child, bool enable);
