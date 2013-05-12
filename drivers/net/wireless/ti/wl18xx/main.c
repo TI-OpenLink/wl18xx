@@ -1527,8 +1527,8 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 		} else {
 			last_desc = (void *)(wl->aggr_buf + buf_offset -
 					     last_len);
-			memset(wl->aggr_buf + buf_offset, 0,
-			       aligned_buf_off - buf_offset);
+//			memset(wl->aggr_buf + buf_offset, 0,
+//			       aligned_buf_off - buf_offset);
 		}
 		/* the last frame is padded up to an SDIO block */
 		last_desc->wl18xx_mem.ctrl &= ~WL18XX_TX_CTRL_NOT_PADDED;

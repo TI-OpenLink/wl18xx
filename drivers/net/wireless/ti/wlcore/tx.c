@@ -90,15 +90,9 @@ static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 						 struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr;
-	struct wl1271_tx_hw_descr *desc = (void *)skb->data;
-	int extra = 0;
-
-	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
-		extra = 2;
 
 	hdr = (struct ieee80211_hdr *)(skb->data +
-				       sizeof(struct wl1271_tx_hw_descr) + extra);
-
+				       sizeof(struct wl1271_tx_hw_descr));
 	if (!ieee80211_is_auth(hdr->frame_control))
 		return;
 
@@ -152,10 +146,7 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-
-	/* special mark we put in vif */
-	return (PTR_ERR(info->control.vif) == -EINVAL);
+	return wl->dummy_packet == skb;
 }
 EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
@@ -232,25 +223,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
-#if 0
-		int alignment = (int)skb->data & 0x3;
-		if (alignment == 2) {
-			skb_push(skb, alignment);
-		} else if  (alignment) {
-			wl1271_error("bad alignment for DMA: %d", alignment);
-			wl1271_free_tx_id(wl, id);
-			return -ENOMEM;
-		}
-
-		desc = (struct wl1271_tx_hw_descr *)skb_push(
-			skb, total_len + alignment - skb->len);
-		desc->tx_attr = 0;
-		if (alignment == 2)
-			desc->tx_attr = cpu_to_le16(TX_HW_ATTR_HEADER_PAD);
-#endif
 		desc = (struct wl1271_tx_hw_descr *)skb_push(
 			skb, total_len - skb->len);
-		desc->tx_attr = 0;
 
 		wlcore_hw_set_tx_desc_blocks(wl, desc, total_blocks,
 					     spare_blocks);
@@ -298,9 +272,6 @@ static void wl1271_tx_fill_hdr(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	desc = (struct wl1271_tx_hw_descr *) skb->data;
 	frame_start = (u8 *)(desc + 1);
-	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
-		frame_start += 2;
-
 	hdr = (struct ieee80211_hdr *)(frame_start + extra);
 	frame_control = hdr->frame_control;
 
