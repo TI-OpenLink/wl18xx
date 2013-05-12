@@ -674,10 +674,10 @@ static int wlcore_tx_buf_init(struct wl1271 *wl)
 			return -ENOMEM;
 		}
 
-		/* DMATODO: free sgtable in failure */
 		wl->pad_buf = kzalloc(WL12XX_BUS_BLOCK_SIZE, GFP_KERNEL);
 		if (!wl->pad_buf) {
 			wl1271_error("could not alloc pad buf");
+			sg_free_table(&wl->sgtable);
 			return -ENOMEM;
 		}
 

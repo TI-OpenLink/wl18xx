@@ -445,8 +445,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	bool is_dummy;
 	bool is_gem = false;
 
-	wl1271_debug(DEBUG_TX, "prepare tx frame");
-
 	if (!skb) {
 		wl1271_error("discarding null skb");
 		return -EINVAL;
@@ -852,8 +850,6 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	int ret = 0;
 	int bus_ret = 0;
 	u8 hlid;
-	
-	wl1271_debug(DEBUG_TX, "tx work locked");
 
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		return 0;
@@ -861,8 +857,6 @@ int wlcore_tx_work_locked(struct wl1271 *wl)
 	while ((skb = wl1271_skb_dequeue(wl, &hlid))) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		bool has_data = false;
-	
-		wl1271_debug(DEBUG_TX, "dequeued packet...");
 
 		wlvif = NULL;
 		if (!wl12xx_is_dummy_packet(wl, skb))
