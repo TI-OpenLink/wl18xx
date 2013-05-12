@@ -92,6 +92,10 @@ static void wl18xx_tx_complete_packet(struct wl1271 *wl, u8 tx_stat_byte)
 
 	if (wl12xx_is_dummy_packet(wl, skb)) {
 		wl1271_free_tx_id(wl, id);
+
+		/* the dummy packet is cloned, needs to be freed */
+		if (wl->quirks & WLCORE_QUIRK_SG_DMA)
+			dev_kfree_skb(skb);
 		return;
 	}
 

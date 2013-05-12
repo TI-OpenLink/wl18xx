@@ -150,7 +150,10 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
-	return wl->dummy_packet == skb;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+	/* special mark we put in vif */
+	return (PTR_ERR(info->control.vif) == -EINVAL);
 }
 EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
@@ -494,12 +497,9 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	total_len = wlcore_tx_add_buffer(wl, skb, buf_offset);
 
-	/* DMATODO: we have a problem with dummy packets and DMA..
-	 * need to allocate a new packet when doing "add buffer", and detect
-	 * these packets in some other way in the Tx-complete patch to de-alloc it
-	 */
-	/* Revert side effects in the dummy packet skb, so it can be reused */
-	if (is_dummy)
+	/* Revert side effects in the dummy packet skb, so it can be reused
+	 * in the non SG-DMA case */
+	if (!(wl->quirks & WLCORE_QUIRK_SG_DMA) && is_dummy)
 		skb_pull(skb, sizeof(struct wl1271_tx_hw_descr));
 
 	return total_len;
@@ -726,7 +726,10 @@ out:
 	    test_and_clear_bit(WL1271_FLAG_DUMMY_PACKET_PENDING, &wl->flags)) {
 		int q;
 
-		skb = wl->dummy_packet;
+		if (wl->quirks & WLCORE_QUIRK_SG_DMA)
+			skb = skb_clone(wl->dummy_packet, GFP_KERNEL);
+		else
+			skb = wl->dummy_packet;
 		*hlid = wl->system_hlid;
 		q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 		spin_lock_irqsave(&wl->wl_lock, flags);
@@ -1017,6 +1020,10 @@ static void wl1271_tx_complete_packet(struct wl1271 *wl,
 
 	if (wl12xx_is_dummy_packet(wl, skb)) {
 		wl1271_free_tx_id(wl, id);
+
+		/* the dummy packet is cloned, needs to be freed */
+		if (wl->quirks & WLCORE_QUIRK_SG_DMA)
+			dev_kfree_skb(skb);
 		return;
 	}
 

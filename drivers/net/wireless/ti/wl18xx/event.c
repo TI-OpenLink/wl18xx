@@ -161,11 +161,8 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 			le16_to_cpu(mbox->channel_switch_role_id_bitmap),
 			true);
 
-	/* DMATODO: handle dummy packets.. */
-#if 0
 	if (vector & DUMMY_PACKET_EVENT_ID)
 		wlcore_event_dummy_packet(wl);
-#endif
 
 	/*
 	 * "TX retries exceeded" has a different meaning according to mode.

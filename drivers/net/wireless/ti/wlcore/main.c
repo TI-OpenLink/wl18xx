@@ -1348,6 +1348,9 @@ static struct sk_buff *wl12xx_alloc_dummy_packet(struct wl1271 *wl)
 	skb_set_queue_mapping(skb, 0);
 	memset(IEEE80211_SKB_CB(skb), 0, sizeof(struct ieee80211_tx_info));
 
+	/* set the vif to be an error value, so we know it's a dummy packet */
+	IEEE80211_SKB_CB(skb)->control.vif = ERR_PTR(-EINVAL);
+
 	return skb;
 }
 
