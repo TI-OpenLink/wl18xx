@@ -91,11 +91,13 @@ static void wl1271_tx_ap_update_inconnection_sta(struct wl1271 *wl,
 {
 	struct ieee80211_hdr *hdr;
 	struct wl1271_tx_hw_descr *desc = (void *)skb->data;
+	int extra = 0;
+
+	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
+		extra = 2;
 
 	hdr = (struct ieee80211_hdr *)(skb->data +
-				       sizeof(struct wl1271_tx_hw_descr));
-	if (desc->tx_attr & cpu_to_le16(TX_HW_ATTR_HEADER_PAD))
-		hdr = (void *)((u8 *)hdr + 2);
+				       sizeof(struct wl1271_tx_hw_descr) + extra);
 
 	if (!ieee80211_is_auth(hdr->frame_control))
 		return;
@@ -230,11 +232,12 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
+#if 0
 		int alignment = (int)skb->data & 0x3;
 		if (alignment == 2) {
 			skb_push(skb, alignment);
 		} else if  (alignment) {
-			printk(KERN_ERR "WTF HACK non-aligned for DMA\n");
+			wl1271_error("bad alignment for DMA: %d", alignment);
 			wl1271_free_tx_id(wl, id);
 			return -ENOMEM;
 		}
@@ -244,6 +247,10 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		desc->tx_attr = 0;
 		if (alignment == 2)
 			desc->tx_attr = cpu_to_le16(TX_HW_ATTR_HEADER_PAD);
+#endif
+		desc = (struct wl1271_tx_hw_descr *)skb_push(
+			skb, total_len - skb->len);
+		desc->tx_attr = 0;
 
 		wlcore_hw_set_tx_desc_blocks(wl, desc, total_blocks,
 					     spare_blocks);
@@ -482,7 +489,8 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		is_gem = (cipher == WL1271_CIPHER_SUITE_GEM);
 	}
 
-	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid, is_gem);
+	ret = wl1271_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid,
+				 is_gem);
 	if (ret < 0)
 		return ret;
 
@@ -728,6 +736,7 @@ out:
 			skb = skb_clone(wl->dummy_packet, GFP_KERNEL);
 		else
 			skb = wl->dummy_packet;
+
 		*hlid = wl->system_hlid;
 		q = wl1271_tx_get_queue(skb_get_queue_mapping(skb));
 		spin_lock_irqsave(&wl->wl_lock, flags);
