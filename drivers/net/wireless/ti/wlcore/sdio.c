@@ -379,13 +379,13 @@ static void wl1271_remove(struct sdio_func *func)
 {
 	struct wl12xx_sdio_glue *glue = sdio_get_drvdata(func);
 	struct wlcore_platdev_data *pdev_data = glue->core->dev.platform_data;
+	struct wl12xx_platform_data *pdata = pdev_data->pdata;
 
 	/* Undo decrement done above in wl1271_probe */
 	pm_runtime_get_noresume(&func->dev);
 
 	platform_device_unregister(glue->core);
-	del_platform_data(pdev_data->pdata);
-	kfree(pdev_data);
+	del_platform_data(pdata);
 	kfree(glue);
 }
 
