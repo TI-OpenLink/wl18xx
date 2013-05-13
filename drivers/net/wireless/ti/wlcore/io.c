@@ -35,7 +35,7 @@
 bool wl1271_set_block_size(struct wl1271 *wl)
 {
 	if (wl->if_ops->set_block_size) {
-		wl->if_ops->set_block_size(wl->dev, WL12XX_BUS_BLOCK_SIZE);
+		wl->if_ops->set_block_size(wl->dev, wl->bus_block_size);
 		return true;
 	}
 

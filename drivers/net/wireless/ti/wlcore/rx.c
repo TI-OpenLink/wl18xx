@@ -51,7 +51,7 @@ static u32 wlcore_rx_get_buf_size(struct wl1271 *wl,
 static u32 wlcore_rx_get_align_buf_size(struct wl1271 *wl, u32 pkt_len)
 {
 	if (wl->quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN)
-		return ALIGN(pkt_len, WL12XX_BUS_BLOCK_SIZE);
+		return ALIGN(pkt_len, wl->bus_block_size);
 
 	return pkt_len;
 }

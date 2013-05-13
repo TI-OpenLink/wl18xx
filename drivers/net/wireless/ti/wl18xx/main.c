@@ -1091,13 +1091,13 @@ static int wl18xx_set_host_cfg_bitmap(struct wl1271 *wl, u32 extra_mem_blk)
 	/* Enable Tx SDIO padding */
 	if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN) {
 		host_cfg_bitmap |= HOST_IF_CFG_TX_PAD_TO_SDIO_BLK;
-		sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
+		sdio_align_size = wl->bus_block_size;
 	}
 
 	/* Enable Rx SDIO padding */
 	if (wl->quirks & WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN) {
 		host_cfg_bitmap |= HOST_IF_CFG_RX_PAD_TO_SDIO_BLK;
-		sdio_align_size = WL12XX_BUS_BLOCK_SIZE;
+		sdio_align_size = wl->bus_block_size;
 	}
 
 	ret = wl18xx_acx_host_if_cfg_bitmap(wl, host_cfg_bitmap,
@@ -1503,39 +1503,17 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 {
 	if (wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) {
 		struct wl1271_tx_hw_descr *last_desc;
-		u32 aligned_buf_off = ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
 
-		if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
-			u32 align_diff = aligned_buf_off - buf_offset;
-			last_desc = (void *)wl->cur_skb->data;
-			if (align_diff) {
-#if 0
-				// we need a patch in omap_hsmmc for this
-				sg_set_buf(wl->cur_sg, wl->pad_buf,
-						aligned_buf_off - buf_offset);
-				wl->cur_sg++;
-				wl->sg_len++;
-#endif
+		/* different handling is needed here for unaligned SG-dma */
+		WARN_ON(wl->quirks & WLCORE_QUIRK_SG_DMA);
 
-#if 1
-				skb_pad(wl->cur_skb, align_diff);
-				wl->cur_sg--;
-				sg_set_buf(wl->cur_sg, wl->cur_skb->data,
-					   wl->cur_sg->length + align_diff);
-				wl->cur_sg++;
-				/* in case the pad did something (realloc-ed) */
-				last_desc = (void *)wl->cur_skb->data;
-#endif
-			}
-		} else {
-			last_desc = (void *)(wl->aggr_buf + buf_offset -
-					     last_len);
-//			memset(wl->aggr_buf + buf_offset, 0,
-//			       aligned_buf_off - buf_offset);
-		}
+		/* get the last TX HW descriptor written to the aggr buf */
+		last_desc = (struct wl1271_tx_hw_descr *)(wl->aggr_buf +
+							buf_offset - last_len);
+
 		/* the last frame is padded up to an SDIO block */
 		last_desc->wl18xx_mem.ctrl &= ~WL18XX_TX_CTRL_NOT_PADDED;
-		return aligned_buf_off;
+		return ALIGN(buf_offset, wl->bus_block_size);
 	}
 
 	/* no modifications */
@@ -1744,6 +1722,7 @@ static int wl18xx_setup(struct wl1271 *wl)
 	wl->rtable = wl18xx_rtable;
 	wl->num_tx_desc = WL18XX_NUM_TX_DESCRIPTORS;
 	wl->num_rx_desc = WL18XX_NUM_RX_DESCRIPTORS;
+	wl->bus_block_size = WL18XX_BUS_BLOCK_SIZE;
 	wl->num_channels = 2;
 	wl->num_mac_addr = WL18XX_NUM_MAC_ADDRESSES;
 	wl->band_rate_to_idx = wl18xx_band_rate_to_idx;

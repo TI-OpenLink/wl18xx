@@ -159,9 +159,7 @@ EXPORT_SYMBOL_GPL(wlcore_event_channel_switch);
 void wlcore_event_dummy_packet(struct wl1271 *wl)
 {
 	wl1271_debug(DEBUG_EVENT, "DUMMY_PACKET_ID_EVENT_ID");
-#if 0
 	wl1271_tx_dummy_packet(wl);
-#endif
 }
 EXPORT_SYMBOL_GPL(wlcore_event_dummy_packet);
 

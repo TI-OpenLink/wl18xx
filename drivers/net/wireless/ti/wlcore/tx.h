@@ -103,12 +103,16 @@ struct wl18xx_tx_mem {
 } __packed;
 
 /*
- * On wl128x based devices, when TX packets are aggregated, each packet
- * size must be aligned to the SDIO block size. The maximum block size
- * is bounded by the type of the padded bytes field that is sent to the
- * FW. Currently the type is u8, so the maximum block size is 256 bytes.
+ * The max transaction size over the bus - all Tx descriptors
+ * are assigned to large packets (including bus overhead per packet).
  */
-#define WL12XX_BUS_BLOCK_SIZE 4
+#define WLCORE_MAX_BUS_TRAN (1700 * WLCORE_MAX_TX_DESCRIPTORS)
+
+/*
+ * The maximum number of blocks supported by some buses, notably
+ * the OMAP high-speed MMC bus
+ */
+#define WLCORE_MAX_BUS_BLKS 512
 
 struct wl1271_tx_hw_descr {
 	/* Length of packet in words, including descriptor+header+data */
@@ -278,6 +282,7 @@ wlcore_is_queue_stopped_by_reason_locked(struct wl1271 *wl,
 					 enum wlcore_queue_stop_reason reason);
 bool wlcore_is_queue_stopped_locked(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 				    u8 queue);
+void wlcore_tx_dma_init_table(struct wl1271 *wl);
 
 /* from main.c */
 void wl1271_free_sta(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 hlid);

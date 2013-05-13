@@ -1348,8 +1348,8 @@ static struct sk_buff *wl12xx_alloc_dummy_packet(struct wl1271 *wl)
 	skb_set_queue_mapping(skb, 0);
 	memset(IEEE80211_SKB_CB(skb), 0, sizeof(struct ieee80211_tx_info));
 
-	/* set the band to a special value, so we know it's a dummy packet */
-	IEEE80211_SKB_CB(skb)->band = IEEE80211_NUM_BANDS;
+	/* Add space for the HW descriptor at the beginning */
+	skb_push(skb, sizeof(struct wl1271_tx_hw_descr));
 
 	return skb;
 }
@@ -1981,8 +1981,7 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
 
-	wl->cur_sg = wl->sgtable.sgl;
-	wl->sg_len = 0;
+	wlcore_tx_dma_init_table(wl);
 
 	/*
 	 * FW channels must be re-calibrated after recovery,
@@ -5860,9 +5859,8 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		WL1271_CIPHER_SUITE_GEM,
 	};
 
-	/* DMATODO: we add 4 for alignment requirements */
 	/* The tx descriptor buffer */
-	wl->hw->extra_tx_headroom = sizeof(struct wl1271_tx_hw_descr) + 4;
+	wl->hw->extra_tx_headroom = sizeof(struct wl1271_tx_hw_descr);
 
 	if (wl->quirks & WLCORE_QUIRK_TKIP_HEADER_SPACE)
 		wl->hw->extra_tx_headroom += WL1271_EXTRA_SPACE_TKIP;
@@ -6120,13 +6118,6 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 		goto err_buffer;
 	}
 
-	/*
-	 * max number of SG elements needed, based on the min transaction being
-	 * the length of a SDIO block
-	 */
-	/* DMATODO: optimize? make larger/chained */
-	wl->max_sg_entries = SG_MAX_SINGLE_ALLOC;
-
 	return hw;
 
 err_buffer:
@@ -6198,7 +6189,6 @@ int wlcore_free_hw(struct wl1271 *wl)
 	kfree(wl->fw_status_1);
 	kfree(wl->tx_res_if);
 	sg_free_table(&wl->sgtable);
-	kfree(wl->pad_buf);
 	destroy_workqueue(wl->freezable_wq);
 
 	kfree(wl->priv);

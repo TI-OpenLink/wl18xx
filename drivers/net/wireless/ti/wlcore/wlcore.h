@@ -508,13 +508,17 @@ struct wl1271 {
 	u32 irq_count;
 	u32 irq_loop_count;
 
-	/* SG list for Tx SG DMA */
+	/* bus block size used */
+	unsigned bus_block_size;
+
+	/* SG table for Tx SG DMA */
 	struct sg_table sgtable;
 	unsigned int max_sg_entries;
+
+	/* number of used SG entries */
 	unsigned int sg_len;
+
 	struct scatterlist *cur_sg;
-	struct sk_buff *cur_skb;
-	u8 *pad_buf;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);

@@ -146,13 +146,8 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
-	return wl->dummy_packet == skb;
-#if 0
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-
-	/* special mark we put in the band */
-	return (info->band == IEEE80211_NUM_BANDS);
-#endif
+	/* cloned SKBs share the same data (if we don't touch it) */
+	return wl->dummy_packet->data == skb->data;
 }
 EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
@@ -202,7 +197,7 @@ unsigned int wlcore_calc_packet_alignment(struct wl1271 *wl,
 	    !(wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN))
 		return ALIGN(packet_length, WL1271_TX_ALIGN_TO);
 	else
-		return ALIGN(packet_length, WL12XX_BUS_BLOCK_SIZE);
+		return ALIGN(packet_length, wl->bus_block_size);
 }
 EXPORT_SYMBOL(wlcore_calc_packet_alignment);
 
@@ -229,8 +224,9 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	total_blocks = wlcore_hw_calc_tx_blocks(wl, total_len, spare_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
-		desc = (struct wl1271_tx_hw_descr *)skb_push(
-			skb, total_len - skb->len);
+		/* dummy packets already contain the Tx HW desc */
+		if (!wl12xx_is_dummy_packet(wl, skb))
+			desc = (void *)skb_push(skb, total_len - skb->len);
 
 		wlcore_hw_set_tx_desc_blocks(wl, desc, total_blocks,
 					     spare_blocks);
@@ -393,29 +389,18 @@ static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 
 		if (total_len > skb->len)
 			skb_pad(skb, total_len - skb->len);
+
 		/*
 		 * we don't check if cur_sg is not NULL since we allocated the
 		 * maximum possible to put into the aggregation buffer
 		 */
 		sg_set_buf(wl->cur_sg, skb->data, total_len);
-		wl->cur_skb = skb;
 		wl->cur_sg++;
 		wl->sg_len++;
-#if 0
-		if (total_len > skb->len) {
-			sg_set_buf(wl->cur_sg, wl->pad_buf,
-				   total_len - skb->len);
-			wl->cur_sg++;
-			wl->sg_len++;
-		}
-#endif
 	} else {
 		memcpy(wl->aggr_buf + buf_offset, skb->data, skb->len);
-		memset(wl->aggr_buf + buf_offset + skb->len, 0,
-		       total_len - skb->len);
 	}
 
-	wl1271_debug(DEBUG_TX, "added buf with len %d", total_len);
 	return total_len;
 }
 
@@ -480,11 +465,6 @@ static int wl1271_prepare_tx_frame(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	}
 
 	total_len = wlcore_tx_add_buffer(wl, skb, buf_offset);
-
-	/* Revert side effects in the dummy packet skb, so it can be reused
-	 * in the non SG-DMA case */
-	if (!(wl->quirks & WLCORE_QUIRK_SG_DMA) && is_dummy)
-		skb_pull(skb, sizeof(struct wl1271_tx_hw_descr));
 
 	return total_len;
 }
@@ -792,22 +772,25 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 	}
 }
 
+void wlcore_tx_dma_init_table(struct wl1271 *wl)
+{
+	sg_init_table(wl->sgtable.sgl, WLCORE_MAX_TX_DESCRIPTORS);
+	wl->cur_sg = wl->sgtable.sgl;
+	wl->sg_len = 0;
+}
+
 static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
 {
 	int ret = 0;
 	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
-		unsigned blksz = WL12XX_BUS_BLOCK_SIZE;
+		unsigned blksz = wl->bus_block_size;
 		unsigned blocks = offset / blksz;
 
 		sg_mark_end(&wl->sgtable.sgl[wl->sg_len - 1]);
 		ret = wlcore_sg_write_data(wl, REG_SLV_MEM_DATA, blocks, blksz,
 				     wl->sgtable.sgl, wl->sg_len, true);
 
-		/* DMATODO: use init function again? */
-		sg_init_table(wl->sgtable.sgl, wl->max_sg_entries);
-		wl->cur_skb = NULL;
-		wl->cur_sg = wl->sgtable.sgl;
-		wl->sg_len = 0;
+		wlcore_tx_dma_init_table(wl);
 	} else {
 		ret = wlcore_write_data(wl, REG_SLV_MEM_DATA, wl->aggr_buf,
 					offset, true);

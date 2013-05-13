@@ -22,6 +22,7 @@
 #ifndef __WL18XX_PRIV_H__
 #define __WL18XX_PRIV_H__
 
+#include <linux/log2.h>
 #include "conf.h"
 
 /* minimum FW required for driver */
@@ -41,6 +42,15 @@
 #define WL18XX_NUM_MAC_ADDRESSES 3
 
 #define WL18XX_RX_BA_MAX_SESSIONS 8
+
+/*
+ * Take as block size the smallest number that still allows us to send
+ * the maximum amount of data we need. We prefer smaller sizes, since
+ * some operating modes (SG DMA) require block alignment for each packet.
+ * Currently this means a block size of 128.
+ */
+#define WL18XX_BUS_BLOCK_SIZE min(512ul,\
+		roundup_pow_of_two(WLCORE_MAX_BUS_TRAN / WLCORE_MAX_BUS_BLKS))
 
 struct wl18xx_priv {
 	/* buffer for sending commands to FW */
