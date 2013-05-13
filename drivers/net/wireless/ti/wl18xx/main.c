@@ -664,9 +664,9 @@ static int wl18xx_identify_chip(struct wl1271 *wl)
 		wl->quirks |= WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN |
 			      WLCORE_QUIRK_NO_SCHED_SCAN_WHILE_CONN |
-			      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
+			      //WLCORE_QUIRK_TX_PAD_LAST_FRAME |
 			      WLCORE_QUIRK_REGDOMAIN_CONF |
-			      //WLCORE_QUIRK_SG_DMA |
+			      WLCORE_QUIRK_SG_DMA |
 			      WLCORE_QUIRK_DUAL_PROBE_TMPL;
 
 		wlcore_set_min_fw_ver(wl, WL18XX_CHIP_VER,
@@ -1506,9 +1506,11 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 		u32 aligned_buf_off = ALIGN(buf_offset, WL12XX_BUS_BLOCK_SIZE);
 
 		if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+			u32 align_diff = aligned_buf_off - buf_offset;
 			last_desc = (void *)wl->cur_skb->data;
-			if (aligned_buf_off != buf_offset) {
+			if (align_diff) {
 #if 0
+				// we need a patch in omap_hsmmc for this
 				sg_set_buf(wl->cur_sg, wl->pad_buf,
 						aligned_buf_off - buf_offset);
 				wl->cur_sg++;
@@ -1516,9 +1518,10 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 #endif
 
 #if 1
-				skb_pad(wl->cur_skb, aligned_buf_off - buf_offset);
+				skb_pad(wl->cur_skb, align_diff);
 				wl->cur_sg--;
-				sg_set_buf(wl->cur_sg, wl->cur_skb->data, aligned_buf_off);
+				sg_set_buf(wl->cur_sg, wl->cur_skb->data,
+					   wl->cur_sg->length + align_diff);
 				wl->cur_sg++;
 				/* in case the pad did something (realloc-ed) */
 				last_desc = (void *)wl->cur_skb->data;

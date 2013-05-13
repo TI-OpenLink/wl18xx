@@ -147,6 +147,12 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
 	return wl->dummy_packet == skb;
+#if 0
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+	/* special mark we put in the band */
+	return (info->band == IEEE80211_NUM_BANDS);
+#endif
 }
 EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
@@ -409,6 +415,7 @@ static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 		       total_len - skb->len);
 	}
 
+	wl1271_debug(DEBUG_TX, "added buf with len %d", total_len);
 	return total_len;
 }
 
