@@ -119,7 +119,8 @@ struct event_mailbox {
 
 	/* smart config sync channel */
 	u8 sc_sync_channel;
-	u8 padding2[3];
+	u8 sc_sync_band;
+	u8 padding2[2];
 #if 0
 	__le32 events_mask;
 	__le32 reserved_1;

@@ -78,14 +78,23 @@ static void wl1271_stop_ba_event(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 }
 
 #ifdef CONFIG_NL80211_TESTMODE
-static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel)
+static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel,
+					  u8 sync_band)
 {
 	struct sk_buff *skb;
-	int freq = ieee80211_channel_to_frequency(sync_channel,
-						  IEEE80211_BAND_2GHZ);
+	enum ieee80211_band band;
+	int freq;
+
+	if (sync_band == WLCORE_BAND_5GHZ)
+		band = IEEE80211_BAND_5GHZ;
+	else
+		band = IEEE80211_BAND_2GHZ;
+
+	freq = ieee80211_channel_to_frequency(sync_channel, band);
+
 	wl1271_debug(DEBUG_EVENT,
-		     "SMART_CONFIG_SYNC_EVENT_ID, freq: %d (chan: %d)",
-		     freq, sync_channel);
+		     "SMART_CONFIG_SYNC_EVENT_ID, freq: %d (chan: %d band %d)",
+		     freq, sync_channel, sync_band);
 	skb = cfg80211_testmode_alloc_event_skb(wl->hw->wiphy, 20, GFP_KERNEL);
 
 	if (nla_put_u8(skb, WL1271_TM_ATTR_SMART_CONFIG_EVENT,
@@ -122,7 +131,8 @@ static int wlcore_smart_config_decode_event(struct wl1271 *wl,
 	return 0;
 }
 #else
-static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel)
+static int wlcore_smart_config_sync_event(struct wl1271 *wl, u8 sync_channel,
+					  u8 sync_band)
 {
 	wl1271_error("got SMART_CONFIG event, but CONFIG_NL80211_TESTMODE is not configured!");
 	return -EINVAL;
@@ -377,7 +387,8 @@ out_event:
 	}
 
 	if (vector & SMART_CONFIG_SYNC_EVENT_ID)
-		wlcore_smart_config_sync_event(wl, mbox->sc_sync_channel);
+		wlcore_smart_config_sync_event(wl, mbox->sc_sync_channel,
+					       mbox->sc_sync_band);
 
 	if (vector & SMART_CONFIG_DECODE_EVENT_ID)
 		wlcore_smart_config_decode_event(wl,
