@@ -178,8 +178,6 @@ wl12xx_sdio_sg_raw_write(struct device *child, int addr, unsigned blocks,
 			i, sg_virt(cur_sg), cur_sg->length, cur_sg->page_link);
 
 	BUG_ON(func->num > 7);
-	BUG_ON(blocks == 1 && blksz > 512);
-	BUG_ON(blocks > 511);
 	WARN_ON(blksz == 0);
 
 	/* sanity check */

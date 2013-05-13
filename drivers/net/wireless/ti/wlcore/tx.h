@@ -108,8 +108,7 @@ struct wl18xx_tx_mem {
  * is bounded by the type of the padded bytes field that is sent to the
  * FW. Currently the type is u8, so the maximum block size is 256 bytes.
  */
-#define WL12XX_BUS_BLOCK_SIZE min(512u,	\
-	    (1u << (8 * sizeof(((struct wl128x_tx_mem *) 0)->extra_bytes))))
+#define WL12XX_BUS_BLOCK_SIZE 4
 
 struct wl1271_tx_hw_descr {
 	/* Length of packet in words, including descriptor+header+data */
