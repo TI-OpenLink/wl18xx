@@ -396,11 +396,8 @@ static int wlcore_tx_add_buffer(struct wl1271 *wl, struct sk_buff *skb,
 	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
 
 		if (total_len > skb->len &&
-		    skb_tailroom(skb) < total_len - skb->len) {
-			/* DMATODO: this is just for debug */
-			printk(".");
+		    skb_tailroom(skb) < total_len - skb->len)
 			skb_pad(skb, total_len - skb->len);
-		}
 
 		/*
 		 * we don't check if cur_sg is not NULL since we allocated the
