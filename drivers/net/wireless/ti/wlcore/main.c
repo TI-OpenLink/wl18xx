@@ -1986,8 +1986,6 @@ static void wlcore_op_stop_locked(struct wl1271 *wl)
 	kfree(wl->target_mem_map);
 	wl->target_mem_map = NULL;
 
-	wlcore_tx_dma_init_table(wl);
-
 	/*
 	 * FW channels must be re-calibrated after recovery,
 	 * clear the last Reg-Domain channel configuration.

@@ -789,9 +789,11 @@ void wl12xx_rearm_rx_streaming(struct wl1271 *wl, unsigned long *active_hlids)
 
 void wlcore_tx_dma_init_table(struct wl1271 *wl)
 {
-	sg_init_table(wl->sgtable.sgl, WLCORE_MAX_SG_SEGMENTS);
-	wl->cur_sg = wl->sgtable.sgl;
-	wl->sg_len = 0;
+	if (wl->quirks & WLCORE_QUIRK_SG_DMA) {
+		sg_init_table(wl->sgtable.sgl, WLCORE_MAX_SG_SEGMENTS);
+		wl->cur_sg = wl->sgtable.sgl;
+		wl->sg_len = 0;
+	}
 }
 
 static int wlcore_tx_write_data(struct wl1271 *wl, u32 offset)
