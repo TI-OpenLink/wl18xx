@@ -674,7 +674,7 @@ static int wlcore_tx_buf_init(struct wl1271 *wl)
 		 * more/same than the number of Rx packets
 		 */
 		if (sg_alloc_table(&wl->sgtable,
-				   WLCORE_MAX_TX_DESCRIPTORS, GFP_KERNEL)) {
+				   WLCORE_MAX_SG_SEGMENTS, GFP_KERNEL)) {
 			wl1271_error("could not alloc scatter list");
 			return -ENOMEM;
 		}
