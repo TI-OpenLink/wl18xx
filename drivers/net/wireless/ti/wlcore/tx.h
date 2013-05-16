@@ -114,8 +114,9 @@ struct wl18xx_tx_mem {
  */
 #define WLCORE_MAX_BUS_BLKS 512
 
+/* DMATODO: increase SG segments? Also this is platform specific */
 /* Number of segments for SG DMA to allocate. Currently limited by Tx */
-#define WLCORE_MAX_SG_SEGMENTS WLCORE_MAX_TX_DESCRIPTORS
+#define WLCORE_MAX_SG_SEGMENTS 16
 
 struct wl1271_tx_hw_descr {
 	/* Length of packet in words, including descriptor+header+data */

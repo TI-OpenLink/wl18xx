@@ -1321,6 +1321,7 @@ static struct sk_buff *wl12xx_alloc_dummy_packet(struct wl1271 *wl)
 	struct sk_buff *skb;
 	struct ieee80211_hdr_3addr *hdr;
 	unsigned int dummy_packet_size;
+	struct ieee80211_tx_info *info;
 
 	dummy_packet_size = TOTAL_TX_DUMMY_PACKET_SIZE -
 			    sizeof(struct wl1271_tx_hw_descr) - sizeof(*hdr);
@@ -1346,10 +1347,14 @@ static struct sk_buff *wl12xx_alloc_dummy_packet(struct wl1271 *wl)
 
 	/* Initialize all fields that might be used */
 	skb_set_queue_mapping(skb, 0);
-	memset(IEEE80211_SKB_CB(skb), 0, sizeof(struct ieee80211_tx_info));
+	info = IEEE80211_SKB_CB(skb);
+	memset(info, 0, sizeof(struct ieee80211_tx_info));
 
 	/* Add space for the HW descriptor at the beginning */
 	skb_push(skb, sizeof(struct wl1271_tx_hw_descr));
+
+	/* mark the packet with an invalid band so we know it's a dummy packet */
+	info->band = IEEE80211_NUM_BANDS;
 
 	return skb;
 }

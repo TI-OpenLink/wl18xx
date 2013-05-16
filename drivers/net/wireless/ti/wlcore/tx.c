@@ -146,8 +146,9 @@ static void wl1271_tx_regulate_link(struct wl1271 *wl,
 
 bool wl12xx_is_dummy_packet(struct wl1271 *wl, struct sk_buff *skb)
 {
-	/* cloned SKBs share the same data (if we don't touch it) */
-	return wl->dummy_packet->data == skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+	return info->band == IEEE80211_NUM_BANDS;
 }
 EXPORT_SYMBOL(wl12xx_is_dummy_packet);
 
@@ -232,6 +233,8 @@ static int wl1271_tx_allocate(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		/* dummy packets already contain the Tx HW desc */
 		if (!wl12xx_is_dummy_packet(wl, skb))
 			desc = (void *)skb_push(skb, total_len - skb->len);
+		else
+			desc = (void *)skb_push(skb, extra);
 
 		wlcore_hw_set_tx_desc_blocks(wl, desc, total_blocks,
 					     spare_blocks);
@@ -700,7 +703,7 @@ out:
 		int q;
 
 		if (wl->quirks & WLCORE_QUIRK_SG_DMA)
-			skb = skb_clone(wl->dummy_packet, GFP_KERNEL);
+			skb = skb_copy(wl->dummy_packet, GFP_KERNEL);
 		else
 			skb = wl->dummy_packet;
 
@@ -723,6 +726,9 @@ static void wl1271_skb_queue_head(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 
 	if (wl12xx_is_dummy_packet(wl, skb)) {
 		set_bit(WL1271_FLAG_DUMMY_PACKET_PENDING, &wl->flags);
+
+		if (wl->quirks & WLCORE_QUIRK_SG_DMA)
+			dev_kfree_skb(skb);
 	} else {
 		skb_queue_head(&wl->links[hlid].tx_queue[q], skb);
 
