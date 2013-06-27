@@ -777,6 +777,12 @@ static int wl18xx_set_clk(struct wl1271 *wl)
 					   PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
 	}
 
+	/* choose WCS PLL */
+	ret = wl18xx_top_reg_write(wl, PLLSH_WL_PLL_SEL,
+				   PLLSH_WL_PLL_SEL_WCS_PLL);
+	if (ret < 0)
+		goto out;
+
 	/* enable both PLLs */
 	ret = wl18xx_top_reg_write(wl, PLLSH_WL_PLL_EN, PLLSH_WL_PLL_EN_VAL1);
 	if (ret < 0)
