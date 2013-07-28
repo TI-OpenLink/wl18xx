@@ -47,6 +47,8 @@
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
 static char *ht_mode_param = NULL;
+static int rx_mask_param[IEEE80211_HT_MCS_MASK_LEN];
+static int rx_mask_param_argc;
 static char *board_type_param = NULL;
 static bool checksum_param = false;
 static int num_rx_desc_param = -1;
@@ -1717,6 +1719,7 @@ static int wl18xx_setup(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
 	int ret;
+	int i;
 
 	wl->rtable = wl18xx_rtable;
 	wl->num_tx_desc = WL18XX_NUM_TX_DESCRIPTORS;
@@ -1822,6 +1825,14 @@ static int wl18xx_setup(struct wl1271 *wl)
 				  &wl18xx_siso20_ht_cap);
 	}
 
+	/* modify supported MCS rates in case the rx_mask param is used */
+	for (i = 0; i < rx_mask_param_argc; i++) {
+		wl->ht_cap[IEEE80211_BAND_2GHZ].mcs.rx_mask[i] =
+						rx_mask_param[i] & 0xff;
+		wl->ht_cap[IEEE80211_BAND_5GHZ].mcs.rx_mask[i] =
+						rx_mask_param[i] & 0xff;
+	}
+
 	if (!checksum_param) {
 		wl18xx_ops.set_rx_csum = NULL;
 		wl18xx_ops.init_vif = NULL;
@@ -1882,6 +1893,11 @@ static struct platform_driver wl18xx_driver = {
 module_platform_driver(wl18xx_driver);
 module_param_named(ht_mode, ht_mode_param, charp, S_IRUSR);
 MODULE_PARM_DESC(ht_mode, "Force HT mode: wide or siso20");
+
+module_param_array_named(rx_mask, rx_mask_param, int, &rx_mask_param_argc,
+			 S_IRUSR);
+MODULE_PARM_DESC(rx_mask, "Allow modifying the mcs supported rates. "
+			  "For example: rx_mask=0xff,0xff,0,0,0,0,0,0,0,0");
 
 module_param_named(board_type, board_type_param, charp, S_IRUSR);
 MODULE_PARM_DESC(board_type, "Board type: fpga, hdk (default), evb, com8 or "
