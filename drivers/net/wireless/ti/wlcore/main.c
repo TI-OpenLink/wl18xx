@@ -5912,12 +5912,26 @@ static const struct ieee80211_iface_limit wlcore_iface_limits[] = {
 	},
 };
 
+/* TODO: make it wl18xx only */
+static const struct ieee80211_iface_limit wlcore_iface_ap_limits[] = {
+	{
+		.max = 2,
+		.types = BIT(NL80211_IFTYPE_AP),
+	},
+};
+
 static struct ieee80211_iface_combination
 wlcore_iface_combinations[] = {
 	{
 	  .max_interfaces = 3,
 	  .limits = wlcore_iface_limits,
 	  .n_limits = ARRAY_SIZE(wlcore_iface_limits),
+	},
+	{
+	  .max_interfaces = 2,
+	  .limits = wlcore_iface_ap_limits,
+	  .n_limits = ARRAY_SIZE(wlcore_iface_ap_limits),
+	  .num_different_channels = 1,
 	},
 };
 
