@@ -1243,21 +1243,21 @@ static const char *wl18xx_rdl_name(enum wl18xx_rdl_num rdl_num)
 {
 	switch (rdl_num) {
 	case RDL_1_HP:
-	    return "RDL 1, 1853 SISO";
+	    return "183xH";
 	case RDL_2_SP:
-	    return "RDL 2, 1857 MIMO";
+	    return "183x or 180x";
 	case RDL_3_HP:
-	    return "RDL 3, 1893 SISO";
+	    return "187xH";
 	case RDL_4_SP:
-	    return "RDL 4, 1897 MIMO";
+	    return "187x";
 	case RDL_5_SP:
-	    return "RDL 5, 1803 SISO";
+	    return "RDL11 - Not Supported";
 	case RDL_6_SP:
-	    return "RDL 6, 1807 MIMO";
+	    return "180xD";
 	case RDL_7_SP:
-	    return "RDL 7, 1893Q SISO";
+	    return "RDL13 - Not Supported (1893Q)";
 	case RDL_8_SP:
-	    return "RDL 8, 1897Q MIMO";
+	    return "18xxQ";
 	default:
 	    return "UNTRIMMED";
 	}
@@ -1277,8 +1277,7 @@ static int wl18xx_get_pg_ver(struct wl1271 *wl, s8 *ver)
 	if (ret < 0)
 		goto out;
 
-	package_type = (fuse & WL18XX_PACKAGE_TYPE_MASK) >>
-		       WL18XX_PACKAGE_TYPE_OFFSET;
+	package_type = (fuse >> WL18XX_PACKAGE_TYPE_OFFSET) & 1;
 
 	ret = wlcore_read32(wl, WL18XX_REG_FUSE_DATA_1_3, &fuse);
 	if (ret < 0)
