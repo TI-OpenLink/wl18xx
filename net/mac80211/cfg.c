@@ -2911,6 +2911,11 @@ void ieee80211_csa_finalize_work(struct work_struct *work)
 	if (WARN_ON(err < 0))
 		return;
 
+	if (!local->use_chanctx) {
+		local->_oper_chandef = local->csa_chandef;
+		ieee80211_hw_config(local, 0);
+	}
+
 	err = ieee80211_assign_beacon(sdata, sdata->u.ap.next_beacon);
 	if (err < 0)
 		return;
