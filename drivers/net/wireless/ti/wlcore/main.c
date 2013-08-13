@@ -806,6 +806,7 @@ void wl12xx_queue_recovery_work(struct wl1271 *wl)
 	if (wl->state == WLCORE_STATE_ON) {
 		wl->state = WLCORE_STATE_RESTARTING;
 		set_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
+		wl1271_ps_elp_wakeup(wl);
 		wlcore_disable_interrupts_nosync(wl);
 #ifdef CONFIG_HAS_WAKELOCK
 		/* give us a grace period for recovery */
