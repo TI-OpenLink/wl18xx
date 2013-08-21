@@ -959,11 +959,25 @@ out:
 	mutex_unlock(&local->mtx);
 }
 
-int ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
-				       struct cfg80211_sched_scan_request *req)
+static void
+__ieee80211_free_sched_scan_ies(
+		struct ieee80211_sched_scan_ies *sched_scan_ies)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(sched_scan_ies->ie); i++) {
+		if (sched_scan_ies->len[i] > 0) {
+			kfree(sched_scan_ies->ie[i]);
+			sched_scan_ies->ie[i] = NULL;
+			sched_scan_ies->len[i] = 0;
+		}
+	}
+}
+
+int
+ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
+				   struct cfg80211_sched_scan_request *req)
 {
 	struct ieee80211_local *local = sdata->local;
-	struct ieee80211_sched_scan_ies sched_scan_ies = {};
 	struct cfg80211_chan_def chandef;
 	int ret, i, iebufsz;
 
@@ -986,27 +1000,28 @@ int ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
 		if (!local->hw.wiphy->bands[i])
 			continue;
 
-		sched_scan_ies.ie[i] = kzalloc(iebufsz, GFP_KERNEL);
-		if (!sched_scan_ies.ie[i]) {
+		sdata->sched_scan_ies.ie[i] = kzalloc(iebufsz, GFP_KERNEL);
+		if (!sdata->sched_scan_ies.ie[i]) {
 			ret = -ENOMEM;
 			goto out_free;
 		}
 
 		ieee80211_prepare_scan_chandef(&chandef, req->scan_width);
 
-		sched_scan_ies.len[i] =
-			ieee80211_build_preq_ies(local, sched_scan_ies.ie[i],
+		sdata->sched_scan_ies.len[i] =
+			ieee80211_build_preq_ies(local,
+						 sdata->sched_scan_ies.ie[i],
 						 iebufsz, req->ie, req->ie_len,
 						 i, (u32) -1, &chandef);
 	}
 
-	ret = drv_sched_scan_start(local, sdata, req, &sched_scan_ies);
-	if (ret == 0)
-		rcu_assign_pointer(local->sched_scan_sdata, sdata);
-
+	ret = drv_sched_scan_start(local, sdata, req, &sdata->sched_scan_ies);
+	if (ret)
+		goto out_free;
+	rcu_assign_pointer(local->sched_scan_sdata, sdata);
+	goto out;
 out_free:
-	while (i > 0)
-		kfree(sched_scan_ies.ie[--i]);
+	__ieee80211_free_sched_scan_ies(&sdata->sched_scan_ies);
 out:
 	mutex_unlock(&local->mtx);
 	return ret;
@@ -1024,8 +1039,10 @@ int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
 		goto out;
 	}
 
-	if (rcu_access_pointer(local->sched_scan_sdata))
+	if (rcu_access_pointer(local->sched_scan_sdata)) {
+		sdata->sched_scan_stop_pending = 1;
 		drv_sched_scan_stop(local, sdata);
+	}
 
 out:
 	mutex_unlock(&local->mtx);
@@ -1055,7 +1072,9 @@ void ieee80211_sched_scan_stopped_work(struct work_struct *work)
 		mutex_unlock(&local->mtx);
 		return;
 	}
-
+	local->sched_scan_sdata->sched_scan_stop_pending = 0;
+	__ieee80211_free_sched_scan_ies(
+			&local->sched_scan_sdata->sched_scan_ies);
 	rcu_assign_pointer(local->sched_scan_sdata, NULL);
 
 	mutex_unlock(&local->mtx);
