@@ -770,6 +770,8 @@ struct ieee80211_sub_if_data {
 		struct dentry *default_mgmt_key;
 	} debugfs;
 #endif
+	bool sched_scan_stop_pending;
+	struct ieee80211_sched_scan_ies sched_scan_ies;
 
 	/* must be last, dynamically sized area in this! */
 	struct ieee80211_vif vif;

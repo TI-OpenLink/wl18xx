@@ -3516,6 +3516,20 @@ void cfg80211_sched_scan_results(struct wiphy *wiphy);
 void cfg80211_sched_scan_stopped(struct wiphy *wiphy);
 
 /**
+ * cfg80211_current_sched_scan_request - get current cached
+ * sched scan request
+ *
+ * @wiphy: the wiphy on which the scheduled scan is active
+ *
+ * The driver can call this function to get a reference of
+ * the current active scheduled scan request parameters.
+ *
+ * Return: A referenced struct, or NULL if request is no loner available.
+ */
+struct cfg80211_sched_scan_request *
+cfg80211_current_sched_scan_request(struct wiphy *wiphy);
+
+/**
  * cfg80211_inform_bss_width_frame - inform cfg80211 of a received BSS frame
  *
  * @wiphy: the wiphy reporting the BSS
