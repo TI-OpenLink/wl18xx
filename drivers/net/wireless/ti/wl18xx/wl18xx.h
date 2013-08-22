@@ -42,7 +42,7 @@
 
 #define WL18XX_RX_BA_MAX_SESSIONS 8
 
-#define WL18XX_MAX_LINKS 12
+#define WL18XX_MAX_LINKS 16
 
 struct wl18xx_priv {
 	/* buffer for sending commands to FW */
