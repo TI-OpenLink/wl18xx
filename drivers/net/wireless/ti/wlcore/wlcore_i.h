@@ -64,7 +64,7 @@
 #define WL1271_DEFAULT_DTIM_PERIOD 1
 
 #define WL12XX_MAX_ROLES           4
-#define WL12XX_MAX_LINKS           12
+#define WL12XX_MAX_LINKS           16
 #define WL12XX_INVALID_ROLE_ID     0xff
 #define WL12XX_INVALID_LINK_ID     0xff
 
@@ -124,7 +124,7 @@ struct wl1271_chip {
 
 #define NUM_TX_QUEUES              4
 
-#define AP_MAX_STATIONS            8
+#define AP_MAX_STATIONS            10
 
 struct wl_fw_packet_counters {
 	/* Cumulative counter of released packets per AC */
