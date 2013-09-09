@@ -5318,6 +5318,10 @@ static void wl12xx_op_channel_switch(struct ieee80211_hw *hw,
 	if (unlikely(wl->state == WLCORE_STATE_OFF)) {
 		wl12xx_for_each_wlvif_sta(wl, wlvif) {
 			struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+			if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
+				continue;
+
 			ieee80211_chswitch_done(vif, false);
 		}
 		goto out;
@@ -5334,6 +5338,9 @@ static void wl12xx_op_channel_switch(struct ieee80211_hw *hw,
 		unsigned long delay_usec;
 
 		if (wl12xx_wlvif_to_vif(wlvif)->dummy_p2p)
+			continue;
+
+		if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 			continue;
 
 		ret = wl->ops->channel_switch(wl, wlvif, ch_switch);
