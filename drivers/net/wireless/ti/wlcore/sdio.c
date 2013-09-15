@@ -233,6 +233,7 @@ static struct wl12xx_platform_data *get_platform_data(struct device *dev)
 	if (!IS_ERR(pdata))
 		return kmemdup(pdata, sizeof(*pdata), GFP_KERNEL);
 
+#ifdef CONFIG_OF
 	np = of_find_matching_node(NULL, wlcore_of_match);
 	if (!np) {
 		dev_err(dev, "No platform data set\n");
@@ -258,6 +259,10 @@ static struct wl12xx_platform_data *get_platform_data(struct device *dev)
 	of_property_read_u32(np, "board-ref-clock", &pdata->board_ref_clock);
 	of_property_read_u32(np, "board-tcxo-clock", &pdata->board_tcxo_clock);
 	of_property_read_u32(np, "platform-quirks", &pdata->platform_quirks);
+#endif
+
+	if (IS_ERR(pdata))
+		return NULL;
 
 	return pdata;
 }
