@@ -326,7 +326,7 @@ int wl12xx_allocate_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 
 	/* take the last "freed packets" value from the current FW status */
 	wl->links[link].prev_freed_pkts =
-			wl->fw_status_2->counters.tx_lnk_free_pkts[link];
+			wl->fw_status->counters.tx_lnk_free_pkts[link];
 	wl->links[link].wlvif = wlvif;
 
 	/*
