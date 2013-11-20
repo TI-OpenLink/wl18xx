@@ -420,7 +420,8 @@ static void ieee80211_hw_roc_done(struct work_struct *work)
 	if (!roc->started)
 		goto out_unlock;
 
-	if (local->expired_roc_cookie != (unsigned long) roc)
+	if (local->expired_roc_cookie &&
+	    local->expired_roc_cookie != (unsigned long) roc)
 		goto out_unlock;
 
 	list_del(&roc->list);
