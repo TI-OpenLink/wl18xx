@@ -1573,7 +1573,7 @@ static void hw_roc_done(struct work_struct *work)
 		container_of(work, struct mac80211_hwsim_data, roc_done.work);
 
 	mutex_lock(&hwsim->mutex);
-	ieee80211_remain_on_channel_expired(hwsim->hw);
+	ieee80211_remain_on_channel_expired(hwsim->hw, 0);
 	hwsim->tmp_chan = NULL;
 	mutex_unlock(&hwsim->mutex);
 
@@ -1584,7 +1584,8 @@ static int mac80211_hwsim_roc(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_channel *chan,
 			      int duration,
-			      enum ieee80211_roc_type type)
+			      enum ieee80211_roc_type type,
+			      unsigned long cookie)
 {
 	struct mac80211_hwsim_data *hwsim = hw->priv;
 

@@ -379,7 +379,7 @@ static void iwl_mvm_restart_cleanup(struct iwl_mvm *mvm)
 	mvm->scan_status = IWL_MVM_SCAN_NONE;
 
 	/* just in case one was running */
-	ieee80211_remain_on_channel_expired(mvm->hw);
+	ieee80211_remain_on_channel_expired(mvm->hw, 0);
 
 	ieee80211_iterate_active_interfaces_atomic(
 		mvm->hw, IEEE80211_IFACE_ITER_RESUME_ALL,
@@ -1260,7 +1260,8 @@ static int iwl_mvm_roc(struct ieee80211_hw *hw,
 		       struct ieee80211_vif *vif,
 		       struct ieee80211_channel *channel,
 		       int duration,
-		       enum ieee80211_roc_type type)
+		       enum ieee80211_roc_type type,
+		       unsigned long cookie)
 {
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
