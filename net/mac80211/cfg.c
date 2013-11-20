@@ -973,9 +973,9 @@ static u32 ieee80211_get_basic_rates(struct ieee80211_sub_if_data *sdata)
 	beacon = (struct ieee80211_mgmt *)skb->data;
 	ies = beacon->u.beacon.variable;
 
-	rates |= get_rates_from_ie(sdata, ies, skb->tail - ies,
+	rates |= get_rates_from_ie(sdata, ies, skb_tail_pointer(skb) - ies,
 				   WLAN_EID_SUPP_RATES);
-	rates |= get_rates_from_ie(sdata, ies, skb->tail - ies,
+	rates |= get_rates_from_ie(sdata, ies, skb_tail_pointer(skb) - ies,
 				   WLAN_EID_EXT_SUPP_RATES);
 
 	dev_kfree_skb(skb);
