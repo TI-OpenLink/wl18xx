@@ -226,8 +226,7 @@ MODULE_DEVICE_TABLE(of, wlcore_of_match);
 static struct wl12xx_platform_data *get_platform_data(struct device *dev)
 {
 	struct wl12xx_platform_data *pdata;
-	struct device_node *np;
-	u32 gpio;
+	struct device_node __maybe_unused *np;
 
 	pdata = wl12xx_get_platform_data();
 	if (!IS_ERR(pdata))
@@ -247,6 +246,8 @@ static struct wl12xx_platform_data *get_platform_data(struct device *dev)
 	}
 
 	if (of_property_read_u32(np, "irq", &pdata->irq)) {
+		u32 gpio;
+
 		if (!of_property_read_u32(np, "gpio", &gpio) &&
 		    !gpio_request_one(gpio, GPIOF_IN, "wlcore_irq")) {
 			pdata->gpio = gpio;
