@@ -2479,10 +2479,6 @@ int ieee80211_send_action_csa(struct ieee80211_sub_if_data *sdata,
 			  WLAN_EID_CHAN_SWITCH_PARAM_TX_RESTRICT : 0x00;
 		put_unaligned_le16(WLAN_REASON_MESH_CHAN, pos); /* Reason Cd */
 		pos += 2;
-		if (!ifmsh->pre_value)
-			ifmsh->pre_value = 1;
-		else
-			ifmsh->pre_value++;
 		put_unaligned_le16(ifmsh->pre_value, pos);/* Precedence Value */
 		pos += 2;
 	}
