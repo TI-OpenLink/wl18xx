@@ -688,6 +688,7 @@ struct cfg80211_ap_settings {
  * @count: number of beacons until switch
  */
 struct cfg80211_csa_settings {
+	struct net_device *dev;
 	struct cfg80211_chan_def chandef;
 	struct cfg80211_beacon_data beacon_csa;
 	u16 counter_offset_beacon, counter_offset_presp;
@@ -2266,6 +2267,7 @@ struct cfg80211_qos_map {
  * @set_coalesce: Set coalesce parameters.
  *
  * @channel_switch: initiate channel-switch procedure (with CSA)
+ *	num_params is always >= 1.
  *
  * @set_qos_map: Set QoS mapping information to the driver
  */
@@ -2507,8 +2509,8 @@ struct cfg80211_ops {
 				struct cfg80211_coalesce *coalesce);
 
 	int	(*channel_switch)(struct wiphy *wiphy,
-				  struct net_device *dev,
-				  struct cfg80211_csa_settings *params);
+				  struct cfg80211_csa_settings *params,
+				  int num_params);
 	int     (*set_qos_map)(struct wiphy *wiphy,
 			       struct net_device *dev,
 			       struct cfg80211_qos_map *qos_map);
@@ -2558,6 +2560,9 @@ struct cfg80211_ops {
  * @WIPHY_FLAG_SUPPORTS_5_10_MHZ: Device supports 5 MHz and 10 MHz channels.
  * @WIPHY_FLAG_HAS_CHANNEL_SWITCH: Device supports channel switch in
  *	beaconing mode (AP, IBSS, Mesh, ...).
+ * @WIPHY_FLAG_HAS_MULTI_IF_CHSWITCH: Device supports multi-interface channel
+ *	switching in beaconing mode (AP, IBSS, Mesh). If this is set it is
+ *	expected that @WIPHY_FLAG_HAS_CHANNEL_SWITCH is set as well.
  */
 enum wiphy_flags {
 	/* use hole at 0 */
@@ -2583,6 +2588,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
 	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
+	WIPHY_FLAG_HAS_MULTI_IF_CHSWITCH	= BIT(24),
 };
 
 /**
