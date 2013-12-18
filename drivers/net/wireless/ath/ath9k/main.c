@@ -508,6 +508,9 @@ void ath9k_tasklet(unsigned long data)
 		wake_up(&sc->tx_wait);
 	}
 
+	if (status & ATH9K_INT_GENTIMER)
+		ath_gen_timer_isr(sc->sc_ah);
+
 	ath9k_btcoex_handle_interrupt(sc, status);
 
 	/* re-enable hardware interrupt */
@@ -756,6 +759,8 @@ static int ath9k_start(struct ieee80211_hw *hw)
 	 * semi-random values after suspend/resume.
 	 */
 	ath9k_cmn_init_crypto(sc->sc_ah);
+
+	ath9k_hw_reset_tsf(ah);
 
 	spin_unlock_bh(&sc->sc_pcu_lock);
 
