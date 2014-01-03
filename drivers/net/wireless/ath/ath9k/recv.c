@@ -419,7 +419,7 @@ u32 ath_calcrxfilter(struct ath_softc *sc)
 		rfilt |= ATH9K_RX_FILTER_MCAST_BCAST_ALL;
 	}
 
-	if (AR_SREV_9550(sc->sc_ah))
+	if (AR_SREV_9550(sc->sc_ah) || AR_SREV_9531(sc->sc_ah))
 		rfilt |= ATH9K_RX_FILTER_4ADDRESS;
 
 	return rfilt;
@@ -982,7 +982,7 @@ static bool ath9k_is_mybeacon(struct ath_softc *sc, struct ieee80211_hdr *hdr)
 	if (ieee80211_is_beacon(hdr->frame_control)) {
 		RX_STAT_INC(rx_beacons);
 		if (!is_zero_ether_addr(common->curbssid) &&
-		    ether_addr_equal(hdr->addr3, common->curbssid))
+		    ether_addr_equal_64bits(hdr->addr3, common->curbssid))
 			return true;
 	}
 
@@ -1077,10 +1077,6 @@ static int ath9k_rx_skb_preprocess(struct ath_softc *sc,
 	}
 
 	rx_stats->is_mybeacon = ath9k_is_mybeacon(sc, hdr);
-	if (rx_stats->is_mybeacon) {
-		sc->hw_busy_count = 0;
-		ath_start_rx_poll(sc, 3);
-	}
 
 	if (ath9k_process_rate(common, hw, rx_stats, rx_status)) {
 		ret =-EINVAL;
