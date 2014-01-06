@@ -3384,7 +3384,8 @@ err:
 
 static bool brcmf_sdio_sr_capable(struct brcmf_sdio *bus)
 {
-	u32 addr, reg;
+	u32 addr, reg, pmu_cc3_mask = ~0;
+	int err;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
@@ -3392,13 +3393,27 @@ static bool brcmf_sdio_sr_capable(struct brcmf_sdio *bus)
 	if (bus->ci->pmurev < 17)
 		return false;
 
-	/* read PMU chipcontrol register 3*/
-	addr = CORE_CC_REG(bus->ci->c_inf[0].base, chipcontrol_addr);
-	brcmf_sdiod_regwl(bus->sdiodev, addr, 3, NULL);
-	addr = CORE_CC_REG(bus->ci->c_inf[0].base, chipcontrol_data);
-	reg = brcmf_sdiod_regrl(bus->sdiodev, addr, NULL);
+	switch (bus->ci->chip) {
+	case BCM43241_CHIP_ID:
+	case BCM4335_CHIP_ID:
+	case BCM4339_CHIP_ID:
+		/* read PMU chipcontrol register 3 */
+		addr = CORE_CC_REG(bus->ci->c_inf[0].base, chipcontrol_addr);
+		brcmf_sdiod_regwl(bus->sdiodev, addr, 3, NULL);
+		addr = CORE_CC_REG(bus->ci->c_inf[0].base, chipcontrol_data);
+		reg = brcmf_sdiod_regrl(bus->sdiodev, addr, NULL);
+		return (reg & pmu_cc3_mask) != 0;
+	default:
+		addr = CORE_CC_REG(bus->ci->c_inf[0].base, pmucapabilities_ext);
+		reg = brcmf_sdiod_regrl(bus->sdiodev, addr, &err);
+		if ((reg & PCAPEXT_SR_SUPPORTED_MASK) == 0)
+			return false;
 
-	return (bool)reg;
+		addr = CORE_CC_REG(bus->ci->c_inf[0].base, retention_ctl);
+		reg = brcmf_sdiod_regrl(bus->sdiodev, addr, NULL);
+		return (reg & (PMU_RCTL_MACPHY_DISABLE_MASK |
+			       PMU_RCTL_LOGIC_DISABLE_MASK)) == 0;
+	}
 }
 
 static void brcmf_sdio_sr_init(struct brcmf_sdio *bus)
@@ -3615,7 +3630,7 @@ static int brcmf_sdio_bus_init(struct device *dev)
 	}
 
 	/* If we didn't come up, turn off backplane clock */
-	if (bus_if->state != BRCMF_BUS_DATA)
+	if (ret != 0)
 		brcmf_sdio_clkctl(bus, CLK_NONE, false);
 
 exit:
@@ -3750,31 +3765,6 @@ static void brcmf_sdio_dataworker(struct work_struct *work)
 	}
 }
 
-static void brcmf_sdio_release_malloc(struct brcmf_sdio *bus)
-{
-	brcmf_dbg(TRACE, "Enter\n");
-
-	kfree(bus->rxbuf);
-	bus->rxctl = bus->rxbuf = NULL;
-	bus->rxlen = 0;
-}
-
-static bool brcmf_sdio_probe_malloc(struct brcmf_sdio *bus)
-{
-	brcmf_dbg(TRACE, "Enter\n");
-
-	if (bus->sdiodev->bus_if->maxctl) {
-		bus->rxblen =
-		    roundup((bus->sdiodev->bus_if->maxctl + SDPCM_HDRLEN),
-			    ALIGNMENT) + bus->head_align;
-		bus->rxbuf = kmalloc(bus->rxblen, GFP_ATOMIC);
-		if (!(bus->rxbuf))
-			return false;
-	}
-
-	return true;
-}
-
 static bool
 brcmf_sdio_probe_attach(struct brcmf_sdio *bus)
 {
@@ -3888,39 +3878,6 @@ fail:
 	return false;
 }
 
-static bool brcmf_sdio_probe_init(struct brcmf_sdio *bus)
-{
-	brcmf_dbg(TRACE, "Enter\n");
-
-	sdio_claim_host(bus->sdiodev->func[1]);
-
-	/* Disable F2 to clear any intermediate frame state on the dongle */
-	sdio_disable_func(bus->sdiodev->func[SDIO_FUNC_2]);
-
-	bus->sdiodev->bus_if->state = BRCMF_BUS_DOWN;
-	bus->rxflow = false;
-
-	/* Done with backplane-dependent accesses, can drop clock... */
-	brcmf_sdiod_regwb(bus->sdiodev, SBSDIO_FUNC1_CHIPCLKCSR, 0, NULL);
-
-	sdio_release_host(bus->sdiodev->func[1]);
-
-	/* ...and initialize clock/power states */
-	bus->clkstate = CLK_SDONLY;
-	bus->idletime = BRCMF_IDLE_INTERVAL;
-	bus->idleclock = BRCMF_IDLE_ACTIVE;
-
-	/* Query the F2 block size, set roundup accordingly */
-	bus->blocksize = bus->sdiodev->func[2]->cur_blksize;
-	bus->roundup = min(max_roundup, bus->blocksize);
-
-	/* SR state */
-	bus->sleeping = false;
-	bus->sr_enabled = false;
-
-	return true;
-}
-
 static int
 brcmf_sdio_watchdog_thread(void *data)
 {
@@ -3953,24 +3910,6 @@ brcmf_sdio_watchdog(unsigned long data)
 			mod_timer(&bus->timer,
 				  jiffies + BRCMF_WD_POLL_MS * HZ / 1000);
 	}
-}
-
-static void brcmf_sdio_release_dongle(struct brcmf_sdio *bus)
-{
-	brcmf_dbg(TRACE, "Enter\n");
-
-	if (bus->ci) {
-		sdio_claim_host(bus->sdiodev->func[1]);
-		brcmf_sdio_clkctl(bus, CLK_AVAIL, false);
-		brcmf_sdio_clkctl(bus, CLK_NONE, false);
-		sdio_release_host(bus->sdiodev->func[1]);
-		brcmf_sdio_chip_detach(&bus->ci);
-		if (bus->vars && bus->varsz)
-			kfree(bus->vars);
-		bus->vars = NULL;
-	}
-
-	brcmf_dbg(TRACE, "Disconnected\n");
 }
 
 static struct brcmf_bus_ops brcmf_sdio_bus_ops = {
@@ -4066,15 +4005,42 @@ struct brcmf_sdio *brcmf_sdio_probe(struct brcmf_sdio_dev *sdiodev)
 	}
 
 	/* Allocate buffers */
-	if (!(brcmf_sdio_probe_malloc(bus))) {
-		brcmf_err("brcmf_sdio_probe_malloc failed\n");
-		goto fail;
+	if (bus->sdiodev->bus_if->maxctl) {
+		bus->rxblen =
+		    roundup((bus->sdiodev->bus_if->maxctl + SDPCM_HDRLEN),
+			    ALIGNMENT) + bus->head_align;
+		bus->rxbuf = kmalloc(bus->rxblen, GFP_ATOMIC);
+		if (!(bus->rxbuf)) {
+			brcmf_err("rxbuf allocation failed\n");
+			goto fail;
+		}
 	}
 
-	if (!(brcmf_sdio_probe_init(bus))) {
-		brcmf_err("brcmf_sdio_probe_init failed\n");
-		goto fail;
-	}
+	sdio_claim_host(bus->sdiodev->func[1]);
+
+	/* Disable F2 to clear any intermediate frame state on the dongle */
+	sdio_disable_func(bus->sdiodev->func[SDIO_FUNC_2]);
+
+	bus->sdiodev->bus_if->state = BRCMF_BUS_DOWN;
+	bus->rxflow = false;
+
+	/* Done with backplane-dependent accesses, can drop clock... */
+	brcmf_sdiod_regwb(bus->sdiodev, SBSDIO_FUNC1_CHIPCLKCSR, 0, NULL);
+
+	sdio_release_host(bus->sdiodev->func[1]);
+
+	/* ...and initialize clock/power states */
+	bus->clkstate = CLK_SDONLY;
+	bus->idletime = BRCMF_IDLE_INTERVAL;
+	bus->idleclock = BRCMF_IDLE_ACTIVE;
+
+	/* Query the F2 block size, set roundup accordingly */
+	bus->blocksize = bus->sdiodev->func[2]->cur_blksize;
+	bus->roundup = min(max_roundup, bus->blocksize);
+
+	/* SR state */
+	bus->sleeping = false;
+	bus->sr_enabled = false;
 
 	brcmf_sdio_debugfs_create(bus);
 	brcmf_dbg(INFO, "completed!!\n");
@@ -4108,12 +4074,20 @@ void brcmf_sdio_remove(struct brcmf_sdio *bus)
 
 		if (bus->sdiodev->bus_if->drvr) {
 			brcmf_detach(bus->sdiodev->dev);
-			brcmf_sdio_release_dongle(bus);
+		}
+
+		if (bus->ci) {
+			sdio_claim_host(bus->sdiodev->func[1]);
+			brcmf_sdio_clkctl(bus, CLK_AVAIL, false);
+			brcmf_sdio_clkctl(bus, CLK_NONE, false);
+			sdio_release_host(bus->sdiodev->func[1]);
+			brcmf_sdio_chip_detach(&bus->ci);
 		}
 
 		brcmu_pkt_buf_free_skb(bus->txglom_sgpad);
-		brcmf_sdio_release_malloc(bus);
+		kfree(bus->rxbuf);
 		kfree(bus->hdrbuf);
+		kfree(bus->vars);
 		kfree(bus);
 	}
 
@@ -4131,7 +4105,7 @@ void brcmf_sdio_wd_timer(struct brcmf_sdio *bus, uint wdtick)
 	}
 
 	/* don't start the wd until fw is loaded */
-	if (bus->sdiodev->bus_if->state == BRCMF_BUS_DOWN)
+	if (bus->sdiodev->bus_if->state != BRCMF_BUS_DATA)
 		return;
 
 	if (wdtick) {
