@@ -293,7 +293,12 @@ static int snd_em28xx_capture_open(struct snd_pcm_substream *substream)
 		mutex_unlock(&dev->lock);
 	}
 
+	/* Dynamically adjust the period size */
 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
+	snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
+				     dev->adev.period * 95 / 100,
+				     dev->adev.period * 105 / 100);
+
 	dev->adev.capture_pcm_substream = substream;
 
 	return 0;
@@ -434,7 +439,7 @@ static snd_pcm_uframes_t snd_em28xx_capture_pointer(struct snd_pcm_substream
 
 	dev = snd_pcm_substream_chip(substream);
 	if (dev->disconnected)
-		return -ENODEV;
+		return SNDRV_PCM_POS_XRUN;
 
 	spin_lock_irqsave(&dev->adev.slock, flags);
 	hwptr_done = dev->adev.hwptr_done_capture;
@@ -803,6 +808,9 @@ static int em28xx_audio_urb_init(struct em28xx *dev)
 	em28xx_info("Number of URBs: %d, with %d packets and %d size",
 		    num_urb, npackets, urb_size);
 
+	/* Estimate the bytes per period */
+	dev->adev.period = urb_size * npackets;
+
 	/* Allocate space to store the number of URBs to be used */
 
 	dev->adev.transfer_buffer = kcalloc(num_urb,
@@ -893,10 +901,8 @@ static int em28xx_audio_init(struct em28xx *dev)
 	adev->udev = dev->udev;
 
 	err = snd_pcm_new(card, "Em28xx Audio", 0, 0, 1, &pcm);
-	if (err < 0) {
-		snd_card_free(card);
-		return err;
-	}
+	if (err < 0)
+		goto card_free;
 
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &snd_em28xx_pcm_capture);
 	pcm->info_flags = 0;
@@ -927,20 +933,24 @@ static int em28xx_audio_init(struct em28xx *dev)
 	}
 
 	err = em28xx_audio_urb_init(dev);
-	if (err) {
-		snd_card_free(card);
-		return -ENODEV;
-	}
+	if (err)
+		goto card_free;
 
 	err = snd_card_register(card);
-	if (err < 0) {
-		em28xx_audio_free_urb(dev);
-		snd_card_free(card);
-		return err;
-	}
+	if (err < 0)
+		goto urb_free;
 
 	em28xx_info("Audio extension successfully initialized\n");
 	return 0;
+
+urb_free:
+	em28xx_audio_free_urb(dev);
+
+card_free:
+	snd_card_free(card);
+	adev->sndcard = NULL;
+
+	return err;
 }
 
 static int em28xx_audio_fini(struct em28xx *dev)
@@ -955,9 +965,14 @@ static int em28xx_audio_fini(struct em28xx *dev)
 		return 0;
 	}
 
-	em28xx_audio_free_urb(dev);
+	em28xx_info("Closing audio extension");
 
 	if (dev->adev.sndcard) {
+		snd_card_disconnect(dev->adev.sndcard);
+		flush_work(&dev->wq_trigger);
+
+		em28xx_audio_free_urb(dev);
+
 		snd_card_free(dev->adev.sndcard);
 		dev->adev.sndcard = NULL;
 	}

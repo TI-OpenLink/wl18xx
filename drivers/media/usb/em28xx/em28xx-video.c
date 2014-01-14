@@ -42,6 +42,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
+#include <media/v4l2-clk.h>
 #include <media/msp3400.h>
 #include <media/tuner.h>
 
@@ -1826,6 +1827,10 @@ static int em28xx_v4l2_open(struct file *filp)
 	case VFL_TYPE_VBI:
 		fh_type = V4L2_BUF_TYPE_VBI_CAPTURE;
 		break;
+	case VFL_TYPE_RADIO:
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	em28xx_videodbg("open dev=%s type=%s users=%d\n",
@@ -1846,15 +1851,17 @@ static int em28xx_v4l2_open(struct file *filp)
 	fh->type = fh_type;
 	filp->private_data = fh;
 
-	if (fh->type == V4L2_BUF_TYPE_VIDEO_CAPTURE && dev->users == 0) {
+	if (dev->users == 0) {
 		em28xx_set_mode(dev, EM28XX_ANALOG_MODE);
-		em28xx_resolution_set(dev);
 
-		/* Needed, since GPIO might have disabled power of
-		   some i2c device
+		if (vdev->vfl_type != VFL_TYPE_RADIO)
+			em28xx_resolution_set(dev);
+
+		/*
+		 * Needed, since GPIO might have disabled power
+		 * of some i2c devices
 		 */
 		em28xx_wake_i2c(dev);
-
 	}
 
 	if (vdev->vfl_type == VFL_TYPE_RADIO) {
@@ -1887,31 +1894,41 @@ static int em28xx_v4l2_fini(struct em28xx *dev)
 		return 0;
 	}
 
+	em28xx_info("Closing video extension");
+
+	mutex_lock(&dev->lock);
+
+	v4l2_device_disconnect(&dev->v4l2_dev);
+
+	em28xx_uninit_usb_xfer(dev, EM28XX_ANALOG_MODE);
+
 	if (dev->radio_dev) {
-		if (video_is_registered(dev->radio_dev))
-			video_unregister_device(dev->radio_dev);
-		else
-			video_device_release(dev->radio_dev);
-		dev->radio_dev = NULL;
+		em28xx_info("V4L2 device %s deregistered\n",
+			    video_device_node_name(dev->radio_dev));
+		video_unregister_device(dev->radio_dev);
 	}
 	if (dev->vbi_dev) {
 		em28xx_info("V4L2 device %s deregistered\n",
 			    video_device_node_name(dev->vbi_dev));
-		if (video_is_registered(dev->vbi_dev))
-			video_unregister_device(dev->vbi_dev);
-		else
-			video_device_release(dev->vbi_dev);
-		dev->vbi_dev = NULL;
+		video_unregister_device(dev->vbi_dev);
 	}
 	if (dev->vdev) {
 		em28xx_info("V4L2 device %s deregistered\n",
 			    video_device_node_name(dev->vdev));
-		if (video_is_registered(dev->vdev))
-			video_unregister_device(dev->vdev);
-		else
-			video_device_release(dev->vdev);
-		dev->vdev = NULL;
+		video_unregister_device(dev->vdev);
 	}
+
+	if (dev->clk) {
+		v4l2_clk_unregister_fixed(dev->clk);
+		dev->clk = NULL;
+	}
+
+	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	v4l2_device_unregister(&dev->v4l2_dev);
+
+	if (dev->users)
+		em28xx_warn("Device is open ! Memory deallocation is deferred on last close.\n");
+	mutex_unlock(&dev->lock);
 
 	return 0;
 }
@@ -1933,13 +1950,8 @@ static int em28xx_v4l2_close(struct file *filp)
 	mutex_lock(&dev->lock);
 
 	if (dev->users == 1) {
-		/* the device is already disconnect,
-		   free the remaining resources */
-
+		/* free the remaining resources if device is disconnected */
 		if (dev->disconnected) {
-			em28xx_release_resources(dev);
-			v4l2_ctrl_handler_free(&dev->ctrl_handler);
-			v4l2_device_unregister(&dev->v4l2_dev);
 			kfree(dev->alt_max_pkt_size_isoc);
 			goto exit;
 		}
@@ -1964,6 +1976,23 @@ exit:
 	dev->users--;
 	mutex_unlock(&dev->lock);
 	return 0;
+}
+
+/*
+ * em28xx_videodevice_release()
+ * called when the last user of the video device exits and frees the memeory
+ */
+static void em28xx_videodevice_release(struct video_device *vdev)
+{
+	struct em28xx *dev = video_get_drvdata(vdev);
+
+	video_device_release(vdev);
+	if (vdev == dev->vdev)
+		dev->vdev = NULL;
+	else if (vdev == dev->vbi_dev)
+		dev->vbi_dev = NULL;
+	else if (vdev == dev->radio_dev)
+		dev->radio_dev = NULL;
 }
 
 static const struct v4l2_file_operations em28xx_v4l_fops = {
@@ -2020,11 +2049,10 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 };
 
 static const struct video_device em28xx_video_template = {
-	.fops                       = &em28xx_v4l_fops,
-	.release                    = video_device_release_empty,
-	.ioctl_ops 		    = &video_ioctl_ops,
-
-	.tvnorms                    = V4L2_STD_ALL,
+	.fops		= &em28xx_v4l_fops,
+	.ioctl_ops	= &video_ioctl_ops,
+	.release	= em28xx_videodevice_release,
+	.tvnorms	= V4L2_STD_ALL,
 };
 
 static const struct v4l2_file_operations radio_fops = {
@@ -2050,9 +2078,9 @@ static const struct v4l2_ioctl_ops radio_ioctl_ops = {
 };
 
 static struct video_device em28xx_radio_template = {
-	.name                 = "em28xx-radio",
-	.fops                 = &radio_fops,
-	.ioctl_ops 	      = &radio_ioctl_ops,
+	.fops		= &radio_fops,
+	.ioctl_ops	= &radio_ioctl_ops,
+	.release	= em28xx_videodevice_release,
 };
 
 /* I2C possible address to saa7115, tvp5150, msp3400, tvaudio */

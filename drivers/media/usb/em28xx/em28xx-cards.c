@@ -36,7 +36,6 @@
 #include <media/tvaudio.h>
 #include <media/i2c-addr.h>
 #include <media/tveeprom.h>
-#include <media/v4l2-clk.h>
 #include <media/v4l2-common.h>
 
 #include "em28xx.h"
@@ -2877,16 +2876,18 @@ void em28xx_release_resources(struct em28xx *dev)
 {
 	/*FIXME: I2C IR should be disconnected */
 
+	mutex_lock(&dev->lock);
+
 	if (dev->def_i2c_bus)
 		em28xx_i2c_unregister(dev, 1);
 	em28xx_i2c_unregister(dev, 0);
-	if (dev->clk)
-		v4l2_clk_unregister_fixed(dev->clk);
 
 	usb_put_dev(dev->udev);
 
 	/* Mark device as unused */
 	clear_bit(dev->devno, &em28xx_devused);
+
+	mutex_unlock(&dev->lock);
 };
 EXPORT_SYMBOL_GPL(em28xx_release_resources);
 
@@ -3339,26 +3340,6 @@ static int em28xx_usb_probe(struct usb_interface *interface,
 
 		em28xx_info("dvb set to %s mode.\n",
 			    dev->dvb_xfer_bulk ? "bulk" : "isoc");
-
-		/* pre-allocate DVB usb transfer buffers */
-		if (dev->dvb_xfer_bulk) {
-			retval = em28xx_alloc_urbs(dev, EM28XX_DIGITAL_MODE,
-					    dev->dvb_xfer_bulk,
-					    EM28XX_DVB_NUM_BUFS,
-					    512,
-					    EM28XX_DVB_BULK_PACKET_MULTIPLIER);
-		} else {
-			retval = em28xx_alloc_urbs(dev, EM28XX_DIGITAL_MODE,
-					    dev->dvb_xfer_bulk,
-					    EM28XX_DVB_NUM_BUFS,
-					    dev->dvb_max_pkt_size_isoc,
-					    EM28XX_DVB_NUM_ISOC_PACKETS);
-		}
-		if (retval) {
-			printk(DRIVER_NAME
-			       ": Failed to pre-allocate USB transfer buffers for DVB.\n");
-			goto err_free;
-		}
 	}
 
 	request_modules(dev);
@@ -3398,37 +3379,13 @@ static void em28xx_usb_disconnect(struct usb_interface *interface)
 
 	dev->disconnected = 1;
 
-	if (dev->is_audio_only) {
-		em28xx_close_extension(dev);
-		return;
-	}
-
-	em28xx_info("disconnecting %s\n", dev->vdev->name);
+	em28xx_info("Disconnecting %s\n", dev->name);
 
 	flush_request_modules(dev);
 
-	mutex_lock(&dev->lock);
-
-	v4l2_device_disconnect(&dev->v4l2_dev);
-
-	if (dev->users) {
-		em28xx_warn("device %s is open! Deregistration and memory deallocation are deferred on close.\n",
-			    video_device_node_name(dev->vdev));
-
-		em28xx_uninit_usb_xfer(dev, EM28XX_ANALOG_MODE);
-		em28xx_uninit_usb_xfer(dev, EM28XX_DIGITAL_MODE);
-	}
-	mutex_unlock(&dev->lock);
-
 	em28xx_close_extension(dev);
 
-	/* NOTE: must be called BEFORE the resources are released */
-
-	mutex_lock(&dev->lock);
-	if (!dev->users)
-		em28xx_release_resources(dev);
-
-	mutex_unlock(&dev->lock);
+	em28xx_release_resources(dev);
 
 	if (!dev->users) {
 		kfree(dev->alt_max_pkt_size_isoc);
