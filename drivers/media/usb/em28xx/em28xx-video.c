@@ -383,7 +383,7 @@ set_alt:
 	}
 	em28xx_videodbg("setting alternate %d with wMaxPacketSize=%u\n",
 		       dev->alt, dev->max_pkt_size);
-	errCode = usb_set_interface(dev->udev, 0, dev->alt);
+	errCode = usb_set_interface(dev->udev, dev->ifnum, dev->alt);
 	if (errCode < 0) {
 		em28xx_errdev("cannot change alternate number to %d (error=%i)\n",
 			      dev->alt, errCode);
@@ -1147,7 +1147,7 @@ static int em28xx_s_ctrl(struct v4l2_ctrl *ctrl)
 	return (ret < 0) ? ret : 0;
 }
 
-const struct v4l2_ctrl_ops em28xx_ctrl_ops = {
+static const struct v4l2_ctrl_ops em28xx_ctrl_ops = {
 	.s_ctrl = em28xx_s_ctrl,
 };
 
