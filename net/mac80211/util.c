@@ -2775,3 +2775,21 @@ void ieee80211_recalc_dtim(struct ieee80211_local *local,
 
 	ps->dtim_count = dtim_count;
 }
+
+bool ieee80211_is_csa_active(struct ieee80211_local *local)
+{
+	struct ieee80211_sub_if_data *sdata;
+
+	lockdep_assert_held(&local->mtx);
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(sdata, &local->interfaces, list) {
+		if (sdata->vif.csa_active) {
+			rcu_read_unlock();
+			return true;
+		}
+	}
+	rcu_read_unlock();
+
+	return false;
+}
