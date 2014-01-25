@@ -10,7 +10,6 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "imx6dl-pinfunc.h"
-#include "imx6qdl-pingrp.h"
 #include "imx6qdl.dtsi"
 
 / {
