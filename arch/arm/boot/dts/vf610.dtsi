@@ -8,7 +8,7 @@
  */
 
 #include "skeleton.dtsi"
-#include "vf610-pingrp.h"
+#include "vf610-pinfunc.h"
 #include <dt-bindings/clock/vf610-clock.h>
 
 / {
