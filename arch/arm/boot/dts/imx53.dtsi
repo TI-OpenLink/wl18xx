@@ -11,8 +11,8 @@
  */
 
 #include "skeleton.dtsi"
-#include "imx53-pingrp.h"
 #include <dt-bindings/clock/imx5-clock.h>
+#include "imx53-pinfunc.h"
 
 / {
 	aliases {
