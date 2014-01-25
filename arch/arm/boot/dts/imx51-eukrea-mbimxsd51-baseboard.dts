@@ -81,23 +81,44 @@
 &iomuxc {
 	imx51-eukrea {
 		pinctrl_audmux: audmuxgrp {
-			fsl,pins = <MX51_AUDMUX_PINGRP1>;
+			fsl,pins = <
+				MX51_PAD_AUD3_BB_TXD__AUD3_TXD		0x80000000
+				MX51_PAD_AUD3_BB_RXD__AUD3_RXD		0x80000000
+				MX51_PAD_AUD3_BB_CK__AUD3_TXC		0x80000000
+				MX51_PAD_AUD3_BB_FS__AUD3_TXFS		0x80000000
+			>;
 		};
 
 		pinctrl_esdhc1: esdhc1grp {
-			fsl,pins = <MX51_ESDHC1_PINGRP1>;
+			fsl,pins = <
+				MX51_PAD_SD1_CMD__SD1_CMD		0x400020d5
+				MX51_PAD_SD1_CLK__SD1_CLK		0x20d5
+				MX51_PAD_SD1_DATA0__SD1_DATA0		0x20d5
+				MX51_PAD_SD1_DATA1__SD1_DATA1		0x20d5
+				MX51_PAD_SD1_DATA2__SD1_DATA2		0x20d5
+				MX51_PAD_SD1_DATA3__SD1_DATA3		0x20d5
+			>;
 		};
 
 		pinctrl_uart1: uart1grp {
-			fsl,pins = <MX51_UART1_PINGRP1>;
+			fsl,pins = <
+				MX51_PAD_UART1_RXD__UART1_RXD		0x1c5
+				MX51_PAD_UART1_TXD__UART1_TXD		0x1c5
+			>;
 		};
 
 		pinctrl_uart3: uart3grp {
-			fsl,pins = <MX51_UART3_PINGRP2>;
+			fsl,pins = <
+				MX51_PAD_UART3_RXD__UART3_RXD		0x1c5
+				MX51_PAD_UART3_TXD__UART3_TXD		0x1c5
+			>;
 		};
 
 		pinctrl_uart3_rtscts: uart3rtsctsgrp {
-			fsl,pins = <MX51_UART3_RTSCTS_PINGRP2>;
+			fsl,pins = <
+				MX51_PAD_KEY_COL4__UART3_RTS		0x1c5
+				MX51_PAD_KEY_COL5__UART3_CTS		0x1c5
+			>;
 		};
 
 		pinctrl_backlight_1: backlightgrp-1 {
