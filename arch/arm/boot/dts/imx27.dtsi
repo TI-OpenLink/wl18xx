@@ -10,7 +10,7 @@
  */
 
 #include "skeleton.dtsi"
-#include "imx27-pingrp.h"
+#include "imx27-pinfunc.h"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
