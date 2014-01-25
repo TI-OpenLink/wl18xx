@@ -10,7 +10,7 @@
  */
 
 #include "skeleton.dtsi"
-#include "imx25-pingrp.h"
+#include "imx25-pinfunc.h"
 
 / {
 	aliases {
