@@ -10,7 +10,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "skeleton.dtsi"
 #include "imx6sl-pinfunc.h"
-#include "imx6sl-pingrp.h"
 #include <dt-bindings/clock/imx6sl-clock.h>
 
 / {
