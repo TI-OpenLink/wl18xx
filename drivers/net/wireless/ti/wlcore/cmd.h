@@ -93,6 +93,8 @@ int wl12xx_cmd_remove_peer(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 void wlcore_set_pending_regdomain_ch(struct wl1271 *wl, u16 channel,
 				     enum ieee80211_band band);
 int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl);
+int wlcore_set_cac(struct wl1271 *wl, struct wl12xx_vif *wlvif, bool start);
+int wlcore_radar_detection_debug(struct wl1271 *wl, u8 channel);
 int wl12xx_cmd_config_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_start_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
@@ -172,6 +174,11 @@ enum wl1271_commands {
 	CMD_SMART_CONFIG_START		= 61,
 	CMD_SMART_CONFIG_STOP		= 62,
 	CMD_SMART_CONFIG_SET_GROUP_KEY	= 63,
+
+	CMD_CAC_START			= 64,
+	CMD_CAC_STOP			= 65,
+	CMD_DFS_MASTER_RESTART		= 66,
+	CMD_DFS_RADAR_DETECTION_DEBUG	= 67,
 
 	MAX_COMMAND_ID = 0xFFFF,
 };
@@ -643,6 +650,33 @@ struct wl12xx_cmd_regdomain_dfs_config {
 
 	__le32 ch_bit_map1;
 	__le32 ch_bit_map2;
+} __packed;
+
+/* TODO: 18xx only */
+struct wlcore_cmd_dfs_radar_detection_cmd {
+	struct wl1271_cmd_header header;
+
+	u8 channel;
+	u8 padding[3];
+} __packed;
+
+struct wlcore_cmd_dfs_master_restart {
+	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 channel;
+	u8 band;
+	u8 bandwidth;
+} __packed;
+
+/* cac_start and cac_stop share the same params */
+struct wlcore_cmd_cac_start {
+	struct wl1271_cmd_header header;
+
+	u8 role_id;
+	u8 channel;
+	u8 band;
+	u8 bandwidth;
 } __packed;
 
 struct wl12xx_cmd_config_fwlog {

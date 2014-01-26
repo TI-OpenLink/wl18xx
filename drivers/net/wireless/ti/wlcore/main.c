@@ -4668,6 +4668,12 @@ static int wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 	/* update default rates according to the band */
 	wl1271_set_band_rate(wl, wlvif);
 
+	if (ctx->radar_enabled) {
+		wl1271_debug(DEBUG_MAC80211, "Start radar detection...");
+		wlcore_set_cac(wl, wlvif, true);
+		wlvif->radar_enabled = true;
+	}
+
 	mutex_unlock(&wl->mutex);
 
 	return 0;
@@ -4687,6 +4693,12 @@ static void wlcore_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		     cfg80211_get_chandef_type(&ctx->def));
 
 	wl1271_tx_flush(wl);
+
+	if (wlvif->radar_enabled) {
+		wl1271_debug(DEBUG_MAC80211, "Stop radar detection...");
+		wlcore_set_cac(wl, wlvif, false);
+		wlvif->radar_enabled= false;
+	}
 }
 
 static int wl1271_op_conf_tx(struct ieee80211_hw *hw,

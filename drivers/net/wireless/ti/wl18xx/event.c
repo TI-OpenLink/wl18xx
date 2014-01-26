@@ -133,6 +133,14 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 			wl18xx_scan_completed(wl, wl->scan_wlvif);
 	}
 
+	if (vector & RADAR_DETECTED_EVENT_ID) {
+		wl1271_debug(DEBUG_EVENT, "radar event: channel %d",
+			     mbox->radar_channel);
+
+		printk("radar channel: %d\n", mbox->radar_channel);
+		ieee80211_radar_detected(wl->hw);
+	}
+
 	if (vector & PERIODIC_SCAN_REPORT_EVENT_ID) {
 		wl1271_debug(DEBUG_EVENT,
 			     "PERIODIC_SCAN_REPORT_EVENT (results %d)",
