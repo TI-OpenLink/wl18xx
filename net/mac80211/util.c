@@ -2341,6 +2341,30 @@ bool ieee80211_dfs_cac_cancel(struct ieee80211_local *local,
 	return sent;
 }
 
+static void chanctx_radar_event(struct ieee80211_local *local)
+{
+	struct ieee80211_sub_if_data *sdata;
+	struct cfg80211_chan_def chandef;
+	struct ieee80211_chanctx_conf *conf;
+
+	/* TODO: we should get the vif/channel as param, etc. */
+	mutex_lock(&local->iflist_mtx);
+	mutex_lock(&local->chanctx_mtx);
+	list_for_each_entry(sdata, &local->interfaces, list) {
+		conf = rcu_dereference_protected(sdata->vif.chanctx_conf,
+					lockdep_is_held(&local->chanctx_mtx));
+
+		if (!conf || !conf->radar_enabled)
+			continue;
+
+		chandef = sdata->vif.bss_conf.chandef;
+		cfg80211_radar_event(local->hw.wiphy, &chandef, GFP_KERNEL);
+		break;
+	}
+	mutex_unlock(&local->chanctx_mtx);
+	mutex_unlock(&local->iflist_mtx);
+}
+
 void ieee80211_dfs_radar_detected_work(struct work_struct *work)
 {
 	struct ieee80211_local *local =
@@ -2351,8 +2375,7 @@ void ieee80211_dfs_radar_detected_work(struct work_struct *work)
 		return;
 
 	if (local->use_chanctx)
-		/* currently not handled */
-		WARN_ON(1);
+		chanctx_radar_event(local);
 	else
 		cfg80211_radar_event(local->hw.wiphy, &chandef, GFP_KERNEL);
 }
