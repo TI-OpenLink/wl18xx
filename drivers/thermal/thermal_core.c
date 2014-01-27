@@ -451,6 +451,9 @@ static void update_temperature(struct thermal_zone_device *tz)
 	tz->last_temperature = tz->temperature;
 	tz->temperature = temp;
 	mutex_unlock(&tz->lock);
+
+	dev_dbg(&tz->device, "last_temperature=%d, current_temperature=%d\n",
+				tz->last_temperature, tz->temperature);
 }
 
 void thermal_zone_device_update(struct thermal_zone_device *tz)
@@ -777,6 +780,9 @@ emul_temp_store(struct device *dev, struct device_attribute *attr,
 	} else {
 		ret = tz->ops->set_emul_temp(tz, temperature);
 	}
+
+	if (!ret)
+		thermal_zone_device_update(tz);
 
 	return ret ? ret : count;
 }
@@ -1260,6 +1266,8 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 	mutex_lock(&cdev->lock);
 	/* Make sure cdev enters the deepest cooling state */
 	list_for_each_entry(instance, &cdev->thermal_instances, cdev_node) {
+		dev_dbg(&cdev->device, "zone%d->target=%lu\n",
+				instance->tz->id, instance->target);
 		if (instance->target == THERMAL_NO_TARGET)
 			continue;
 		if (instance->target > target)
@@ -1268,6 +1276,7 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 	mutex_unlock(&cdev->lock);
 	cdev->ops->set_cur_state(cdev, target);
 	cdev->updated = true;
+	dev_dbg(&cdev->device, "set to state %lu\n", target);
 }
 EXPORT_SYMBOL(thermal_cdev_update);
 

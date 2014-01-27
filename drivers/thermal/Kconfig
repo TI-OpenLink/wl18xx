@@ -135,7 +135,7 @@ config SPEAR_THERMAL
 
 config RCAR_THERMAL
 	tristate "Renesas R-Car thermal driver"
-	depends on ARCH_SHMOBILE
+	depends on ARCH_SHMOBILE || COMPILE_TEST
 	help
 	  Enable this to plug the R-Car thermal sensor driver into the Linux
 	  thermal framework.
@@ -205,6 +205,21 @@ config X86_PKG_TEMP_THERMAL
 	  thermal zone. Each package will have its own thermal zone. There are
 	  two trip points which can be set by user to get notifications via thermal
 	  notification methods.
+
+config ACPI_INT3403_THERMAL
+	tristate "ACPI INT3403 thermal driver"
+	depends on X86 && ACPI
+	help
+	  Newer laptops and tablets that use ACPI may have thermal sensors
+	  outside the core CPU/SOC for thermal safety reasons. These
+	  temperature sensors are also exposed for the OS to use via the so
+	  called INT3403 ACPI object. This driver will, on devices that have
+	  such sensors, expose the temperature information from these sensors
+	  to userspace via the normal thermal framework. This means that a wide
+	  range of applications and GUI widgets can show this information to
+	  the user or use this information for making decisions. For example,
+	  the Intel Thermal Daemon can use this information to allow the user
+	  to select his laptop to run without turning on the fans.
 
 menu "Texas Instruments thermal drivers"
 source "drivers/thermal/ti-soc-thermal/Kconfig"
