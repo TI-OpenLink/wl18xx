@@ -783,6 +783,7 @@ void cfg80211_cac_event(struct net_device *netdev,
 		cfg80211_set_dfs_state(wiphy, chandef, NL80211_DFS_AVAILABLE);
 		break;
 	case NL80211_RADAR_CAC_ABORTED:
+	case NL80211_RADAR_DETECTED:
 		break;
 	default:
 		WARN_ON(1);
