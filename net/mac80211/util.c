@@ -2310,10 +2310,12 @@ u64 ieee80211_calculate_rx_timestamp(struct ieee80211_local *local,
 	return ts;
 }
 
-void ieee80211_dfs_cac_cancel(struct ieee80211_local *local)
+bool ieee80211_dfs_cac_cancel(struct ieee80211_local *local,
+			      enum nl80211_radar_event event)
 {
 	struct ieee80211_sub_if_data *sdata;
 	struct cfg80211_chan_def chandef;
+	bool sent = false;
 
 	mutex_lock(&local->mtx);
 	mutex_lock(&local->iflist_mtx);
@@ -2329,12 +2331,14 @@ void ieee80211_dfs_cac_cancel(struct ieee80211_local *local)
 			ieee80211_vif_release_channel(sdata);
 			cfg80211_cac_event(sdata->dev,
 					   &chandef,
-					   NL80211_RADAR_CAC_ABORTED,
+					   event,
 					   GFP_KERNEL);
+			sent = true;
 		}
 	}
 	mutex_unlock(&local->iflist_mtx);
 	mutex_unlock(&local->mtx);
+	return sent;
 }
 
 void ieee80211_dfs_radar_detected_work(struct work_struct *work)
@@ -2343,7 +2347,8 @@ void ieee80211_dfs_radar_detected_work(struct work_struct *work)
 		container_of(work, struct ieee80211_local, radar_detected_work);
 	struct cfg80211_chan_def chandef = local->hw.conf.chandef;
 
-	ieee80211_dfs_cac_cancel(local);
+	if (ieee80211_dfs_cac_cancel(local, NL80211_RADAR_DETECTED))
+		return;
 
 	if (local->use_chanctx)
 		/* currently not handled */
