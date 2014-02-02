@@ -1696,9 +1696,15 @@ int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl)
 			channel = &band->channels[i];
 			ch = channel->hw_value;
 
-			if (channel->flags & (IEEE80211_CHAN_DISABLED |
-					      IEEE80211_CHAN_RADAR |
-					      IEEE80211_CHAN_NO_IR))
+			if (channel->flags & IEEE80211_CHAN_DISABLED)
+				continue;
+
+			if ((channel->flags & IEEE80211_CHAN_NO_IR) &&
+			    !(channel->flags & IEEE80211_CHAN_RADAR))
+				continue;
+
+			if ((channel->flags & IEEE80211_CHAN_RADAR) &&
+			    channel->dfs_state != NL80211_DFS_AVAILABLE)
 				continue;
 
 			ch_bit_idx = wlcore_get_reg_conf_ch_idx(b, ch);
