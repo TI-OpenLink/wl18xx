@@ -36,6 +36,8 @@ void regulatory_exit(void);
 int set_regdom(const struct ieee80211_regdomain *rd);
 
 bool reg_last_request_cell_base(void);
+void reg_call_notifier(struct wiphy *wiphy,
+		       struct regulatory_request *request);
 
 /**
  * regulatory_hint_found_beacon - hints a beacon was found on a channel

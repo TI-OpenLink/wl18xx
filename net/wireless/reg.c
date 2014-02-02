@@ -1278,8 +1278,8 @@ static void reg_process_ht_flags(struct wiphy *wiphy)
 		reg_process_ht_flags_band(wiphy, wiphy->bands[band]);
 }
 
-static void reg_call_notifier(struct wiphy *wiphy,
-			      struct regulatory_request *request)
+void reg_call_notifier(struct wiphy *wiphy,
+		       struct regulatory_request *request)
 {
 	if (wiphy->reg_notifier)
 		wiphy->reg_notifier(wiphy, request);
