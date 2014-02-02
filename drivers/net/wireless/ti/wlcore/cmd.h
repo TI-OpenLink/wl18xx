@@ -95,6 +95,7 @@ void wlcore_set_pending_regdomain_ch(struct wl1271 *wl, u16 channel,
 int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl);
 int wlcore_set_cac(struct wl1271 *wl, struct wl12xx_vif *wlvif, bool start);
 int wlcore_radar_detection_debug(struct wl1271 *wl, u8 channel);
+int wlcore_cmd_dfs_master_restart(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 int wl12xx_cmd_config_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_start_fwlog(struct wl1271 *wl);
 int wl12xx_cmd_stop_fwlog(struct wl1271 *wl);
