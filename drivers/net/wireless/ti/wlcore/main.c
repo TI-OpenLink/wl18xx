@@ -4202,6 +4202,12 @@ static void wl1271_bss_info_changed_ap(struct wl1271 *wl,
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
 		if (bss_conf->enable_beacon) {
 			if (!test_bit(WLVIF_FLAG_AP_STARTED, &wlvif->flags)) {
+				/* no need to cac when ap is started */
+				if (wlvif->radar_enabled) {
+					wlcore_set_cac(wl, wlvif, false);
+					wlvif->radar_enabled= false;
+				}
+
 				ret = wl12xx_cmd_role_start_ap(wl, wlvif);
 				if (ret < 0)
 					goto out;
