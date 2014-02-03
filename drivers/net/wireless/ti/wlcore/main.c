@@ -4646,10 +4646,44 @@ static void wlcore_op_change_chanctx(struct ieee80211_hw *hw,
 				     struct ieee80211_chanctx_conf *ctx,
 				     u32 changed)
 {
+	struct wl1271 *wl = hw->priv;
+	struct wl12xx_vif *wlvif;
+	int channel = ieee80211_frequency_to_channel(
+		ctx->def.chan->center_freq);
+
 	wl1271_debug(DEBUG_MAC80211,
 		     "mac80211 change chanctx %d (type %d) changed 0x%x",
-		     ieee80211_frequency_to_channel(ctx->def.chan->center_freq),
-		     cfg80211_get_chandef_type(&ctx->def), changed);
+		     channel, cfg80211_get_chandef_type(&ctx->def), changed);
+
+	mutex_lock(&wl->mutex);
+
+	if (changed & IEEE80211_CHANCTX_CHANGE_CHANNEL) {
+		rcu_read_lock();
+		wl12xx_for_each_wlvif(wl, wlvif) {
+			struct ieee80211_vif *vif = wl12xx_wlvif_to_vif(wlvif);
+
+			if (rcu_access_pointer(vif->chanctx_conf) != ctx)
+				continue;
+
+			/* TODO: handle sta csa */
+			if (wlvif->bss_type != BSS_TYPE_AP_BSS)
+				continue;
+
+			/* make sure this is a csa */
+			WARN_ON(!test_bit(WLVIF_FLAG_BEACON_DISABLED,
+				&wlvif->flags));
+
+			wlvif->band = ctx->def.chan->band;
+			wlvif->channel = channel;
+			wlvif->channel_type =
+					cfg80211_get_chandef_type(&ctx->def);
+
+			/* TODO: handle radar_enabled */
+		}
+		rcu_read_unlock();
+	}
+
+	mutex_unlock(&wl->mutex);
 }
 
 static int wlcore_op_assign_vif_chanctx(struct ieee80211_hw *hw,
