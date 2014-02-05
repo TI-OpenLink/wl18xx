@@ -372,6 +372,8 @@ static struct page *init_inode_metadata(struct inode *inode,
 
 put_error:
 	f2fs_put_page(page, 1);
+	if (S_ISDIR(inode->i_mode))
+		truncate_blocks(inode, 0);
 error:
 	remove_inode_page(inode);
 	return ERR_PTR(err);
