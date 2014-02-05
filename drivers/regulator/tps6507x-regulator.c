@@ -359,7 +359,6 @@ static struct regulator_ops tps6507x_pmic_ops = {
 	.map_voltage = regulator_map_voltage_ascend,
 };
 
-#ifdef CONFIG_OF
 static struct of_regulator_match tps6507x_matches[] = {
 	{ .name = "VDCDC1"},
 	{ .name = "VDCDC2"},
@@ -367,7 +366,6 @@ static struct of_regulator_match tps6507x_matches[] = {
 	{ .name = "LDO1"},
 	{ .name = "LDO2"},
 };
-#endif
 
 static struct tps6507x_board *tps6507x_parse_dt_reg_data(
 		struct platform_device *pdev,
