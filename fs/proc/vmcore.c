@@ -468,12 +468,13 @@ static int __init update_note_header_size_elf64(const Elf64_Ehdr *ehdr_ptr)
 			return rc;
 		}
 		nhdr_ptr = notes_section;
-		while (real_sz < max_sz) {
-			if (nhdr_ptr->n_namesz == 0)
-				break;
+		while (nhdr_ptr->n_namesz != 0) {
 			sz = sizeof(Elf64_Nhdr) +
 				((nhdr_ptr->n_namesz + 3) & ~3) +
 				((nhdr_ptr->n_descsz + 3) & ~3);
+			/* Silently drop further PT_NOTE entries */
+			if ((real_sz + sz) > max_sz)
+				break;
 			real_sz += sz;
 			nhdr_ptr = (Elf64_Nhdr*)((char*)nhdr_ptr + sz);
 		}
@@ -648,12 +649,13 @@ static int __init update_note_header_size_elf32(const Elf32_Ehdr *ehdr_ptr)
 			return rc;
 		}
 		nhdr_ptr = notes_section;
-		while (real_sz < max_sz) {
-			if (nhdr_ptr->n_namesz == 0)
-				break;
+		while (nhdr_ptr->n_namesz != 0) {
 			sz = sizeof(Elf32_Nhdr) +
 				((nhdr_ptr->n_namesz + 3) & ~3) +
 				((nhdr_ptr->n_descsz + 3) & ~3);
+			/* Silently drop further PT_NOTE entries */
+			if ((real_sz + sz) > max_sz)
+				break;
 			real_sz += sz;
 			nhdr_ptr = (Elf32_Nhdr*)((char*)nhdr_ptr + sz);
 		}
