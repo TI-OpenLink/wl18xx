@@ -166,13 +166,8 @@ static struct fanotify_event_info *alloc_event(struct inode *inode, u32 mask,
 init: __maybe_unused
 	fsnotify_init_event(&event->fse, inode, mask);
 	event->tgid = get_pid(task_tgid(current));
-	if (data_type == FSNOTIFY_EVENT_PATH) {
-		event->path = *path;
-		path_get(&event->path);
-	} else {
-		event->path.mnt = NULL;
-		event->path.dentry = NULL;
-	}
+	event->path = *path;
+	path_get(&event->path);
 	return event;
 }
 
