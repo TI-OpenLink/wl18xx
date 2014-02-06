@@ -978,13 +978,13 @@ ssize_t nilfs_sufile_set_suinfo(struct inode *sufile, void *buf,
 
 		/* get different block */
 		mark_buffer_dirty(bh);
-		brelse(bh);
+		put_bh(bh);
 		ret = nilfs_mdt_get_block(sufile, blkoff, 1, NULL, &bh);
 		if (unlikely(ret < 0))
 			goto out_mark;
 	}
 	mark_buffer_dirty(bh);
-	brelse(bh);
+	put_bh(bh);
 
  out_mark:
 	if (ncleaned || ndirtied) {
@@ -994,7 +994,7 @@ ssize_t nilfs_sufile_set_suinfo(struct inode *sufile, void *buf,
 	}
 	nilfs_mdt_mark_dirty(sufile);
  out_header:
-	brelse(header_bh);
+	put_bh(header_bh);
  out_sem:
 	up_write(&NILFS_MDT(sufile)->mi_sem);
 	return ret;
