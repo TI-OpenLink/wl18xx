@@ -87,11 +87,20 @@ restart:
 
 		ret = isolate(item, &nlru->lock, cb_arg);
 		switch (ret) {
+		case LRU_REMOVED_RETRY:
+			assert_spin_locked(&nlru->lock);
 		case LRU_REMOVED:
 			if (--nlru->nr_items == 0)
 				node_clear(nid, lru->active_nodes);
 			WARN_ON_ONCE(nlru->nr_items < 0);
 			isolated++;
+			/*
+			 * If the lru lock has been dropped, our list
+			 * traversal is now invalid and so we have to
+			 * restart from scratch.
+			 */
+			if (ret == LRU_REMOVED_RETRY)
+				goto restart;
 			break;
 		case LRU_ROTATE:
 			list_move_tail(item, &nlru->list);
@@ -103,6 +112,7 @@ restart:
 			 * The lru lock has been dropped, our list traversal is
 			 * now invalid and so we have to restart from scratch.
 			 */
+			assert_spin_locked(&nlru->lock);
 			goto restart;
 		default:
 			BUG();
