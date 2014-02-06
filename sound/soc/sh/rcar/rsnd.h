@@ -37,10 +37,15 @@ enum rsnd_reg {
 	RSND_REG_SRC_TMG_SEL1,		/* for Gen1 */
 	RSND_REG_SRC_TMG_SEL2,		/* for Gen1 */
 	RSND_REG_SRC_ROUTE_CTRL,	/* for Gen1 */
+	RSND_REG_SRC_CTRL,		/* for Gen2 */
+	RSND_REG_SSI_CTRL,		/* for Gen2 */
+	RSND_REG_SSI_CONTROL,
+	RSND_REG_SSI_BUSIF_MODE,	/* for Gen2 */
+	RSND_REG_SSI_BUSIF_ADINR,	/* for Gen2 */
 	RSND_REG_SSI_MODE0,
 	RSND_REG_SSI_MODE1,
-	RSND_REG_BUSIF_MODE,
 	RSND_REG_INT_ENABLE,		/* for Gen2 */
+	RSND_REG_SRC_BUSIF_MODE,
 	RSND_REG_SRC_ROUTE_MODE0,
 	RSND_REG_SRC_SWRSR,
 	RSND_REG_SRC_SRCIR,
@@ -48,7 +53,9 @@ enum rsnd_reg {
 	RSND_REG_SRC_IFSCR,
 	RSND_REG_SRC_IFSVR,
 	RSND_REG_SRC_SRCCR,
-	RSND_REG_SRC_MNFSR,
+	RSND_REG_SRC_MNFSR,		/* for Gen1 */
+	RSND_REG_SRC_BSDSR,		/* for Gen2 */
+	RSND_REG_SRC_BSISR,		/* for Gen2 */
 
 	/* ADG */
 	RSND_REG_BRRA,
@@ -60,6 +67,16 @@ enum rsnd_reg {
 	RSND_REG_AUDIO_CLK_SEL3,	/* for Gen1 */
 	RSND_REG_AUDIO_CLK_SEL4,	/* for Gen1 */
 	RSND_REG_AUDIO_CLK_SEL5,	/* for Gen1 */
+	RSND_REG_SRCIN_TIMSEL0,		/* for Gen2 */
+	RSND_REG_SRCIN_TIMSEL1,		/* for Gen2 */
+	RSND_REG_SRCIN_TIMSEL2,		/* for Gen2 */
+	RSND_REG_SRCIN_TIMSEL3,		/* for Gen2 */
+	RSND_REG_SRCIN_TIMSEL4,		/* for Gen2 */
+	RSND_REG_SRCOUT_TIMSEL0,	/* for Gen2 */
+	RSND_REG_SRCOUT_TIMSEL1,	/* for Gen2 */
+	RSND_REG_SRCOUT_TIMSEL2,	/* for Gen2 */
+	RSND_REG_SRCOUT_TIMSEL3,	/* for Gen2 */
+	RSND_REG_SRCOUT_TIMSEL4,	/* for Gen2 */
 
 	/* SSI */
 	RSND_REG_SSICR,
@@ -96,24 +113,20 @@ void rsnd_bset(struct rsnd_priv *priv, struct rsnd_mod *mod, enum rsnd_reg reg,
  *	R-Car DMA
  */
 struct rsnd_dma {
-	struct rsnd_priv	*priv;
 	struct sh_dmae_slave	slave;
 	struct work_struct	work;
 	struct dma_chan		*chan;
 	enum dma_data_direction dir;
-	int (*inquiry)(struct rsnd_dma *dma, dma_addr_t *buf, int *len);
-	int (*complete)(struct rsnd_dma *dma);
 
 	int submit_loop;
+	int offset; /* it cares A/B plane */
 };
 
 void rsnd_dma_start(struct rsnd_dma *dma);
 void rsnd_dma_stop(struct rsnd_dma *dma);
 int rsnd_dma_available(struct rsnd_dma *dma);
 int rsnd_dma_init(struct rsnd_priv *priv, struct rsnd_dma *dma,
-	int is_play, int id,
-	int (*inquiry)(struct rsnd_dma *dma, dma_addr_t *buf, int *len),
-	int (*complete)(struct rsnd_dma *dma));
+	int is_play, int id);
 void  rsnd_dma_quit(struct rsnd_priv *priv,
 		    struct rsnd_dma *dma);
 
@@ -138,24 +151,36 @@ struct rsnd_mod_ops {
 		    struct rsnd_dai_stream *io);
 };
 
+struct rsnd_dai_stream;
 struct rsnd_mod {
 	int id;
 	struct rsnd_priv *priv;
 	struct rsnd_mod_ops *ops;
 	struct list_head list; /* connect to rsnd_dai playback/capture */
 	struct rsnd_dma dma;
+	struct rsnd_dai_stream *io;
 };
 
 #define rsnd_mod_to_priv(mod) ((mod)->priv)
 #define rsnd_mod_to_dma(mod) (&(mod)->dma)
 #define rsnd_dma_to_mod(_dma) container_of((_dma), struct rsnd_mod, dma)
+#define rsnd_mod_to_io(mod) ((mod)->io)
 #define rsnd_mod_id(mod) ((mod)->id)
 #define for_each_rsnd_mod(pos, n, io)	\
 	list_for_each_entry_safe(pos, n, &(io)->head, list)
+#define __rsnd_mod_call(mod, func, rdai, io)			\
+({								\
+	struct rsnd_priv *priv = rsnd_mod_to_priv(mod);		\
+	struct device *dev = rsnd_priv_to_dev(priv);		\
+	dev_dbg(dev, "%s-%d-%s\n",				\
+		rsnd_mod_name(mod), rsnd_mod_id(mod), #func);	\
+	(mod)->ops->func(mod, rdai, io);			\
+})
+
 #define rsnd_mod_call(mod, func, rdai, io)	\
 	(!(mod) ? -ENODEV :			\
 	 !((mod)->ops->func) ? 0 :		\
-	 (mod)->ops->func(mod, rdai, io))
+	 __rsnd_mod_call(mod, func, rdai, io))
 
 void rsnd_mod_init(struct rsnd_priv *priv,
 		   struct rsnd_mod *mod,
@@ -206,6 +231,7 @@ int rsnd_dai_id(struct rsnd_priv *priv, struct rsnd_dai *rdai);
 
 void rsnd_dai_pointer_update(struct rsnd_dai_stream *io, int cnt);
 int rsnd_dai_pointer_offset(struct rsnd_dai_stream *io, int additional);
+#define rsnd_dai_is_clk_master(rdai) ((rdai)->clk_master)
 
 /*
  *	R-Car Gen1/Gen2
@@ -237,10 +263,18 @@ int rsnd_adg_probe(struct platform_device *pdev,
 		   struct rsnd_priv *priv);
 void rsnd_adg_remove(struct platform_device *pdev,
 		   struct rsnd_priv *priv);
-int rsnd_adg_set_convert_clk(struct rsnd_priv *priv,
-			     struct rsnd_mod *mod,
-			     unsigned int src_rate,
-			     unsigned int dst_rate);
+int rsnd_adg_set_convert_clk_gen1(struct rsnd_priv *priv,
+				  struct rsnd_mod *mod,
+				  unsigned int src_rate,
+				  unsigned int dst_rate);
+int rsnd_adg_set_convert_clk_gen2(struct rsnd_mod *mod,
+				  struct rsnd_dai *rdai,
+				  struct rsnd_dai_stream *io,
+				  unsigned int src_rate,
+				  unsigned int dst_rate);
+int rsnd_adg_set_convert_timing_gen2(struct rsnd_mod *mod,
+				     struct rsnd_dai *rdai,
+				     struct rsnd_dai_stream *io);
 
 /*
  *	R-Car sound priv
@@ -270,7 +304,8 @@ struct rsnd_priv {
 	/*
 	 * below value will be filled on rsnd_ssi_probe()
 	 */
-	void *ssiu;
+	void *ssi;
+	int ssi_nr;
 
 	/*
 	 * below value will be filled on rsnd_dai_probe()
@@ -293,7 +328,6 @@ int rsnd_scu_probe(struct platform_device *pdev,
 void rsnd_scu_remove(struct platform_device *pdev,
 		     struct rsnd_priv *priv);
 struct rsnd_mod *rsnd_scu_mod_get(struct rsnd_priv *priv, int id);
-bool rsnd_scu_hpbif_is_enable(struct rsnd_mod *mod);
 unsigned int rsnd_scu_get_ssi_rate(struct rsnd_priv *priv,
 				   struct rsnd_mod *ssi_mod,
 				   struct snd_pcm_runtime *runtime);
@@ -311,5 +345,7 @@ void rsnd_ssi_remove(struct platform_device *pdev,
 struct rsnd_mod *rsnd_ssi_mod_get(struct rsnd_priv *priv, int id);
 struct rsnd_mod *rsnd_ssi_mod_get_frm_dai(struct rsnd_priv *priv,
 					  int dai_id, int is_play);
+int rsnd_ssi_is_pin_sharing(struct rsnd_mod *mod);
+int rsnd_ssi_is_play(struct rsnd_mod *mod);
 
 #endif

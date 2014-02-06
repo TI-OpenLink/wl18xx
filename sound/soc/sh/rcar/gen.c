@@ -182,14 +182,14 @@ int rsnd_gen_path_init(struct rsnd_priv *priv,
 				       rsnd_dai_is_play(rdai, io));
 	id = rsnd_mod_id(mod);
 
-	/* SSI */
-	mod = rsnd_ssi_mod_get(priv, id);
+	/* SCU */
+	mod = rsnd_scu_mod_get(priv, id);
 	ret = rsnd_dai_connect(rdai, mod, io);
 	if (ret < 0)
 		return ret;
 
-	/* SCU */
-	mod = rsnd_scu_mod_get(priv, id);
+	/* SSI */
+	mod = rsnd_ssi_mod_get(priv, id);
 	ret = rsnd_dai_connect(rdai, mod, io);
 
 	return ret;
@@ -229,7 +229,23 @@ static int rsnd_gen2_regmap_init(struct rsnd_priv *priv, struct rsnd_gen *gen)
 		RSND_GEN2_S_REG(gen, SSIU,	SSI_MODE0,	0x800),
 		RSND_GEN2_S_REG(gen, SSIU,	SSI_MODE1,	0x804),
 		/* FIXME: it needs SSI_MODE2/3 in the future */
+		RSND_GEN2_S_REG(gen, SSIU,	SSI_CONTROL,	0x810),
+		RSND_GEN2_M_REG(gen, SSIU,	SSI_BUSIF_MODE,	0x0,	0x80),
+		RSND_GEN2_M_REG(gen, SSIU,	SSI_BUSIF_ADINR,0x4,	0x80),
+		RSND_GEN2_M_REG(gen, SSIU,	SSI_CTRL,	0x10,	0x80),
 		RSND_GEN2_M_REG(gen, SSIU,	INT_ENABLE,	0x18,	0x80),
+
+		RSND_GEN2_M_REG(gen, SCU,	SRC_BUSIF_MODE,	0x0,	0x20),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_ROUTE_MODE0,0xc,	0x20),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_CTRL,	0x10,	0x20),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_SWRSR,	0x200,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_SRCIR,	0x204,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_ADINR,	0x214,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_IFSCR,	0x21c,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_IFSVR,	0x220,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_SRCCR,	0x224,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_BSDSR,	0x22c,	0x40),
+		RSND_GEN2_M_REG(gen, SCU,	SRC_BSISR,	0x238,	0x40),
 
 		RSND_GEN2_S_REG(gen, ADG,	BRRA,		0x00),
 		RSND_GEN2_S_REG(gen, ADG,	BRRB,		0x04),
@@ -237,6 +253,16 @@ static int rsnd_gen2_regmap_init(struct rsnd_priv *priv, struct rsnd_gen *gen)
 		RSND_GEN2_S_REG(gen, ADG,	AUDIO_CLK_SEL0,	0x0c),
 		RSND_GEN2_S_REG(gen, ADG,	AUDIO_CLK_SEL1,	0x10),
 		RSND_GEN2_S_REG(gen, ADG,	AUDIO_CLK_SEL2,	0x14),
+		RSND_GEN2_S_REG(gen, ADG,	SRCIN_TIMSEL0,	0x34),
+		RSND_GEN2_S_REG(gen, ADG,	SRCIN_TIMSEL1,	0x38),
+		RSND_GEN2_S_REG(gen, ADG,	SRCIN_TIMSEL2,	0x3c),
+		RSND_GEN2_S_REG(gen, ADG,	SRCIN_TIMSEL3,	0x40),
+		RSND_GEN2_S_REG(gen, ADG,	SRCIN_TIMSEL4,	0x44),
+		RSND_GEN2_S_REG(gen, ADG,	SRCOUT_TIMSEL0,	0x48),
+		RSND_GEN2_S_REG(gen, ADG,	SRCOUT_TIMSEL1,	0x4c),
+		RSND_GEN2_S_REG(gen, ADG,	SRCOUT_TIMSEL2,	0x50),
+		RSND_GEN2_S_REG(gen, ADG,	SRCOUT_TIMSEL3,	0x54),
+		RSND_GEN2_S_REG(gen, ADG,	SRCOUT_TIMSEL4,	0x58),
 
 		RSND_GEN2_M_REG(gen, SSI,	SSICR,		0x00,	0x40),
 		RSND_GEN2_M_REG(gen, SSI,	SSISR,		0x04,	0x40),
@@ -283,7 +309,7 @@ static int rsnd_gen2_probe(struct platform_device *pdev,
 		return ret;
 
 	dev_dbg(dev, "Gen2 device probed\n");
-	dev_dbg(dev, "SRU  : %08x => %p\n", scu_res->start,
+	dev_dbg(dev, "SCU  : %08x => %p\n", scu_res->start,
 		gen->base[RSND_GEN2_SCU]);
 	dev_dbg(dev, "ADG  : %08x => %p\n", adg_res->start,
 		gen->base[RSND_GEN2_ADG]);
@@ -317,7 +343,7 @@ static int rsnd_gen1_regmap_init(struct rsnd_priv *priv, struct rsnd_gen *gen)
 		RSND_GEN1_S_REG(gen, SRU,	SRC_ROUTE_CTRL,	0xc0),
 		RSND_GEN1_S_REG(gen, SRU,	SSI_MODE0,	0xD0),
 		RSND_GEN1_S_REG(gen, SRU,	SSI_MODE1,	0xD4),
-		RSND_GEN1_M_REG(gen, SRU,	BUSIF_MODE,	0x20,	0x4),
+		RSND_GEN1_M_REG(gen, SRU,	SRC_BUSIF_MODE,	0x20,	0x4),
 		RSND_GEN1_M_REG(gen, SRU,	SRC_ROUTE_MODE0,0x50,	0x8),
 		RSND_GEN1_M_REG(gen, SRU,	SRC_SWRSR,	0x200,	0x40),
 		RSND_GEN1_M_REG(gen, SRU,	SRC_SRCIR,	0x204,	0x40),

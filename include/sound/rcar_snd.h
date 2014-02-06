@@ -35,6 +35,7 @@
  */
 #define RSND_SSI_CLK_PIN_SHARE		(1 << 31)
 #define RSND_SSI_SYNC			(1 << 29) /* SSI34_sync etc */
+#define RSND_SSI_CLK_FROM_ADG		(1 << 30) /* clock parent is master */
 
 #define RSND_SSI_PLAY			(1 << 24)
 
@@ -55,9 +56,15 @@ struct rsnd_ssi_platform_info {
  */
 #define RSND_SCU_USE_HPBIF		(1 << 31) /* it needs RSND_SSI_DEPENDENT */
 
+#define RSND_SCU_SET(rate, _dma_id)		\
+	{ .flags = RSND_SCU_USE_HPBIF, .convert_rate = rate, .dma_id = _dma_id, }
+#define RSND_SCU_UNUSED				\
+	{ .flags = 0, .convert_rate = 0, .dma_id = 0, }
+
 struct rsnd_scu_platform_info {
 	u32 flags;
 	u32 convert_rate; /* sampling rate convert */
+	int dma_id; /* for Gen2 SCU */
 };
 
 /*
