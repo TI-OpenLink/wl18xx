@@ -449,7 +449,7 @@ static inline int pteval_present(pteval_t pteval)
 {
 	/*
 	 * Yes Linus, _PAGE_PROTNONE == _PAGE_NUMA. Expressing it this
-	 * way clearly states that the intent is that a protnone and numa
+	 * way clearly states that the intent is that protnone and numa
 	 * hinting ptes are considered present for the purposes of
 	 * pagetable operations like zapping, protection changes, gup etc.
 	 */
