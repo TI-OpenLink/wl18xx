@@ -60,8 +60,12 @@ int wl18xx_cmd_channel_switch(struct wl1271 *wl,
 		goto out_free;
 	}
 
-	supported_rates = CONF_TX_ENABLED_RATES | CONF_TX_MCS_RATES |
-			  wlcore_hw_sta_get_ap_rate_mask(wl, wlvif);
+	supported_rates = CONF_TX_ENABLED_RATES | CONF_TX_MCS_RATES;
+	if (wlvif->bss_type == BSS_TYPE_STA_BSS)
+		supported_rates |= wlcore_hw_sta_get_ap_rate_mask(wl, wlvif);
+	else
+		supported_rates |=
+			wlcore_hw_ap_get_mimo_wide_rate_mask(wl, wlvif);
 	if (wlvif->p2p)
 		supported_rates &= ~CONF_TX_CCK_RATES;
 	cmd->local_supported_rates = cpu_to_le32(supported_rates);
