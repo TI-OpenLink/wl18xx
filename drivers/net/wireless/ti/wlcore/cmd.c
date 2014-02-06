@@ -2127,10 +2127,6 @@ int wlcore_cmd_dfs_master_restart(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 		return -ENOMEM;
 
 	cmd->role_id = wlvif->role_id;
-	cmd->channel = wlvif->channel;
-	if (wlvif->band == IEEE80211_BAND_5GHZ)
-		cmd->band = WLCORE_BAND_5GHZ;
-	cmd->bandwidth = wlcore_get_native_channel_type(wlvif->channel_type);
 
 	ret = wl1271_cmd_send(wl, CMD_DFS_MASTER_RESTART,
 			      cmd, sizeof(*cmd), 0);
