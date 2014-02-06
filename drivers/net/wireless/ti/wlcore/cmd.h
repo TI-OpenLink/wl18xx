@@ -665,9 +665,7 @@ struct wlcore_cmd_dfs_master_restart {
 	struct wl1271_cmd_header header;
 
 	u8 role_id;
-	u8 channel;
-	u8 band;
-	u8 bandwidth;
+	u8 padding[3];
 } __packed;
 
 /* cac_start and cac_stop share the same params */
