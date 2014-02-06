@@ -20,15 +20,19 @@
 
 #include <linux/gpio.h>
 #include <linux/gpio_keys.h>
+#include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/leds.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/sh_mmcif.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/platform_data/camera-rcar.h>
 #include <linux/platform_data/gpio-rcar.h>
 #include <linux/platform_data/rcar-du.h>
+#include <linux/platform_data/usb-rcar-gen2-phy.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
 #include <linux/regulator/driver.h>
@@ -36,9 +40,12 @@
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/sh_eth.h>
+#include <linux/usb/phy.h>
+#include <linux/usb/renesas_usbhs.h>
 #include <mach/common.h>
 #include <mach/irqs.h>
 #include <mach/r8a7790.h>
+#include <media/soc_camera.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <linux/mtd/partitions.h>
@@ -46,6 +53,20 @@
 #include <linux/spi/flash.h>
 #include <linux/spi/rspi.h>
 #include <linux/spi/spi.h>
+#include <sound/rcar_snd.h>
+#include <sound/simple_card.h>
+
+/*
+ * SSI-AK4643
+ *
+ * SW1: 1: AK4643
+ *      2: CN22
+ *      3: ADV7511
+ *
+ * this command is required when playback.
+ *
+ * # amixer set "LINEOUT Mixer DACL" on
+ */
 
 /* DU */
 static struct rcar_du_encoder_data lager_du_encoders[] = {
@@ -228,6 +249,7 @@ static const struct resource mmcif1_resources[] __initconst = {
 /* Ether */
 static const struct sh_eth_plat_data ether_pdata __initconst = {
 	.phy			= 0x1,
+	.phy_irq		= irq_pin(0),
 	.edmac_endian		= EDMAC_LITTLE_ENDIAN,
 	.phy_interface		= PHY_INTERFACE_MODE_RMII,
 	.ether_link_active_low	= 1,
@@ -263,7 +285,7 @@ static struct mtd_partition spi_flash_part[] = {
 	},
 };
 
-static struct flash_platform_data spi_flash_data = {
+static const struct flash_platform_data spi_flash_data = {
 	.name           = "m25p80",
 	.parts          = spi_flash_part,
 	.nr_parts       = ARRAY_SIZE(spi_flash_part),
@@ -288,8 +310,290 @@ static const struct spi_board_info spi_info[] __initconst = {
 /* QSPI resource */
 static const struct resource qspi_resources[] __initconst = {
 	DEFINE_RES_MEM(0xe6b10000, 0x1000),
-	DEFINE_RES_IRQ(gic_spi(184)),
+	DEFINE_RES_IRQ_NAMED(gic_spi(184), "mux"),
 };
+
+/* VIN */
+static const struct resource vin_resources[] __initconst = {
+	/* VIN0 */
+	DEFINE_RES_MEM(0xe6ef0000, 0x1000),
+	DEFINE_RES_IRQ(gic_spi(188)),
+	/* VIN1 */
+	DEFINE_RES_MEM(0xe6ef1000, 0x1000),
+	DEFINE_RES_IRQ(gic_spi(189)),
+};
+
+static void __init lager_add_vin_device(unsigned idx,
+					struct rcar_vin_platform_data *pdata)
+{
+	struct platform_device_info vin_info = {
+		.parent		= &platform_bus,
+		.name		= "r8a7790-vin",
+		.id		= idx,
+		.res		= &vin_resources[idx * 2],
+		.num_res	= 2,
+		.dma_mask	= DMA_BIT_MASK(32),
+		.data		= pdata,
+		.size_data	= sizeof(*pdata),
+	};
+
+	BUG_ON(idx > 1);
+
+	platform_device_register_full(&vin_info);
+}
+
+#define LAGER_CAMERA(idx, name, addr, pdata, flag)			\
+static struct i2c_board_info i2c_cam##idx##_device = {			\
+	I2C_BOARD_INFO(name, addr),					\
+};									\
+									\
+static struct rcar_vin_platform_data vin##idx##_pdata = {		\
+	.flags = flag,							\
+};									\
+									\
+static struct soc_camera_link cam##idx##_link = {			\
+	.bus_id = idx,							\
+	.board_info = &i2c_cam##idx##_device,				\
+	.i2c_adapter_id = 2,						\
+	.module_name = name,						\
+	.priv = pdata,							\
+}
+
+/* Camera 0 is not currently supported due to adv7612 support missing */
+LAGER_CAMERA(1, "adv7180", 0x20, NULL, RCAR_VIN_BT656);
+
+static void __init lager_add_camera1_device(void)
+{
+	platform_device_register_data(&platform_bus, "soc-camera-pdrv", 1,
+				      &cam1_link, sizeof(cam1_link));
+	lager_add_vin_device(1, &vin1_pdata);
+}
+
+/* SATA1 */
+static const struct resource sata1_resources[] __initconst = {
+	DEFINE_RES_MEM(0xee500000, 0x2000),
+	DEFINE_RES_IRQ(gic_spi(106)),
+};
+
+static const struct platform_device_info sata1_info __initconst = {
+	.parent		= &platform_bus,
+	.name		= "sata-r8a7790",
+	.id		= 1,
+	.res		= sata1_resources,
+	.num_res	= ARRAY_SIZE(sata1_resources),
+	.dma_mask	= DMA_BIT_MASK(32),
+};
+
+/* USBHS */
+static const struct resource usbhs_resources[] __initconst = {
+	DEFINE_RES_MEM(0xe6590000, 0x100),
+	DEFINE_RES_IRQ(gic_spi(107)),
+};
+
+struct usbhs_private {
+	struct renesas_usbhs_platform_info info;
+	struct usb_phy *phy;
+};
+
+#define usbhs_get_priv(pdev) \
+	container_of(renesas_usbhs_get_info(pdev), struct usbhs_private, info)
+
+static int usbhs_power_ctrl(struct platform_device *pdev,
+				void __iomem *base, int enable)
+{
+	struct usbhs_private *priv = usbhs_get_priv(pdev);
+
+	if (!priv->phy)
+		return -ENODEV;
+
+	if (enable) {
+		int retval = usb_phy_init(priv->phy);
+
+		if (!retval)
+			retval = usb_phy_set_suspend(priv->phy, 0);
+		return retval;
+	}
+
+	usb_phy_set_suspend(priv->phy, 1);
+	usb_phy_shutdown(priv->phy);
+	return 0;
+}
+
+static int usbhs_hardware_init(struct platform_device *pdev)
+{
+	struct usbhs_private *priv = usbhs_get_priv(pdev);
+	struct usb_phy *phy;
+	int ret;
+
+	/* USB0 Function - use PWEN as GPIO input to detect DIP Switch SW5
+	 * setting to avoid VBUS short circuit due to wrong cable.
+	 * PWEN should be pulled up high if USB Function is selected by SW5
+	 */
+	gpio_request_one(RCAR_GP_PIN(5, 18), GPIOF_IN, NULL); /* USB0_PWEN */
+	if (!gpio_get_value(RCAR_GP_PIN(5, 18))) {
+		pr_warn("Error: USB Function not selected - check SW5 + SW6\n");
+		ret = -ENOTSUPP;
+		goto error;
+	}
+
+	phy = usb_get_phy_dev(&pdev->dev, 0);
+	if (IS_ERR(phy)) {
+		ret = PTR_ERR(phy);
+		goto error;
+	}
+
+	priv->phy = phy;
+	return 0;
+ error:
+	gpio_free(RCAR_GP_PIN(5, 18));
+	return ret;
+}
+
+static int usbhs_hardware_exit(struct platform_device *pdev)
+{
+	struct usbhs_private *priv = usbhs_get_priv(pdev);
+
+	if (!priv->phy)
+		return 0;
+
+	usb_put_phy(priv->phy);
+	priv->phy = NULL;
+
+	gpio_free(RCAR_GP_PIN(5, 18));
+	return 0;
+}
+
+static int usbhs_get_id(struct platform_device *pdev)
+{
+	return USBHS_GADGET;
+}
+
+static u32 lager_usbhs_pipe_type[] = {
+	USB_ENDPOINT_XFER_CONTROL,
+	USB_ENDPOINT_XFER_ISOC,
+	USB_ENDPOINT_XFER_ISOC,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_INT,
+	USB_ENDPOINT_XFER_INT,
+	USB_ENDPOINT_XFER_INT,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+	USB_ENDPOINT_XFER_BULK,
+};
+
+static struct usbhs_private usbhs_priv __initdata = {
+	.info = {
+		.platform_callback = {
+			.power_ctrl	= usbhs_power_ctrl,
+			.hardware_init	= usbhs_hardware_init,
+			.hardware_exit	= usbhs_hardware_exit,
+			.get_id		= usbhs_get_id,
+		},
+		.driver_param = {
+			.buswait_bwait	= 4,
+			.pipe_type = lager_usbhs_pipe_type,
+			.pipe_size = ARRAY_SIZE(lager_usbhs_pipe_type),
+		},
+	}
+};
+
+static void __init lager_register_usbhs(void)
+{
+	usb_bind_phy("renesas_usbhs", 0, "usb_phy_rcar_gen2");
+	platform_device_register_resndata(&platform_bus,
+					  "renesas_usbhs", -1,
+					  usbhs_resources,
+					  ARRAY_SIZE(usbhs_resources),
+					  &usbhs_priv.info,
+					  sizeof(usbhs_priv.info));
+}
+
+/* USBHS PHY */
+static const struct rcar_gen2_phy_platform_data usbhs_phy_pdata __initconst = {
+	.chan0_pci = 0,	/* Channel 0 is USBHS */
+	.chan2_pci = 1,	/* Channel 2 is PCI USB */
+};
+
+static const struct resource usbhs_phy_resources[] __initconst = {
+	DEFINE_RES_MEM(0xe6590100, 0x100),
+};
+
+/* I2C */
+static struct i2c_board_info i2c2_devices[] = {
+	{
+		I2C_BOARD_INFO("ak4643", 0x12),
+	}
+};
+
+/* Sound */
+static struct resource rsnd_resources[] __initdata = {
+	[RSND_GEN2_SCU]  = DEFINE_RES_MEM(0xec500000, 0x1000),
+	[RSND_GEN2_ADG]  = DEFINE_RES_MEM(0xec5a0000, 0x100),
+	[RSND_GEN2_SSIU] = DEFINE_RES_MEM(0xec540000, 0x1000),
+	[RSND_GEN2_SSI]  = DEFINE_RES_MEM(0xec541000, 0x1280),
+};
+
+static struct rsnd_ssi_platform_info rsnd_ssi[] = {
+	RSND_SSI_SET(0, 0, gic_spi(370), RSND_SSI_PLAY),
+	RSND_SSI_SET(0, 0, gic_spi(371), RSND_SSI_CLK_PIN_SHARE),
+};
+
+static struct rsnd_scu_platform_info rsnd_scu[2] = {
+	/* no member at this point */
+};
+
+static struct rcar_snd_info rsnd_info = {
+	.flags		= RSND_GEN2,
+	.ssi_info	= rsnd_ssi,
+	.ssi_info_nr	= ARRAY_SIZE(rsnd_ssi),
+	.scu_info	= rsnd_scu,
+	.scu_info_nr	= ARRAY_SIZE(rsnd_scu),
+};
+
+static struct asoc_simple_card_info rsnd_card_info = {
+	.name		= "AK4643",
+	.card		= "SSI01-AK4643",
+	.codec		= "ak4642-codec.2-0012",
+	.platform	= "rcar_sound",
+	.daifmt		= SND_SOC_DAIFMT_LEFT_J,
+	.cpu_dai = {
+		.name	= "rcar_sound",
+		.fmt	= SND_SOC_DAIFMT_CBS_CFS,
+	},
+	.codec_dai = {
+		.name	= "ak4642-hifi",
+		.fmt	= SND_SOC_DAIFMT_CBM_CFM,
+		.sysclk	= 11289600,
+	},
+};
+
+static void __init lager_add_rsnd_device(void)
+{
+	struct platform_device_info cardinfo = {
+		.parent         = &platform_bus,
+		.name           = "asoc-simple-card",
+		.id             = -1,
+		.data           = &rsnd_card_info,
+		.size_data      = sizeof(struct asoc_simple_card_info),
+		.dma_mask       = DMA_BIT_MASK(32),
+	};
+
+	i2c_register_board_info(2, i2c2_devices,
+				ARRAY_SIZE(i2c2_devices));
+
+	platform_device_register_resndata(
+		&platform_bus, "rcar_sound", -1,
+		rsnd_resources, ARRAY_SIZE(rsnd_resources),
+		&rsnd_info, sizeof(rsnd_info));
+
+	platform_device_register_full(&cardinfo);
+}
 
 static const struct pinctrl_map lager_pinctrl_map[] = {
 	/* DU (CN10: ARGB0, CN13: LVDS) */
@@ -299,12 +603,24 @@ static const struct pinctrl_map lager_pinctrl_map[] = {
 				  "du_sync_1", "du"),
 	PIN_MAP_MUX_GROUP_DEFAULT("rcar-du-r8a7790", "pfc-r8a7790",
 				  "du_clk_out_0", "du"),
+	/* I2C2 */
+	PIN_MAP_MUX_GROUP_DEFAULT("i2c-rcar.2", "pfc-r8a7790",
+				  "i2c2", "i2c2"),
 	/* SCIF0 (CN19: DEBUG SERIAL0) */
 	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.6", "pfc-r8a7790",
 				  "scif0_data", "scif0"),
 	/* SCIF1 (CN20: DEBUG SERIAL1) */
 	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.7", "pfc-r8a7790",
 				  "scif1_data", "scif1"),
+	/* SSI (CN17: sound) */
+	PIN_MAP_MUX_GROUP_DEFAULT("rcar_sound", "pfc-r8a7790",
+				  "ssi0129_ctrl", "ssi"),
+	PIN_MAP_MUX_GROUP_DEFAULT("rcar_sound", "pfc-r8a7790",
+				  "ssi0_data", "ssi"),
+	PIN_MAP_MUX_GROUP_DEFAULT("rcar_sound", "pfc-r8a7790",
+				  "ssi1_data", "ssi"),
+	PIN_MAP_MUX_GROUP_DEFAULT("rcar_sound", "pfc-r8a7790",
+				  "audio_clk_a", "audio_clk"),
 	/* MMCIF1 */
 	PIN_MAP_MUX_GROUP_DEFAULT("sh_mmcif.1", "pfc-r8a7790",
 				  "mmc1_data8", "mmc1"),
@@ -319,6 +635,25 @@ static const struct pinctrl_map lager_pinctrl_map[] = {
 				  "eth_rmii", "eth"),
 	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-ether", "pfc-r8a7790",
 				  "intc_irq0", "intc"),
+	/* VIN0 */
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.0", "pfc-r8a7790",
+				  "vin0_data24", "vin0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.0", "pfc-r8a7790",
+				  "vin0_sync", "vin0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.0", "pfc-r8a7790",
+				  "vin0_field", "vin0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.0", "pfc-r8a7790",
+				  "vin0_clkenb", "vin0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.0", "pfc-r8a7790",
+				  "vin0_clk", "vin0"),
+	/* VIN1 */
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.1", "pfc-r8a7790",
+				  "vin1_data8", "vin1"),
+	PIN_MAP_MUX_GROUP_DEFAULT("r8a7790-vin.1", "pfc-r8a7790",
+				  "vin1_clk", "vin1"),
+	/* USB0 */
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_usbhs", "pfc-r8a7790",
+				  "usb0_ovc_vbus", "usb0"),
 };
 
 static void __init lager_add_standard_devices(void)
@@ -368,6 +703,19 @@ static void __init lager_add_standard_devices(void)
 				      &vccq_sdhi0_info, sizeof(struct gpio_regulator_config));
 	platform_device_register_data(&platform_bus, "gpio-regulator", gpio_regulator_idx++,
 				      &vccq_sdhi2_info, sizeof(struct gpio_regulator_config));
+
+	lager_add_camera1_device();
+
+	platform_device_register_full(&sata1_info);
+
+	platform_device_register_resndata(&platform_bus, "usb_phy_rcar_gen2",
+					  -1, usbhs_phy_resources,
+					  ARRAY_SIZE(usbhs_phy_resources),
+					  &usbhs_phy_pdata,
+					  sizeof(usbhs_phy_pdata));
+	lager_register_usbhs();
+
+	lager_add_rsnd_device();
 }
 
 /*
@@ -390,6 +738,8 @@ static int lager_ksz8041_fixup(struct phy_device *phydev)
 static void __init lager_init(void)
 {
 	lager_add_standard_devices();
+
+	irq_set_irq_type(irq_pin(0), IRQ_TYPE_LEVEL_LOW);
 
 	if (IS_ENABLED(CONFIG_PHYLIB))
 		phy_register_fixup_for_id("r8a7790-ether-ff:01",
