@@ -289,6 +289,7 @@ struct per_bio_data {
 	bool tick:1;
 	unsigned req_nr:2;
 	struct dm_deferred_entry *all_io_entry;
+	struct dm_hook_info hook_info;
 
 	/*
 	 * writethrough fields.  These MUST remain at the end of this
@@ -297,7 +298,6 @@ struct per_bio_data {
 	 */
 	struct cache *cache;
 	dm_cblock_t cblock;
-	struct dm_hook_info hook_info;
 	struct dm_bio_details bio_details;
 };
 
@@ -1010,13 +1010,15 @@ static void overwrite_endio(struct bio *bio, int err)
 	struct per_bio_data *pb = get_per_bio_data(bio, pb_data_size);
 	unsigned long flags;
 
+	dm_unhook_bio(&pb->hook_info, bio);
+
 	if (err)
 		mg->err = true;
 
+	mg->requeue_holder = false;
+
 	spin_lock_irqsave(&cache->lock, flags);
 	list_add_tail(&mg->list, &cache->completed_migrations);
-	dm_unhook_bio(&pb->hook_info, bio);
-	mg->requeue_holder = false;
 	spin_unlock_irqrestore(&cache->lock, flags);
 
 	wake_worker(cache);
