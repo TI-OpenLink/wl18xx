@@ -52,14 +52,6 @@ extern int nand_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len);
 #define NAND_MAX_CHIPS		8
 
 /*
- * This constant declares the max. oobsize / page, which
- * is supported now. If you add a chip with bigger oobsize/page
- * adjust this accordingly.
- */
-#define NAND_MAX_OOBSIZE	744
-#define NAND_MAX_PAGESIZE	8192
-
-/*
  * Constants for hardware specific CLE/ALE/NCE function
  *
  * These are bits which can be or'ed to set/clear multiple
@@ -435,17 +427,17 @@ struct nand_ecc_ctrl {
 
 /**
  * struct nand_buffers - buffer structure for read/write
- * @ecccalc:	buffer for calculated ECC
- * @ecccode:	buffer for ECC read from flash
- * @databuf:	buffer for data - dynamically sized
+ * @ecccalc:	buffer pointer for calculated ECC, size is oobsize.
+ * @ecccode:	buffer pointer for ECC read from flash, size is oobsize.
+ * @databuf:	buffer pointer for data, size is (page size + oobsize).
  *
  * Do not change the order of buffers. databuf and oobrbuf must be in
  * consecutive order.
  */
 struct nand_buffers {
-	uint8_t	ecccalc[NAND_MAX_OOBSIZE];
-	uint8_t	ecccode[NAND_MAX_OOBSIZE];
-	uint8_t databuf[NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE];
+	uint8_t	*ecccalc;
+	uint8_t	*ecccode;
+	uint8_t *databuf;
 };
 
 /**
@@ -840,4 +832,14 @@ static inline bool nand_is_slc(struct nand_chip *chip)
 {
 	return chip->bits_per_cell == 1;
 }
+
+/**
+ * Check if the opcode's address should be sent only on the lower 8 bits
+ * @command: opcode to check
+ */
+static inline int nand_opcode_8bits(unsigned int command)
+{
+	return command == NAND_CMD_READID;
+}
+
 #endif /* __LINUX_MTD_NAND_H */
