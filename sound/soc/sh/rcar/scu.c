@@ -16,9 +16,6 @@ struct rsnd_scu {
 	struct clk *clk;
 };
 
-#define rsnd_scu_mode_flags(p) ((p)->info->flags)
-#define rsnd_scu_convert_rate(p) ((p)->info->convert_rate)
-
 #define RSND_SCU_NAME_SIZE 16
 
 /*
@@ -30,6 +27,22 @@ struct rsnd_scu {
 #define OTBL_18		(6 << 16)
 #define OTBL_16		(8 << 16)
 
+#define rsnd_scu_mode_flags(p) ((p)->info->flags)
+#define rsnd_scu_convert_rate(p) ((p)->info->convert_rate)
+#define rsnd_mod_to_scu(_mod)				\
+	container_of((_mod), struct rsnd_scu, mod)
+#define rsnd_scu_hpbif_is_enable(scu)	\
+	(rsnd_scu_mode_flags(scu) & RSND_SCU_USE_HPBIF)
+#define rsnd_scu_dma_available(scu) \
+	rsnd_dma_available(rsnd_mod_to_dma(&(scu)->mod))
+
+#define for_each_rsnd_scu(pos, priv, i)				\
+	for ((i) = 0;						\
+	     ((i) < rsnd_scu_nr(priv)) &&			\
+	     ((pos) = (struct rsnd_scu *)(priv)->scu + i);	\
+	     i++)
+
+
 /*
  *		image of SRC (Sampling Rate Converter)
  *
@@ -40,89 +53,104 @@ struct rsnd_scu {
  *
  */
 
-#define rsnd_mod_to_scu(_mod)	\
-	container_of((_mod), struct rsnd_scu, mod)
+/*
+ * scu.c is caring...
+ *
+ * Gen1
+ *
+ * [mem] -> [SRU] -> [SSI]
+ *        |--------|
+ *
+ * Gen2
+ *
+ * [mem] -> [SCU] -> [SSIU] -> [SSI]
+ *        |-----------------|
+ */
 
-#define for_each_rsnd_scu(pos, priv, i)					\
-	for ((i) = 0;							\
-	     ((i) < rsnd_scu_nr(priv)) &&				\
-		     ((pos) = (struct rsnd_scu *)(priv)->scu + i);	\
-	     i++)
+/*
+ *	How to use SRC bypass mode for debugging
+ *
+ * SRC has bypass mode, and it is useful for debugging.
+ * In Gen2 case,
+ * SRCm_MODE controls whether SRC is used or not
+ * SSI_MODE0 controls whether SSIU which receives SRC data
+ * is used or not.
+ * Both SRCm_MODE/SSI_MODE0 settings are needed if you use SRC,
+ * but SRC bypass mode needs SSI_MODE0 only.
+ *
+ * This driver request
+ * struct rsnd_scu_platform_info {
+ *	u32 flags;
+ *	u32 convert_rate;
+ * }
+ *
+ * rsnd_scu_hpbif_is_enable() will be true
+ * if flags had RSND_SCU_USE_HPBIF,
+ * and it controls whether SSIU is used or not.
+ *
+ * rsnd_scu_convert_rate() indicates
+ * above convert_rate, and it controls
+ * whether SRC is used or not.
+ *
+ * ex) doesn't use SRC
+ * struct rsnd_scu_platform_info info = {
+ *	.flags = 0,
+ *	.convert_rate = 0,
+ * };
+ *
+ * ex) uses SRC
+ * struct rsnd_scu_platform_info info = {
+ *	.flags = RSND_SCU_USE_HPBIF,
+ *	.convert_rate = 48000,
+ * };
+ *
+ * ex) uses SRC bypass mode
+ * struct rsnd_scu_platform_info info = {
+ *	.flags = RSND_SCU_USE_HPBIF,
+ *	.convert_rate = 0,
+ * };
+ *
+ */
 
-/* Gen1 only */
-static int rsnd_src_set_route_if_gen1(struct rsnd_priv *priv,
-			      struct rsnd_mod *mod,
-			      struct rsnd_dai *rdai,
-			      struct rsnd_dai_stream *io)
+/*
+ *		Gen1/Gen2 common functions
+ */
+static int rsnd_scu_ssi_mode_init(struct rsnd_mod *mod,
+				  struct rsnd_dai *rdai,
+				  struct rsnd_dai_stream *io)
 {
-	struct scu_route_config {
-		u32 mask;
-		int shift;
-	} routes[] = {
-		{ 0xF,  0, }, /* 0 */
-		{ 0xF,  4, }, /* 1 */
-		{ 0xF,  8, }, /* 2 */
-		{ 0x7, 12, }, /* 3 */
-		{ 0x7, 16, }, /* 4 */
-		{ 0x7, 20, }, /* 5 */
-		{ 0x7, 24, }, /* 6 */
-		{ 0x3, 28, }, /* 7 */
-		{ 0x3, 30, }, /* 8 */
-	};
+	struct rsnd_priv *priv = rsnd_mod_to_priv(mod);
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
-	u32 mask;
-	u32 val;
-	int shift;
-	int id;
+	int id = rsnd_mod_id(mod);
 
 	/*
-	 * Gen1 only
+	 * SSI_MODE0
 	 */
-	if (!rsnd_is_gen1(priv))
-		return 0;
-
-	id = rsnd_mod_id(mod);
-	if (id < 0 || id >= ARRAY_SIZE(routes))
-		return -EIO;
+	rsnd_mod_bset(mod, SSI_MODE0, (1 << id),
+		      rsnd_scu_hpbif_is_enable(scu) ? 0 : (1 << id));
 
 	/*
-	 * SRC_ROUTE_SELECT
+	 * SSI_MODE1
 	 */
-	val = rsnd_dai_is_play(rdai, io) ? 0x1 : 0x2;
-	val = val		<< routes[id].shift;
-	mask = routes[id].mask	<< routes[id].shift;
+	if (rsnd_ssi_is_pin_sharing(rsnd_ssi_mod_get(priv, id))) {
+		int shift = -1;
+		switch (id) {
+		case 1:
+			shift = 0;
+			break;
+		case 2:
+			shift = 2;
+			break;
+		case 4:
+			shift = 16;
+			break;
+		}
 
-	rsnd_mod_bset(mod, SRC_ROUTE_SEL, mask, val);
-
-	/*
-	 * SRC_TIMING_SELECT
-	 */
-	shift	= (id % 4) * 8;
-	mask	= 0x1F << shift;
-
-	/*
-	 * ADG is used as source clock if SRC was used,
-	 * then, SSI WS is used as destination clock.
-	 * SSI WS is used as source clock if SRC is not used
-	 * (when playback, source/destination become reverse when capture)
-	 */
-	if (rsnd_scu_convert_rate(scu))	/* use ADG */
-		val = 0;
-	else if (8 == id)		/* use SSI WS, but SRU8 is special */
-		val = id << shift;
-	else				/* use SSI WS */
-		val = (id + 1) << shift;
-
-	switch (id / 4) {
-	case 0:
-		rsnd_mod_bset(mod, SRC_TMG_SEL0, mask, val);
-		break;
-	case 1:
-		rsnd_mod_bset(mod, SRC_TMG_SEL1, mask, val);
-		break;
-	case 2:
-		rsnd_mod_bset(mod, SRC_TMG_SEL2, mask, val);
-		break;
+		if (shift >= 0)
+			rsnd_mod_bset(mod, SSI_MODE1,
+				      0x3 << shift,
+				      rsnd_dai_is_clk_master(rdai) ?
+				      0x2 << shift : 0x1 << shift);
 	}
 
 	return 0;
@@ -149,21 +177,27 @@ unsigned int rsnd_scu_get_ssi_rate(struct rsnd_priv *priv,
 	return rate;
 }
 
-static int rsnd_scu_convert_rate_ctrl(struct rsnd_priv *priv,
-			      struct rsnd_mod *mod,
-			      struct rsnd_dai *rdai,
-			      struct rsnd_dai_stream *io)
+static int rsnd_scu_set_convert_rate(struct rsnd_mod *mod,
+				     struct rsnd_dai *rdai,
+				     struct rsnd_dai_stream *io)
 {
 	struct snd_pcm_runtime *runtime = rsnd_io_to_runtime(io);
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
 	u32 convert_rate = rsnd_scu_convert_rate(scu);
 	u32 adinr = runtime->channels;
+	u32 fsrate = 0;
+
+	if (convert_rate)
+		fsrate = 0x0400000 / convert_rate * runtime->rate;
 
 	/* set/clear soft reset */
 	rsnd_mod_write(mod, SRC_SWRSR, 0);
 	rsnd_mod_write(mod, SRC_SWRSR, 1);
 
-	/* Initialize the operation of the SRC internal circuits */
+	/*
+	 * Initialize the operation of the SRC internal circuits
+	 * see rsnd_scu_start()
+	 */
 	rsnd_mod_write(mod, SRC_SRCIR, 1);
 
 	/* Set channel number and output bit length */
@@ -179,56 +213,58 @@ static int rsnd_scu_convert_rate_ctrl(struct rsnd_priv *priv,
 	}
 	rsnd_mod_write(mod, SRC_ADINR, adinr);
 
-	if (convert_rate) {
-		u32 fsrate = 0x0400000 / convert_rate * runtime->rate;
-		int ret;
-
-		/* Enable the initial value of IFS */
+	/* Enable the initial value of IFS */
+	if (fsrate) {
 		rsnd_mod_write(mod, SRC_IFSCR, 1);
 
 		/* Set initial value of IFS */
 		rsnd_mod_write(mod, SRC_IFSVR, fsrate);
-
-		/* Select SRC mode (fixed value) */
-		rsnd_mod_write(mod, SRC_SRCCR, 0x00010110);
-
-		/* Set the restriction value of the FS ratio (98%) */
-		rsnd_mod_write(mod, SRC_MNFSR, fsrate / 100 * 98);
-
-		if (rsnd_is_gen1(priv)) {
-			/* no SRC_BFSSR settings, since SRC_SRCCR::BUFMD is 0 */
-		}
-
-		/* set convert clock */
-		ret = rsnd_adg_set_convert_clk(priv, mod,
-					       runtime->rate,
-					       convert_rate);
-		if (ret < 0)
-			return ret;
 	}
 
-	/* Cancel the initialization and operate the SRC function */
-	rsnd_mod_write(mod, SRC_SRCIR, 0);
-
 	/* use DMA transfer */
-	rsnd_mod_write(mod, BUSIF_MODE, 1);
+	rsnd_mod_write(mod, SRC_BUSIF_MODE, 1);
 
 	return 0;
 }
 
-static int rsnd_scu_transfer_start(struct rsnd_priv *priv,
-				   struct rsnd_mod *mod,
-				   struct rsnd_dai *rdai,
-				   struct rsnd_dai_stream *io)
+static int rsnd_scu_init(struct rsnd_mod *mod,
+			 struct rsnd_dai *rdai,
+			 struct rsnd_dai_stream *io)
 {
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
-	int id = rsnd_mod_id(mod);
-	u32 val;
+	int ret;
 
-	if (rsnd_is_gen1(priv)) {
-		val = (1 << id);
-		rsnd_mod_bset(mod, SRC_ROUTE_CTRL, val, val);
-	}
+	clk_enable(scu->clk);
+
+	ret = rsnd_scu_ssi_mode_init(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int rsnd_scu_quit(struct rsnd_mod *mod,
+			 struct rsnd_dai *rdai,
+			 struct rsnd_dai_stream *io)
+{
+	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
+
+	clk_disable(scu->clk);
+
+	return 0;
+}
+
+static int rsnd_scu_start(struct rsnd_mod *mod,
+			  struct rsnd_dai *rdai,
+			  struct rsnd_dai_stream *io)
+{
+	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
+
+	/*
+	 * Cancel the initialization and operate the SRC function
+	 * see rsnd_scu_set_convert_rate()
+	 */
+	rsnd_mod_write(mod, SRC_SRCIR, 0);
 
 	if (rsnd_scu_convert_rate(scu))
 		rsnd_mod_write(mod, SRC_ROUTE_MODE0, 1);
@@ -236,19 +272,12 @@ static int rsnd_scu_transfer_start(struct rsnd_priv *priv,
 	return 0;
 }
 
-static int rsnd_scu_transfer_stop(struct rsnd_priv *priv,
-				  struct rsnd_mod *mod,
-				  struct rsnd_dai *rdai,
-				  struct rsnd_dai_stream *io)
+
+static int rsnd_scu_stop(struct rsnd_mod *mod,
+			 struct rsnd_dai *rdai,
+			 struct rsnd_dai_stream *io)
 {
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
-	int id = rsnd_mod_id(mod);
-	u32 mask;
-
-	if (rsnd_is_gen1(priv)) {
-		mask = (1 << id);
-		rsnd_mod_bset(mod, SRC_ROUTE_CTRL, mask, 0);
-	}
 
 	if (rsnd_scu_convert_rate(scu))
 		rsnd_mod_write(mod, SRC_ROUTE_MODE0, 0);
@@ -256,76 +285,306 @@ static int rsnd_scu_transfer_stop(struct rsnd_priv *priv,
 	return 0;
 }
 
-bool rsnd_scu_hpbif_is_enable(struct rsnd_mod *mod)
-{
-	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
-	u32 flags = rsnd_scu_mode_flags(scu);
+static struct rsnd_mod_ops rsnd_scu_non_ops = {
+	.name	= "scu (non)",
+};
 
-	return !!(flags & RSND_SCU_USE_HPBIF);
+/*
+ *		Gen1 functions
+ */
+static int rsnd_src_set_route_gen1(struct rsnd_mod *mod,
+				   struct rsnd_dai *rdai,
+				   struct rsnd_dai_stream *io)
+{
+	struct scu_route_config {
+		u32 mask;
+		int shift;
+	} routes[] = {
+		{ 0xF,  0, }, /* 0 */
+		{ 0xF,  4, }, /* 1 */
+		{ 0xF,  8, }, /* 2 */
+		{ 0x7, 12, }, /* 3 */
+		{ 0x7, 16, }, /* 4 */
+		{ 0x7, 20, }, /* 5 */
+		{ 0x7, 24, }, /* 6 */
+		{ 0x3, 28, }, /* 7 */
+		{ 0x3, 30, }, /* 8 */
+	};
+	u32 mask;
+	u32 val;
+	int id;
+
+	id = rsnd_mod_id(mod);
+	if (id < 0 || id >= ARRAY_SIZE(routes))
+		return -EIO;
+
+	/*
+	 * SRC_ROUTE_SELECT
+	 */
+	val = rsnd_dai_is_play(rdai, io) ? 0x1 : 0x2;
+	val = val		<< routes[id].shift;
+	mask = routes[id].mask	<< routes[id].shift;
+
+	rsnd_mod_bset(mod, SRC_ROUTE_SEL, mask, val);
+
+	return 0;
 }
 
-static int rsnd_scu_start(struct rsnd_mod *mod,
-			  struct rsnd_dai *rdai,
-			  struct rsnd_dai_stream *io)
+static int rsnd_scu_set_convert_timing_gen1(struct rsnd_mod *mod,
+					    struct rsnd_dai *rdai,
+					    struct rsnd_dai_stream *io)
 {
 	struct rsnd_priv *priv = rsnd_mod_to_priv(mod);
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
-	struct device *dev = rsnd_priv_to_dev(priv);
+	struct snd_pcm_runtime *runtime = rsnd_io_to_runtime(io);
+	u32 convert_rate = rsnd_scu_convert_rate(scu);
+	u32 mask;
+	u32 val;
+	int shift;
+	int id = rsnd_mod_id(mod);
 	int ret;
 
 	/*
-	 * SCU will be used if it has RSND_SCU_USE_HPBIF flags
+	 * SRC_TIMING_SELECT
 	 */
-	if (!rsnd_scu_hpbif_is_enable(mod)) {
-		/* it use PIO transter */
-		dev_dbg(dev, "%s%d is not used\n",
-			rsnd_mod_name(mod), rsnd_mod_id(mod));
+	shift	= (id % 4) * 8;
+	mask	= 0x1F << shift;
 
-		return 0;
+	/*
+	 * ADG is used as source clock if SRC was used,
+	 * then, SSI WS is used as destination clock.
+	 * SSI WS is used as source clock if SRC is not used
+	 * (when playback, source/destination become reverse when capture)
+	 */
+	ret = 0;
+	if (convert_rate) {
+		/* use ADG */
+		val = 0;
+		ret = rsnd_adg_set_convert_clk_gen1(priv, mod,
+						    runtime->rate,
+						    convert_rate);
+	} else if (8 == id) {
+		/* use SSI WS, but SRU8 is special */
+		val = id << shift;
+	} else {
+		/* use SSI WS */
+		val = (id + 1) << shift;
 	}
 
-	clk_enable(scu->clk);
-
-	/* it use DMA transter */
-
-	ret = rsnd_src_set_route_if_gen1(priv, mod, rdai, io);
 	if (ret < 0)
 		return ret;
 
-	ret = rsnd_scu_convert_rate_ctrl(priv, mod, rdai, io);
-	if (ret < 0)
-		return ret;
-
-	ret = rsnd_scu_transfer_start(priv, mod, rdai, io);
-	if (ret < 0)
-		return ret;
-
-	dev_dbg(dev, "%s%d start\n", rsnd_mod_name(mod), rsnd_mod_id(mod));
+	switch (id / 4) {
+	case 0:
+		rsnd_mod_bset(mod, SRC_TMG_SEL0, mask, val);
+		break;
+	case 1:
+		rsnd_mod_bset(mod, SRC_TMG_SEL1, mask, val);
+		break;
+	case 2:
+		rsnd_mod_bset(mod, SRC_TMG_SEL2, mask, val);
+		break;
+	}
 
 	return 0;
 }
 
-static int rsnd_scu_stop(struct rsnd_mod *mod,
-			  struct rsnd_dai *rdai,
-			  struct rsnd_dai_stream *io)
+static int rsnd_scu_set_convert_rate_gen1(struct rsnd_mod *mod,
+					  struct rsnd_dai *rdai,
+					  struct rsnd_dai_stream *io)
 {
-	struct rsnd_priv *priv = rsnd_mod_to_priv(mod);
+	int ret;
+
+	ret = rsnd_scu_set_convert_rate(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	/* Select SRC mode (fixed value) */
+	rsnd_mod_write(mod, SRC_SRCCR, 0x00010110);
+
+	/* Set the restriction value of the FS ratio (98%) */
+	rsnd_mod_write(mod, SRC_MNFSR,
+		       rsnd_mod_read(mod, SRC_IFSVR) / 100 * 98);
+
+	/* no SRC_BFSSR settings, since SRC_SRCCR::BUFMD is 0 */
+
+	return 0;
+}
+
+static int rsnd_scu_init_gen1(struct rsnd_mod *mod,
+			      struct rsnd_dai *rdai,
+			      struct rsnd_dai_stream *io)
+{
+	int ret;
+
+	ret = rsnd_scu_init(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	ret = rsnd_src_set_route_gen1(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	ret = rsnd_scu_set_convert_rate_gen1(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	ret = rsnd_scu_set_convert_timing_gen1(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int rsnd_scu_start_gen1(struct rsnd_mod *mod,
+			       struct rsnd_dai *rdai,
+			       struct rsnd_dai_stream *io)
+{
+	int id = rsnd_mod_id(mod);
+
+	rsnd_mod_bset(mod, SRC_ROUTE_CTRL, (1 << id), (1 << id));
+
+	return rsnd_scu_start(mod, rdai, io);
+}
+
+static int rsnd_scu_stop_gen1(struct rsnd_mod *mod,
+			      struct rsnd_dai *rdai,
+			      struct rsnd_dai_stream *io)
+{
+	int id = rsnd_mod_id(mod);
+
+	rsnd_mod_bset(mod, SRC_ROUTE_CTRL, (1 << id), 0);
+
+	return rsnd_scu_stop(mod, rdai, io);
+}
+
+static struct rsnd_mod_ops rsnd_scu_gen1_ops = {
+	.name	= "sru (gen1)",
+	.init	= rsnd_scu_init_gen1,
+	.quit	= rsnd_scu_quit,
+	.start	= rsnd_scu_start_gen1,
+	.stop	= rsnd_scu_stop_gen1,
+};
+
+static struct rsnd_mod_ops rsnd_scu_non_gen1_ops = {
+	.name	= "non-sru (gen1)",
+	.init	= rsnd_scu_ssi_mode_init,
+};
+
+/*
+ *		Gen2 functions
+ */
+static int rsnd_scu_set_convert_rate_gen2(struct rsnd_mod *mod,
+					  struct rsnd_dai *rdai,
+					  struct rsnd_dai_stream *io)
+{
+	int ret;
+
+	ret = rsnd_scu_set_convert_rate(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	rsnd_mod_write(mod, SSI_BUSIF_ADINR, rsnd_mod_read(mod, SRC_ADINR));
+	rsnd_mod_write(mod, SSI_BUSIF_MODE,  rsnd_mod_read(mod, SRC_BUSIF_MODE));
+
+	rsnd_mod_write(mod, SRC_SRCCR, 0x00011110);
+
+	rsnd_mod_write(mod, SRC_BSDSR, 0x01800000);
+	rsnd_mod_write(mod, SRC_BSISR, 0x00100060);
+
+	return 0;
+}
+
+static int rsnd_scu_set_convert_timing_gen2(struct rsnd_mod *mod,
+					    struct rsnd_dai *rdai,
+					    struct rsnd_dai_stream *io)
+{
+	struct snd_pcm_runtime *runtime = rsnd_io_to_runtime(io);
+	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
+	u32 convert_rate = rsnd_scu_convert_rate(scu);
+	int ret;
+
+	if (convert_rate)
+		ret = rsnd_adg_set_convert_clk_gen2(mod, rdai, io,
+						    runtime->rate,
+						    convert_rate);
+	else
+		ret = rsnd_adg_set_convert_timing_gen2(mod, rdai, io);
+
+	return ret;
+}
+
+static int rsnd_scu_init_gen2(struct rsnd_mod *mod,
+			      struct rsnd_dai *rdai,
+			      struct rsnd_dai_stream *io)
+{
+	int ret;
+
+	ret = rsnd_scu_init(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	ret = rsnd_scu_set_convert_rate_gen2(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	ret = rsnd_scu_set_convert_timing_gen2(mod, rdai, io);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int rsnd_scu_start_gen2(struct rsnd_mod *mod,
+			       struct rsnd_dai *rdai,
+			       struct rsnd_dai_stream *io)
+{
 	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
 
-	if (!rsnd_scu_hpbif_is_enable(mod))
-		return 0;
+	rsnd_dma_start(rsnd_mod_to_dma(&scu->mod));
 
-	rsnd_scu_transfer_stop(priv, mod, rdai, io);
+	rsnd_mod_write(mod, SSI_CTRL, 0x1);
+	rsnd_mod_write(mod, SRC_CTRL, 0x11);
 
-	clk_disable(scu->clk);
+	return rsnd_scu_start(mod, rdai, io);
+}
+
+static int rsnd_scu_stop_gen2(struct rsnd_mod *mod,
+			      struct rsnd_dai *rdai,
+			      struct rsnd_dai_stream *io)
+{
+	struct rsnd_scu *scu = rsnd_mod_to_scu(mod);
+
+	rsnd_mod_write(mod, SSI_CTRL, 0);
+	rsnd_mod_write(mod, SRC_CTRL, 0);
+
+	rsnd_dma_stop(rsnd_mod_to_dma(&scu->mod));
+
+	return rsnd_scu_stop(mod, rdai, io);
+}
+
+static struct rsnd_mod_ops rsnd_scu_gen2_ops = {
+	.name	= "scu (gen2)",
+	.init	= rsnd_scu_init_gen2,
+	.quit	= rsnd_scu_quit,
+	.start	= rsnd_scu_start_gen2,
+	.stop	= rsnd_scu_stop_gen2,
+};
+
+static int rsnd_scu_start_non_gen2(struct rsnd_mod *mod,
+				   struct rsnd_dai *rdai,
+				   struct rsnd_dai_stream *io)
+{
+	/* enable PIO interrupt */
+	rsnd_mod_write(mod, INT_ENABLE, 0x0f000000);
 
 	return 0;
 }
 
-static struct rsnd_mod_ops rsnd_scu_ops = {
-	.name	= "scu",
-	.start	= rsnd_scu_start,
-	.stop	= rsnd_scu_stop,
+static struct rsnd_mod_ops rsnd_scu_non_gen2_ops = {
+	.name	= "non-scu (gen2)",
+	.init	= rsnd_scu_ssi_mode_init,
+	.start	= rsnd_scu_start_non_gen2,
 };
 
 struct rsnd_mod *rsnd_scu_mod_get(struct rsnd_priv *priv, int id)
@@ -342,6 +601,7 @@ int rsnd_scu_probe(struct platform_device *pdev,
 {
 	struct device *dev = rsnd_priv_to_dev(priv);
 	struct rsnd_scu *scu;
+	struct rsnd_mod_ops *ops;
 	struct clk *clk;
 	char name[RSND_SCU_NAME_SIZE];
 	int i, nr;
@@ -366,10 +626,32 @@ int rsnd_scu_probe(struct platform_device *pdev,
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 
-		rsnd_mod_init(priv, &scu->mod,
-			      &rsnd_scu_ops, i);
 		scu->info = &info->scu_info[i];
 		scu->clk = clk;
+
+		ops = &rsnd_scu_non_ops;
+		if (rsnd_scu_hpbif_is_enable(scu)) {
+			if (rsnd_is_gen1(priv))
+				ops = &rsnd_scu_gen1_ops;
+			if (rsnd_is_gen2(priv)) {
+				struct rsnd_mod *ssi = rsnd_ssi_mod_get(priv, i);
+				int ret = rsnd_dma_init(priv,
+						rsnd_mod_to_dma(&scu->mod),
+						rsnd_ssi_is_play(ssi),
+						scu->info->dma_id);
+				if (ret < 0)
+					return ret;
+
+				ops = &rsnd_scu_gen2_ops;
+			}
+		} else {
+			if (rsnd_is_gen1(priv))
+				ops = &rsnd_scu_non_gen1_ops;
+			if (rsnd_is_gen2(priv))
+				ops = &rsnd_scu_non_gen2_ops;
+		}
+
+		rsnd_mod_init(priv, &scu->mod, ops, i);
 
 		dev_dbg(dev, "SCU%d probed\n", i);
 	}
@@ -381,4 +663,11 @@ int rsnd_scu_probe(struct platform_device *pdev,
 void rsnd_scu_remove(struct platform_device *pdev,
 		     struct rsnd_priv *priv)
 {
+	struct rsnd_scu *scu;
+	int i;
+
+	for_each_rsnd_scu(scu, priv, i) {
+		if (rsnd_scu_dma_available(scu))
+			rsnd_dma_quit(priv, rsnd_mod_to_dma(&scu->mod));
+	}
 }

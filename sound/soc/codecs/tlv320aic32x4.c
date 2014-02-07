@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/i2c.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
@@ -68,18 +69,24 @@ struct aic32x4_priv {
 	int rstn_gpio;
 };
 
-/* 0dB min, 1dB steps */
-static DECLARE_TLV_DB_SCALE(tlv_step_1, 0, 100, 0);
 /* 0dB min, 0.5dB steps */
 static DECLARE_TLV_DB_SCALE(tlv_step_0_5, 0, 50, 0);
+/* -63.5dB min, 0.5dB steps */
+static DECLARE_TLV_DB_SCALE(tlv_pcm, -6350, 50, 0);
+/* -6dB min, 1dB steps */
+static DECLARE_TLV_DB_SCALE(tlv_driver_gain, -600, 100, 0);
+/* -12dB min, 0.5dB steps */
+static DECLARE_TLV_DB_SCALE(tlv_adc_vol, -1200, 50, 0);
 
 static const struct snd_kcontrol_new aic32x4_snd_controls[] = {
-	SOC_DOUBLE_R_TLV("PCM Playback Volume", AIC32X4_LDACVOL,
-			AIC32X4_RDACVOL, 0, 0x30, 0, tlv_step_0_5),
-	SOC_DOUBLE_R_TLV("HP Driver Gain Volume", AIC32X4_HPLGAIN,
-			AIC32X4_HPRGAIN, 0, 0x1D, 0, tlv_step_1),
-	SOC_DOUBLE_R_TLV("LO Driver Gain Volume", AIC32X4_LOLGAIN,
-			AIC32X4_LORGAIN, 0, 0x1D, 0, tlv_step_1),
+	SOC_DOUBLE_R_S_TLV("PCM Playback Volume", AIC32X4_LDACVOL,
+			AIC32X4_RDACVOL, 0, -0x7f, 0x30, 7, 0, tlv_pcm),
+	SOC_DOUBLE_R_S_TLV("HP Driver Gain Volume", AIC32X4_HPLGAIN,
+			AIC32X4_HPRGAIN, 0, -0x6, 0x1d, 5, 0,
+			tlv_driver_gain),
+	SOC_DOUBLE_R_S_TLV("LO Driver Gain Volume", AIC32X4_LOLGAIN,
+			AIC32X4_LORGAIN, 0, -0x6, 0x1d, 5, 0,
+			tlv_driver_gain),
 	SOC_DOUBLE_R("HP DAC Playback Switch", AIC32X4_HPLGAIN,
 			AIC32X4_HPRGAIN, 6, 0x01, 1),
 	SOC_DOUBLE_R("LO DAC Playback Switch", AIC32X4_LOLGAIN,
@@ -90,8 +97,8 @@ static const struct snd_kcontrol_new aic32x4_snd_controls[] = {
 	SOC_SINGLE("ADCFGA Left Mute Switch", AIC32X4_ADCFGA, 7, 1, 0),
 	SOC_SINGLE("ADCFGA Right Mute Switch", AIC32X4_ADCFGA, 3, 1, 0),
 
-	SOC_DOUBLE_R_TLV("ADC Level Volume", AIC32X4_LADCVOL,
-			AIC32X4_RADCVOL, 0, 0x28, 0, tlv_step_0_5),
+	SOC_DOUBLE_R_S_TLV("ADC Level Volume", AIC32X4_LADCVOL,
+			AIC32X4_RADCVOL, 0, -0x18, 0x28, 6, 0, tlv_adc_vol),
 	SOC_DOUBLE_R_TLV("PGA Level Volume", AIC32X4_LMICPGAVOL,
 			AIC32X4_RMICPGAVOL, 0, 0x5f, 0, tlv_step_0_5),
 
@@ -588,7 +595,7 @@ static int aic32x4_probe(struct snd_soc_codec *codec)
 
 	snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_REGMAP);
 
-	if (aic32x4->rstn_gpio >= 0) {
+	if (gpio_is_valid(aic32x4->rstn_gpio)) {
 		ndelay(10);
 		gpio_set_value(aic32x4->rstn_gpio, 1);
 	}
@@ -663,11 +670,22 @@ static struct snd_soc_codec_driver soc_codec_dev_aic32x4 = {
 	.num_dapm_routes = ARRAY_SIZE(aic32x4_dapm_routes),
 };
 
+static int aic32x4_parse_dt(struct aic32x4_priv *aic32x4,
+		struct device_node *np)
+{
+	aic32x4->swapdacs = false;
+	aic32x4->micpga_routing = 0;
+	aic32x4->rstn_gpio = of_get_named_gpio(np, "reset-gpios", 0);
+
+	return 0;
+}
+
 static int aic32x4_i2c_probe(struct i2c_client *i2c,
 			     const struct i2c_device_id *id)
 {
 	struct aic32x4_pdata *pdata = i2c->dev.platform_data;
 	struct aic32x4_priv *aic32x4;
+	struct device_node *np = i2c->dev.of_node;
 	int ret;
 
 	aic32x4 = devm_kzalloc(&i2c->dev, sizeof(struct aic32x4_priv),
@@ -686,6 +704,12 @@ static int aic32x4_i2c_probe(struct i2c_client *i2c,
 		aic32x4->swapdacs = pdata->swapdacs;
 		aic32x4->micpga_routing = pdata->micpga_routing;
 		aic32x4->rstn_gpio = pdata->rstn_gpio;
+	} else if (np) {
+		ret = aic32x4_parse_dt(aic32x4, np);
+		if (ret) {
+			dev_err(&i2c->dev, "Failed to parse DT node\n");
+			return ret;
+		}
 	} else {
 		aic32x4->power_cfg = 0;
 		aic32x4->swapdacs = false;
@@ -693,7 +717,7 @@ static int aic32x4_i2c_probe(struct i2c_client *i2c,
 		aic32x4->rstn_gpio = -1;
 	}
 
-	if (aic32x4->rstn_gpio >= 0) {
+	if (gpio_is_valid(aic32x4->rstn_gpio)) {
 		ret = devm_gpio_request_one(&i2c->dev, aic32x4->rstn_gpio,
 				GPIOF_OUT_INIT_LOW, "tlv320aic32x4 rstn");
 		if (ret != 0)
@@ -717,10 +741,17 @@ static const struct i2c_device_id aic32x4_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, aic32x4_i2c_id);
 
+static const struct of_device_id aic32x4_of_id[] = {
+	{ .compatible = "ti,tlv320aic32x4", },
+	{ /* senitel */ }
+};
+MODULE_DEVICE_TABLE(of, aic32x4_of_id);
+
 static struct i2c_driver aic32x4_i2c_driver = {
 	.driver = {
 		.name = "tlv320aic32x4",
 		.owner = THIS_MODULE,
+		.of_match_table = aic32x4_of_id,
 	},
 	.probe =    aic32x4_i2c_probe,
 	.remove =   aic32x4_i2c_remove,
