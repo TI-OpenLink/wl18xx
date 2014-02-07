@@ -67,7 +67,7 @@ struct device_node {
 #endif
 };
 
-#define MAX_PHANDLE_ARGS 8
+#define MAX_PHANDLE_ARGS 16
 struct of_phandle_args {
 	struct device_node *np;
 	int args_count;
@@ -112,6 +112,26 @@ static inline int of_node_check_flag(struct device_node *n, unsigned long flag)
 static inline void of_node_set_flag(struct device_node *n, unsigned long flag)
 {
 	set_bit(flag, &n->_flags);
+}
+
+static inline void of_node_clear_flag(struct device_node *n, unsigned long flag)
+{
+	clear_bit(flag, &n->_flags);
+}
+
+static inline int of_property_check_flag(struct property *p, unsigned long flag)
+{
+	return test_bit(flag, &p->_flags);
+}
+
+static inline void of_property_set_flag(struct property *p, unsigned long flag)
+{
+	set_bit(flag, &p->_flags);
+}
+
+static inline void of_property_clear_flag(struct property *p, unsigned long flag)
+{
+	clear_bit(flag, &p->_flags);
 }
 
 extern struct device_node *of_find_all_nodes(struct device_node *prev);

@@ -1493,11 +1493,31 @@ static int of_property_notify(int action, struct device_node *np,
 #endif
 
 /**
+ * __of_add_property - Add a property to a node without lock operations
+ */
+static int __of_add_property(struct device_node *np, struct property *prop)
+{
+	struct property **next;
+
+	prop->next = NULL;
+	next = &np->properties;
+	while (*next) {
+		if (strcmp(prop->name, (*next)->name) == 0)
+			/* duplicate ! don't insert it */
+			return -EEXIST;
+
+		next = &(*next)->next;
+	}
+	*next = prop;
+
+	return 0;
+}
+
+/**
  * of_add_property - Add a property to a node
  */
 int of_add_property(struct device_node *np, struct property *prop)
 {
-	struct property **next;
 	unsigned long flags;
 	int rc;
 
@@ -1505,27 +1525,17 @@ int of_add_property(struct device_node *np, struct property *prop)
 	if (rc)
 		return rc;
 
-	prop->next = NULL;
 	raw_spin_lock_irqsave(&devtree_lock, flags);
-	next = &np->properties;
-	while (*next) {
-		if (strcmp(prop->name, (*next)->name) == 0) {
-			/* duplicate ! don't insert it */
-			raw_spin_unlock_irqrestore(&devtree_lock, flags);
-			return -1;
-		}
-		next = &(*next)->next;
-	}
-	*next = prop;
+	rc = __of_add_property(np, prop);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
 #ifdef CONFIG_PROC_DEVICETREE
 	/* try to add to proc as well if it was initialized */
-	if (np->pde)
+	if (!rc && np->pde)
 		proc_device_tree_add_prop(np->pde, prop);
 #endif /* CONFIG_PROC_DEVICETREE */
 
-	return 0;
+	return rc;
 }
 
 /**
@@ -1587,7 +1597,7 @@ int of_update_property(struct device_node *np, struct property *newprop)
 {
 	struct property **next, *oldprop;
 	unsigned long flags;
-	int rc, found = 0;
+	int rc = 0;
 
 	rc = of_property_notify(OF_RECONFIG_UPDATE_PROPERTY, np, newprop);
 	if (rc)
@@ -1596,36 +1606,28 @@ int of_update_property(struct device_node *np, struct property *newprop)
 	if (!newprop->name)
 		return -EINVAL;
 
-	oldprop = of_find_property(np, newprop->name, NULL);
-	if (!oldprop)
-		return of_add_property(np, newprop);
-
 	raw_spin_lock_irqsave(&devtree_lock, flags);
-	next = &np->properties;
-	while (*next) {
-		if (*next == oldprop) {
-			/* found the node */
-			newprop->next = oldprop->next;
-			*next = newprop;
-			oldprop->next = np->deadprops;
-			np->deadprops = oldprop;
-			found = 1;
-			break;
-		}
-		next = &(*next)->next;
+	oldprop = __of_find_property(np, newprop->name, NULL);
+	if (!oldprop) {
+		/* add the node */
+		rc = __of_add_property(np, newprop);
+	} else {
+		/* replace the node */
+		next = &oldprop;
+		newprop->next = oldprop->next;
+		*next = newprop;
+		oldprop->next = np->deadprops;
+		np->deadprops = oldprop;
 	}
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
-	if (!found)
-		return -ENODEV;
-
 #ifdef CONFIG_PROC_DEVICETREE
 	/* try to add to proc as well if it was initialized */
-	if (np->pde)
+	if (!rc && np->pde)
 		proc_device_tree_update_prop(np->pde, newprop, oldprop);
 #endif /* CONFIG_PROC_DEVICETREE */
 
-	return 0;
+	return rc;
 }
 
 #if defined(CONFIG_OF_DYNAMIC)
@@ -1692,6 +1694,7 @@ int of_attach_node(struct device_node *np)
 	np->allnext = of_allnodes;
 	np->parent->child = np;
 	of_allnodes = np;
+	of_node_clear_flag(np, OF_DETACHED);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
 	of_add_proc_dt_entry(np);
