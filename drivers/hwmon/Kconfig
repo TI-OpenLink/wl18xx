@@ -776,6 +776,18 @@ config SENSORS_LM93
 	  This driver can also be built as a module.  If so, the module
 	  will be called lm93.
 
+config SENSORS_LTC2945
+	tristate "Linear Technology LTC2945"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	  If you say yes here you get support for Linear Technology LTC2945
+	  I2C System Monitor.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc2945.
+
 config SENSORS_LTC4151
 	tristate "Linear Technology LTC4151"
 	depends on I2C
@@ -798,6 +810,18 @@ config SENSORS_LTC4215
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc4215.
 
+config SENSORS_LTC4222
+	tristate "Linear Technology LTC4222"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	  If you say yes here you get support for Linear Technology LTC4222
+	  Dual Hot Swap Controller I2C interface.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc4222.
+
 config SENSORS_LTC4245
 	tristate "Linear Technology LTC4245"
 	depends on I2C
@@ -808,6 +832,18 @@ config SENSORS_LTC4245
 
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc4245.
+
+config SENSORS_LTC4260
+	tristate "Linear Technology LTC4260"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	  If you say yes here you get support for Linear Technology LTC4261
+	  Positive Voltage Hot Swap Controller I2C interface.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc4260.
 
 config SENSORS_LTC4261
 	tristate "Linear Technology LTC4261"
