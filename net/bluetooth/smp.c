@@ -216,7 +216,7 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 		req->io_capability = conn->hcon->io_capability;
 		req->oob_flag = SMP_OOB_NOT_PRESENT;
 		req->max_key_size = SMP_MAX_ENC_KEY_SIZE;
-		req->init_key_dist = 0;
+		req->init_key_dist = dist_keys;
 		req->resp_key_dist = dist_keys;
 		req->auth_req = (authreq & AUTH_REQ_MASK);
 		return;
@@ -225,7 +225,7 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 	rsp->io_capability = conn->hcon->io_capability;
 	rsp->oob_flag = SMP_OOB_NOT_PRESENT;
 	rsp->max_key_size = SMP_MAX_ENC_KEY_SIZE;
-	rsp->init_key_dist = 0;
+	rsp->init_key_dist = req->init_key_dist & dist_keys;
 	rsp->resp_key_dist = req->resp_key_dist & dist_keys;
 	rsp->auth_req = (authreq & AUTH_REQ_MASK);
 }
@@ -699,7 +699,8 @@ static u8 smp_ltk_encrypt(struct l2cap_conn *conn, u8 sec_level)
 	struct smp_ltk *key;
 	struct hci_conn *hcon = conn->hcon;
 
-	key = hci_find_ltk_by_addr(hcon->hdev, &hcon->dst, hcon->dst_type);
+	key = hci_find_ltk_by_addr(hcon->hdev, &hcon->dst, hcon->dst_type,
+				   hcon->out);
 	if (!key)
 		return 0;
 

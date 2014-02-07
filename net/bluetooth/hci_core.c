@@ -285,24 +285,6 @@ static const struct file_operations link_keys_fops = {
 	.release	= single_release,
 };
 
-static ssize_t use_debug_keys_read(struct file *file, char __user *user_buf,
-				   size_t count, loff_t *ppos)
-{
-	struct hci_dev *hdev = file->private_data;
-	char buf[3];
-
-	buf[0] = test_bit(HCI_DEBUG_KEYS, &hdev->dev_flags) ? 'Y': 'N';
-	buf[1] = '\n';
-	buf[2] = '\0';
-	return simple_read_from_buffer(user_buf, count, ppos, buf, 2);
-}
-
-static const struct file_operations use_debug_keys_fops = {
-	.open		= simple_open,
-	.read		= use_debug_keys_read,
-	.llseek		= default_llseek,
-};
-
 static int dev_class_show(struct seq_file *f, void *ptr)
 {
 	struct hci_dev *hdev = f->private;
@@ -414,6 +396,70 @@ static int ssp_debug_mode_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(ssp_debug_mode_fops, ssp_debug_mode_get,
 			ssp_debug_mode_set, "%llu\n");
+
+static ssize_t force_sc_support_read(struct file *file, char __user *user_buf,
+				     size_t count, loff_t *ppos)
+{
+	struct hci_dev *hdev = file->private_data;
+	char buf[3];
+
+	buf[0] = test_bit(HCI_FORCE_SC, &hdev->dev_flags) ? 'Y': 'N';
+	buf[1] = '\n';
+	buf[2] = '\0';
+	return simple_read_from_buffer(user_buf, count, ppos, buf, 2);
+}
+
+static ssize_t force_sc_support_write(struct file *file,
+				      const char __user *user_buf,
+				      size_t count, loff_t *ppos)
+{
+	struct hci_dev *hdev = file->private_data;
+	char buf[32];
+	size_t buf_size = min(count, (sizeof(buf)-1));
+	bool enable;
+
+	if (test_bit(HCI_UP, &hdev->flags))
+		return -EBUSY;
+
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+
+	buf[buf_size] = '\0';
+	if (strtobool(buf, &enable))
+		return -EINVAL;
+
+	if (enable == test_bit(HCI_FORCE_SC, &hdev->dev_flags))
+		return -EALREADY;
+
+	change_bit(HCI_FORCE_SC, &hdev->dev_flags);
+
+	return count;
+}
+
+static const struct file_operations force_sc_support_fops = {
+	.open		= simple_open,
+	.read		= force_sc_support_read,
+	.write		= force_sc_support_write,
+	.llseek		= default_llseek,
+};
+
+static ssize_t sc_only_mode_read(struct file *file, char __user *user_buf,
+				 size_t count, loff_t *ppos)
+{
+	struct hci_dev *hdev = file->private_data;
+	char buf[3];
+
+	buf[0] = test_bit(HCI_SC_ONLY, &hdev->dev_flags) ? 'Y': 'N';
+	buf[1] = '\n';
+	buf[2] = '\0';
+	return simple_read_from_buffer(user_buf, count, ppos, buf, 2);
+}
+
+static const struct file_operations sc_only_mode_fops = {
+	.open		= simple_open,
+	.read		= sc_only_mode_read,
+	.llseek		= default_llseek,
+};
 
 static int idle_timeout_set(void *data, u64 val)
 {
@@ -556,9 +602,9 @@ static int long_term_keys_show(struct seq_file *f, void *ptr)
 	struct list_head *p, *n;
 
 	hci_dev_lock(hdev);
-	list_for_each_safe(p, n, &hdev->link_keys) {
+	list_for_each_safe(p, n, &hdev->long_term_keys) {
 		struct smp_ltk *ltk = list_entry(p, struct smp_ltk, list);
-		seq_printf(f, "%pMR (type %u) %u %u %u %.4x %*phN %*phN\\n",
+		seq_printf(f, "%pMR (type %u) %u 0x%02x %u %.4x %*phN %*phN\n",
 			   &ltk->bdaddr, ltk->bdaddr_type, ltk->authenticated,
 			   ltk->type, ltk->enc_size, __le16_to_cpu(ltk->ediv),
 			   8, ltk->rand, 16, ltk->val);
@@ -1288,6 +1334,10 @@ static void hci_set_event_mask_page_2(struct hci_request *req)
 		events[2] |= 0x08;	/* Truncated Page Complete */
 	}
 
+	/* Enable Authenticated Payload Timeout Expired event if supported */
+	if (lmp_ping_capable(hdev))
+		events[2] |= 0x80;
+
 	hci_req_add(req, HCI_OP_SET_EVENT_MASK_PAGE_2, sizeof(events), events);
 }
 
@@ -1359,6 +1409,15 @@ static void hci_init4_req(struct hci_request *req, unsigned long opt)
 	/* Check for Synchronization Train support */
 	if (lmp_sync_train_capable(hdev))
 		hci_req_add(req, HCI_OP_READ_SYNC_TRAIN_PARAMS, 0, NULL);
+
+	/* Enable Secure Connections if supported and configured */
+	if ((lmp_sc_capable(hdev) ||
+	     test_bit(HCI_FORCE_SC, &hdev->dev_flags)) &&
+	    test_bit(HCI_SC_ENABLED, &hdev->dev_flags)) {
+		u8 support = 0x01;
+		hci_req_add(req, HCI_OP_WRITE_SC_SUPPORT,
+			    sizeof(support), &support);
+	}
 }
 
 static int __hci_init(struct hci_dev *hdev)
@@ -1417,8 +1476,6 @@ static int __hci_init(struct hci_dev *hdev)
 				    hdev, &inquiry_cache_fops);
 		debugfs_create_file("link_keys", 0400, hdev->debugfs,
 				    hdev, &link_keys_fops);
-		debugfs_create_file("use_debug_keys", 0444, hdev->debugfs,
-				    hdev, &use_debug_keys_fops);
 		debugfs_create_file("dev_class", 0444, hdev->debugfs,
 				    hdev, &dev_class_fops);
 		debugfs_create_file("voice_setting", 0444, hdev->debugfs,
@@ -1430,6 +1487,10 @@ static int __hci_init(struct hci_dev *hdev)
 				    hdev, &auto_accept_delay_fops);
 		debugfs_create_file("ssp_debug_mode", 0644, hdev->debugfs,
 				    hdev, &ssp_debug_mode_fops);
+		debugfs_create_file("force_sc_support", 0644, hdev->debugfs,
+				    hdev, &force_sc_support_fops);
+		debugfs_create_file("sc_only_mode", 0444, hdev->debugfs,
+				    hdev, &sc_only_mode_fops);
 	}
 
 	if (lmp_sniff_capable(hdev)) {
@@ -2524,13 +2585,25 @@ static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
 	return false;
 }
 
-struct smp_ltk *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8])
+static bool ltk_type_master(u8 type)
+{
+	if (type == HCI_SMP_STK || type == HCI_SMP_LTK)
+		return true;
+
+	return false;
+}
+
+struct smp_ltk *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8],
+			     bool master)
 {
 	struct smp_ltk *k;
 
 	list_for_each_entry(k, &hdev->long_term_keys, list) {
 		if (k->ediv != ediv ||
 		    memcmp(rand, k->rand, sizeof(k->rand)))
+			continue;
+
+		if (ltk_type_master(k->type) != master)
 			continue;
 
 		return k;
@@ -2540,13 +2613,14 @@ struct smp_ltk *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8])
 }
 
 struct smp_ltk *hci_find_ltk_by_addr(struct hci_dev *hdev, bdaddr_t *bdaddr,
-				     u8 addr_type)
+				     u8 addr_type, bool master)
 {
 	struct smp_ltk *k;
 
 	list_for_each_entry(k, &hdev->long_term_keys, list)
 		if (addr_type == k->bdaddr_type &&
-		    bacmp(bdaddr, &k->bdaddr) == 0)
+		    bacmp(bdaddr, &k->bdaddr) == 0 &&
+		    ltk_type_master(k->type) == master)
 			return k;
 
 	return NULL;
@@ -2610,11 +2684,9 @@ int hci_add_ltk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type, u8 type,
 		ediv, u8 rand[8])
 {
 	struct smp_ltk *key, *old_key;
+	bool master = ltk_type_master(type);
 
-	if (!(type & HCI_SMP_STK) && !(type & HCI_SMP_LTK))
-		return 0;
-
-	old_key = hci_find_ltk_by_addr(hdev, bdaddr, addr_type);
+	old_key = hci_find_ltk_by_addr(hdev, bdaddr, addr_type, master);
 	if (old_key)
 		key = old_key;
 	else {
@@ -2636,7 +2708,7 @@ int hci_add_ltk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type, u8 type,
 	if (!new_key)
 		return 0;
 
-	if (type & HCI_SMP_LTK)
+	if (type == HCI_SMP_LTK || type == HCI_SMP_LTK_SLAVE)
 		mgmt_new_ltk(hdev, key, 1);
 
 	return 0;
@@ -2733,13 +2805,12 @@ int hci_remote_oob_data_clear(struct hci_dev *hdev)
 	return 0;
 }
 
-int hci_add_remote_oob_data(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *hash,
-			    u8 *randomizer)
+int hci_add_remote_oob_data(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			    u8 *hash, u8 *randomizer)
 {
 	struct oob_data *data;
 
 	data = hci_find_remote_oob_data(hdev, bdaddr);
-
 	if (!data) {
 		data = kmalloc(sizeof(*data), GFP_ATOMIC);
 		if (!data)
@@ -2749,8 +2820,38 @@ int hci_add_remote_oob_data(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *hash,
 		list_add(&data->list, &hdev->remote_oob_data);
 	}
 
-	memcpy(data->hash, hash, sizeof(data->hash));
-	memcpy(data->randomizer, randomizer, sizeof(data->randomizer));
+	memcpy(data->hash192, hash, sizeof(data->hash192));
+	memcpy(data->randomizer192, randomizer, sizeof(data->randomizer192));
+
+	memset(data->hash256, 0, sizeof(data->hash256));
+	memset(data->randomizer256, 0, sizeof(data->randomizer256));
+
+	BT_DBG("%s for %pMR", hdev->name, bdaddr);
+
+	return 0;
+}
+
+int hci_add_remote_oob_ext_data(struct hci_dev *hdev, bdaddr_t *bdaddr,
+				u8 *hash192, u8 *randomizer192,
+				u8 *hash256, u8 *randomizer256)
+{
+	struct oob_data *data;
+
+	data = hci_find_remote_oob_data(hdev, bdaddr);
+	if (!data) {
+		data = kmalloc(sizeof(*data), GFP_ATOMIC);
+		if (!data)
+			return -ENOMEM;
+
+		bacpy(&data->bdaddr, bdaddr);
+		list_add(&data->list, &hdev->remote_oob_data);
+	}
+
+	memcpy(data->hash192, hash192, sizeof(data->hash192));
+	memcpy(data->randomizer192, randomizer192, sizeof(data->randomizer192));
+
+	memcpy(data->hash256, hash256, sizeof(data->hash256));
+	memcpy(data->randomizer256, randomizer256, sizeof(data->randomizer256));
 
 	BT_DBG("%s for %pMR", hdev->name, bdaddr);
 
@@ -2821,6 +2922,81 @@ int hci_blacklist_del(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 	kfree(entry);
 
 	return mgmt_device_unblocked(hdev, bdaddr, type);
+}
+
+/* This function requires the caller holds hdev->lock */
+struct hci_conn_params *hci_conn_params_lookup(struct hci_dev *hdev,
+					       bdaddr_t *addr, u8 addr_type)
+{
+	struct hci_conn_params *params;
+
+	list_for_each_entry(params, &hdev->le_conn_params, list) {
+		if (bacmp(&params->addr, addr) == 0 &&
+		    params->addr_type == addr_type) {
+			return params;
+		}
+	}
+
+	return NULL;
+}
+
+/* This function requires the caller holds hdev->lock */
+void hci_conn_params_add(struct hci_dev *hdev, bdaddr_t *addr, u8 addr_type,
+			 u16 conn_min_interval, u16 conn_max_interval)
+{
+	struct hci_conn_params *params;
+
+	params = hci_conn_params_lookup(hdev, addr, addr_type);
+	if (params) {
+		params->conn_min_interval = conn_min_interval;
+		params->conn_max_interval = conn_max_interval;
+		return;
+	}
+
+	params = kzalloc(sizeof(*params), GFP_KERNEL);
+	if (!params) {
+		BT_ERR("Out of memory");
+		return;
+	}
+
+	bacpy(&params->addr, addr);
+	params->addr_type = addr_type;
+	params->conn_min_interval = conn_min_interval;
+	params->conn_max_interval = conn_max_interval;
+
+	list_add(&params->list, &hdev->le_conn_params);
+
+	BT_DBG("addr %pMR (type %u) conn_min_interval 0x%.4x "
+	       "conn_max_interval 0x%.4x", addr, addr_type, conn_min_interval,
+	       conn_max_interval);
+}
+
+/* This function requires the caller holds hdev->lock */
+void hci_conn_params_del(struct hci_dev *hdev, bdaddr_t *addr, u8 addr_type)
+{
+	struct hci_conn_params *params;
+
+	params = hci_conn_params_lookup(hdev, addr, addr_type);
+	if (!params)
+		return;
+
+	list_del(&params->list);
+	kfree(params);
+
+	BT_DBG("addr %pMR (type %u)", addr, addr_type);
+}
+
+/* This function requires the caller holds hdev->lock */
+void hci_conn_params_clear(struct hci_dev *hdev)
+{
+	struct hci_conn_params *params, *tmp;
+
+	list_for_each_entry_safe(params, tmp, &hdev->le_conn_params, list) {
+		list_del(&params->list);
+		kfree(params);
+	}
+
+	BT_DBG("All LE connection parameters were removed");
 }
 
 static void inquiry_complete(struct hci_dev *hdev, u8 status)
@@ -2933,6 +3109,7 @@ struct hci_dev *hci_alloc_dev(void)
 	INIT_LIST_HEAD(&hdev->link_keys);
 	INIT_LIST_HEAD(&hdev->long_term_keys);
 	INIT_LIST_HEAD(&hdev->remote_oob_data);
+	INIT_LIST_HEAD(&hdev->le_conn_params);
 	INIT_LIST_HEAD(&hdev->conn_hash.list);
 
 	INIT_WORK(&hdev->rx_work, hci_rx_work);
@@ -3118,6 +3295,7 @@ void hci_unregister_dev(struct hci_dev *hdev)
 	hci_link_keys_clear(hdev);
 	hci_smp_ltks_clear(hdev);
 	hci_remote_oob_data_clear(hdev);
+	hci_conn_params_clear(hdev);
 	hci_dev_unlock(hdev);
 
 	hci_dev_put(hdev);

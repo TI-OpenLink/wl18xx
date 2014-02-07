@@ -91,6 +91,7 @@ struct l2cap_conninfo {
 #define L2CAP_LM_TRUSTED	0x0008
 #define L2CAP_LM_RELIABLE	0x0010
 #define L2CAP_LM_SECURE		0x0020
+#define L2CAP_LM_FIPS		0x0040
 
 /* L2CAP command codes */
 #define L2CAP_COMMAND_REJ	0x01
@@ -623,6 +624,9 @@ struct l2cap_conn {
 	__u32			rx_len;
 	__u8			tx_ident;
 
+	struct sk_buff_head	pending_rx;
+	struct work_struct	pending_rx_work;
+
 	__u8			disc_reason;
 
 	struct delayed_work	security_timer;
@@ -647,7 +651,7 @@ struct l2cap_user {
 #define L2CAP_CHAN_RAW			1
 #define L2CAP_CHAN_CONN_LESS		2
 #define L2CAP_CHAN_CONN_ORIENTED	3
-#define L2CAP_CHAN_CONN_FIX_A2MP	4
+#define L2CAP_CHAN_FIXED		4
 
 /* ----- L2CAP socket info ----- */
 #define l2cap_pi(sk) ((struct l2cap_pinfo *) sk)

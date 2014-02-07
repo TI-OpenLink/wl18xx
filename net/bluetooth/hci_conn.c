@@ -514,6 +514,21 @@ struct hci_dev *hci_get_route(bdaddr_t *dst, bdaddr_t *src)
 }
 EXPORT_SYMBOL(hci_get_route);
 
+/* This function requires the caller holds hdev->lock */
+static void le_conn_failed(struct hci_conn *conn, u8 status)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	conn->state = BT_CLOSED;
+
+	mgmt_connect_failed(hdev, &conn->dst, conn->type, conn->dst_type,
+			    status);
+
+	hci_proto_connect_cfm(conn, status);
+
+	hci_conn_del(conn);
+}
+
 static void create_le_conn_complete(struct hci_dev *hdev, u8 status)
 {
 	struct hci_conn *conn;
@@ -530,14 +545,7 @@ static void create_le_conn_complete(struct hci_dev *hdev, u8 status)
 	if (!conn)
 		goto done;
 
-	conn->state = BT_CLOSED;
-
-	mgmt_connect_failed(hdev, &conn->dst, conn->type, conn->dst_type,
-			    status);
-
-	hci_proto_connect_cfm(conn, status);
-
-	hci_conn_del(conn);
+	le_conn_failed(conn, status);
 
 done:
 	hci_dev_unlock(hdev);
@@ -558,8 +566,8 @@ static int hci_create_le_conn(struct hci_conn *conn)
 	bacpy(&cp.peer_addr, &conn->dst);
 	cp.peer_addr_type = conn->dst_type;
 	cp.own_address_type = conn->src_type;
-	cp.conn_interval_min = cpu_to_le16(hdev->le_conn_min_interval);
-	cp.conn_interval_max = cpu_to_le16(hdev->le_conn_max_interval);
+	cp.conn_interval_min = cpu_to_le16(conn->le_conn_min_interval);
+	cp.conn_interval_max = cpu_to_le16(conn->le_conn_max_interval);
 	cp.supervision_timeout = __constant_cpu_to_le16(0x002a);
 	cp.min_ce_len = __constant_cpu_to_le16(0x0000);
 	cp.max_ce_len = __constant_cpu_to_le16(0x0000);
@@ -578,6 +586,7 @@ static int hci_create_le_conn(struct hci_conn *conn)
 static struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 				    u8 dst_type, u8 sec_level, u8 auth_type)
 {
+	struct hci_conn_params *params;
 	struct hci_conn *conn;
 	int err;
 
@@ -624,6 +633,15 @@ static struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 	conn->sec_level = BT_SECURITY_LOW;
 	conn->pending_sec_level = sec_level;
 	conn->auth_type = auth_type;
+
+	params = hci_conn_params_lookup(hdev, &conn->dst, conn->dst_type);
+	if (params) {
+		conn->le_conn_min_interval = params->conn_min_interval;
+		conn->le_conn_max_interval = params->conn_max_interval;
+	} else {
+		conn->le_conn_min_interval = hdev->le_conn_min_interval;
+		conn->le_conn_max_interval = hdev->le_conn_max_interval;
+	}
 
 	err = hci_create_le_conn(conn);
 	if (err)
@@ -800,14 +818,23 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 	if (!(conn->link_mode & HCI_LM_AUTH))
 		goto auth;
 
-	/* An authenticated combination key has sufficient security for any
-	   security level. */
-	if (conn->key_type == HCI_LK_AUTH_COMBINATION)
+	/* An authenticated FIPS approved combination key has sufficient
+	 * security for security level 4. */
+	if (conn->key_type == HCI_LK_AUTH_COMBINATION_P256 &&
+	    sec_level == BT_SECURITY_FIPS)
+		goto encrypt;
+
+	/* An authenticated combination key has sufficient security for
+	   security level 3. */
+	if ((conn->key_type == HCI_LK_AUTH_COMBINATION_P192 ||
+	     conn->key_type == HCI_LK_AUTH_COMBINATION_P256) &&
+	    sec_level == BT_SECURITY_HIGH)
 		goto encrypt;
 
 	/* An unauthenticated combination key has sufficient security for
 	   security level 1 and 2. */
-	if (conn->key_type == HCI_LK_UNAUTH_COMBINATION &&
+	if ((conn->key_type == HCI_LK_UNAUTH_COMBINATION_P192 ||
+	     conn->key_type == HCI_LK_UNAUTH_COMBINATION_P256) &&
 	    (sec_level == BT_SECURITY_MEDIUM || sec_level == BT_SECURITY_LOW))
 		goto encrypt;
 
@@ -816,7 +843,8 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 	   is generated using maximum PIN code length (16).
 	   For pre 2.1 units. */
 	if (conn->key_type == HCI_LK_COMBINATION &&
-	    (sec_level != BT_SECURITY_HIGH || conn->pin_length == 16))
+	    (sec_level == BT_SECURITY_MEDIUM || sec_level == BT_SECURITY_LOW ||
+	     conn->pin_length == 16))
 		goto encrypt;
 
 auth:
@@ -840,13 +868,17 @@ int hci_conn_check_secure(struct hci_conn *conn, __u8 sec_level)
 {
 	BT_DBG("hcon %p", conn);
 
-	if (sec_level != BT_SECURITY_HIGH)
-		return 1; /* Accept if non-secure is required */
-
-	if (conn->sec_level == BT_SECURITY_HIGH)
+	/* Accept if non-secure or higher security level is required */
+	if (sec_level != BT_SECURITY_HIGH && sec_level != BT_SECURITY_FIPS)
 		return 1;
 
-	return 0; /* Reject not secure link */
+	/* Accept if secure or higher security level is already present */
+	if (conn->sec_level == BT_SECURITY_HIGH ||
+	    conn->sec_level == BT_SECURITY_FIPS)
+		return 1;
+
+	/* Reject not secure link */
+	return 0;
 }
 EXPORT_SYMBOL(hci_conn_check_secure);
 
