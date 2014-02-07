@@ -376,10 +376,10 @@ config SPI_PXA2XX_PCI
 	def_tristate SPI_PXA2XX && PCI
 
 config SPI_RSPI
-	tristate "Renesas RSPI controller"
+	tristate "Renesas RSPI/QSPI controller"
 	depends on (SUPERH && SH_DMAE_BASE) || ARCH_SHMOBILE
 	help
-	  SPI driver for Renesas RSPI blocks.
+	  SPI driver for Renesas RSPI and QSPI blocks.
 
 config SPI_S3C24XX
 	tristate "Samsung S3C24XX series SPI"
@@ -445,6 +445,13 @@ config SPI_SIRF
 	select SPI_BITBANG
 	help
 	  SPI driver for CSR SiRFprimaII SoCs
+
+config SPI_SUN6I
+	tristate "Allwinner A31 SPI controller"
+	depends on ARCH_SUNXI || COMPILE_TEST
+	depends on RESET_CONTROLLER
+	help
+	  This enables using the SPI controller on the Allwinner A31 SoCs.
 
 config SPI_MXS
 	tristate "Freescale MXS SPI controller"
@@ -546,7 +553,7 @@ config SPI_DW_MID_DMA
 
 config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
-	depends on SPI_DESIGNWARE && HAVE_CLK
+	depends on SPI_DESIGNWARE
 
 #
 # There are lots of SPI device types, with sensors and memory
