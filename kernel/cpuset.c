@@ -1026,7 +1026,7 @@ static void cpuset_change_task_nodemask(struct task_struct *tsk,
 	task_lock(tsk);
 	/*
 	 * Determine if a loop is necessary if another thread is doing
-	 * get_mems_allowed().  If at least one node remains unchanged and
+	 * read_mems_allowed_begin().  If at least one node remains unchanged and
 	 * tsk does not have a mempolicy, then an empty nodemask will not be
 	 * possible when mems_allowed is larger than a word.
 	 */
@@ -1326,15 +1326,17 @@ static int update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	if (err < 0)
 		goto out;
 
-	err = heap_init(&heap, PAGE_SIZE, GFP_KERNEL, NULL);
-	if (err < 0)
-		goto out;
-
 	balance_flag_changed = (is_sched_load_balance(cs) !=
 				is_sched_load_balance(trialcs));
 
 	spread_flag_changed = ((is_spread_slab(cs) != is_spread_slab(trialcs))
 			|| (is_spread_page(cs) != is_spread_page(trialcs)));
+
+	if (spread_flag_changed) {
+		err = heap_init(&heap, PAGE_SIZE, GFP_KERNEL, NULL);
+		if (err < 0)
+			goto out;
+	}
 
 	mutex_lock(&callback_mutex);
 	cs->flags = trialcs->flags;
@@ -1343,9 +1345,10 @@ static int update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	if (!cpumask_empty(trialcs->cpus_allowed) && balance_flag_changed)
 		rebuild_sched_domains_locked();
 
-	if (spread_flag_changed)
+	if (spread_flag_changed) {
 		update_tasks_flags(cs, &heap);
-	heap_free(&heap);
+		heap_free(&heap);
+	}
 out:
 	free_trial_cpuset(trialcs);
 	return err;

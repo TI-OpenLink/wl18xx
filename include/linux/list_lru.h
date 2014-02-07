@@ -13,6 +13,8 @@
 /* list_lru_walk_cb has to always return one of those */
 enum lru_status {
 	LRU_REMOVED,		/* item removed from list */
+	LRU_REMOVED_RETRY,	/* item removed, but lock has been
+				   dropped and reacquired */
 	LRU_ROTATE,		/* item referenced, give another pass */
 	LRU_SKIP,		/* item cannot be locked, skip */
 	LRU_RETRY,		/* item not freeable. May drop the lock

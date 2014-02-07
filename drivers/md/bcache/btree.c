@@ -1813,7 +1813,7 @@ static size_t insert_u64s_remaining(struct btree *b)
 	if (b->keys.ops->is_extents)
 		ret -= KEY_MAX_U64S;
 
-	return max(ret, 0L);
+	return max(ret, 0);
 }
 
 static bool bch_btree_insert_keys(struct btree *b, struct btree_op *op,
