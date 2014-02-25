@@ -7,7 +7,7 @@
 
 
 static int __cfg80211_stop_ap(struct cfg80211_registered_device *rdev,
-			      struct net_device *dev)
+			      struct net_device *dev, bool notify)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	int err;
@@ -29,20 +29,21 @@ static int __cfg80211_stop_ap(struct cfg80211_registered_device *rdev,
 		wdev->beacon_interval = 0;
 		wdev->channel = NULL;
 		wdev->ssid_len = 0;
-		nl80211_send_ap_stopped(wdev);
+		if (notify)
+			nl80211_send_ap_stopped(wdev);
 	}
 
 	return err;
 }
 
 int cfg80211_stop_ap(struct cfg80211_registered_device *rdev,
-		     struct net_device *dev)
+		     struct net_device *dev, bool notify)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	int err;
 
 	wdev_lock(wdev);
-	err = __cfg80211_stop_ap(rdev, dev);
+	err = __cfg80211_stop_ap(rdev, dev, notify);
 	wdev_unlock(wdev);
 
 	return err;
